@@ -611,8 +611,8 @@ fn fresh_startup_input_prevents_unrequested_follow_through() {
             config,
         ),
     ] {
-        assert_eq!(out.owned, 0);
-        assert_eq!(out.stick, None);
+        assert_ne!(out.owned, 0);
+        assert!(out.stick.is_some());
     }
 }
 
@@ -1014,10 +1014,13 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
                     Intent::input_sequence(Owner::Safety, SEQUENCE_BUTTONS)
                 ]
             ),
-            Some(Owner::Safety)
+            Some(owner)
         );
         arbiter.set_automatic_suspended(true);
-        assert!(!arbiter.allows(owner));
+        assert!(
+            arbiter.allows(owner),
+            "committed automatic receipt retains its packet"
+        );
     }
     assert!(!mapped_up_special_delivered(MAPPED_GUARD, 127));
     assert!(!mapped_up_special_delivered(MAPPED_SPECIAL, 0));

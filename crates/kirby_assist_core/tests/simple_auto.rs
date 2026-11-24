@@ -1061,11 +1061,9 @@ fn manual_intent_hands_back_confirmed_up_b_drift_without_cutting_its_b_pulse() {
                     "critical pulse is delivered in full"
                 );
             } else if n >= fresh_at {
-                assert_eq!(
-                    out.owned, 0,
-                    "manual input releases drift on that observation"
-                );
-                assert!(!engine.committed());
+                assert_ne!(out.owned, 0, "manual input must not cancel automatic drift");
+                assert!(engine.committed());
+                assert_eq!(out.stick, Some([1., 0.]));
             } else {
                 assert_eq!(out.stick, Some([1., 0.]));
             }

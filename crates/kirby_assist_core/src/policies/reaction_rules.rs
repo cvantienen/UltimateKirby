@@ -1070,8 +1070,6 @@ pub struct Engine {
     pub last_priority: Option<u8>,
     /// Runtime active control value used by Engine..
     active_control: Option<Control>,
-    /// Physical-input epoch when the automatic tape was admitted.
-    start_epoch: u64,
     /// Runtime up b value used by Engine..
     up_b: crate::move_input::UpBFlow,
 }

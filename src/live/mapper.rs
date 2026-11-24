@@ -431,7 +431,8 @@ unsafe fn record_mapped_delivery(
         feedback.reflect,
         feedback.reflector_tick,
     );
-    if feedback.counter && mapped.buttons & kirby_assist_core::native_input::MAPPED_SPECIAL != 0
+    if feedback.counter
+        && mapped.buttons & kirby_assist_core::native_input::MAPPED_SPECIAL != 0
         && mapped.left_y < -63
     {
         state.counter.mapped();
@@ -723,20 +724,7 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
     let manual_actions = menu.map_or(0, |m| m.manual_native_actions());
     let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
     // Mode buttons may block acquisition, never replace a committed tape.
-    let suspend_auto = !state.action_owner.automatic_active()
-        && (ledge_inputs_reserved
-            || (state.action_owner.current_owner().is_none()
-                && (manual_actions != 0
-                    || kirby_assist_core::native_input::automatic_escape(
-                        config.control_layout,
-                        physical.held,
-                        physical.pressed,
-                        false,
-                        state.manual_context.is_some_and(|c| {
-                            c.situation == kirby_assist_core::native_states::situation::GROUND
-                        }),
-                        0,
-                    ))));
+    let suspend_auto = !state.action_owner.automatic_active() && ledge_inputs_reserved;
     state.action_owner.set_automatic_suspended(suspend_auto);
     if suspend_auto {
         state.suspend_automatic_punishes();
@@ -944,7 +932,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
                 || state.oos.grab_delivery_pending()
                 || state.oos.awaiting_up_b(),
         ),
-        committed_intent(
+        passive_intent(
             Owner::Safety,
             state.tech_output.press
                 || state.tech_output.owns_guard
@@ -1114,16 +1102,18 @@ fn sample_mapper_posture(
         .settings_menu
         .as_ref()
         .map_or((false, false), |m| m.posture_modes());
-    let configured_turn = frame.config.auto_turn_tilts_active
-        && frame.config.auto_turn_tilts.any();
+    let configured_turn = frame.config.auto_turn_tilts_active && frame.config.auto_turn_tilts.any();
     let tilt_turn = configured_turn || menu_tilt_turn;
     let tilt_settings = if configured_turn {
         frame.config.auto_turn_tilts
     } else {
         state.fighter_kind.map_or(Default::default(), |kind| {
-            state.settings_menu.as_ref().map_or(Default::default(), |menu| {
-                menu.fighter_tuning(kind).tilt_turn(kind)
-            })
+            state
+                .settings_menu
+                .as_ref()
+                .map_or(Default::default(), |menu| {
+                    menu.fighter_tuning(kind).tilt_turn(kind)
+                })
         })
     };
     let posture_target = state.posture_target;

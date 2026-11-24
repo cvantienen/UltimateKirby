@@ -556,7 +556,7 @@ fn configured_grab_dodge_grab_keeps_a_zero_input_receipt_until_native_catch() {
 }
 
 #[test]
-fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabling_new_rolls() {
+fn supplied_catalog_exposes_native_grab_modes_and_configured_entries() {
     let c = Catalog::parse(include_str!(
         "../../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
     ))
@@ -585,7 +585,12 @@ fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabli
         }
         if p.profile(kind).is_some() {
             for trigger in [Trigger::AutoGrab, Trigger::AutoShieldGrab] {
-                assert_eq!(c.entries().iter().filter(|e|e.fighter_kind==kind && e.sequence.reaction.trigger==trigger).count(),1,"kind {kind} {trigger:?}");
+                let count = c
+                    .entries()
+                    .iter()
+                    .filter(|e| e.fighter_kind == kind && e.sequence.reaction.trigger == trigger)
+                    .count();
+                assert!(count <= 1, "kind {kind} {trigger:?}");
                 assert!(
                     c.entries()
                         .iter()

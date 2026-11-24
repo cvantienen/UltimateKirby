@@ -66,7 +66,7 @@ pub mod action_owner {
         /// Returns the `priority` result.
         fn priority(self) -> u8 {
             match self {
-                Self::Safety => 100,
+                Self::Safety => 20,
                 Self::GrabDodge => 99,
                 Self::OptionRead => 98,
                 Self::Trip => 90,
@@ -298,11 +298,10 @@ pub mod action_owner {
             (!self.automatic_suspended || !Self::automatic(owner))
                 && (!self.ledge_priority || Self::ledge_compatible(owner))
         }
-        /// Priority admits new work; it never replaces an in-flight tape. Native
-        /// safety cancels a tape whose gameplay prerequisites have been lost.
+        /// Priority admits new work; only higher-priority passive automation
+        /// may take a lower-priority owner. Committed reaction tapes remain locked.
         pub fn allows(&self, owner: Owner) -> bool {
-            self.locked == Some(owner)
-                || (self.admissible(owner) && self.locked.is_none_or(|_| owner == Owner::Safety))
+            self.locked == Some(owner) || self.admissible(owner) && self.locked.is_none()
         }
 
         /// Check admission after releasing a particular owner without changing state.

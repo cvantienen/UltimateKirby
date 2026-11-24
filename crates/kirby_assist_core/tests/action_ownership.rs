@@ -72,7 +72,7 @@ fn committed_actions_keep_control_through_release_frames_and_passive_competitors
     }
 }
 #[test]
-fn safety_interrupts_roll_but_trip_waits_and_scope_cancels() {
+fn auto_tech_and_sdi_yield_to_committed_reactions_and_scope_still_cancels() {
     let mut control = ActionOwnership::new();
     control.select(true, &[intent(Owner::RollRead, true)]);
     assert!(!control.allows(Owner::Ledge));
@@ -96,7 +96,8 @@ fn safety_interrupts_roll_but_trip_waits_and_scope_cancels() {
             true,
             &[intent(Owner::Trip, true), intent(Owner::Safety, false)]
         ),
-        Some(Owner::Safety)
+        Some(Owner::Trip),
+        "native tech/SDI must yield to an active auto reaction"
     );
     assert_eq!(control.select(false, &[intent(Owner::Trip, true)]), None);
     assert!(control.allows(Owner::Ledge));
@@ -218,11 +219,11 @@ fn priority_reads_cannot_interrupt_committed_ledge_or_other_tapes() {
         );
         assert_eq!(
             control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
-            Some(Owner::Safety)
+            Some(current),
+            "Auto-Tech/SDI must yield to committed controller sequences"
         );
     }
 }
-
 #[test]
 fn posture_is_last_even_while_other_modes_are_only_preparing() {
     for other in [
@@ -302,7 +303,7 @@ fn incoming_grab_defense_waits_for_committed_work_and_yields_to_native_safety() 
                 true,
                 &[intent(Owner::GrabDodge, true), intent(Owner::Safety, true)]
             ),
-            Some(Owner::Safety)
+            Some(Owner::GrabDodge)
         );
     }
 }
@@ -314,6 +315,10 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         Owner::OptionRead,
         Owner::OutOfShield,
         Owner::Ledge,
+        Owner::Reflect,
+        Owner::Counter,
+        Owner::Trip,
+        Owner::Fair,
     ] {
         let mut control = ActionOwnership::new();
         control.select(true, &[intent(current, true)]);
@@ -334,7 +339,8 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         }
         assert_eq!(
             control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
-            Some(Owner::Safety)
+            Some(current),
+            "Auto-Tech/SDI must yield to committed controller sequences"
         );
     }
     let mut control = ActionOwnership::new();

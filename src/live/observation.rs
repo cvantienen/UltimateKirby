@@ -132,12 +132,6 @@ struct ObservationPolicySnapshot {
     want_up_special: bool,
     /// Whether ordinary backup rules are available.
     ordinary_backup: bool,
-    /// Whether an active policy requests stationary positioning.
-    stationary_intent: bool,
-    /// Whether an active policy requests a grab.
-    grab_intent: bool,
-    /// Whether native policy inputs indicate shielding.
-    self_shielded: bool,
     /// Whether a grab is waiting for dash-state progression.
     grab_dash_pending: bool,
 }
@@ -251,33 +245,9 @@ fn resolve_observation_setup(
     };
     Some((config, setup_sequence, needs))
 }
-/// Determines whether manual automatic input is currently blocked for the given fighter and context.
-fn manual_automatic_input_blocked(
-    object_id: u32,
-    fighter_kind: i32,
-    context: GameplayContext,
-) -> bool {
-    STATE.lock().ok().is_none_or(|mut state| {
-        let actions = state
-            .settings_menu
-            .as_ref()
-            .and_then(|menu| menu.for_fighter(fighter_kind))
-            .map_or(0, |menu| menu.manual_native_actions());
-        state.grab_handoff.observe_native(true, Some(context));
-        let manual_allowed = state.action_owner.current_owner().is_none();
-        let pending = state.manual_jump_fence.sample(
-            object_id,
-            fighter_kind,
-            manual_allowed && actions & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS != 0,
-            context,
-        );
-        manual_allowed && (pending || actions != 0)
-    })
-}
 /// Captures a snapshot of the observation policy for the given fighter, configuration, and context.
 fn snapshot_observation_policy(
     fighter_kind: i32,
-    manual_automatic_blocked: bool,
     native_status: i32,
     config: &Config,
 ) -> ObservationPolicySnapshot {
@@ -292,8 +262,7 @@ fn snapshot_observation_policy(
             let committed_automatic = state.action_owner.automatic_active();
             let automatic_suspended = state.fighter_kind != Some(fighter_kind)
                 || !committed_automatic
-                    && (manual_automatic_blocked
-                        || state.ledge_active
+                    && (state.ledge_active
                         || menu.is_some_and(|menu| menu.reserves_automatic_modes()));
             let rules = (!automatic_suspended)
                 .then(|| menu.and_then(|menu| menu.rule_config()))
@@ -383,7 +352,8 @@ fn snapshot_observation_policy(
                     && kirby_followups::watching(&state.trip_followup),
                 grab_dodge_enabled: dodge_enabled,
                 posture_modes: if !automatic_suspended {
-                    let (crouch, menu_turn) = menu.map_or((false, false), |menu| menu.posture_modes());
+                    let (crouch, menu_turn) =
+                        menu.map_or((false, false), |menu| menu.posture_modes());
                     (
                         crouch,
                         menu_turn || config.auto_turn_tilts_active && config.auto_turn_tilts.any(),
@@ -393,7 +363,8 @@ fn snapshot_observation_policy(
                 },
                 posture_down: state.posture_down,
                 roster_missing: state.ledge_roster.is_none(),
-                counter_enabled: menu.is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
+                counter_enabled: menu
+                    .is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
                 oos_enabled: grabs_enabled,
                 oos_target: if automatic_suspended {
                     None
@@ -419,20 +390,6 @@ fn snapshot_observation_policy(
                     .is_none_or(kirby_assist_core::reaction_rules::starts_direct_up_b),
                 want_up_special,
                 ordinary_backup,
-                stationary_intent: state
-                    .action_owner
-                    .policy_inputs()
-                    .stationary_assist(native_status),
-                grab_intent: state
-                    .action_owner
-                    .policy_inputs()
-                    .grounded_grab_assist(native_status),
-                self_shielded: state.action_owner.policy_inputs().shield_held()
-                    || matches!(
-                        native_status,
-                        kirby_assist_core::native_states::GUARD_ON
-                            ..=kirby_assist_core::native_states::GUARD_DAMAGE
-                    ),
                 grab_dash_pending: state.oos.approach_pending(),
             }
         })
@@ -688,8 +645,6 @@ struct NativeObservationBasics {
     motion_rate: f32,
     /// Explicit queue compensation for file sequence playback.
     sequence_input_delay: f32,
-    /// Whether current inputs block automatic actions.
-    manual_automatic_blocked: bool,
     /// Whether damage-stop state is active.
     damage_stop: bool,
 }
@@ -727,8 +682,6 @@ unsafe fn observe_native_basics(
         sequence_input_delay: f32::from(config.sequence_input_delay_frames),
         ..NativeObservationBasics::default()
     };
-    basics.manual_automatic_blocked =
-        manual_automatic_input_blocked(object_id, fighter_kind, basics.gameplay_context());
     basics.damage_stop = (config.auto_sdi || config.auto_di.enabled)
         && (kirby_assist_core::native_states::status::DAMAGE
             ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
@@ -895,8 +848,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     let own = observe_native_basics(&reads, object, object_id, fighter_kind, &config);
     // Copy saved-mode flags once; no native queries happen while holding this
     // lock. All readers in this observation use the same configuration snapshot.
-    let policy =
-        snapshot_observation_policy(fighter_kind, own.manual_automatic_blocked, own.status, &config);
+    let policy = snapshot_observation_policy(fighter_kind, own.status, &config);
     let flags = derive_automatic_flags(&reads, object, &config, fighter_kind, &own, &policy);
     // A first Down input can need facing before any other assist discovered
     // opponents. Seed once here; ordinary refreshes stay on the existing path.
@@ -1121,7 +1073,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         reads,
         object,
         own,
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         policy:
             ObservationPolicySnapshot {
                 grab_dodge_enabled,
@@ -1151,7 +1103,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         motion: own.motion_kind,
         frame: own.motion_frame,
         rate: own.motion_rate,
-        stopped: own.stopped || clatter || tech,
+        stopped: own.stopped || clatter,
         facing: combat.trip_context.facing,
     };
     let combo_velocity_y = if combat.fair_hit_window || combat.fair_pending {
@@ -1215,7 +1167,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                 automatic_sequence_committed,
                 rules_ground,
                 self_shielded,
-                grab_intent,
                 grab_dash_pending,
                 manual_input_epoch,
                 want_up_special,
@@ -1253,7 +1204,7 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
         || oos_target.is_some()
         || dodge_follow.is_some()
     {
-        let (targets, follow) = if !clatter && !tech && automatic_scope.observe_targets() {
+        let (targets, follow) = if !clatter && automatic_scope.observe_targets() {
             observations::rule_targets(
                 reads,
                 object,
@@ -1290,7 +1241,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
         );
         let grab_ground = oos_enabled
             && !self_shielded
-            && grab_intent
             && !stopped
             && (grab_dash_pending
                 || kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
@@ -1317,7 +1267,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                 can_act: want_up_special
                     && !own_capture_link
                     && !clatter
-                    && !tech
                     && !stopped
                     && assessment.situation == kirby_assist_core::native_states::situation::GROUND
                     && (automatic_scope.acquire
@@ -1389,7 +1338,6 @@ unsafe fn collect_oos_readiness(
             ObservationPolicySnapshot {
                 oos_enabled,
                 oos_target,
-                grab_intent,
                 self_shielded,
                 ordinary_backup,
                 ..
@@ -1404,7 +1352,7 @@ unsafe fn collect_oos_readiness(
     } = *p;
     if oos_enabled
         && automatic_scope.acquire
-        && (grab_intent || oos_target.is_some())
+        && (oos_enabled || oos_target.is_some())
         && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
         && (oos_target.is_some()
@@ -1554,7 +1502,6 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
                 assessment.status,
             )
             && !clatter
-            && !tech
             && STATE.lock().ok().is_some_and(|s| s.ledge_active);
         if guard_armed {
             // CONT_GUARD_ON, verified in pinned skyline-smash lua_const.rs.
@@ -1613,7 +1560,6 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
         let edge = if find_trump_edge
             && turbo_movement_allowed(context.status, context.situation, stopped)
             && !clatter
-            && !tech
         {
             nearest_floor_edge(position, context.facing, |probe| {
                 let origin = game::Vector2 {
@@ -1629,7 +1575,6 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
         let spot = if find_trap_edge
             && turbo_movement_allowed(context.status, context.situation, stopped)
             && !clatter
-            && !tech
         {
             nearest_ground_ledge(
                 position,
@@ -1781,7 +1726,6 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -1799,7 +1743,7 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
         && kirby_assist_core::posture::Posture::needs_configured_target(
             assessment.status,
             assessment.situation,
-            stopped || clatter || tech,
+            stopped || clatter,
         );
     let posture_opponent = if observe_posture_target {
         observations::posture_opponent(reads, object, object_id)
@@ -1843,7 +1787,6 @@ unsafe fn collect_spot_dodge(
             ObservationPolicySnapshot {
                 grab_dodge_enabled,
                 dodge_follow,
-                stationary_intent,
                 ..
             },
         flags:
@@ -1863,7 +1806,6 @@ unsafe fn collect_spot_dodge(
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -1874,7 +1816,8 @@ unsafe fn collect_spot_dodge(
         && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && (automatic_scope.acquire
             || automatic_scope.follow && assessment.status == kirby_assist_core::spot_dodge::ESCAPE)
-        && (stationary_intent && kirby_assist_core::spot_dodge::ground_status(assessment.status)
+        && (automatic_scope.acquire
+            && kirby_assist_core::spot_dodge::ground_status(assessment.status)
             || assessment.status == kirby_assist_core::spot_dodge::ESCAPE && dodge_follow.is_some())
     {
         // Detect a real grab before querying our dodge transition. Keep the
@@ -1891,7 +1834,6 @@ unsafe fn collect_spot_dodge(
                 stopped,
                 can_spot_dodge: targets.iter().any(Option::is_some)
                     && !clatter
-                    && !tech
                     && !stopped
                     && (game::transition_enabled(
                         object,
@@ -2090,7 +2032,7 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
                 automatic_suspended,
                 ..
             },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let (configured, target, allowed) = STATE.lock().ok().map_or((None, None, false), |s| {
@@ -2099,10 +2041,7 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
                 .as_ref()
                 .and_then(|m| m.reflect_config(fighter_kind)),
             s.reflector.target_key(),
-            !automatic_suspended
-                && !clatter
-                && !tech
-                && s.action_owner.allows(Owner::Reflect),
+            !automatic_suspended && !clatter && s.action_owner.allows(Owner::Reflect),
         )
     });
     reflect::observe(
@@ -2118,12 +2057,23 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
 
 unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
     let (configured, allowed) = STATE.lock().ok().map_or((None, false), |s| {
-        (s.settings_menu.as_ref().and_then(|menu| menu.counter_config(p.fighter_kind)),
+        (
+            s.settings_menu
+                .as_ref()
+                .and_then(|menu| menu.counter_config(p.fighter_kind)),
             !p.policy.automatic_suspended
-                && !p.tech_obs.clatter && !p.tech_obs.tech
-                && s.action_owner.allows(Owner::Counter))
+                && !p.tech_obs.clatter
+                && s.action_owner.allows(Owner::Counter),
+        )
     });
-    counter::observe(p.reads, p.object, p.object_id, p.fighter_kind, configured, allowed)
+    counter::observe(
+        p.reads,
+        p.object,
+        p.object_id,
+        p.fighter_kind,
+        configured,
+        allowed,
+    )
 }
 
 /// Facts only the diagnostic log needs; empty in silent builds.
@@ -2214,7 +2164,10 @@ fn publish_observation(
     if state.oos.target().is_none() {
         state.action_owner.release(Owner::OutOfShield);
     }
-    if state.counter.finished(p.tech_obs.assessment.status, p.own.motion_frame) {
+    if state
+        .counter
+        .finished(p.tech_obs.assessment.status, p.own.motion_frame)
+    {
         state.counter_output = ControllerOutput::default();
         state.action_owner.release(Owner::Counter);
     }
@@ -2319,10 +2272,6 @@ fn observe_known_statuses(state: &mut State, p: &Pass) {
 struct Admission {
     /// Whether automatic behavior is suspended by higher-priority ownership.
     automatic_suspended: bool,
-    /// Whether the current policy reserves stationary positioning.
-    stationary_intent: bool,
-    /// Whether an automatic grab is permitted in the current scope.
-    grab_intent: bool,
     /// Whether the local fighter is shielded.
     self_shielded: bool,
     /// Whether ledge priority preempts other automatic policies.
@@ -2350,26 +2299,20 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     // A cancelled unshielded response must not add a frame to a legal OOS grab.
     // Continuation uses the committed snapshot. Once a completed owner is
     // released above, new admission must see the current physical intent.
-    let stationary_intent = state
-        .action_owner
-        .policy_inputs()
-        .stationary_assist(assessment.status);
-    let grab_intent = state
-        .action_owner
-        .policy_inputs()
-        .grounded_grab_assist(assessment.status);
     let self_shielded = state.action_owner.policy_inputs().shield_held()
         || matches!(
             assessment.status,
             kirby_assist_core::native_states::GUARD_ON
                 ..=kirby_assist_core::native_states::GUARD_DAMAGE
         );
+    let committed_automatic = state.action_owner.automatic_active();
     let admission_suspended = automatic_suspended
-        || state.ledge_active
-        || state
-            .settings_menu
-            .as_ref()
-            .is_some_and(|m| m.reserves_automatic_modes());
+        || !committed_automatic
+            && (state.ledge_active
+                || state
+                    .settings_menu
+                    .as_ref()
+                    .is_some_and(|m| m.reserves_automatic_modes()));
     state
         .action_owner
         .set_automatic_suspended(admission_suspended);
@@ -2387,8 +2330,6 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     state.action_owner.set_ledge_priority(ledge_priority);
     Admission {
         automatic_suspended,
-        stationary_intent,
-        grab_intent,
         self_shielded,
         ledge_priority,
     }
@@ -2432,7 +2373,7 @@ fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         fighter_kind,
         config,
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let Collected {
@@ -2448,7 +2389,7 @@ fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     state.fair_output = kirby_followups::fair(
         &mut state.fair_followup,
         kirby_followups::is_kirby(fighter_kind) && config.kirby_fair1_smash,
-        !automatic_suspended && !clatter && !tech && fair_allowed,
+        !automatic_suspended && !clatter && fair_allowed,
         fair_context,
         combo_velocity_y,
     );
@@ -2469,21 +2410,18 @@ fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) 
             capture_link: own_capture_link,
             ..
         },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let spot_observation = c.spot_observation;
     let Admission {
         automatic_suspended,
-        stationary_intent,
         ..
     } = *a;
     state.spot_output = if let Some((context, targets)) = spot_observation {
         let allowed = !automatic_suspended
             && !clatter
-            && !tech
             && !own_capture_link
-            && stationary_intent
             && state.action_owner.allows(Owner::GrabDodge);
         let (_previous_target, output, _current_target) = {
             let State {
@@ -2551,7 +2489,7 @@ fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission)
             capture_link: own_capture_link,
             ..
         },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let Collected {
@@ -2570,7 +2508,6 @@ fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission)
         && !automatic_suspended
         && !own_capture_link
         && !clatter
-        && !tech
         && !state.oos.grab_delivery_pending()
         && state.action_owner.allows(Owner::OptionRead);
     if let Some((context, _, follow)) = rule_observation {
@@ -2616,7 +2553,7 @@ fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
             ..
         },
         policy: ObservationPolicySnapshot { rules_on, .. },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let rule_observation = c.rule_observation;
@@ -2633,7 +2570,6 @@ fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
         && rules_on
         && !automatic_suspended
         && !clatter
-        && !tech
         && !file_ledge_timeline
         && !ledge_priority
         && state.spot_output.owned == 0;
@@ -2690,7 +2626,7 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
                     },
                 ..
             },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let Collected {
@@ -2701,24 +2637,19 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     } = *c;
     let Admission {
         automatic_suspended,
-        grab_intent,
-        self_shielded,
         ledge_priority,
         ..
     } = *a;
     let oos_reserved = automatic_suspended
         || state.action_owner.current_owner() != Some(Owner::OutOfShield)
             && (ledge_priority || file_ledge_timeline);
-    let protected_up_b = state.action_owner.current_owner() == Some(Owner::OutOfShield);
     let oos_allowed = oos_enabled
         && !own_capture_link
         && (automatic_scope.acquire || automatic_scope.follow || state.oos.configured_committed())
-        && (grab_intent || state.oos.configured_committed() || protected_up_b)
         && !oos_reserved
         && state.spot_output.owned == 0
         && state.roll_read_output.owned == 0
         && !clatter
-        && !tech
         && state.action_owner.allows(Owner::OutOfShield)
         && !state.rule_engine.as_ref().is_some_and(|r| r.committed());
     state.oos_output = if let Some(context) = oos_context {
@@ -2770,7 +2701,7 @@ fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
             capture_link: own_capture_link,
             ..
         },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let Collected {
@@ -2797,7 +2728,6 @@ fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
             && !automatic_suspended
             && !own_capture_link
             && !clatter
-            && !tech
             && (state.action_owner.current_owner() == Some(Owner::RollRead)
                 || !file_ledge_timeline && !ledge_priority)
             && state.spot_output.owned == 0
@@ -2842,7 +2772,7 @@ fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
     state.trip_output = kirby_followups::trip(
         &mut state.trip_followup,
         trip_kirby,
-        !clatter && !tech && trip_allowed,
+        !clatter && trip_allowed,
         trip_context,
     );
     #[cfg(feature = "diagnostic-logging")]
@@ -3023,7 +2953,6 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -3042,7 +2971,6 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
     // full stick from buffering a dash as the attack finishes. Damage/air
     // movement and higher-priority mash/tech keep their physical inputs.
     state.ledge_walk_ready = !clatter
-        && !tech
         && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && (0..=kirby_assist_core::native_states::THROW).contains(&assessment.status);
     #[cfg(feature = "diagnostic-logging")]
@@ -3056,9 +2984,8 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
     state.manual_context = Some(manual_context);
     state.posture_target = posture_target;
     state.posture_floor_safe = posture_floor_safe;
-    state.turbo_ready = !clatter
-        && !tech
-        && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
+    state.turbo_ready =
+        !clatter && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
 }
 
 /// Ledge, trump and defensive-guard sampling for the observation's own context.
@@ -3132,7 +3059,7 @@ fn sample_trump(
             find_trump_edge, ..
         },
         own: NativeObservationBasics { stopped, .. },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let trump_held = state
@@ -3144,7 +3071,6 @@ fn sample_trump(
     } else if find_trump_edge
         && turbo_movement_allowed(context.status, context.situation, stopped)
         && !clatter
-        && !tech
     {
         // A failed geometry search must not repeat hundreds of rays
         // on every held-button poll. A new press still searches now.
@@ -3156,7 +3082,7 @@ fn sample_trump(
         tick,
         trump_held,
         GameplayContext {
-            gameplay: !clatter && !tech,
+            gameplay: !clatter,
             ..context
         },
         edge,
@@ -3197,7 +3123,7 @@ fn sample_ledge_response(
         .ledge
         .as_ref()
         .is_some_and(|trap| trap.owns_jump_state(assessment.status));
-    let can_control = !stopped && !clatter && !tech && (grounded || owned_jump);
+    let can_control = !stopped && !clatter && (grounded || owned_jump);
     // can_act permits a new grounded action. can_control also covers
     // our ongoing shield/tilt/dash attack/grab, allowing ownership without repeatedly
     // launching actions during recovery. Do not collapse these flags.
@@ -3214,7 +3140,7 @@ fn sample_ledge_response(
         && !config.assist.manual_spacing
         && !config.assist.distance_agnostic
     {
-        if find_trap_edge && state.turbo_ready && !stopped && !clatter && !tech {
+        if find_trap_edge && state.turbo_ready && !stopped && !clatter {
             state.ledge_seek_tick = Some(tick);
         }
         state
@@ -3289,7 +3215,7 @@ fn sample_ledge_positioning(
 ) -> Option<&'static str> {
     let Pass {
         config,
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_mut))]
@@ -3308,7 +3234,6 @@ fn sample_ledge_positioning(
         && !config.assist.distance_agnostic
         && context.situation == kirby_assist_core::native_states::situation::GROUND
         && !clatter
-        && !tech
     {
         let preparing = !state
             .ledge
@@ -3358,7 +3283,7 @@ fn sample_defensive_guard(
             analysis_settings, ..
         },
         own: NativeObservationBasics { stopped, .. },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let LedgeFacts {
@@ -3380,7 +3305,6 @@ fn sample_defensive_guard(
         && passive_plan
         && context.situation == kirby_assist_core::native_states::situation::GROUND
         && !clatter
-        && !tech
         && state.ledge_output.requested == 0
         && state.roll_read_output.owned == 0
         && state.trump_output.owned == 0;
@@ -3466,9 +3390,7 @@ fn publish_ledge_diagnostics(
             Some((
                 frame,
                 profile.name,
-                kirby_assist_core::diagnostics::modes::Label::new(
-                    name,
-                ),
+                kirby_assist_core::diagnostics::modes::Label::new(name),
             ))
         });
         if held {
@@ -3599,13 +3521,18 @@ fn publish_ledge_diagnostics(
 }
 
 fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
-    let allowed = (!state.ledge_active || state.action_owner.current_owner() == Some(Owner::Counter))
+    let allowed = (!state.ledge_active
+        || state.action_owner.current_owner() == Some(Owner::Counter))
         && state.action_owner.allows(Owner::Counter)
-        && !p.tech_obs.clatter && !p.tech_obs.tech
-        && state.oos_output.owned == 0 && !state.oos.grab_delivery_pending()
-        && state.roll_read_output.owned == 0 && state.spot_output.owned == 0
-        && state.trip_output.owned == 0 && state.fair_output.owned == 0
-        && state.trump_output.owned == 0 && state.reflect_output.owned == 0;
+        && !p.tech_obs.clatter
+        && state.oos_output.owned == 0
+        && !state.oos.grab_delivery_pending()
+        && state.roll_read_output.owned == 0
+        && state.spot_output.owned == 0
+        && state.trip_output.owned == 0
+        && state.fair_output.owned == 0
+        && state.trump_output.owned == 0
+        && state.reflect_output.owned == 0;
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
         state.counter.sample(allowed, Some(config), context, threat)
     } else {
@@ -3630,7 +3557,6 @@ fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
             || state.action_owner.current_owner() == Some(Owner::Reflect))
             && state.action_owner.allows(Owner::Reflect)
             && !clatter
-            && !tech
             && state.oos_output.owned == 0
             && !state.oos.grab_delivery_pending()
             && state.roll_read_output.owned == 0
