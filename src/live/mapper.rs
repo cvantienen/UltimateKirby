@@ -74,8 +74,6 @@ struct MapperOutputAdjustments {
     attack_hold: bool,
     /// Optional literal native button request bypassing normal filtering.
     literal_request: Option<u32>,
-    /// Whether an automatic grab began without a shield state.
-    unshielded_auto_grab: bool,
     /// Optional tech-specific native output adjustment.
     tech_output: Option<TechOutput>,
 }
@@ -92,8 +90,8 @@ struct MapperDeliveryFeedback {
     counter: bool,
     /// Raw input tick associated with a reflector receipt.
     reflector_tick: Option<i64>,
-    /// Automatic-grab target and completion status for delivery tracking.
-    auto_grab: Option<(i64, u32, bool)>,
+    /// Automatic-grab target and delivery tick.
+    auto_grab: Option<(i64, u32)>,
     /// Grab-handoff delivery receipt with owner and eligibility flags.
     grab_handoff: Option<(i64, Option<Owner>, bool, bool)>,
     /// Target id for a delivered dodge-punish grab.
@@ -201,11 +199,6 @@ unsafe fn apply_mapper_output_adjustments(
     if let Some(requested) = adjustments.literal_request {
         (*mapped).buttons =
             kirby_assist_core::native_input::mapped_literal_buttons((*mapped).buttons, requested);
-        (*mapped).buttons = kirby_assist_core::native_input::mapped_unshielded_auto_grab(
-            (*mapped).buttons,
-            requested,
-            adjustments.unshielded_auto_grab,
-        );
     }
     if let Some(tech) = adjustments.tech_output {
         (*mapped).buttons = kirby_assist_core::tech_input::mapped_guard((*mapped).buttons, tech);
@@ -270,15 +263,11 @@ fn record_mapped_reflector(
 fn record_mapped_grabs(
     state: &mut State,
     mapped: &MappedInputs,
-    auto_grab: Option<(i64, u32, bool)>,
+    auto_grab: Option<(i64, u32)>,
     grab_handoff: Option<(i64, Option<Owner>, bool, bool)>,
 ) {
-    if let Some((tick, target, grab)) = auto_grab {
-        if grab {
-            state.oos.mapped_grab(tick, target);
-        } else {
-            state.oos.mapped_approach(tick, target);
-        }
+    if let Some((tick, target)) = auto_grab {
+        state.oos.mapped_grab(tick, target);
     }
     if let Some((tick, owner, grab, eligible)) = grab_handoff {
         state.grab_handoff.mapped(
@@ -1020,10 +1009,6 @@ fn selected_owner_output(
         Some(Owner::GrabDodge | Owner::OptionRead) => state.spot_output,
         _ => ControllerOutput::default(),
     };
-    if winner == Some(Owner::OutOfShield) {
-        let movement = state.action_owner.policy_inputs().stick();
-        selected = state.oos.with_grab_movement(selected, movement);
-    }
     if situation == kirby_assist_core::native_states::situation::GROUND {
         selected = kirby_assist_core::grab_handoff::GrabHandoff::grab_packet(selected);
     }
@@ -1257,7 +1242,8 @@ fn sample_damage_sticks(
     #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
 ) -> DamageStickSample {
     let sdi_context = state.sdi_context;
-    let sdi_enabled = config.auto_sdi && manual_scope && fresh;
+    let damage_enabled = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED;
+    let sdi_enabled = damage_enabled && config.auto_sdi && manual_scope && fresh;
     let di_context = state.di_context;
     let damage_trajectory = state.damage_trajectory;
     let di_stick = di_context.and_then(|context| {
@@ -1266,14 +1252,14 @@ fn sample_damage_sticks(
             .get_or_insert_with(Default::default)
             .sample_exclusive_with_trajectory(
                 kirby_assist_core::auto_di::Settings {
-                    enabled: config.auto_di.enabled && manual_scope && fresh,
+                    enabled: damage_enabled && config.auto_di.enabled && manual_scope && fresh,
                     ..config.auto_di
                 },
                 context,
                 damage_trajectory,
             )
     });
-    if !config.auto_di.enabled || di_context.is_none() || !manual_scope || !fresh {
+    if !damage_enabled || !config.auto_di.enabled || di_context.is_none() || !manual_scope || !fresh {
         state.di = None;
     }
     #[cfg(feature = "diagnostic-logging")]
@@ -1292,7 +1278,7 @@ fn sample_damage_sticks(
     // yields to launch DI. Losing modes cannot emit inputs
     // or consume a flick as though it had been delivered.
     let tech_owns = state.tech_output.press || state.tech_output.owns_guard;
-    let sdi_stick = if di_stick.is_none() && !tech_owns && mash_stick.is_none() {
+    let sdi_stick = if sdi_enabled && di_stick.is_none() && !tech_owns && mash_stick.is_none() {
         let previous = state.last_mapped_stick.unwrap_or(physical_stick);
         sdi_context.and_then(|context| {
             state
@@ -1309,7 +1295,7 @@ fn sample_damage_sticks(
         state.sdi = None;
         None
     };
-    let damage_stick = di_stick.or(sdi_stick);
+    let damage_stick = damage_enabled.then(|| di_stick.or(sdi_stick)).flatten();
     if !sdi_enabled || sdi_context.is_none() {
         state.sdi = None;
     }
@@ -1436,10 +1422,8 @@ unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut Ma
     #[cfg(feature = "diagnostic-logging")]
     report_mode_snapshot(state, frame, &gate, &samples, &arbitration, prep);
     let request = compose_native_request(state, &gate, &samples, &arbitration, prep);
-    let (manual, approach_pulse) =
-        apply_manual_overlay(state, frame, &samples, &arbitration, &request);
+    let manual = apply_manual_overlay(state, frame, &samples, &arbitration, &request);
     plan_stick_overlay(
-        state,
         frame,
         &gate,
         &samples,
@@ -1454,7 +1438,6 @@ unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut Ma
         &arbitration,
         &samples,
         &manual,
-        approach_pulse,
         prep,
     );
     #[cfg(feature = "diagnostic-logging")]
@@ -2149,15 +2132,14 @@ fn compose_native_request(
     }
 }
 
-/// Runs the shared manual overlay over the physical input and returns its
-/// frame plus whether Out of Shield is mid approach pulse.
+/// Runs the shared manual overlay over the physical input.
 fn apply_manual_overlay(
     state: &mut State,
     frame: &OverlayFrame,
     samples: &ToolSamples,
     arbitration: &Arbitration,
     request: &NativeRequest,
-) -> (ManualFrame, bool) {
+) -> ManualFrame {
     let OverlayFrame {
         config,
         physical,
@@ -2174,7 +2156,6 @@ fn apply_manual_overlay(
         owned: canonical_owned,
         ..
     } = *request;
-    let approach_pulse = winner == Some(Owner::OutOfShield) && state.oos.approach_pending();
     if tech_press && !state.last_mapped_guard {
         state
             .manual_overlay
@@ -2193,14 +2174,25 @@ fn apply_manual_overlay(
             config
                 .control_layout
                 .physical_owned_buttons(canonical_owned),
-            winner == Some(Owner::RollRead) || approach_pulse,
+            matches!(
+                winner,
+                Some(
+                    Owner::RollRead
+                        | Owner::OptionRead
+                        | Owner::GrabDodge
+                        | Owner::OutOfShield
+                        | Owner::Reflect
+                        | Owner::Counter
+                        | Owner::Trip
+                        | Owner::Fair
+                )
+            ),
         );
-    (manual, approach_pulse)
+    manual
 }
 
 /// Chooses the analog sticks and final-button adjustments the mapper hook applies after native mapping.
 fn plan_stick_overlay(
-    state: &State,
     frame: &OverlayFrame,
     gate: &PollGate,
     samples: &ToolSamples,
@@ -2291,8 +2283,6 @@ fn plan_stick_overlay(
                 )
             }),
         );
-        adjustments.unshielded_auto_grab =
-            winner == Some(Owner::OutOfShield) && state.oos.unshielded_grab_started();
     }
 }
 
@@ -2304,7 +2294,6 @@ fn plan_delivery_feedback(
     arbitration: &Arbitration,
     samples: &ToolSamples,
     manual: &ManualFrame,
-    approach_pulse: bool,
     prep: &mut MapperPreparation,
 ) -> ButtonTrace {
     let OverlayFrame { config, .. } = *frame;
@@ -2339,12 +2328,7 @@ fn plan_delivery_feedback(
         feedback.auto_grab = state
             .oos
             .target()
-            .map(|target| (state.raw_tick, target, true));
-    } else if approach_pulse && selected.stick.is_some_and(|s| s[0].abs() >= 0.95) {
-        feedback.auto_grab = state
-            .oos
-            .target()
-            .map(|target| (state.raw_tick, target, false));
+            .map(|target| (state.raw_tick, target));
     }
     if winner == Some(Owner::OptionRead) && r_delivered {
         feedback.dodge_punish_grab = state

@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [cloud.neutral.nair]
-# F34 target; Neutral Air active 5-15; includes 3f jump squat
 name = Nair
 start_delay = 21
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [cloud.neutral.down_tilt]
-# F34 target; Down Tilt active 7-17
 name = Down tilt
 start_delay = 22
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [cloud.neutral.forward_tilt]
-# F34 target; Forward Tilt active 9-10
 name = Forward tilt
 start_delay = 24
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [cloud.neutral.up_tilt]
-# F34 target; Up Tilt active 6-9
 name = Up tilt
 start_delay = 26
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [cloud.neutral.forward_smash]
-# F34 target; Forward Smash active 19-19; charge point 5, hold 20
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:20, release:1
 
-# ---- JUMP ----
 [cloud.jump.nair]
-# F14 target; Neutral Air active 5-15; includes 3f jump squat
 name = Nair
 start_delay = 1
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [cloud.jump.up_air]
-# F14 target; Up Air active 8-23; includes 3f jump squat
 name = Up air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [cloud.jump.up_tilt]
-# F14 target; Up Tilt active 6-9
 name = Grounded up tilt
 start_delay = 7
 timeout = 3600
@@ -72,9 +62,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [cloud.roll.down_smash]
-# F31 target; Down Smash active 8-9; charge point 2, hold 25; rear phase 21-23 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -83,7 +71,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:25, release:1, else_facing, opponent_input:a:0:-1:11, release:1, end_facing
 
 [cloud.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 22
 timeout = 3600
@@ -92,7 +79,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [cloud.roll.down_tilt]
-# F31 target; Down Tilt active 7-17
 name = Down tilt
 start_delay = 19
 timeout = 3600
@@ -100,7 +86,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [cloud.attack.shield_nair]
 name = Shield > Up-B
 start_delay = 0
@@ -133,7 +118,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [cloud.drop.shield]
 name = Shield
 start_delay = 0
@@ -173,16 +157,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[cloud.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20:24
-actions = input:r:0:0:4
 
 [cloud.roll.auto_shield_grab]
 name = Automatic grab (shielded)

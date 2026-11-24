@@ -451,7 +451,11 @@ impl AutoDi {
         trajectory: Option<Trajectory>,
     ) -> Option<[f32; 2]> {
         let fallback = self.sample_exclusive(settings, c);
-        if !settings.enabled || !c.damage_stop || c.remaining > LAUNCH_DI_FRAMES {
+        if !crate::config::AUTO_DAMAGE_STICK_ENABLED
+            || !settings.enabled
+            || !c.damage_stop
+            || c.remaining > LAUNCH_DI_FRAMES
+        {
             return fallback;
         }
         if let Some(trajectory) = trajectory.filter(|t| t.valid()) {
@@ -473,7 +477,8 @@ impl AutoDi {
         c: Context,
         physical: [f32; 2],
     ) -> Option<[f32; 2]> {
-        if !settings.enabled
+        if !crate::config::AUTO_DAMAGE_STICK_ENABLED
+            || !settings.enabled
             || !c.damage_stop
             || c.remaining > MAX_DAMAGE_STOP_DI_FRAMES
             || !physical.iter().all(|v| v.is_finite())

@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [ice_climbers.neutral.nair]
-# F34 target; Neutral Air active 6-23; includes 3f jump squat
 name = Nair
 start_delay = 16
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [ice_climbers.neutral.down_tilt]
-# F34 target; Down Tilt active 8-11
 name = Down tilt
 start_delay = 24
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [ice_climbers.neutral.forward_tilt]
-# F34 target; Forward Tilt active 9-10
 name = Forward tilt
 start_delay = 24
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [ice_climbers.neutral.forward_smash]
-# F34 target; Forward Smash active 11-13; charge point 4, hold 26
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -35,9 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:26, release:1
 
-# ---- JUMP ----
 [ice_climbers.jump.nair]
-# F14 target; Neutral Air active 6-23; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -46,7 +39,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [ice_climbers.jump.up_air]
-# F14 target; Up Air active 7-11; includes 3f jump squat
 name = Up air
 start_delay = 2
 timeout = 3600
@@ -55,7 +47,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [ice_climbers.jump.up_tilt]
-# F14 target; Up Tilt active 8-9
 name = Grounded up tilt
 start_delay = 6
 timeout = 3600
@@ -63,9 +54,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [ice_climbers.roll.down_smash]
-# F31 target; Down Smash active 9-11; charge point 4, hold 25; rear phase 16-16 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -74,7 +63,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:25, release:1, else_facing, opponent_input:a:0:-1:19, release:1, end_facing
 
 [ice_climbers.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 23
 timeout = 3600
@@ -83,7 +71,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [ice_climbers.roll.down_tilt]
-# F31 target; Down Tilt active 8-11
 name = Down tilt
 start_delay = 22
 timeout = 3600
@@ -91,7 +78,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [ice_climbers.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -124,7 +110,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [ice_climbers.drop.shield]
 name = Shield
 start_delay = 0
@@ -164,16 +149,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[ice_climbers.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:18:24
-actions = input:r:0:0:4
 
 [ice_climbers.roll.auto_shield_grab]
 name = Automatic grab (shielded)

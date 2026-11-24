@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [pacman.neutral.nair]
-# F34 target; Neutral Air active 3-19; includes 3f jump squat
 name = Nair
 start_delay = 20
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [pacman.neutral.down_tilt]
-# F34 target; Down Tilt active 7-9
 name = Down tilt
 start_delay = 26
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [pacman.neutral.forward_tilt]
-# F34 target; Forward Tilt active 5-7
 name = Forward tilt
 start_delay = 28
 timeout = 3600
@@ -27,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [pacman.neutral.ghost]
-# F34 target; Forward Smash active 16-29; charge point 4, hold 15
 name = Ghost f-smash
 start_delay = 0
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:1:0:15, release:1
 
 [pacman.neutral.fruit_throw]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Fruit (stored)
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = face:opponent, neutral_special:1
 
-# ---- JUMP ----
 [pacman.jump.nair]
-# F14 target; Neutral Air active 3-19; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [pacman.jump.up_air]
-# F14 target; Up Air active 9-16; includes 3f jump squat
 name = Up air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [pacman.jump.forward_air]
-# F14 target; Forward Air active 5-8; includes 3f jump squat
 name = Forward air
 start_delay = 5
 timeout = 3600
@@ -73,7 +63,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [pacman.jump.fruit_throw]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Fruit (stored)
 start_delay = 0
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = face:opponent, neutral_special:1
 
-# ---- ROLL ----
 [pacman.roll.down_smash]
-# F31 target; Down Smash active 15-28; charge point 3, hold 13
 name = Lingering ghosts
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = opponent_input:a:0:-1:13, release:1
 
 [pacman.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Long grab
 start_delay = 19
 timeout = 3600
@@ -100,7 +86,6 @@ spatial_timeout = 60
 default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
-# ---- ATTACK ----
 [pacman.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -125,7 +110,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, input:b:0:1:1
 
-# ---- DROP ----
 [pacman.drop.shield]
 name = Shield
 start_delay = 0
@@ -157,16 +141,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[pacman.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:36.2:24
-actions = input:r:0:0:4
 
 [pacman.roll.auto_shield_grab]
 name = Automatic grab (shielded)

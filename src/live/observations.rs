@@ -553,11 +553,8 @@ pub(super) unsafe fn rule_targets(
             );
         let grab = available
             && grab_from.is_some()
-            && if shield_fallback {
-                kirby_assist_core::out_of_shield::automatic_shield_target_status(status)
-            } else {
-                kirby_assist_core::out_of_shield::automatic_grab_target_status(status)
-            };
+            && shield_fallback
+            && kirby_assist_core::out_of_shield::automatic_shield_target_status(status);
         if !grab && !event && follow != Some(id) {
             continue;
         }

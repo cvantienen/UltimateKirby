@@ -456,6 +456,10 @@ pub(super) fn build(
             .map_or(0, |s| selection.choices[s as usize]),
         mode: if selection.managing() {
             2
+        } else if selection.tuning_page {
+            3
+        } else if selection.assist_rule_page() {
+            4
         } else {
             u8::from(selection.recipe_editing)
         },

@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [shulk.neutral.nair]
-# F34 target; Neutral Air active 13-30; includes 3f jump squat
 name = Nair
 start_delay = 9
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [shulk.neutral.down_tilt]
-# F34 target; Down Tilt active 10-11
 name = Down tilt
 start_delay = 23
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [shulk.neutral.forward_tilt]
-# F34 target; Forward Tilt active 12-13
 name = Forward tilt
 start_delay = 21
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [shulk.neutral.forward_smash]
-# F34 target; Forward Smash active 14-15; charge point 8, hold 27
 name = Monado f-smash
 start_delay = 0
 timeout = 3600
@@ -35,9 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:27, release:1
 
-# ---- JUMP ----
 [shulk.jump.up_tilt]
-# F14 target; Up Tilt active 11-23
 name = Grounded up tilt
 start_delay = 0
 timeout = 3600
@@ -45,9 +38,7 @@ spatial_timeout = 60
 default = true
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [shulk.roll.down_smash]
-# F31 target; Down Smash active 18-19; charge point 4, hold 17; rear phase 23-24 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -56,7 +47,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:17, release:1, else_facing, opponent_input:a:0:-1:12, release:1, end_facing
 
 [shulk.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 24
 timeout = 3600
@@ -65,7 +55,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [shulk.roll.down_tilt]
-# F31 target; Down Tilt active 10-11
 name = Down tilt
 start_delay = 21
 timeout = 3600
@@ -73,7 +62,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [shulk.attack.shield_nair]
 name = Shield > Up-B
 start_delay = 0
@@ -106,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [shulk.drop.shield]
 name = Shield
 start_delay = 0
@@ -154,16 +141,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[shulk.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20.5:24
-actions = input:r:0:0:4
 
 [shulk.roll.auto_shield_grab]
 name = Automatic grab (shielded)

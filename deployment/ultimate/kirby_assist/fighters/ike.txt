@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [ike.neutral.nair]
-# F34 target; Neutral Air active 10-22; includes 3f jump squat
 name = Nair
 start_delay = 12
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [ike.neutral.down_tilt]
-# F34 target; Down Tilt active 7-8
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [ike.neutral.forward_tilt]
-# F34 target; Forward Tilt active 12-13
 name = Forward tilt
 start_delay = 20
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [ike.neutral.forward_smash]
-# F34 target; Forward Smash active 31-35; charge point 24, hold 25
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -35,9 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:21, release:1
 
-# ---- JUMP ----
 [ike.jump.nair]
-# F14 target; Neutral Air active 10-22; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -46,7 +39,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [ike.jump.forward_air]
-# F14 target; Forward Air active 11-15; includes 3f jump squat
 name = Forward air
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [ike.jump.up_tilt]
-# F14 target; Up Tilt active 11-21
 name = Grounded up tilt
 start_delay = 0
 timeout = 3600
@@ -63,9 +54,7 @@ spatial_timeout = 60
 default = true
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [ike.roll.down_smash]
-# F31 target; Down Smash active 13-15; charge point 5, hold 22
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -74,7 +63,6 @@ default = true
 actions = opponent_input:a:0:-1:4, release:1
 
 [ike.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 24
 timeout = 3600
@@ -83,7 +71,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [ike.roll.down_tilt]
-# F31 target; Down Tilt active 7-8
 name = Down tilt
 start_delay = 24
 timeout = 3600
@@ -91,7 +78,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [ike.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -124,7 +110,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [ike.drop.shield]
 name = Shield
 start_delay = 0
@@ -164,16 +149,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[ike.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:19.5:24
-actions = input:r:0:0:4
 
 [ike.roll.auto_shield_grab]
 name = Automatic grab (shielded)

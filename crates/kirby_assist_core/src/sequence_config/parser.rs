@@ -754,9 +754,15 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
                 "line {line}: mode is unavailable for this fighter/button row"
             ));
         }
-        if sequence.len != 0 || sequence.start_delay != 0 {
+        if sequence.len != 0
+            || sequence.start_delay != 0
+            || sequence.reaction.active()
+            || sequence.while_held
+            || sequence.ground_only
+            || sequence.auto_tilt.is_some()
+        {
             return Err(format!(
-                "line {line}: mode bindings cannot contain actions or start delays"
+                "line {line}: mode bindings cannot contain actions, delays or recipe conditions"
             ));
         }
     }
@@ -767,7 +773,8 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
             || sequence.start_delay != 0
             || sequence.reaction.active()
             || sequence.while_held
-            || sequence.ground_only)
+            || sequence.ground_only
+            || sequence.auto_tilt.is_some())
     {
         return Err(format!("line {line}: builtin requires a button row and cannot contain actions, conditions, delays, loops or modes"));
     }

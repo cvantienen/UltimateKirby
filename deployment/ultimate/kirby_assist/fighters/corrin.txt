@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [corrin.neutral.nair]
-# F34 target; Neutral Air active 6-19; includes 3f jump squat
 name = Nair
 start_delay = 18
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [corrin.neutral.down_tilt]
-# F34 target; Down Tilt active 5-7
 name = Down tilt
 start_delay = 28
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [corrin.neutral.forward_tilt]
-# F34 target; Forward Tilt active 8-9
 name = Forward tilt
 start_delay = 25
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [corrin.neutral.up_tilt]
-# F34 target; Up Tilt active 7-16
 name = Up tilt
 start_delay = 22
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [corrin.neutral.forward_smash]
-# F34 target; Forward Smash active 12-12; charge point 12, hold 34
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = true
 actions = opponent_input:a:1:0:34, release:1
 
-# ---- JUMP ----
 [corrin.jump.nair]
-# F14 target; Neutral Air active 6-19; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [corrin.jump.forward_air]
-# F14 target; Forward Air active 9-12; includes 3f jump squat
 name = Forward air
 start_delay = 1
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [corrin.jump.up_air]
-# F14 target; Up Air active 7-12; includes 3f jump squat
 name = Up air
 start_delay = 2
 timeout = 3600
@@ -73,7 +63,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [corrin.jump.up_tilt]
-# F14 target; Up Tilt active 7-16
 name = Grounded up tilt
 start_delay = 3
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [corrin.roll.down_smash]
-# F31 target; Down Smash active 13-15; charge point 8, hold 25
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = opponent_input:a:0:-1:25, release:1
 
 [corrin.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 24
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [corrin.roll.down_tilt]
-# F31 target; Down Tilt active 5-7
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [corrin.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -142,7 +126,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [corrin.drop.shield]
 name = Shield
 start_delay = 0
@@ -182,16 +165,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[corrin.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:19.8:24
-actions = input:r:0:0:4
 
 [corrin.roll.auto_shield_grab]
 name = Automatic grab (shielded)

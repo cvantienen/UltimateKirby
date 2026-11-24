@@ -381,7 +381,7 @@ pub struct MenuSelection {
     mode_rule_cursor: usize,
     /// Runtime auto add event value used by MenuSelection..
     auto_add_event: usize,
-    /// Runtime auto grab configured value used by MenuSelection..
+    /// Runtime shield-grab recipe configuration state used by tuning visibility.
     auto_grab_configured: u8,
     /// Runtime has reactions value used by MenuSelection..
     pub has_reactions: bool,
@@ -791,8 +791,8 @@ impl MenuSelection {
     /// Checks whether the tuning section is visible.
     fn tuning_visible(&self, i: usize) -> bool {
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
-            && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured & 2 != 0)
-            && !(i == crate::fighter_tuning::AUTO_GRAB_FAR && self.auto_grab_configured & 1 != 0)
+            && i != crate::fighter_tuning::AUTO_GRAB_FAR
+            && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured != 0)
     }
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     fn tuning_visible_index(&self, row: usize) -> usize {

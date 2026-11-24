@@ -612,8 +612,11 @@ impl Default for LiveConfig {
             auto_turn_tilts_active: false,
             auto_turn_tilts: crate::posture::TiltSettings::default(),
             kirby_fair1_smash: true,
-            auto_sdi: true,
-            auto_di: crate::auto_di::Settings::default(),
+            auto_sdi: false,
+            auto_di: crate::auto_di::Settings {
+                enabled: false,
+                ..Default::default()
+            },
             auto_spot_dodge: true,
             controls: LiveSettings::default(),
             control_layout: crate::native_input::ControlLayout::Default,

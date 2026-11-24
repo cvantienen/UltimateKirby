@@ -141,6 +141,7 @@ fn vertical_survival_uses_room_toward_stage_center_without_attacker_attribution(
     }
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn final_di_is_stable_through_zero_count_then_releases_and_rearms_for_another_hit() {
     let mut di = AutoDi::default();
     let mut t = trajectory([210., 100.]);
@@ -189,6 +190,7 @@ fn launch_model_is_finite_mirrored_and_respects_vertical_lsi_exclusion() {
     assert!((predicted_launch([4., 0.], [0., -1.])[0] - 3.68).abs() < 0.00001);
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_uses_full_strength_flicks_every_four_native_frames_and_reuses_duplicate_polls() {
     let mut sdi = SdiState::default();
     for elapsed in 0..17 {
@@ -215,6 +217,7 @@ fn sdi_uses_full_strength_flicks_every_four_native_frames_and_reuses_duplicate_p
     assert_eq!(sdi.sample_exclusive(true, sdi_context(8)), Some([1., 0.]));
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_cannot_skip_its_neutral_rearm_or_replay_a_stale_flick_after_disable() {
     let mut sdi = SdiState::default();
     assert_eq!(sdi.sample_exclusive(true, sdi_context(20)), Some([1., 0.]));
@@ -224,6 +227,7 @@ fn sdi_cannot_skip_its_neutral_rearm_or_replay_a_stale_flick_after_disable() {
     assert_eq!(sdi.sample_exclusive(true, sdi_context(13)), Some([1., 0.]));
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_releases_an_already_held_game_visible_stick_before_the_first_and_next_hit() {
     let mut sdi = SdiState::default();
     for _ in 0..12 {
@@ -247,6 +251,7 @@ fn sdi_releases_an_already_held_game_visible_stick_before_the_first_and_next_hit
     );
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_bends_away_from_the_nearest_blast_zone() {
     let mut sdi = SdiState::default();
     let p = [238., 0.];

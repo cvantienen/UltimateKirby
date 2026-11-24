@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [dark_pit.neutral.nair]
-# F34 target; Neutral Air active 4-5; includes 3f jump squat
 name = Nair
 start_delay = 26
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [dark_pit.neutral.down_tilt]
-# F34 target; Down Tilt active 6-7
 name = Down tilt
 start_delay = 27
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [dark_pit.neutral.forward_tilt]
-# F34 target; Forward Tilt active 10-14
 name = Forward tilt
 start_delay = 22
 timeout = 3600
@@ -27,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [dark_pit.neutral.up_tilt]
-# F34 target; Up Tilt active 6-8
 name = Up tilt
 start_delay = 27
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [dark_pit.neutral.forward_smash]
-# F34 target; Forward Smash active 10-10; charge point 3, hold 27
 name = Bow f-smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:27, release:1
 
-# ---- JUMP ----
 [dark_pit.jump.nair]
-# F14 target; Neutral Air active 4-5; includes 3f jump squat
 name = Nair
 start_delay = 7
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [dark_pit.jump.forward_air]
-# F14 target; Forward Air active 11-12; includes 3f jump squat
 name = Forward air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [dark_pit.jump.up_air]
-# F14 target; Up Air active 10-23; includes 3f jump squat
 name = Up air
 start_delay = 0
 timeout = 3600
@@ -73,7 +63,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [dark_pit.jump.up_tilt]
-# F14 target; Up Tilt active 6-8
 name = Grounded up tilt
 start_delay = 7
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [dark_pit.roll.down_smash]
-# F31 target; Down Smash active 5-6; charge point 2, hold 28; rear phase 18-20 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:28, release:1, else_facing, opponent_input:a:0:-1:14, release:1, end_facing
 
 [dark_pit.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 25
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [dark_pit.roll.down_tilt]
-# F31 target; Down Tilt active 6-7
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [dark_pit.attack.shield_nair]
 name = Shield > Up-smash
 start_delay = 0
@@ -142,7 +126,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [dark_pit.drop.shield]
 name = Shield
 start_delay = 0
@@ -190,16 +173,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[dark_pit.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:21:24
-actions = input:r:0:0:4
 
 [dark_pit.roll.auto_shield_grab]
 name = Automatic grab (shielded)

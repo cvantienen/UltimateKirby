@@ -1,22 +1,8 @@
-all of these auto react modes play sequence as soon as they see options 
-and checks verifys. spotdoge, air doge, roll, spot dodge grab. these will simply play sequence when one of these options
-occur at certain distance and shouldent conflict with each other. 
-
-the auto react modes should never conflict with ledge trap. this also should simply just plays sequence
-once opponents get ujp option is seen. this mode is activated by holding L. which will slow walk speed 
-start the looking for opponening hanging at ledge to choose a getup option to react to. these are the 
-only ones needeing to be changed dyanically on fly to change punish option for getup option. 
-
-All charihcters will have unique sequences to be played per ledge trap & auto react mode. Only one charichters sequnces 
-and punish options etc need to be loaded in game, this will be from the configured saved profile
-
-there will also be modes that can be used universally across charihcters, such as the auto turn around down tilit for yoshi/kirby.
-these will only be for charihcters htat have been configured. i want ot be able to create more modes/auto functions that
-can be used and configured across all charihcters, but not all of them will use them. 
-
-Charihcters will have other specfic auto punish rules specifc to them. For example kirby has the 
-fair one punish that f smashes after contact with oppoennt with fair 1 hit. 
-
-all of the auto reactions should essentially be able to be configured in sequence. so
-when creating sequence it willl have options. 
-
+the editor menu has weird scrolling on some pages, go through and ensure the editor training menu 
+is woorking propley an no other issues. Also the configured name options we made to be a seclection list 
+of premade terms when naming sequnces isnt there ensure thats working
+then ensure im abel to create custom button configs im unable to create one unless custom config is already there
+Then add this to be pre configured universal options that can be configured to be used across all charichters in the selction menu
+    b reserse - actions = drift:facing:1:2, opponent_input:b:-0.3:0:2, drift:backward:1:4
+also remove the ledge trap option from cusmtom button pre configurations they shouldent be an option it shouod just be 
+the b reverse, short hop, ledge trump, 

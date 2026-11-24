@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [mega_man.neutral.down_tilt]
-# F34 target; Down Tilt active 5-21
 name = Down tilt
 start_delay = 21
 timeout = 3600
@@ -9,7 +7,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [mega_man.neutral.up_tilt]
-# F34 target; Up Tilt active 6-16
 name = Up tilt
 start_delay = 23
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [mega_man.neutral.area_smash]
-# F34 target; Down Smash active 17-33; charge point 4, hold 13
 name = Arm cannon (travel)
 start_delay = 0
 timeout = 3600
@@ -26,9 +22,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-1:13, release:1
 
-# ---- JUMP ----
 [mega_man.jump.forward_air]
-# F14 target; Forward Air active 9-17; includes 3f jump squat
 name = Forward air
 start_delay = 0
 timeout = 3600
@@ -37,7 +31,6 @@ default = true
 actions = opponent_input:a+x:1:0:1
 
 [mega_man.jump.up_tilt]
-# F14 target; Up Tilt active 6-16
 name = Grounded up tilt
 start_delay = 3
 timeout = 3600
@@ -45,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [mega_man.roll.down_smash]
-# F31 target; Down Smash active 17-33; charge point 4, hold 10
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -56,7 +47,6 @@ default = true
 actions = opponent_input:a:0:-1:10, release:1
 
 [mega_man.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 25
 timeout = 3600
@@ -65,7 +55,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [mega_man.roll.down_tilt]
-# F31 target; Down Tilt active 5-21
 name = Down tilt
 start_delay = 18
 timeout = 3600
@@ -73,7 +62,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [mega_man.attack.shield_grab]
 name = Shield > Up-smash
 start_delay = 0
@@ -90,7 +78,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [mega_man.drop.shield]
 name = Shield
 start_delay = 0
@@ -114,16 +101,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, short_hop_fair:1
-
-# ---- AUTO REACT ----
-[mega_man.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20.5:24
-actions = input:r:0:0:4
 
 [mega_man.roll.auto_shield_grab]
 name = Automatic grab (shielded)

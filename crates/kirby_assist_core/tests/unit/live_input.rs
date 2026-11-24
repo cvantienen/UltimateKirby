@@ -11,6 +11,20 @@ fn active_settings() -> LiveSettings {
 }
 
 #[test]
+fn automatic_damage_sticks_default_off_and_saved_preferences_remain_readable() {
+    let defaults = LiveConfig::default();
+    assert!(!defaults.auto_sdi);
+    assert!(!defaults.auto_di.enabled);
+
+    let saved = LiveConfig::parse("auto_sdi = true\nauto_di = true\nauto_di_mode = escape")
+        .unwrap();
+    assert!(saved.auto_sdi);
+    assert!(saved.auto_di.enabled);
+    assert_eq!(saved.auto_di.mode, crate::auto_di::Mode::Escape);
+    assert!(!crate::config::AUTO_DAMAGE_STICK_ENABLED);
+}
+
+#[test]
 fn sequence_input_delay_config_is_opt_in_and_bounded() {
     assert_eq!(
         LiveConfig::parse("").unwrap().sequence_input_delay_frames,
@@ -521,7 +535,7 @@ fn fair_first_hit_followup_has_a_startup_disable_option() {
 #[test]
 fn trip_and_sdi_defaults_disable_independently_and_reject_bad_values() {
     let defaults = LiveConfig::parse("").unwrap();
-    assert!(defaults.down_tilt_trip_smash && defaults.auto_sdi);
+    assert!(defaults.down_tilt_trip_smash && !defaults.auto_sdi);
     let disabled = LiveConfig::parse("down_tilt_trip_smash = false\nauto_sdi = false").unwrap();
     assert!(!disabled.down_tilt_trip_smash && !disabled.auto_sdi);
     assert!(LiveConfig::parse("auto_sdi = fastest").is_err());

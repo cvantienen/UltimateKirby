@@ -22,7 +22,6 @@ impl MenuSelection {
             MenuRow::RollRules => Some(&Trigger::AUTO_EVENTS),
             MenuRow::GrabDodge => Some(&[Trigger::AutoGrabDodged]),
             MenuRow::OutOfShield => Some(&[
-                Trigger::AutoGrab,
                 Trigger::AutoShieldGrab,
                 Trigger::AutoShieldBackup,
             ]),
@@ -184,13 +183,8 @@ impl MenuSelection {
             sequence.reaction.height = if event == 2 { 20. } else { 10. };
             sequence.ground_only = false;
             if event >= 3 {
-                let grab = matches!(trigger, Trigger::AutoGrab | Trigger::AutoShieldGrab);
+                let grab = trigger == Trigger::AutoShieldGrab;
                 sequence.reaction.max = match trigger {
-                    Trigger::AutoGrab => {
-                        self.tuning
-                            .auto_grab_ranges(self.y_fighter_kind, self.tuning_values[1])
-                            .1
-                    }
                     Trigger::AutoShieldGrab | Trigger::AutoShieldBackup => self
                         .tuning
                         .auto_grab_range(self.y_fighter_kind, self.tuning_values[1]),
@@ -696,7 +690,7 @@ mod simple_menu_tests {
                 "[bowser.roll.{}]\nstart_delay=0\nreaction={}:35:24\nactions={}\n",
                 t.token(),
                 t.token(),
-                if matches!(t, Trigger::AutoGrab | Trigger::AutoShieldGrab) {
+                if t == Trigger::AutoShieldGrab {
                     "input:r:0:0:4"
                 } else {
                     "up_b:4"
@@ -712,13 +706,13 @@ mod simple_menu_tests {
         m.y_fighter_kind = 15;
         m.show_modes();
         m.input(0, &p);
-        assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 7);
-        assert_eq!(m.mode_entries(&p, MenuRow::OutOfShield).len(), 3);
+        assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 6);
+        assert_eq!(m.mode_entries(&p, MenuRow::OutOfShield).len(), 2);
         assert_eq!(m.mode_entries(&p, MenuRow::GrabDodge).len(), 1);
         assert!(!m.tuning_visible(crate::fighter_tuning::AUTO_GRAB_CLOSE));
         assert!(!m.tuning_visible(crate::fighter_tuning::AUTO_GRAB_FAR));
         let r = m.resolve_reactions(&p).unwrap();
-        assert_eq!(r.len, 7);
+        assert_eq!(r.len, 6);
         for (i, t) in Trigger::AUTO_EVENTS.iter().enumerate() {
             assert_eq!(r.simple_sequence(i).unwrap().reaction.trigger, *t);
         }
@@ -748,10 +742,10 @@ mod simple_menu_tests {
         m.simplified_reactions = true;
         m.y_fighter_kind = 15;
         m.open_mode_list(&p, MenuRow::RollRules);
-        m.auto_add_event = 5;
+        m.auto_add_event = 4;
         m.add_mode_rule(&p, MenuRow::RollRules);
         let r = m.resolve_reactions(&p).unwrap();
-        assert!(r.simple_sequence(5).is_none());
+        assert!(r.simple_sequence(4).is_none());
         let slot = m.row.slot().unwrap();
         let s = m
             .recipe_snapshot(&p, slot, m.choices[slot as usize])
@@ -809,7 +803,7 @@ mod explicit_draft_tests {
             crate::fighter_kinds::WARIO,
         ] {
             let p = profiles.profile(kind).unwrap().menu_options;
-            for event in 0..7 {
+            for event in 0..6 {
                 let mut m = MenuSelection::new(&p);
                 m.simplified_reactions = true;
                 m.y_fighter_kind = kind;
@@ -818,7 +812,7 @@ mod explicit_draft_tests {
                 m.auto_add_event = event;
                 m.add_mode_rule(&p, MenuRow::RollRules);
                 let rules = m.resolve_reactions(&p).unwrap();
-                let grab = matches!(event, 3 | 4);
+                let grab = event == 3;
                 assert_eq!(
                     rules.simple_sequence(event).is_some(),
                     grab,

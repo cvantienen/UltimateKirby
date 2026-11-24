@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [king_dedede.neutral.nair]
-# F34 target; Neutral Air active 7-29; includes 3f jump squat
 name = Nair
 start_delay = 13
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [king_dedede.neutral.down_tilt]
-# F34 target; Down Tilt active 6-11
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [king_dedede.neutral.forward_tilt]
-# F34 target; Forward Tilt active 12-21
 name = Forward tilt
 start_delay = 17
 timeout = 3600
@@ -27,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [king_dedede.neutral.up_tilt]
-# F34 target; Up Tilt active 7-13
 name = Up tilt
 start_delay = 24
 timeout = 3600
@@ -35,9 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- JUMP ----
 [king_dedede.jump.nair]
-# F14 target; Neutral Air active 7-29; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -46,7 +39,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [king_dedede.jump.up_air]
-# F14 target; Up Air active 10-10; includes 3f jump squat
 name = Up air
 start_delay = 1
 timeout = 3600
@@ -55,7 +47,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [king_dedede.jump.up_tilt]
-# F14 target; Up Tilt active 7-13
 name = Grounded up tilt
 start_delay = 4
 timeout = 3600
@@ -63,9 +54,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [king_dedede.roll.down_smash]
-# F31 target; Down Smash active 14-22; charge point 3, hold 16
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -74,7 +63,6 @@ default = true
 actions = opponent_input:a:0:-1:16, release:1
 
 [king_dedede.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 23
 timeout = 3600
@@ -83,7 +71,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [king_dedede.roll.down_tilt]
-# F31 target; Down Tilt active 6-11
 name = Down tilt
 start_delay = 23
 timeout = 3600
@@ -91,7 +78,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [king_dedede.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -124,7 +110,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [king_dedede.drop.shield]
 name = Shield
 start_delay = 0
@@ -172,16 +157,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[king_dedede.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:25:24
-actions = input:r:0:0:4
 
 [king_dedede.roll.auto_shield_grab]
 name = Automatic grab (shielded)

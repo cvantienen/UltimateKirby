@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [samus.neutral.nair]
-# F34 target; Neutral Air active 14-22; includes 3f jump squat
 name = Nair
 start_delay = 13
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [samus.neutral.down_tilt]
-# F34 target; Down Tilt active 6-8
 name = Down tilt
 start_delay = 27
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [samus.neutral.forward_tilt]
-# F34 target; Forward Tilt active 8-10
 name = Forward tilt
 start_delay = 25
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [samus.neutral.zair]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Short-hop zair
 start_delay = 0
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = short_hop:1, wait:2, grab
 
 [samus.neutral.homing_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Homing missile
 start_delay = 0
 timeout = 3600
@@ -45,7 +39,6 @@ default = false
 actions = face:opponent, side_special:1:0.5
 
 [samus.neutral.super_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Super missile
 start_delay = 0
 timeout = 3600
@@ -54,7 +47,6 @@ default = false
 actions = face:opponent, side_special:1
 
 [samus.neutral.forward_smash]
-# F34 target; Forward Smash active 10-11; charge point 3, hold 26
 name = Cannon f-smash
 start_delay = 0
 timeout = 3600
@@ -62,9 +54,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:26, release:1
 
-# ---- JUMP ----
 [samus.jump.nair]
-# F14 target; Neutral Air active 8-11; includes 3f jump squat
 name = Nair
 start_delay = 2
 timeout = 3600
@@ -73,7 +63,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [samus.jump.zair]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Short-hop zair
 start_delay = 0
 timeout = 3600
@@ -82,7 +71,6 @@ default = false
 actions = short_hop:1, wait:2, grab
 
 [samus.jump.forward_air]
-# F14 target; Forward Air active 6-7; includes 3f jump squat
 name = Flame fair
 start_delay = 5
 timeout = 3600
@@ -91,7 +79,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [samus.jump.up_air]
-# F14 target; Up Air active 5-5; includes 3f jump squat
 name = Up air
 start_delay = 6
 timeout = 3600
@@ -100,7 +87,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [samus.jump.homing_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Homing missile
 start_delay = 0
 timeout = 3600
@@ -109,7 +95,6 @@ default = false
 actions = face:opponent, side_special:1:0.5
 
 [samus.jump.super_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Super missile
 start_delay = 0
 timeout = 3600
@@ -117,9 +102,7 @@ spatial_timeout = 60
 default = false
 actions = face:opponent, side_special:1
 
-# ---- ROLL ----
 [samus.roll.down_smash]
-# F31 target; Down Smash active 9-10; charge point 3, hold 25; rear phase 17-18 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -128,7 +111,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:25, release:1, else_facing, opponent_input:a:0:-1:17, release:1, end_facing
 
 [samus.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 16
 timeout = 3600
@@ -137,7 +119,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [samus.roll.zair]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Move > zair
 start_delay = 0
 timeout = 3600
@@ -146,7 +127,6 @@ default = false
 actions = short_hop:1, wait:2, grab
 
 [samus.roll.homing_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Homing (stay back)
 start_delay = 0
 timeout = 3600
@@ -155,7 +135,6 @@ default = false
 actions = face:opponent, side_special:1:0.5
 
 [samus.roll.super_missile]
-# Spacing/resource alternative; travel, stock and native acceptance need calibration
 name = Super (stay back)
 start_delay = 0
 timeout = 3600
@@ -163,7 +142,6 @@ spatial_timeout = 60
 default = false
 actions = face:opponent, side_special:1
 
-# ---- ATTACK ----
 [samus.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -212,7 +190,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:0:1:1
 
-# ---- DROP ----
 [samus.drop.shield]
 name = Shield
 start_delay = 0
@@ -268,16 +245,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, short_hop_fair:1
-
-# ---- AUTO REACT ----
-[samus.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:50.2:24
-actions = input:r:0:0:4
 
 [samus.roll.auto_shield_grab]
 name = Automatic grab (shielded)
@@ -337,8 +304,4 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
-
-# ======================================================================
-#                               SEPHIROTH
-# ======================================================================
 

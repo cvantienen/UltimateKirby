@@ -1,7 +1,4 @@
-# ---- NEUTRAL ----
-
 [sora.neutral.nair]
-# F34 target; Neutral Air active 8-20; includes 3f jump squat
 name = Nair
 start_delay = 23
 timeout = 3600
@@ -10,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [sora.neutral.down_tilt]
-# F34 target; Down Tilt active 9-10
 name = Down tilt
 start_delay = 24
 timeout = 3600
@@ -19,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [sora.neutral.forward_tilt]
-# F34 target; Forward Tilt active 13-17
 name = Forward tilt
 start_delay = 20
 timeout = 3600
@@ -28,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [sora.neutral.up_tilt]
-# F34 target; Up Tilt active 8-9
 name = Up tilt
 start_delay = 25
 timeout = 3600
@@ -36,10 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- JUMP ----
-
 [sora.jump.nair]
-# F14 target; Neutral Air active 8-20; includes 3f jump squat
 name = Nair
 start_delay = 3
 timeout = 3600
@@ -48,7 +39,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [sora.jump.forward_air]
-# F14 target; Forward Air active 10-15; includes 3f jump squat
 name = Forward air
 start_delay = 1
 timeout = 3600
@@ -57,7 +47,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [sora.jump.up_air]
-# F14 target; Up Air active 10-18; includes 3f jump squat
 name = Up air
 start_delay = 1
 timeout = 3600
@@ -66,7 +55,6 @@ default = true
 actions = opponent_input:a+x:0:1:1
 
 [sora.jump.up_tilt]
-# F14 target; Up Tilt active 8-9
 name = Grounded up tilt
 start_delay = 5
 timeout = 3600
@@ -74,10 +62,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
-
 [sora.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 24
 timeout = 3600
@@ -86,15 +71,12 @@ default = true
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [sora.roll.down_tilt]
-# F31 target; Down Tilt active 9-10
 name = Down tilt
 start_delay = 22
 timeout = 3600
 spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
-
-# ---- ATTACK ----
 
 [sora.attack.shield_nair]
 name = Shield > Nair
@@ -127,8 +109,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
-
-# ---- DROP ----
 
 [sora.drop.shield]
 name = Shield
@@ -169,17 +149,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-
-[sora.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:19.9:24
-actions = input:r:0:0:4
 
 [sora.roll.auto_shield_grab]
 name = Automatic grab (shielded)

@@ -2,6 +2,7 @@
 use super::*;
 
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_damage_cutoff_releases_stick_and_rearms_after_damage_drops() {
     let ctx = SdiContext {
         object: 1,
@@ -41,6 +42,7 @@ fn sdi_damage_cutoff_releases_stick_and_rearms_after_damage_drops() {
 }
 
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_flicks_follow_native_hitstop_and_hands_back_on_new_manual_input() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {
@@ -91,6 +93,7 @@ fn sdi_flicks_follow_native_hitstop_and_hands_back_on_new_manual_input() {
     assert_eq!(sdi.sample(false, ctx, [0.0; 2]), None);
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_uses_shared_stick_overlay_without_changing_buttons_and_restores_physical_input() {
     use crate::manual_controls::{ManualOverlay, TurboOutput};
     use crate::native_input::{ButtonTrace, MAPPER_ZR};
@@ -127,6 +130,7 @@ fn sdi_uses_shared_stick_overlay_without_changing_buttons_and_restores_physical_
     assert_eq!(restored.buttons.held & MAPPER_ZR, MAPPER_ZR);
 }
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_stops_early_enough_for_known_delayed_inputs_to_clear_hitstop() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {
@@ -152,6 +156,7 @@ fn sdi_stops_early_enough_for_known_delayed_inputs_to_clear_hitstop() {
 }
 
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_respects_preheld_stick_and_keeps_manual_control_for_the_hit() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {
@@ -214,6 +219,7 @@ fn sdi_respects_preheld_stick_and_keeps_manual_control_for_the_hit() {
 }
 
 #[test]
+#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_does_not_guess_a_direction_when_attacker_is_unknown() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {

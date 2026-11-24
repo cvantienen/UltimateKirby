@@ -616,8 +616,8 @@ impl ManualOverlay {
             false,
         )
     }
-    /// Only Auto react opts into a fresh first horizontal flick. Automatic
-    /// grabs, ledge tapes, native safety and other helpers keep their history.
+    /// Exclusive automatic owners rearm their first horizontal flick when
+    /// taking over an already held manual direction.
     pub fn apply_reaction_controls(
         &mut self,
         human: ButtonTrace,
@@ -764,6 +764,37 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 #[cfg(test)]
 #[path = "../tests/unit/manual_controls.rs"]
 mod tests;
+
+#[cfg(test)]
+mod takeover_tests {
+    use super::*;
+
+    #[test]
+    fn committed_auto_flick_rearms_against_held_manual_direction() {
+        let right = 1 << 21;
+        let held = ButtonTrace {
+            held: right | crate::native_input::MAPPER_A,
+            previous: right | crate::native_input::MAPPER_A,
+            ..Default::default()
+        };
+        let mut overlay = ManualOverlay::default();
+        let output = TurboOutput {
+            stick: Some([1., 0.]),
+            ..Default::default()
+        };
+        let frame = overlay.apply_reaction_controls(
+            held,
+            [1., 0.],
+            output,
+            0,
+            0,
+            crate::native_input::GAMEPLAY_BUTTONS,
+            true,
+        );
+        assert_eq!(frame.buttons.held & crate::native_input::MAPPER_A, 0);
+        assert_ne!(frame.buttons.pressed & right, 0);
+    }
+}
 
 /// Constant-size physical-input history for explicit sequence handback.
 #[derive(Clone, Copy, Default)]

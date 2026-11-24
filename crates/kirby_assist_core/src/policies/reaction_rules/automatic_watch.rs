@@ -238,7 +238,7 @@ impl Engine {
                 .is_some_and(|(_, sequence)| sequence.start_delay == 0 && starts_up_b(sequence))
     }
 
-    /// Yield an uncommitted grab or a committed approach before R is delivered.
+    /// Yield an uncommitted shield grab before R is delivered.
     /// The caller clears cached grab output before sampling the reaction.
     pub fn preempt_automatic_grab(
         &self,
@@ -251,13 +251,7 @@ impl Engine {
         ownership: &mut crate::action_owner::ActionOwnership,
     ) -> bool {
         use crate::action_owner::Owner;
-        let approach_owner =
-            grab.approach_active() && ownership.current_owner() == Some(Owner::OutOfShield);
-        let admitted = if approach_owner {
-            ownership.allows_after_release(Owner::RollRead, Owner::OutOfShield)
-        } else {
-            ownership.allows(Owner::RollRead)
-        };
+        let admitted = ownership.allows(Owner::RollRead);
         if !allowed
             || !grab.automatic_grab_pending()
             || grab.grab_delivery_pending()
@@ -267,9 +261,6 @@ impl Engine {
             return false;
         }
         grab.cancel_pending();
-        if approach_owner {
-            ownership.release(Owner::OutOfShield);
-        }
         true
     }
 

@@ -13,6 +13,10 @@ use crate::{
 /// Maximum number of scenarios that can be configured without a heap allocator.
 pub const MAX_SCENARIO_RULES: usize = 10;
 
+/// Temporary global gate for automatic DI and SDI controller output.
+/// Keep parsed preferences intact so they can be restored when the gate is lifted.
+pub const AUTO_DAMAGE_STICK_ENABLED: bool = false;
+
 /// Top-level configuration. Rules are disabled by default.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistConfig {
@@ -505,13 +509,15 @@ pub mod button_bindings {
         LedgeTrump,
     }
     impl Builtin {
-        /// `ALL` is a configuration value used by the Smash runtime.
+        /// Native helpers retained for loading existing saved configurations.
         pub const ALL: [Self; 4] = [
             Self::Normal,
             Self::LedgeAssist,
             Self::TurboTeabag,
             Self::LedgeTrump,
         ];
+        /// Built-in native helpers exposed in the menu, excluding retired helpers.
+        pub const MENU: [Self; 2] = [Self::Normal, Self::LedgeTrump];
         /// Returns the serialized token for the value.
         pub fn token(self) -> &'static str {
             match self {
@@ -524,7 +530,7 @@ pub mod button_bindings {
         /// Returns the display label for the value.
         pub fn label(self) -> &'static str {
             match self {
-                Self::Normal => "Normal button",
+                Self::Normal => "Short hop",
                 Self::LedgeAssist => "Built-in: Ledge assist / walk",
                 Self::TurboTeabag => "Built-in: Turbo t-bag",
                 Self::LedgeTrump => "Built-in: Ledge trump",
@@ -554,13 +560,21 @@ pub mod button_bindings {
                 _ => Self::Normal,
             }
         }
-        /// Returns the template offset used by the current record.
+        /// Returns the legacy template offset used by saved startup defaults.
         pub fn template_offset(self) -> usize {
             match self {
                 Self::Normal => 0,
                 Self::LedgeAssist => 2,
                 Self::TurboTeabag => 3,
                 Self::LedgeTrump => 4,
+            }
+        }
+        /// Returns the selected menu index for a visible button built-in.
+        pub fn visible_template_offset(self) -> Option<usize> {
+            match self {
+                Self::Normal => Some(0),
+                Self::LedgeTrump => Some(2),
+                Self::LedgeAssist | Self::TurboTeabag => None,
             }
         }
     }
