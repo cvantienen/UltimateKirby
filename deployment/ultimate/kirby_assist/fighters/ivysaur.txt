@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [ivysaur.neutral.nair]
-# F34 target; Neutral Air active 7-26; includes 3f jump squat
 name = Nair
 start_delay = 14
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [ivysaur.neutral.down_tilt]
-# F34 target; Down Tilt active 4-6
 name = Down tilt
 start_delay = 29
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [ivysaur.neutral.forward_tilt]
-# F34 target; Forward Tilt active 10-10
 name = Forward tilt
 start_delay = 24
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [ivysaur.neutral.up_tilt]
-# F34 target; Up Tilt active 7-13
 name = Up tilt
 start_delay = 24
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [ivysaur.neutral.forward_smash]
-# F34 target; Forward Smash active 15-20; charge point 9, hold 25
 name = Vine headbutt
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:25, release:1
 
-# ---- JUMP ----
 [ivysaur.jump.nair]
-# F14 target; Neutral Air active 7-26; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [ivysaur.jump.up_air]
-# F15 target; Up Air active 12-13; includes 3f jump squat
 name = Up air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [ivysaur.jump.up_tilt]
-# F14 target; Up Tilt active 7-13
 name = Grounded up tilt
 start_delay = 4
 timeout = 3600
@@ -72,9 +62,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [ivysaur.roll.down_smash]
-# F31 target; Down Smash active 13-14; charge point 6, hold 24
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -83,7 +71,6 @@ default = true
 actions = opponent_input:a:0:-1:24, release:1
 
 [ivysaur.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 18
 timeout = 3600
@@ -92,7 +79,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [ivysaur.roll.down_tilt]
-# F31 target; Down Tilt active 4-6
 name = Down tilt
 start_delay = 26
 timeout = 3600
@@ -100,7 +86,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [ivysaur.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -133,7 +118,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [ivysaur.drop.shield]
 name = Shield
 start_delay = 0
@@ -181,16 +165,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[ivysaur.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:31:24
-actions = input:r:0:0:4
 
 [ivysaur.roll.auto_shield_grab]
 name = Automatic grab (shielded)

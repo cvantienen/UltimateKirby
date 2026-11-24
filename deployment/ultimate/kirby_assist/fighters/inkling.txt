@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [inkling.neutral.nair]
-# F34 target; Neutral Air active 6-9; includes 3f jump squat
 name = Nair
 start_delay = 23
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [inkling.neutral.down_tilt]
-# F34 target; Down Tilt active 5-8
 name = Down tilt
 start_delay = 27
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [inkling.neutral.forward_tilt]
-# F34 target; Forward Tilt active 8-10
 name = Forward tilt
 start_delay = 25
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [inkling.neutral.up_tilt]
-# F34 target; Up Tilt active 7-12
 name = Up tilt
 start_delay = 24
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [inkling.neutral.forward_smash]
-# F34 target; Forward Smash active 16-17; charge point 5, hold 22
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:22, release:1
 
-# ---- JUMP ----
 [inkling.jump.nair]
-# F14 target; Neutral Air active 6-9; includes 3f jump squat
 name = Nair
 start_delay = 4
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [inkling.jump.forward_air]
-# F14 target; Forward Air active 10-21; includes 3f jump squat
 name = Forward air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [inkling.jump.up_air]
-# F15 target; Up Air active 12-15; includes 3f jump squat
 name = Up air
 start_delay = 0
 timeout = 3600
@@ -73,7 +63,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [inkling.jump.up_tilt]
-# F14 target; Up Tilt active 7-12
 name = Grounded up tilt
 start_delay = 5
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [inkling.roll.down_smash]
-# F31 target; Down Smash active 11-15; charge point 2, hold 20; rear phase 20-21 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:20, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
 
 [inkling.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 23
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [inkling.roll.down_tilt]
-# F31 target; Down Tilt active 5-8
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [inkling.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -142,7 +126,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [inkling.drop.shield]
 name = Shield
 start_delay = 0
@@ -182,16 +165,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[inkling.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20:24
-actions = input:r:0:0:4
 
 [inkling.roll.auto_shield_grab]
 name = Automatic grab (shielded)

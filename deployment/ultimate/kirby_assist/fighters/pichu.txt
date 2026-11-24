@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [pichu.neutral.nair]
-# F34 target; Neutral Air active 3-27; includes 3f jump squat
 name = Nair
 start_delay = 16
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [pichu.neutral.down_tilt]
-# F34 target; Down Tilt active 7-8
 name = Down tilt
 start_delay = 26
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [pichu.neutral.forward_tilt]
-# F34 target; Forward Tilt active 5-12
 name = Forward tilt
 start_delay = 25
 timeout = 3600
@@ -27,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [pichu.neutral.up_tilt]
-# F34 target; Up Tilt active 7-14
 name = Up tilt
 start_delay = 23
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [pichu.neutral.forward_smash]
-# F34 target; Forward Smash active 16-33; charge point 13, hold 22
 name = Electric barrage
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:22, release:1
 
-# ---- JUMP ----
 [pichu.jump.nair]
-# F14 target; Neutral Air active 3-27; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [pichu.jump.forward_air]
-# F14 target; Forward Air active 10-12; includes 3f jump squat
 name = Forward air
 start_delay = 0
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [pichu.jump.up_air]
-# F14 target; Up Air active 4-9; includes 3f jump squat
 name = Up air
 start_delay = 5
 timeout = 3600
@@ -73,7 +63,6 @@ default = true
 actions = opponent_input:a+x:0:1:1
 
 [pichu.jump.up_tilt]
-# F14 target; Up Tilt active 7-14
 name = Grounded up tilt
 start_delay = 4
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [pichu.roll.down_smash]
-# F31 target; Down Smash active 8-9; charge point 4, hold 27
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = opponent_input:a:0:-1:27, release:1
 
 [pichu.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 25
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [pichu.roll.down_tilt]
-# F31 target; Down Tilt active 7-8
 name = Down tilt
 start_delay = 24
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [pichu.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -142,7 +126,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [pichu.drop.shield]
 name = Shield
 start_delay = 0
@@ -190,16 +173,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[pichu.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20:24
-actions = input:r:0:0:4
 
 [pichu.roll.auto_shield_grab]
 name = Automatic grab (shielded)

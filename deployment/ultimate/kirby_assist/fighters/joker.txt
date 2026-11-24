@@ -1,7 +1,4 @@
-# ---- NEUTRAL ----
-
 [joker.neutral.nair]
-# F34 target; Neutral Air active 12-27; includes 3f jump squat
 name = Nair
 start_delay = 19
 timeout = 3600
@@ -10,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [joker.neutral.down_tilt]
-# F34 target; Down Tilt active 8-9
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -19,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [joker.neutral.forward_tilt]
-# F34 target; Forward Tilt active 8-9
 name = Forward tilt
 start_delay = 25
 timeout = 3600
@@ -28,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [joker.neutral.up_tilt]
-# F34 target; Up Tilt active 8-8
 name = Up tilt
 start_delay = 25
 timeout = 3600
@@ -37,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [joker.neutral.forward_smash]
-# F34 target; Forward Smash active 16-18; charge point 5, hold 22
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -45,10 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:22, release:1
 
-# ---- JUMP ----
-
 [joker.jump.nair]
-# F14 target; Neutral Air active 12-27; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -57,7 +47,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [joker.jump.forward_air]
-# F14 target; Forward Air active 7-8; includes 3f jump squat
 name = Forward air
 start_delay = 4
 timeout = 3600
@@ -66,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [joker.jump.up_air]
-# F14 target; Up Air active 5-18; includes 3f jump squat
 name = Up air
 start_delay = 6
 timeout = 3600
@@ -75,7 +63,6 @@ default = true
 actions = opponent_input:a+x:0:1:1
 
 [joker.jump.up_tilt]
-# F14 target; Up Tilt active 8-8
 name = Grounded up tilt
 start_delay = 5
 timeout = 3600
@@ -83,10 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
-
 [joker.roll.down_smash]
-# F31 target; Down Smash active 12-13; charge point 5, hold 24; rear phase 16-17 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -95,7 +79,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:24, release:1, else_facing, opponent_input:a:0:-1:20, release:1, end_facing
 
 [joker.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 25
 timeout = 3600
@@ -104,15 +87,12 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [joker.roll.down_tilt]
-# F31 target; Down Tilt active 8-9
 name = Down tilt
 start_delay = 23
 timeout = 3600
 spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
-
-# ---- ATTACK ----
 
 [joker.attack.shield_nair]
 name = Shield > Nair
@@ -145,8 +125,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
-
-# ---- DROP ----
 
 [joker.drop.shield]
 name = Shield
@@ -187,17 +165,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-
-[joker.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20.3:24
-actions = input:r:0:0:4
 
 [joker.roll.auto_shield_grab]
 name = Automatic grab (shielded)
@@ -257,8 +224,4 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:1:1
-
-# ======================================================================
-#                                KAZUYA
-# ======================================================================
 

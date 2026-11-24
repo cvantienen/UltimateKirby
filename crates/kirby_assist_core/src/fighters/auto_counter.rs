@@ -1,6 +1,5 @@
 //! Input-only counter policy for explicitly configured fighters.
 use crate::{
-    autopilot_guard::Hitbox,
     fighter_tuning::{self as tuning, Tuning},
     gameplay::ControllerOutput,
     ledge_trap::SEQUENCE_BUTTONS,
@@ -48,79 +47,16 @@ pub struct Threat {
     pub in_frames: f32,
 }
 
-/// Only active, direct melee hitboxes are eligible. There is no assumed startup
-/// attack for a fighter without observable geometry.
-pub fn predict(
+/// Predict contact from a verified active window and projected relative movement.
+/// Active native geometry is checked separately by the caller.
+pub fn predicted_attack(
     config: Config,
     origin: [f32; 3],
-    velocity: [f32; 2],
-    id: u32,
-    motion: u64,
-    status: i32,
-    frame: f32,
-    hit: Hitbox,
-) -> Option<Threat> {
-    let values = origin
-        .iter()
-        .chain(velocity.iter())
-        .chain(hit.start.iter())
-        .chain(hit.end.iter())
-        .chain(hit.velocity.iter())
-        .chain([
-            &hit.radius,
-            &config.startup,
-            &config.margin,
-            &config.half_width,
-            &config.height,
-            &config.half_depth,
-        ]);
-    if !values.into_iter().all(|v| v.is_finite())
-        || !frame.is_finite()
-        || !(1.0..=30.0).contains(&config.startup)
-        || !(0.0..=10.0).contains(&config.margin)
-        || !(0.0..=40.0).contains(&config.horizon())
-        || config.half_width <= 0.0
-        || config.height <= 0.0
-        || config.half_depth <= 0.0
-        || hit.radius <= 0.0
-        || hit.radius > 100.0
-    {
-        return None;
-    }
-    let enter = crate::projectile_geometry::swept_capsule_aabb(
-        hit,
-        [
-            origin[0] - config.half_width,
-            origin[1],
-            origin[2] - config.half_depth,
-        ],
-        [
-            origin[0] + config.half_width,
-            origin[1] + config.height,
-            origin[2] + config.half_depth,
-        ],
-        velocity,
-        config.horizon(),
-    )?;
-    Some(Threat {
-        id,
-        motion,
-        status,
-        frame,
-        in_frames: enter,
-    })
-}
-
-/// Forecast a catalogued attack before its hitbox appears. Only a nearby
-/// opponent with a verified damaging motion and active window is eligible.
-pub fn predict_startup(
-    config: Config,
-    origin: [f32; 3],
-    velocity: [f32; 2],
+    own_velocity: [f32; 2],
     enemy_position: [f32; 3],
     enemy_velocity: [f32; 2],
-    id: u32,
     kind: i32,
+    id: u32,
     motion: u64,
     status: i32,
     frame: f32,
@@ -128,14 +64,16 @@ pub fn predict_startup(
 ) -> Option<Threat> {
     if !origin
         .iter()
-        .chain(velocity.iter())
         .chain(enemy_position.iter())
+        .chain(own_velocity.iter())
         .chain(enemy_velocity.iter())
         .all(|v| v.is_finite())
         || !frame.is_finite()
         || frame < 0.0
         || !rate.is_finite()
         || rate <= 0.0
+        || !(crate::native_states::status::ATTACK..=crate::native_states::status::ATTACK_AIR)
+            .contains(&status)
         || !(1.0..=30.0).contains(&config.startup)
         || !(0.0..=10.0).contains(&config.margin)
         || !(0.0..=40.0).contains(&config.horizon())
@@ -152,14 +90,14 @@ pub fn predict_startup(
     let in_frames = move_data
         .active
         .iter()
-        .filter(|window| frame <= window.first as f32)
-        .map(|window| (window.first as f32 - frame) / rate)
-        .filter(|t| (config.startup..=config.horizon()).contains(t))
+        .filter_map(|window| {
+            let until = (window.first as f32 - frame) / rate;
+            (frame <= window.last as f32 && until <= config.horizon()).then_some(until.max(0.0))
+        })
         .min_by(|a, b| a.total_cmp(b))?;
-    let dx = enemy_position[0] - origin[0] + (enemy_velocity[0] - velocity[0]) * in_frames;
-    let dy = enemy_position[1] - origin[1] + (enemy_velocity[1] - velocity[1]) * in_frames;
-    // The catalog has move timing but no hitbox reach. Limit startup
-    // predictions to nearby opponents; active geometry remains the fallback.
+    let t = in_frames.max(config.startup);
+    let dx = enemy_position[0] + (enemy_velocity[0] - own_velocity[0]) * t - origin[0];
+    let dy = enemy_position[1] + (enemy_velocity[1] - own_velocity[1]) * t - origin[1];
     if dx.abs() > config.half_width + 18.0
         || dy < -8.0
         || dy > config.height + 8.0
@@ -174,21 +112,6 @@ pub fn predict_startup(
         frame,
         in_frames,
     })
-}
-
-/// Keep the earliest counterable contact, rather than letting an already
-/// unavoidable hitbox hide a second attack with enough startup remaining.
-pub fn prefer_actionable(config: Config, best: Option<Threat>, candidate: Threat) -> Option<Threat> {
-    if !candidate.in_frames.is_finite()
-        || !(config.startup..=config.horizon()).contains(&candidate.in_frames)
-    {
-        return best;
-    }
-    if best.is_none_or(|old| candidate.in_frames < old.in_frames) {
-        Some(candidate)
-    } else {
-        best
-    }
 }
 
 pub fn ready(status: i32, situation: i32) -> bool {
@@ -280,6 +203,8 @@ impl Counter {
             && frame.is_finite()
             && frame >= 1.0
         {
+            // Do not counter the same lingering attack again after native startup.
+            self.attempts = 2;
             self.cancel();
             return true;
         }
@@ -348,7 +273,9 @@ impl Counter {
         }
         let Some(threat) = threat.filter(|t| t.in_frames.is_finite() && t.in_frames >= 0.0) else {
             self.cancel();
-            self.clear_stale_attack();
+            if c.animation.status != crate::native_states::status::SPECIAL_LW {
+                self.clear_stale_attack();
+            }
             return ControllerOutput::default();
         };
         self.observe_attacker(threat);
@@ -360,7 +287,7 @@ impl Counter {
             if !ready(c.animation.status, c.situation)
                 || !c.can_special
                 || (self.last == Some(key) && self.attempts >= 2)
-                || !(config.startup..=config.horizon()).contains(&threat.in_frames)
+                || threat.in_frames > config.horizon()
             {
                 return ControllerOutput::default();
             }
@@ -403,50 +330,55 @@ mod tests {
     }
 
     #[test]
-    fn known_nearby_startup_requests_counter_before_hitbox_exists() {
-        let kind = 5;
-        let motion = crate::timing::motion_hash("attack_air_f");
-        let first = crate::fighter_data::fighter(kind)
-            .unwrap()
-            .move_for_motion(motion)
-            .unwrap()
-            .active[0]
-            .first as f32;
-        let threat = predict_startup(
-            config(),
-            [0.0; 3],
-            [0.0; 2],
-            [12.0, 0.0, 0.0],
-            [0.0; 2],
-            7,
-            kind,
-            motion,
+    fn predicted_contact_requests_counter_on_ground_and_in_air() {
+        for status in [
+            crate::native_states::status::ATTACK_S3,
             crate::native_states::status::ATTACK_AIR,
-            first - 6.0,
-            1.0,
-        )
-        .unwrap();
-        let mut counter = Counter::new();
-        let output = counter.sample(
-            true,
-            Some(config()),
-            Context {
-                kind: crate::fighter_kinds::LUCINA,
-                situation: crate::native_states::situation::GROUND,
-                can_special: true,
-                stopped: false,
-                animation: AnimationSample {
-                    object: 1,
-                    status: crate::native_states::status::WAIT,
-                    kind: 1,
-                    frame: 1.0,
-                    auxiliary: 0.0,
-                },
-            },
-            Some(threat),
-        );
-        assert_eq!(output.requested & MAPPER_B, MAPPER_B);
-        assert_eq!(output.stick, Some([0.0, -1.0]));
+        ] {
+            let threat = predicted_attack(
+                config(),
+                [0.0; 3],
+                [0.0; 2],
+                [12.0, 0.0, 0.0],
+                [0.0; 2],
+                5,
+                7,
+                crate::timing::motion_hash("attack_air_f"),
+                status,
+                12.0,
+                1.0,
+            )
+            .unwrap();
+            for situation in [
+                crate::native_states::situation::GROUND,
+                crate::native_states::situation::AIR,
+            ] {
+                let output = Counter::new().sample(
+                    true,
+                    Some(config()),
+                    Context {
+                        kind: crate::fighter_kinds::LUCINA,
+                        situation,
+                        can_special: true,
+                        stopped: false,
+                        animation: AnimationSample {
+                            object: 1,
+                            status: if situation == crate::native_states::situation::GROUND {
+                                crate::native_states::status::WAIT
+                            } else {
+                                crate::native_states::status::FALL
+                            },
+                            kind: 1,
+                            frame: 1.0,
+                            auxiliary: 0.0,
+                        },
+                    },
+                    Some(threat),
+                );
+                assert_eq!(output.requested & MAPPER_B, MAPPER_B);
+                assert_eq!(output.stick, Some([0.0, -1.0]));
+            }
+        }
     }
 
     #[test]
@@ -494,25 +426,6 @@ mod tests {
     }
 
     #[test]
-    fn selects_actionable_hit_over_earlier_unavoidable_contact() {
-        let threat = |id, in_frames| Threat {
-            id,
-            motion: 9,
-            status: crate::native_states::status::ATTACK,
-            frame: 3.0,
-            in_frames,
-        };
-        let best = prefer_actionable(config(), None, threat(1, 0.0));
-        let best = prefer_actionable(config(), best, threat(2, 6.0));
-        assert_eq!(best, Some(threat(2, 6.0)));
-        assert_eq!(prefer_actionable(config(), best, threat(3, 8.0)), best);
-        assert_eq!(
-            prefer_actionable(config(), best, threat(4, 5.0)),
-            Some(threat(4, 5.0))
-        );
-    }
-
-    #[test]
     fn retries_once_after_mapped_input_fails_to_start_counter() {
         let mut counter = Counter::new();
         let threat = Threat {
@@ -536,27 +449,58 @@ mod tests {
             },
         };
         assert_ne!(
-            counter.sample(true, Some(config()), context, Some(threat)).requested & MAPPER_B,
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested
+                & MAPPER_B,
             0
         );
         counter.mapped();
         counter.poll_receipt(1);
         context.animation.frame = 2.0;
-        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
         counter.poll_receipt(2);
         context.animation.frame = 3.0;
-        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
         context.animation.frame = 4.0;
         assert_ne!(
-            counter.sample(true, Some(config()), context, Some(threat)).requested & MAPPER_B,
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested
+                & MAPPER_B,
             0
         );
         counter.mapped();
         context.animation.frame = 4.0;
-        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
         context.animation.frame = 20.0;
-        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
-        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
     }
 
     #[test]
@@ -587,38 +531,75 @@ mod tests {
         context.animation.status = crate::native_states::status::SPECIAL_LW;
         for frame in 1..=4 {
             context.animation.frame = frame as f32;
-            assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+            assert_eq!(
+                counter
+                    .sample(true, Some(config()), context, None)
+                    .requested,
+                0
+            );
         }
         assert!(!counter.active());
+        context.animation.status = crate::native_states::status::WAIT;
+        context.animation.frame = 1.0;
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
     }
 
     #[test]
-    fn startup_rejects_unknown_far_or_too_late_attacks() {
-        let kind = 5;
+    fn prediction_rejects_unknown_and_missed_attacks() {
         let motion = crate::timing::motion_hash("attack_air_f");
-        let first = crate::fighter_data::fighter(kind)
-            .unwrap()
-            .move_for_motion(motion)
-            .unwrap()
-            .active[0]
-            .first as f32;
-        let predict = |position, motion, frame| {
-            predict_startup(
+        let predict = |position, velocity, motion| {
+            predicted_attack(
                 config(),
                 [0.0; 3],
                 [0.0; 2],
                 position,
-                [0.0; 2],
+                velocity,
+                5,
                 7,
-                kind,
                 motion,
                 crate::native_states::status::ATTACK_AIR,
-                frame,
+                12.0,
                 1.0,
             )
         };
-        assert!(predict([40.0, 0.0, 0.0], motion, first - 6.0).is_none());
-        assert!(predict([12.0, 0.0, 0.0], 0, first - 6.0).is_none());
-        assert!(predict([12.0, 0.0, 0.0], motion, first - 2.0).is_none());
+        assert!(predict([40.0, 0.0, 0.0], [0.0; 2], motion).is_none());
+        assert!(predict([12.0, 0.0, 0.0], [12.0, 0.0], motion).is_none());
+        assert!(predict([12.0, 0.0, 0.0], [0.0; 2], 0).is_none());
+        assert!(predict([40.0, 0.0, 0.0], [-5.0, 0.0], motion).is_some());
+    }
+
+    #[test]
+    fn late_active_hitbox_still_requests_counter() {
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK_AIR,
+            frame: 14.0,
+            in_frames: 0.0,
+        };
+        let output = Counter::new().sample(
+            true,
+            Some(config()),
+            Context {
+                kind: crate::fighter_kinds::LUCINA,
+                situation: crate::native_states::situation::AIR,
+                can_special: true,
+                stopped: false,
+                animation: AnimationSample {
+                    object: 1,
+                    status: crate::native_states::status::FALL,
+                    kind: 1,
+                    frame: 1.0,
+                    auxiliary: 0.0,
+                },
+            },
+            Some(threat),
+        );
+        assert_ne!(output.requested & MAPPER_B, 0);
     }
 }

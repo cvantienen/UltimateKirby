@@ -525,9 +525,6 @@ impl SettingsMenu {
     pub fn automatic_sequences(&self) -> kirby_assist_core::out_of_shield::AutomaticConfig<'_> {
         let rules = self.current_rules();
         kirby_assist_core::out_of_shield::AutomaticConfig {
-            grab: rules.and_then(|r| {
-                r.automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::Grab)
-            }),
             shield_grab: rules.and_then(|r| {
                 r.automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::ShieldGrab)
             }),
@@ -541,7 +538,8 @@ impl SettingsMenu {
     /// Returns configured time/distance limits for the three automatic recipes.
     pub fn automatic_limits(&self) -> [Option<(f32, f32)>; 3] {
         let r = self.automatic_sequences();
-        [r.grab, r.shield_grab, r.backup].map(|s| s.map(|s| (s.reaction.max, s.reaction.height)))
+        [None, r.shield_grab, r.backup]
+            .map(|s| s.map(|s| (s.reaction.max, s.reaction.height)))
     }
     /// Returns cached resolved rules when at least one mode is enabled.
     pub fn automatic_rules(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {

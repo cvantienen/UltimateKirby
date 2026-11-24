@@ -146,8 +146,8 @@ pub mod layout {
             "shield_hit" | "shield_hit_vulnerable" => Some((1, "OUT OF SHIELD")),
             "grab_dodged" | "grab_dodged_vulnerable" => Some((2, "GRAB DODGE + PUNISH")),
             "ledge_regrab" => Some((3, "VULNERABLE LEDGE / REGRAB")),
-            "auto_roll" | "auto_spot_dodge" | "auto_air_dodge" | "auto_grab"
-            | "auto_shield_grab" | "auto_grab_dodged" | "auto_shield_backup" => {
+            "auto_roll" | "auto_spot_dodge" | "auto_air_dodge" | "auto_shield_grab"
+            | "auto_grab_dodged" | "auto_shield_backup" => {
                 Some((6, "AUTO REACT"))
             }
             "spot_dodge" | "spot_dodge_any" => Some((4, "SPOT DODGE PUNISH")),

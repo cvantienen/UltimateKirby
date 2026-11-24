@@ -1,4 +1,4 @@
-//! Front vulnerable-target selection: enemy shield required only when unshielded.
+//! Shielded front-target grab selection.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::{NativeAttempt, SEQUENCE_BUTTONS},
@@ -15,10 +15,6 @@ pub(super) struct Reach {
     pub height: f32,
     /// Runtime startup value used by Reach..
     pub startup: Option<f32>,
-    /// An idle approach farther than this must enter native dash before R.
-    pub close: f32,
-    /// Runtime approach value used by Reach..
-    pub approach: bool,
     /// Runtime shielded value used by Reach..
     pub shielded: bool,
 }
@@ -35,7 +31,6 @@ pub(super) fn target_valid(
         range,
         height,
         startup,
-        approach,
         shielded,
         ..
     } = reach;
@@ -48,8 +43,7 @@ pub(super) fn target_valid(
         && {
             let relative = e.velocity[0] - lc.velocity[0];
             relative.is_finite()
-                && (approach
-                    || relative.abs() <= 0.001
+                && (relative.abs() <= 0.001
                     || startup
                         .filter(|f| f.is_finite() && *f > 0. && *f <= 120.)
                         .is_some_and(|frames| {
@@ -69,28 +63,10 @@ pub(super) struct Grab {
     mapped: u8,
     /// Runtime last mapped value used by Grab..
     last_mapped: Option<i64>,
-    /// Runtime approach value used by Grab..
-    approach: bool,
-    /// Runtime dash sent value used by Grab..
-    dash_sent: bool,
-    /// Runtime direction value used by Grab..
-    direction: f32,
-    /// Runtime await dash value used by Grab..
-    await_dash: bool,
-    /// Runtime assisted dash value used by Grab..
-    assisted_dash: bool,
-    /// Runtime approach mapped value used by Grab..
-    approach_mapped: u8,
     /// Runtime delivery polls value used by Grab..
     delivery_polls: u8,
     /// Runtime last delivery poll value used by Grab..
     last_delivery_poll: Option<i64>,
-    /// Runtime approach polls value used by Grab..
-    approach_polls: u8,
-    /// Runtime last approach poll value used by Grab..
-    last_approach_poll: Option<i64>,
-    /// Runtime failed approach value used by Grab..
-    failed_approach: Option<(u32, u64)>,
 }
 impl Grab {
     /// Constructs a new value with the type’s initial state.
@@ -100,17 +76,8 @@ impl Grab {
             clock: NativeAttempt::new(),
             mapped: 0,
             last_mapped: None,
-            approach: false,
-            dash_sent: false,
-            direction: 0.,
-            await_dash: false,
-            assisted_dash: false,
-            approach_mapped: 0,
             delivery_polls: 0,
             last_delivery_poll: None,
-            approach_polls: 0,
-            last_approach_poll: None,
-            failed_approach: None,
         }
     }
     /// Returns the selected target observation.
@@ -123,12 +90,7 @@ impl Grab {
     }
     /// Cancels the pending operation and clears its state.
     pub fn cancel(&mut self) {
-        // Failure remains fenced until new manual intent or a positively
-        // observed end of the enemy's shield. Missing observations do not rearm.
-        *self = Self {
-            failed_approach: self.failed_approach,
-            ..Self::new()
-        };
+        *self = Self::new();
     }
     /// Updates the `rebase_custom_delivery` state using the supplied inputs.
     pub fn rebase_custom_delivery(&mut self) {
@@ -142,78 +104,19 @@ impl Grab {
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
     pub fn delivery_tick(&mut self, tick: i64) {
-        if self.approach_pending() && self.last_approach_poll != Some(tick) {
-            self.approach_polls = self.approach_polls.saturating_add(1);
-            self.last_approach_poll = Some(tick);
-        }
-        if self.active() && !self.approach_pending() && self.last_delivery_poll != Some(tick) {
+        if self.active() && self.last_delivery_poll != Some(tick) {
             self.delivery_polls = self.delivery_polls.saturating_add(1);
             self.last_delivery_poll = Some(tick);
         }
     }
-    /// Determines whether the `unshielded_grab_started` condition holds.
-    pub fn unshielded_grab_started(&self) -> bool {
-        self.active() && self.approach && self.dash_sent
-    }
-    /// Determines whether the `approach_pending` condition holds.
-    pub fn approach_pending(&self) -> bool {
-        self.active() && self.approach && (!self.dash_sent || self.await_dash)
-    }
-    /// Determines whether the `approach_active` condition holds.
-    pub fn approach_active(&self) -> bool {
-        self.active() && self.approach
-    }
-    /// Determines whether the `turning_away` condition holds.
-    pub fn turning_away(&self, physical: f32) -> bool {
-        self.active()
-            && self.approach
-            && physical.is_finite()
-            && physical.abs() >= 0.2
-            && physical * self.direction < 0.
-    }
-    /// Observes the statuses.
-    pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
-        if self.failed_approach.is_some_and(|(id, _)| {
-            known.iter().flatten().any(|(actor, status)| {
-                *actor == id && !super::automatic_grab_target_status(*status)
-            })
-        }) {
-            self.failed_approach = None;
-        }
-    }
-    /// Updates the `fail_approach` state using the supplied inputs.
-    fn fail_approach(&mut self, epoch: u64) {
-        let failed = self.target.map(|id| (id, epoch));
+    /// Cancels an unanswered grab attempt.
+    fn give_up(&mut self) {
         self.cancel();
-        self.failed_approach = failed;
-    }
-    /// An unanswered dash fences the target; an unanswered direct R just ends.
-    fn give_up(&mut self, epoch: u64) {
-        if self.assisted_dash {
-            self.fail_approach(epoch);
-        } else {
-            self.cancel();
-        }
     }
     /// Updates the `release_unless_delivered` state using the supplied inputs.
     fn release_unless_delivered(&mut self) {
         if !self.delivery_pending() {
             self.cancel();
-        }
-    }
-    /// Updates the `mapped_approach` state using the supplied inputs.
-    pub fn mapped_approach(&mut self, tick: i64, target: u32) {
-        if self.target == Some(target)
-            && self.approach
-            && (!self.dash_sent || self.await_dash)
-            && self.last_mapped != Some(tick)
-        {
-            if !self.dash_sent {
-                self.clock = NativeAttempt::default();
-            }
-            self.dash_sent = true;
-            self.approach_mapped = self.approach_mapped.saturating_add(1);
-            self.last_mapped = Some(tick);
         }
     }
     /// Updates the `mapped_grab` state using the supplied inputs.
@@ -242,18 +145,8 @@ impl Grab {
         follow: Option<Opponent>,
         reach: Reach,
     ) -> ControllerOutput {
-        if self
-            .failed_approach
-            .is_some_and(|(_, epoch)| epoch != lc.manual_input_epoch)
-        {
-            self.failed_approach = None;
-        }
-        if self.active()
-            && !self.delivery_pending()
-            && !self.approach_pending()
-            && self.delivery_polls >= 4
-        {
-            self.give_up(lc.manual_input_epoch);
+        if self.active() && !self.delivery_pending() && self.delivery_polls >= 4 {
+            self.give_up();
             return ControllerOutput::default();
         }
         // A mapped R may still be in the game's input queue. Once delivered,
@@ -261,10 +154,9 @@ impl Grab {
         if self.delivery_pending() && self.settle_delivered(allowed, c, lc, follow) {
             return ControllerOutput::default();
         }
-        if self.admission_lost(allowed, c, lc, reach.approach) {
+        if self.admission_lost(allowed, c, lc) {
             return ControllerOutput::default();
         }
-        self.observe_dash(c, lc);
         let enemy = if self.active() {
             let valid = super::locked_enemy(self.target, follow, &targets)
                 .filter(|e| target_valid(c, lc, *e, reach));
@@ -274,21 +166,14 @@ impl Grab {
             };
             enemy
         } else {
-            let fenced = self.failed_approach.is_some()
-                && reach.approach
-                && c.status == crate::native_states::status::WAIT;
             let Some(enemy) = super::nearest_enemy(c.position[0], &targets, follow, |e| {
                 target_valid(c, lc, e, reach)
-                    && !(fenced && (e.position[0] - c.position[0]).abs() > reach.close)
             }) else {
                 return ControllerOutput::default();
             };
-            self.acquire(enemy, c, reach);
+            self.acquire(enemy);
             enemy
         };
-        if let Some(output) = self.approach_output(c, lc, enemy) {
-            return output;
-        }
         if self.mapped >= 4 {
             self.cancel();
             return ControllerOutput::default();
@@ -323,7 +208,7 @@ impl Grab {
         }
         self.clock.advance_pause(lc, follow, 120);
         if self.delivery_polls >= 24 || self.clock.expired || self.clock.elapsed() >= 24. {
-            self.give_up(lc.manual_input_epoch);
+            self.give_up();
             return true;
         }
         !allowed
@@ -342,7 +227,6 @@ impl Grab {
         allowed: bool,
         c: super::Context,
         lc: GameplayContext,
-        approach: bool,
     ) -> bool {
         if !allowed
             || !c.grounded
@@ -361,119 +245,21 @@ impl Grab {
             self.cancel();
             return true;
         }
-        // A new shield press cancels the approach; it can never launch a dash
-        // from shield. Ground locomotion can also begin a fresh direct Grab.
         let own_ready = super::ground_grab_state(c.status)
             && !c.stopped
-            && (self.approach_active() || c.can_grab && c.shield_ready);
-        let native_movement_replaces_approach = self.approach
-            && !approach
-            && c.status != crate::native_states::status::WAIT
-            && super::ground_grab_state(c.status)
-            && !matches!(
-                c.status,
-                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
-            );
-        if self.active() && self.approach != approach && !native_movement_replaces_approach
-            || !own_ready
-        {
+            && c.shield_ready
+            && (c.status == crate::native_states::GUARD || c.can_grab);
+        if !own_ready {
             self.release_unless_delivered();
             return true;
         }
         false
     }
-    /// Promote an approach whose dash is already visible in native status.
-    fn observe_dash(&mut self, c: super::Context, lc: GameplayContext) {
-        if !self.active() {
-            return;
-        }
-        if self.await_dash
-            && matches!(
-                c.status,
-                crate::native_states::status::DASH
-                    | crate::native_states::status::RUN
-                    | crate::native_states::status::TURN_DASH
-                    | crate::native_states::status::TURN_RUN
-            )
-        {
-            self.await_dash = false;
-            self.dash_sent = true;
-            self.clock = NativeAttempt::default();
-        }
-        if self.approach
-            && !self.dash_sent
-            && (!self.await_dash || c.status != crate::native_states::status::WAIT)
-            && !super::automatic_grab_needs_approach(c.status, lc.velocity[0])
-        {
-            // Native movement already exists; do not replay an unnecessary
-            // approach pulse or wait for its mapper acknowledgment.
-            self.await_dash = false;
-            self.dash_sent = true;
-            self.clock = NativeAttempt::default();
-        }
-    }
     /// Updates the `acquire` state using the supplied inputs.
-    fn acquire(&mut self, e: Opponent, c: super::Context, reach: Reach) {
+    fn acquire(&mut self, e: Opponent) {
         self.target = Some(e.id);
         self.clock = NativeAttempt::default();
         self.mapped = 0;
         self.last_mapped = None;
-        self.approach = reach.approach;
-        // A far grab must enter native dash before pressing R.
-        // A mapped stick packet (or residual shield-drop speed) is not proof.
-        self.await_dash = reach.approach
-            && reach.close.is_finite()
-            && (e.position[0] - c.position[0]).abs() > reach.close
-            && !matches!(
-                c.status,
-                crate::native_states::status::DASH
-                    | crate::native_states::status::RUN
-                    | crate::native_states::status::TURN_DASH
-                    | crate::native_states::status::TURN_RUN
-            );
-        self.assisted_dash = self.await_dash;
-        self.approach_mapped = 0;
-        // Close standing grabs and already dashing grabs need no synthetic
-        // run packet. Other out-of-close-range states must start a dash.
-        self.dash_sent = !self.await_dash;
-        self.direction = (e.position[0] - c.position[0]).signum();
-        if self.direction == 0. {
-            self.direction = c.facing.signum();
-        }
-    }
-    /// The approach stick while the dash is unsent or unconfirmed; `None` once
-    /// the approach is over and the Grab itself may be pressed.
-    fn approach_output(
-        &mut self,
-        c: super::Context,
-        lc: GameplayContext,
-        enemy: Opponent,
-    ) -> Option<ControllerOutput> {
-        if !self.approach_pending() {
-            return None;
-        }
-        if self.await_dash {
-            self.clock.advance_pause(lc, Some(enemy), 120);
-            if self.approach_mapped >= 4
-                || self.approach_polls >= 4
-                || self.clock.expired
-                || self.clock.elapsed() >= 4.
-            {
-                self.fail_approach(lc.manual_input_epoch);
-                return Some(ControllerOutput::default());
-            }
-        }
-        if matches!(
-            c.status,
-            crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
-        ) || !lc.safe_ground[usize::from(self.direction > 0.)]
-        {
-            self.cancel();
-            return Some(ControllerOutput::default());
-        }
-        Some(ControllerOutput {
-            stick: Some([self.direction, 0.]),
-            ..Self::output(0)
-        })
     }
 }

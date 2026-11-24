@@ -134,8 +134,6 @@ struct ObservationPolicySnapshot {
     ordinary_backup: bool,
     /// Whether native policy inputs indicate shielding.
     self_shielded: bool,
-    /// Whether a grab is waiting for dash-state progression.
-    grab_dash_pending: bool,
 }
 
 /// Tests locked and nearby targets against the configured ground-rule watch range.
@@ -398,7 +396,6 @@ fn snapshot_observation_policy(
                         kirby_assist_core::native_states::GUARD_ON
                             ..=kirby_assist_core::native_states::GUARD_DAMAGE
                     ),
-                grab_dash_pending: state.oos.approach_pending(),
             }
         })
 }
@@ -763,10 +760,6 @@ struct AutoGrabLimits {
     legacy_approach: f32,
     /// Primary grab target distance.
     range: f32,
-    /// Approach-action target distance.
-    approach_range: f32,
-    /// Maximum vertical difference for ordinary grabs.
-    height: f32,
     /// Maximum vertical difference for shield-based grabs.
     shield_height: f32,
     /// Backup grab target distance.
@@ -981,7 +974,7 @@ unsafe fn derive_automatic_flags(
         fighter_kind,
     );
     let (legacy_grab_close, legacy_grab_approach) =
-        if oos_enabled && (automatic_limits[0].is_none() || automatic_limits[1].is_none()) {
+        if oos_enabled && automatic_limits[1].is_none() {
             let standing = if config.assist.fighter_kind == fighter_kind {
                 config.assist.fighter.grab.standing_range
             } else {
@@ -992,8 +985,6 @@ unsafe fn derive_automatic_flags(
             (0., 0.)
         };
     let auto_grab_range = automatic_limits[1].map_or(legacy_grab_close, |v| v.0);
-    let auto_grab_approach_range = automatic_limits[0].map_or(legacy_grab_approach, |v| v.0);
-    let auto_grab_height = automatic_limits[0].map_or(24., |v| v.1);
     let auto_shield_height = automatic_limits[1].map_or(24., |v| v.1);
     let auto_backup_range = automatic_limits[2].map_or(auto_grab_range, |v| v.0);
     let auto_backup_height = automatic_limits[2].map_or(24., |v| v.1);
@@ -1007,8 +998,6 @@ unsafe fn derive_automatic_flags(
             legacy_close: legacy_grab_close,
             legacy_approach: legacy_grab_approach,
             range: auto_grab_range,
-            approach_range: auto_grab_approach_range,
-            height: auto_grab_height,
             shield_height: auto_shield_height,
             backup_range: auto_backup_range,
             backup_height: auto_backup_height,
@@ -1176,7 +1165,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                 automatic_sequence_committed,
                 rules_ground,
                 self_shielded,
-                grab_dash_pending,
                 manual_input_epoch,
                 want_up_special,
                 ..
@@ -1201,8 +1189,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
     let pressure_on = oos_enabled;
     let AutoGrabLimits {
         range: auto_grab_range,
-        approach_range: auto_grab_approach_range,
-        height: auto_grab_height,
         shield_height: auto_shield_height,
         backup_range: auto_backup_range,
         backup_height: auto_backup_height,
@@ -1220,16 +1206,11 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                 object_id,
                 observations::RuleTargetQuery {
                     follow: rule_target.or(oos_target).or(dodge_follow),
-                    grab_range: (oos_enabled && automatic_scope.acquire).then_some(
-                        if self_shielded {
-                            [
-                                auto_grab_range.max(auto_backup_range),
-                                auto_shield_height.max(auto_backup_height),
-                            ]
-                        } else {
-                            [auto_grab_approach_range, auto_grab_height]
-                        },
-                    ),
+                    grab_range: (oos_enabled && self_shielded && automatic_scope.acquire)
+                        .then_some([
+                            auto_grab_range.max(auto_backup_range),
+                            auto_shield_height.max(auto_backup_height),
+                        ]),
                     shield_fallback: self_shielded,
                     watch_events: rules_on && automatic_scope.acquire,
                     sequence_follow: automatic_sequence_committed,
@@ -1248,20 +1229,9 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
             dodge_follow.is_some(),
             follow.as_ref(),
         );
-        let grab_ground = oos_enabled
-            && !self_shielded
-            && !stopped
-            && (grab_dash_pending
-                || kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
-                    && targets.iter().flatten().any(|t| {
-                        kirby_assist_core::out_of_shield::automatic_grab_target_status(t.status)
-                            && t.vulnerable_in == Some(0.)
-                            && assessment.status == kirby_assist_core::native_states::status::WAIT
-                            && (t.position[0] - position[0]).abs() > auto_grab_range
-                    }));
         let needs_ground = assessment.situation
             == kirby_assist_core::native_states::situation::GROUND
-            && (rule_needs_ground || grab_ground);
+            && rule_needs_ground;
         Some((
             GameplayContext {
                 held: true,
@@ -2284,7 +2254,6 @@ fn observe_known_statuses(state: &mut State, p: &Pass) {
     } = *p;
     if state.spot_dodge.is_some() || state.rule_engine.is_some() || oos_enabled {
         let known_statuses = reads.known_statuses();
-        state.oos.observe_statuses(&known_statuses);
         if let Some(spot) = state.spot_dodge.as_mut() {
             spot.observe_statuses(&known_statuses);
         }
@@ -2590,11 +2559,7 @@ fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
         ledge_priority,
         ..
     } = *a;
-    let prioritize_up_b = (state.action_owner.allows(Owner::RollRead)
-        || state.oos.approach_active()
-            && state
-                .action_owner
-                .allows_after_release(Owner::RollRead, Owner::OutOfShield))
+    let prioritize_up_b = state.action_owner.allows(Owner::RollRead)
         && rules_on
         && !automatic_suspended
         && !clatter

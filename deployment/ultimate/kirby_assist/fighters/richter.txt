@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [richter.neutral.nair]
-# F34 target; Neutral Air active 8-9; includes 3f jump squat
 name = Nair
 start_delay = 22
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [richter.neutral.down_tilt]
-# F34 target; Down Tilt active 7-23
 name = Down tilt
 start_delay = 19
 timeout = 3600
@@ -18,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [richter.neutral.forward_tilt]
-# F34 target; Forward Tilt active 12-13
 name = Forward tilt
 start_delay = 21
 timeout = 3600
@@ -27,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [richter.neutral.forward_smash]
-# F34 target; Forward Smash active 24-25; charge point 5, hold 14
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -35,9 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:14, release:1
 
-# ---- JUMP ----
 [richter.jump.nair]
-# F14 target; Neutral Air active 8-9; includes 3f jump squat
 name = Nair
 start_delay = 3
 timeout = 3600
@@ -46,7 +39,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [richter.jump.up_tilt]
-# F14 target; Up Tilt active 10-22
 name = Grounded up tilt
 start_delay = 0
 timeout = 3600
@@ -54,9 +46,7 @@ spatial_timeout = 60
 default = true
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [richter.roll.down_smash]
-# F31 target; Down Smash active 14-15; charge point 2, hold 19; rear phase 20-21 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -65,7 +55,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:19, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
 
 [richter.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 21
 timeout = 3600
@@ -74,7 +63,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [richter.roll.down_tilt]
-# F31 target; Down Tilt active 7-23
 name = Down tilt
 start_delay = 16
 timeout = 3600
@@ -82,7 +70,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [richter.attack.shield_nair]
 name = Shield > Up-B
 start_delay = 0
@@ -115,7 +102,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [richter.drop.shield]
 name = Shield
 start_delay = 0
@@ -155,16 +141,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[richter.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20:24
-actions = input:r:0:0:4
 
 [richter.roll.auto_shield_grab]
 name = Automatic grab (shielded)

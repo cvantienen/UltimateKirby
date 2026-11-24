@@ -78,8 +78,8 @@ pub const MAX_RULES_PER_MODE: usize = 8;
 /// Holds the MAX RULES value.
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
 
-/// The seven legacy AutoReact slots, kept in one place so menu, cache, and
-/// runtime code cannot disagree about what a slot means.
+/// Automatic reaction slots, kept in one place so menu, cache, and runtime
+/// code cannot disagree about what a slot means.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AutomaticEvent {
     /// Opponent ground roll.
@@ -88,8 +88,6 @@ pub enum AutomaticEvent {
     Spot,
     /// Opponent air dodge.
     Air,
-    /// Legacy unshielded automatic grab.
-    Grab,
     /// Shield grab response.
     ShieldGrab,
     /// Grab-dodge follow-up.
@@ -99,11 +97,10 @@ pub enum AutomaticEvent {
 }
 impl AutomaticEvent {
     /// All events in their stable serialized/cache order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 6] = [
         Self::Roll,
         Self::Spot,
         Self::Air,
-        Self::Grab,
         Self::ShieldGrab,
         Self::GrabDodged,
         Self::ShieldBackup,
@@ -114,10 +111,9 @@ impl AutomaticEvent {
             Self::Roll => 0,
             Self::Spot => 1,
             Self::Air => 2,
-            Self::Grab => 3,
-            Self::ShieldGrab => 4,
-            Self::GrabDodged => 5,
-            Self::ShieldBackup => 6,
+            Self::ShieldGrab => 3,
+            Self::GrabDodged => 4,
+            Self::ShieldBackup => 5,
         }
     }
     /// Converts a serialized trigger into its automatic event identity.
@@ -126,7 +122,6 @@ impl AutomaticEvent {
             Trigger::AutoRoll => Some(Self::Roll),
             Trigger::AutoSpot => Some(Self::Spot),
             Trigger::AutoAir => Some(Self::Air),
-            Trigger::AutoGrab => Some(Self::Grab),
             Trigger::AutoShieldGrab => Some(Self::ShieldGrab),
             Trigger::AutoGrabDodged => Some(Self::GrabDodged),
             Trigger::AutoShieldBackup => Some(Self::ShieldBackup),
@@ -139,7 +134,6 @@ impl AutomaticEvent {
             Self::Roll => Trigger::AutoRoll,
             Self::Spot => Trigger::AutoSpot,
             Self::Air => Trigger::AutoAir,
-            Self::Grab => Trigger::AutoGrab,
             Self::ShieldGrab => Trigger::AutoShieldGrab,
             Self::GrabDodged => Trigger::AutoGrabDodged,
             Self::ShieldBackup => Trigger::AutoShieldBackup,
@@ -197,8 +191,6 @@ pub enum Trigger {
     AutoSpot,
     /// `AutoAir` option in the `Trigger` Smash policy state.
     AutoAir,
-    /// `AutoGrab` option in the `Trigger` Smash policy state.
-    AutoGrab,
     /// `AutoShieldGrab` option in the `Trigger` Smash policy state.
     AutoShieldGrab,
     /// `AutoGrabDodged` option in the `Trigger` Smash policy state.
@@ -207,12 +199,11 @@ pub enum Trigger {
     AutoShieldBackup,
 }
 impl Trigger {
-    /// `AUTO_EVENTS` is a configuration value used by the Smash runtime.
-    pub const AUTO_EVENTS: [Self; 7] = [
+    /// Automatic events exposed in the simplified rules menu.
+    pub const AUTO_EVENTS: [Self; 6] = [
         AutomaticEvent::Roll.trigger(),
         AutomaticEvent::Spot.trigger(),
         AutomaticEvent::Air.trigger(),
-        AutomaticEvent::Grab.trigger(),
         AutomaticEvent::ShieldGrab.trigger(),
         AutomaticEvent::GrabDodged.trigger(),
         AutomaticEvent::ShieldBackup.trigger(),
@@ -223,7 +214,6 @@ impl Trigger {
             Self::AutoRoll => "Roll",
             Self::AutoSpot => "Enemy spot dodge",
             Self::AutoAir => "Enemy air dodge",
-            Self::AutoGrab => "Automatic grab (unshielded)",
             Self::AutoShieldGrab => "Automatic grab (shielded)",
             Self::AutoGrabDodged => "After dodging enemy grab",
             Self::AutoShieldBackup => "Shield grab backup",
@@ -232,7 +222,7 @@ impl Trigger {
     }
 
     /// `ALL` is a configuration value used by the Smash runtime.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 26] = [
         Self::Off,
         Self::Roll,
         Self::Crossed,
@@ -256,7 +246,6 @@ impl Trigger {
         Self::AutoRoll,
         Self::AutoSpot,
         Self::AutoAir,
-        Self::AutoGrab,
         Self::AutoShieldGrab,
         Self::AutoGrabDodged,
         Self::AutoShieldBackup,
@@ -356,7 +345,6 @@ impl Trigger {
     /// Returns the serialized token for the value.
     pub fn token(self) -> &'static str {
         match self {
-            Self::AutoGrab => "auto_grab",
             Self::AutoShieldGrab => "auto_shield_grab",
             Self::AutoGrabDodged => "auto_grab_dodged",
             Self::AutoShieldBackup => "auto_shield_backup",

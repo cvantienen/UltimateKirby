@@ -3,15 +3,13 @@ use super::*;
 use crate::{
     gameplay::{GameplayContext, Opponent},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
-    sequence_config::{Action, Direction, Sequence},
+    sequence_config::{Action, Sequence},
     settings::AssistSettings,
 };
 
 /// Runtime Smash data carried by `AutomaticConfig`.
 #[derive(Clone, Copy, Default)]
 pub struct AutomaticConfig<'a> {
-    /// Runtime grab value used by AutomaticConfig..
-    pub grab: Option<&'a Sequence>,
     /// Runtime shield grab value used by AutomaticConfig..
     pub shield_grab: Option<&'a Sequence>,
     /// Runtime backup value used by AutomaticConfig..
@@ -22,10 +20,6 @@ pub struct AutomaticConfig<'a> {
 pub struct AutomaticLimits {
     /// Runtime close value used by AutomaticLimits..
     pub close: f32,
-    /// Runtime approach value used by AutomaticLimits..
-    pub approach: f32,
-    /// Runtime grab height value used by AutomaticLimits..
-    pub grab_height: f32,
     /// Runtime shield height value used by AutomaticLimits..
     pub shield_height: f32,
     /// Runtime backup value used by AutomaticLimits..
@@ -37,27 +31,19 @@ impl AutomaticLimits {
     /// Returns the `reach` result.
     pub(super) fn reach(self, shielded: bool, startup: Option<f32>) -> simple::Reach {
         simple::Reach {
-            range: if shielded { self.close } else { self.approach },
-            height: if shielded {
-                self.shield_height
-            } else {
-                self.grab_height
-            },
+            range: self.close,
+            height: self.shield_height,
             startup,
-            close: self.close,
-            approach: !shielded,
             shielded,
         }
     }
 }
 impl AutomaticConfig<'_> {
     /// Returns the `limits` result.
-    pub fn limits(self, close: f32, approach: f32) -> AutomaticLimits {
+    pub fn limits(self, close: f32) -> AutomaticLimits {
         let close = self.shield_grab.map_or(close, |s| s.reaction.max);
         AutomaticLimits {
             close,
-            approach: self.grab.map_or(approach, |s| s.reaction.max),
-            grab_height: self.grab.map_or(24., |s| s.reaction.height),
             shield_height: self.shield_grab.map_or(24., |s| s.reaction.height),
             backup: self.backup.map_or(close, |s| s.reaction.max),
             backup_height: self.backup.map_or(24., |s| s.reaction.height),
@@ -88,24 +74,6 @@ fn literal_input(action: &Action, buttons: u32, stick: [f32; 2], frames: u8) -> 
         } => *b == buttons && *s == stick && *f == frames && *cstick == [0.; 2],
         _ => false,
     }
-}
-/// Determines whether the `native_grab_recipe` condition holds.
-/// Checks whether native grab recipe.
-fn native_grab_recipe(s: &Sequence) -> bool {
-    let grab = match s.actions() {
-        [grab] => Some(grab),
-        // Native grab admission already owns the short idle dash, range and
-        // readiness checks. A chase-first grab must not replace an admitted R
-        // with a long run (older edited tapes contain Up-B's drift here).
-        [Action::Drift {
-            direction: Direction::Opponent,
-            ..
-        }, grab] => Some(grab),
-        _ => None,
-    };
-    s.start_delay == 0
-        && s.timeout >= 24
-        && grab.is_some_and(|a| literal_input(a, MAPPER_R, [0.; 2], 4))
 }
 /// Returns an optional `backup_timing` value.
 /// Gets backup timing if it is available.
@@ -173,7 +141,7 @@ impl OutOfShield {
         follow: Option<Opponent>,
         shielded: bool,
         close: f32,
-        approach: f32,
+        _legacy_approach: f32,
         startup: Option<f32>,
         settings: AssistSettings,
         config: AutomaticConfig<'_>,
@@ -199,7 +167,7 @@ impl OutOfShield {
                     c.status,
                     crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
                 ),
-            limits: config.limits(close, approach),
+            limits: config.limits(close),
             startup,
             settings,
             config,
@@ -248,6 +216,10 @@ impl OutOfShield {
         if self.configured_response {
             return self.continue_response(&f);
         }
+        if !f.shielded {
+            self.simple.cancel();
+            return ControllerOutput::default();
+        }
         let mut fallback_ended = false;
         if self.shield_up_b.active() {
             self.simple.cancel();
@@ -294,7 +266,7 @@ impl OutOfShield {
 
     /// A configured response waiting for its Grab to be mapped must still match
     /// the current shield/target; otherwise no R was delivered and the stale
-    /// unshielded custom response yields to a fresh evaluation.
+    /// response yields to a fresh evaluation.
     fn revalidate_grab_wait(&mut self, f: &Sample) {
         if !(self.configured_response
             && !self.configured_backup
@@ -366,21 +338,19 @@ impl OutOfShield {
         output
     }
 
-    /// The ordinary Grab path. `None` when it neither owns inputs nor awaits a
-    /// delivered request, so the backup may be considered.
+    /// The shielded ordinary Grab path. `None` when it neither owns inputs nor
+    /// awaits a delivered request, so the backup may be considered.
     fn sample_grab(&mut self, f: &Sample, fallback_ended: bool) -> Option<ControllerOutput> {
+        if !f.shielded {
+            return None;
+        }
         let delivered = self.simple.delivery_pending();
         let grab = self.sample_configured_grab(f);
         if grab.owned == 0 && !fallback_ended && !delivered && !self.simple.delivery_pending() {
             return None;
         }
         if grab.requested & MAPPER_R != 0 {
-            let sequence = if f.shielded {
-                f.config.shield_grab
-            } else {
-                f.config.grab
-            };
-            if let Some(s) = sequence.filter(|s| !native_grab_recipe(s)) {
+            if let Some(s) = f.config.shield_grab {
                 return Some(self.commit_configured(*s, f, false));
             }
         }

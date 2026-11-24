@@ -99,7 +99,7 @@ pub mod presets {
         /// Returns the stored recipe templates.
         pub fn templates(self) -> usize {
             if self.is_button() {
-                5 // Normal + custom recipe + three native helpers.
+                5
             } else {
                 1
             }
@@ -684,6 +684,11 @@ impl FighterProfiles {
                         && e.slot == slot
                         && e.sequence.mode.is_none()
                 });
+                let has_button_entries = catalog.entries().iter().any(|entry| {
+                    entry.fighter_kind == profile.fighter_kind
+                        && entry.slot == slot
+                        && entry.sequence.mode.is_none()
+                });
                 let list = &mut profile.menu_options.lists[slot as usize];
                 let mut options = Vec::new();
                 let mut selected = None;
@@ -708,7 +713,11 @@ impl FighterProfiles {
                 }
                 list.selected = selected.unwrap_or_else(|| {
                     if slot.is_button() {
-                        slot.default_index(options.len())
+                        if !has_button_entries {
+                            slot.default_index(options.len())
+                        } else {
+                            first_regular.unwrap_or(options.len())
+                        }
                     } else {
                         first_regular.unwrap_or(options.len())
                     }

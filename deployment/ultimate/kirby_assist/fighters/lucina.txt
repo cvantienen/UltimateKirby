@@ -1,97 +1,76 @@
-# ---- NEUTRAL ----
-[lucina.settings]
-counter_default = true
-counter_startup = 5
-counter_margin = 4
-counter_half_width = 5
-counter_height = 16
-counter_half_depth = 5
-
 [lucina.neutral.nair]
+default = false
 name = SIDE B
 start_delay = 18
 timeout = 3600
 spatial_timeout = 60
 actions = controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:0:-1:0:0:1:opponent:opponent
-# F34 target; Neutral Air active 15-21; includes 3f jump squat
-default = false
 
 [lucina.neutral.down_tilt]
+default = false
 name = B
-# F34 target; Down Tilt active 7-8
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = opponent_input:b:0:0:26
 
 [lucina.neutral.forward_tilt]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = wait:21, opponent_input:a:0.6:0:1
-# F34 target; Forward Tilt active 8-11
 name = Forward tilt
-default = true
 
 [lucina.neutral.up_tilt]
-# F34 target; Up Tilt active 6-12
+default = true
 name = F-tilt
 start_delay = 20
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.forward_smash]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:1:0:20, wait:1
-# F34 target; Forward Smash active 10-13; charge point 3, hold 25
 name = f-smash
-default = false
 
-# ---- JUMP ----
 [lucina.jump.nair]
-# F14 target; Neutral Air active 6-7; includes 3f jump squat
+default = false
 name = N-air
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = opponent_input:a+x:0:0:1
 
 [lucina.jump.forward_air]
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a+x:1:0:4
-# F14 target; Forward Air active 6-8; includes 3f jump squat
 name = F-air
-default = false
 
 [lucina.jump.up_air]
-# F14 target; Up Air active 5-9; includes 3f jump squat
+default = false
 name = F-TILT
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = true
 actions = opponent_input:a:0.6:0:1
 
 [lucina.jump.f_smash]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:1:0:1
-# F14 target; Up Tilt active 6-12
 name = F SMASH
-default = false
 
-# ---- ROLL ----
 [lucina.roll.down_smash]
-# F31 target; Down Smash active 6-7; charge point 4, hold 29; rear phase 21-23 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -100,7 +79,6 @@ default = true
 actions = drift:away_from_opponent:0.5:4, facing_input:a:0:-1:20
 
 [lucina.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 0
 timeout = 3600
@@ -109,17 +87,15 @@ default = false
 actions = drift:away_from_opponent:0.5:8, range:fighter_range, input:r:0:0:1
 
 [lucina.roll.f_smash]
-# F14 target; Up Tilt active 6-12
-name = F SMASH
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = drift:away_from_opponent:1:15, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:0:0:0:0:1:opponent:opponent
+name = F SMASH
 default = false
-actions = drift:away_from_opponent:0.5:8, facing_input:a:1:0:15
 
-# ---- ATTACK ----
 [lucina.attack.shield_nair]
-name = Shield > f Tilt 
+name = Shield > f Tilt
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
@@ -158,7 +134,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [lucina.drop.shield]
 default = false
 name = Shield
@@ -206,16 +181,6 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[lucina.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:22.5:24
-actions = input:r:0:0:4
 
 [lucina.roll.auto_shield_grab]
 name = Automatic grab (shielded)
@@ -275,4 +240,12 @@ ground_only = true
 reaction = auto_grab_dodged:10:12
 name = Dodged grab > Up B
 default = false
+
+[lucina.settings]
+counter_default = true
+counter_startup = 7
+counter_margin = 5
+counter_half_width = 11
+counter_height = 16
+counter_half_depth = 5
 

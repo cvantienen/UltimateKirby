@@ -24,8 +24,6 @@ const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
 const MAX_TURNING_FRAMES: f32 = 2.0;
 /// Maximum native frames allowed to deliver the Oil Panic input.
 const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
-/// Additional Oil Panic startup allowance when Game & Watch must turn first.
-const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
 /// Recently attempted shots remembered so a missed/consumed shot is not retried.
 const ATTEMPT_MEMORY: usize = 32;
 
@@ -434,24 +432,14 @@ impl Reflector {
             ..Default::default()
         }
     }
-    /// Whether a new reflect started now covers this shot: Game & Watch can
-    /// act, the shot is a fresh attempt, and it arrives inside the startup
-    /// window (a turn-around costs extra startup and keeps a larger margin).
+    /// Start on an observed incoming shot even if the estimated contact is
+    /// sooner than startup; delaying cannot improve a late defense.
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
-        let (extra_startup, extra_margin) = if facing {
-            (0., 0.)
-        } else {
-            (
-                TURNING_REFLECT_STARTUP_EXTRA_FRAMES,
-                REFLECT_CONTACT_SAFETY_MARGIN_FRAMES,
-            )
-        };
         movable(c.animation.status, c.situation)
             && c.can_special
             && !self.attempted.contains(&Some(threat.key()))
             && (facing || c.situation == crate::native_states::situation::GROUND)
-            && (config.startup + extra_startup..=config.startup + config.margin + extra_margin)
-                .contains(&threat.in_frames)
+            && (0.0..=config.horizon()).contains(&threat.in_frames)
     }
 }
 
@@ -697,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn full_bucket_and_late_projectile_do_not_request_input() {
+    fn full_bucket_blocks_input_but_late_projectile_requests_immediately() {
         let threat = Threat {
             id: 0x10000005,
             generation: 1,
@@ -713,8 +701,8 @@ mod tests {
                     context(crate::native_states::status::WAIT, 1.0),
                     Some(threat)
                 )
-                .requested,
-            0
+                .requested & MAPPER_B,
+            MAPPER_B
         );
         let mut full = context(crate::native_states::status::WAIT, 1.0);
         full.gauge = 3.0;

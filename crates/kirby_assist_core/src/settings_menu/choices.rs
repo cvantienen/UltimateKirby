@@ -29,10 +29,9 @@ pub(super) enum Source<'a> {
         &'a SavedChoice,
     ),
     /// `Builtin` option in the `Source` Smash policy state.
-    Builtin(
-        /// Carries the builtin choice source in `Source`.
-        Builtin,
-    ),
+    Builtin(Builtin),
+    /// Universal editable B-reverse starter, available for every fighter.
+    BReverse,
     /// `Custom` option in the `Source` Smash policy state.
     Custom,
 }
@@ -43,6 +42,7 @@ impl<'a> Source<'a> {
             Self::Draft(d) => &d.id,
             Self::Saved(c) => c.id,
             Self::Builtin(b) => b.choice_id(),
+            Self::BReverse => "universal_b_reverse",
             Self::Custom => "menu_custom",
         }
     }
@@ -52,6 +52,7 @@ impl<'a> Source<'a> {
             Self::Draft(d) => &d.name,
             Self::Saved(c) => c.name,
             Self::Builtin(b) => b.label(),
+            Self::BReverse => "B-reverse",
             Self::Custom => "Custom (6 slots)",
         }
     }
@@ -60,7 +61,7 @@ impl<'a> Source<'a> {
         match self {
             Self::Draft(d) => d.new,
             Self::Saved(_) => false,
-            Self::Builtin(_) | Self::Custom => true,
+            Self::Builtin(_) | Self::BReverse | Self::Custom => true,
         }
     }
     /// Returns an optional `builtin` value.
@@ -69,7 +70,7 @@ impl<'a> Source<'a> {
             Self::Draft(d) => d.sequence.builtin,
             Self::Saved(c) => c.sequence.builtin,
             Self::Builtin(b) => Some(*b),
-            Self::Custom => None,
+            Self::BReverse | Self::Custom => None,
         }
     }
     /// Returns the `sequence` result.
@@ -81,6 +82,7 @@ impl<'a> Source<'a> {
                 builtin: Some(*b),
                 ..Sequence::default()
             },
+            Self::BReverse => b_reverse_sequence(),
             Self::Custom => editor::RecipeEditor::custom(),
         }
     }
@@ -89,6 +91,30 @@ impl<'a> Source<'a> {
 pub(super) fn is_blank(sequence: &Sequence) -> bool {
     sequence.actions().iter().all(|a| *a == Action::Empty)
 }
+fn b_reverse_sequence() -> Sequence {
+    use crate::sequence_config::{Action, Direction};
+    let mut sequence = Sequence::default();
+    sequence.actions[..3].copy_from_slice(&[
+        Action::Drift {
+            direction: Direction::Facing,
+            strength: 1.0,
+            frames: 2,
+        },
+        Action::OpponentInput {
+            buttons: crate::native_input::MAPPER_B,
+            stick: [-0.3, 0.0],
+            frames: 2,
+        },
+        Action::Drift {
+            direction: Direction::Backward,
+            strength: 1.0,
+            frames: 4,
+        },
+    ]);
+    sequence.len = 3;
+    sequence
+}
+
 /// What the catalog needs from every reaction rule, accumulated in one scan.
 #[derive(Default)]
 struct RuleScan {
@@ -96,8 +122,7 @@ struct RuleScan {
     simplified: bool,
     /// Runtime has reactions value used by RuleScan..
     has_reactions: bool,
-    /// Runtime auto grab value used by RuleScan..
-    auto_grab: u8,
+    shield_grab: bool,
     /// Runtime buttons value used by RuleScan..
     buttons: u32,
     /// Runtime controls value used by RuleScan..
@@ -106,15 +131,10 @@ struct RuleScan {
 impl RuleScan {
     /// Updates the `add` state using the supplied inputs.
     fn add(&mut self, rule: crate::reaction_rules::Rule) {
-        use crate::reaction_rules::Trigger;
         if self.simplified && rule.trigger.simple().is_none() {
             return;
         }
-        self.auto_grab |= match rule.trigger {
-            Trigger::AutoGrab => 1,
-            Trigger::AutoShieldGrab => 2,
-            _ => 0,
-        };
+        self.shield_grab |= rule.trigger == crate::reaction_rules::Trigger::AutoShieldGrab;
         self.has_reactions |= rule.active();
         if rule.active() && !rule.trigger.defensive() {
             self.buttons |= rule.control.button();
@@ -259,7 +279,7 @@ impl MenuSelection {
             }
         }
         self.has_reactions = scan.has_reactions;
-        self.auto_grab_configured = scan.auto_grab;
+        self.auto_grab_configured = u8::from(scan.shield_grab);
         let newly_reserved = scan.buttons & !self.rule_button_mask;
         self.trigger_ready &= !newly_reserved;
         self.button_latch |= held & newly_reserved;
@@ -286,20 +306,6 @@ impl MenuSelection {
     pub(super) fn catalog_mut(&mut self) -> &mut catalog::Catalog {
         self.catalog.get_or_insert_with(Default::default)
     }
-    /// Does a live recipe for this slot already provide the built-in action?
-    fn builtin_recorded(
-        &self,
-        slot: PresetSlot,
-        builtin: Builtin,
-        options: &[SavedChoice],
-    ) -> bool {
-        options.iter().any(|c| c.sequence.builtin == Some(builtin))
-            || self.catalog.as_ref().is_some_and(|c| {
-                c.drafts.iter().any(|((s, _), d)| {
-                    *s == slot as usize && !d.deleted && d.sequence.builtin == Some(builtin)
-                })
-            })
-    }
     /// Returns an optional `source` value.
     pub(super) fn source<'a>(
         &'a self,
@@ -315,18 +321,22 @@ impl MenuSelection {
             return c.sequence.mode.is_none().then_some(Source::Saved(c));
         }
         if slot.is_button() {
-            let template = Builtin::ALL
-                .into_iter()
-                .find(|b| index == options.len() + b.template_offset());
-            if let Some(builtin) = template {
-                // A built-in template disappears once a recipe provides it,
-                // unless it is the current selection.
-                let hidden = self.choices[slot as usize] != index
-                    && self.builtin_recorded(slot, builtin, options);
-                return (!hidden).then_some(Source::Builtin(builtin));
+            if index == options.len() + 1 {
+                return Some(Source::Custom);
             }
+            if index == options.len() + 2 {
+                return Some(Source::BReverse);
+            }
+            let template = Builtin::MENU.into_iter().find(|builtin| {
+                index == options.len() + builtin.visible_template_offset().unwrap()
+            });
+            if let Some(builtin) = template {
+                return Some(Source::Builtin(builtin));
+            }
+        } else if index == options.len() {
+            return Some(Source::Custom);
         }
-        (index == options.len() + usize::from(slot.is_button())).then_some(Source::Custom)
+        None
     }
     /// Resolve only identity for the hot input path; do not copy 32 actions.
     pub fn choice_labels<'a>(
@@ -604,9 +614,9 @@ impl MenuSelection {
     /// Updates the `complete_deletion` state using the supplied inputs.
     fn complete_deletion(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         let key = (slot as usize, index);
-        // A Custom saved at the template's index becomes a blank reusable
-        // template after deletion, not a hidden last row.
-        if index == presets.list(slot).options.len() + usize::from(slot.is_button()) {
+        // A Custom saved at its template index becomes reusable after deletion.
+        let custom_index = presets.list(slot).options.len() + usize::from(slot.is_button());
+        if index == custom_index {
             self.catalog_mut().drafts.remove(&key);
             if let Some(editor) = self.editor.as_mut() {
                 editor.discard(key);
@@ -620,7 +630,9 @@ impl MenuSelection {
                 .copied()
                 .find(|i| *i > index)
                 .or_else(|| visible.last().copied())
-                .unwrap_or(presets.list(slot).options.len());
+                .unwrap_or_else(|| {
+                    presets.list(slot).options.len() + if slot.is_button() { 2 } else { 0 }
+                });
         }
         self.bump_recipes();
         if was_selected && self.row.slot() == Some(slot) {
@@ -678,7 +690,7 @@ impl MenuSelection {
         let Some(source) = self.source(presets, slot, index) else {
             return;
         };
-        let permanent = source.builtin().is_some();
+        let permanent = source.builtin().is_some() || source.id() == "universal_b_reverse";
         let draft = catalog::Draft {
             id: source.id().into(),
             name: source.name().into(),
@@ -799,6 +811,8 @@ impl MenuSelection {
                 .as_ref()
                 .and_then(|e| e.compiled((slot as usize, index)))
                 .unwrap_or(current.sequence)
+        } else if current.id == "universal_b_reverse" {
+            current.sequence
         } else {
             editor::RecipeEditor::custom()
         };

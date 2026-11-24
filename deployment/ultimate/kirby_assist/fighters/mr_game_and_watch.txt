@@ -1,21 +1,16 @@
-# ---- NEUTRAL ----
 [mr_game_and_watch.neutral.nair]
 name = HAM
 start_delay = 12
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:b:1:0:4
-# F34 target; Neutral Air active 7-10; includes 3f jump squat
 default = false
-
-# F34 target; Down Tilt active 6-8
 
 [mr_game_and_watch.neutral.forward_tilt]
 start_delay = 16
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:0.6:0:1
-# F34 target; Forward Tilt active 8-20
 name = Forward tilt
 default = true
 
@@ -24,7 +19,6 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = walk_to_opponent:0.8:10:0, face:away_from_opponent, opponent_input:a:0:1:10, wait:1
-# F34 target; Up Smash active 21-25; charge point 15, hold 26
 name = Up Smash
 default = false
 
@@ -33,17 +27,14 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:1:0:22, wait:1
-# F34 target; Forward Smash active 17-18; charge point 7, hold 23
 name = Torch f-smash
 default = false
 
-# ---- JUMP ----
 [mr_game_and_watch.jump.nair]
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:x:0:0:1, facing_input:a:0:0:1, drift:opponent:0.8:4
-# F14 target; Neutral Air active 7-10; includes 3f jump squat
 name = Nair
 default = true
 
@@ -52,17 +43,14 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:0.6:0:1
-# F14 target; Up Tilt active 10-12
 name = Foward tilt
 default = false
 
-# ---- ROLL ----
 [mr_game_and_watch.roll.down_smash]
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = walk:away_from_opponent:5:0.85, opponent_input:a:0:-1:16, wait:1
-# F31 target; Down Smash active 12-16; charge point 6, hold 23
 name = Bury hammers
 default = true
 
@@ -71,11 +59,9 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = wait:10, drift:away_from_opponent:0.75:10, range:fighter_range, input:r:0:0:1
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 default = false
 
-# ---- ATTACK ----
 [mr_game_and_watch.attack.shield_nair]
 start_delay = 0
 timeout = 3600
@@ -92,7 +78,6 @@ spatial_timeout = 60
 default = true
 actions = shield_until_block:90, input:b:0:1:1
 
-# ---- DROP ----
 [mr_game_and_watch.drop.shield]
 name = Shield
 start_delay = 0
@@ -116,16 +101,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[mr_game_and_watch.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:20.5:24
-actions = input:r:0:0:4
 
 [mr_game_and_watch.roll.auto_shield_grab]
 name = Automatic grab (shielded)
@@ -186,19 +161,12 @@ reaction = auto_grab_dodged:25:12
 name = Dodged grab > Up B
 default = false
 
-# Input-only projectile defense; Bucket cannot defend while full.
 [mr_game_and_watch.settings]
 reflect_default = true
-reflect_startup = 6
-reflect_margin = 4
+reflect_startup = 15
+reflect_margin = 8
 reflect_max_hold = 45
-reflect_half_width = 5
+reflect_half_width = 15
 reflect_height = 16
-reflect_half_depth = 5
-
-# MYTHRA — separate form, separate saved menu
-# Editable starter slots; no default attack, swap or reflector is injected.
-# Open the Training editor to author each ledge response and Auto-react event.
-# Generic automatic grabs keep this form's independent native/reference range.
-# Character-specific automatic punish events remain OFF until configured.
+reflect_half_depth = 15
 

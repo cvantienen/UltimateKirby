@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [squirtle.neutral.nair]
-# F34 target; Neutral Air active 4-26; includes 3f jump squat
 name = Nair
 start_delay = 16
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [squirtle.neutral.down_tilt]
-# F34 target; Down Tilt active 8-13
 name = Down tilt
 start_delay = 23
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [squirtle.neutral.forward_tilt]
-# F34 target; Forward Tilt active 5-6
 name = Forward tilt
 start_delay = 28
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [squirtle.neutral.up_tilt]
-# F34 target; Up Tilt active 5-6
 name = Up tilt
 start_delay = 28
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [squirtle.neutral.forward_smash]
-# F34 target; Forward Smash active 20-21; charge point 5, hold 18
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:18, release:1
 
-# ---- JUMP ----
 [squirtle.jump.nair]
-# F14 target; Neutral Air active 4-26; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
@@ -55,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:0:1
 
 [squirtle.jump.forward_air]
-# F14 target; Forward Air active 5-14; includes 3f jump squat
 name = Forward air
 start_delay = 2
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [squirtle.jump.up_air]
-# F14 target; Up Air active 5-9; includes 3f jump squat
 name = Up air
 start_delay = 4
 timeout = 3600
@@ -73,7 +63,6 @@ default = false
 actions = opponent_input:a+x:0:1:1
 
 [squirtle.jump.up_tilt]
-# F14 target; Up Tilt active 5-6
 name = Grounded up tilt
 start_delay = 9
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [squirtle.roll.down_smash]
-# F31 target; Down Smash active 18-19; charge point 6, hold 19; rear phase 24-25 aligned separately
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = if_facing_opponent, opponent_input:a:0:-1:19, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
 
 [squirtle.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 25
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [squirtle.roll.down_tilt]
-# F31 target; Down Tilt active 8-13
 name = Down tilt
 start_delay = 21
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [squirtle.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -142,7 +126,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [squirtle.drop.shield]
 name = Shield
 start_delay = 0
@@ -190,16 +173,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
-[squirtle.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:22:24
-actions = input:r:0:0:4
 
 [squirtle.roll.auto_shield_grab]
 name = Automatic grab (shielded)
@@ -259,8 +232,4 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:0:1
-
-# ======================================================================
-#                                 STEVE
-# ======================================================================
 

@@ -78,70 +78,32 @@ pub fn stationary_grab_state(status: i32) -> bool {
             | crate::native_states::GUARD
     )
 }
-/// Ground locomotion, crouch and ordinary landing may grab as soon as native
-/// transitions permit it. Attack recovery, shield drop/stun and air stay out.
+/// Only shield states may start an automatic shield grab.
 pub fn ground_grab_state(status: i32) -> bool {
-    matches!(
-        status,
-        crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::GUARD_ON | crate::native_states::GUARD
-    )
+    matches!(status, crate::native_states::GUARD_ON | crate::native_states::GUARD)
 }
-/// Existing idle assistance retains its one delivered approach pulse. Already
-/// moving/landing actors send Grab immediately, without first easing the stick.
-pub fn automatic_grab_needs_approach(status: i32, velocity_x: f32) -> bool {
-    status == crate::native_states::status::WAIT
-        && velocity_x.is_finite()
-        && velocity_x.abs() <= 0.01
-}
-/// Held guard permits direct shield grab. Ground movement can use standing or
-/// dash-catch readiness; no pivot input or native status is forced.
+/// Held guard permits direct shield grab using native standing-catch readiness.
 pub fn automatic_grab_ready(status: i32, enabled: impl FnMut(i32) -> bool) -> bool {
-    automatic_grab_ready_with_shield(
-        status,
-        matches!(
-            status,
-            crate::native_states::GUARD_ON | crate::native_states::GUARD
-        ),
-        enabled,
-    )
+    automatic_grab_ready_with_shield(status, true, enabled)
 }
-/// A fresh physical shield press counts before the native status catches up;
-/// its direct grab must never borrow dash-catch readiness from locomotion.
+/// A fresh physical shield press counts before the native status catches up.
 pub fn automatic_grab_ready_with_shield(
     status: i32,
     shielded: bool,
     mut enabled: impl FnMut(i32) -> bool,
 ) -> bool {
-    ground_grab_state(status)
+    shielded
+        && ground_grab_state(status)
         && (status == crate::native_states::GUARD
-            || enabled(crate::native_states::transition_terms::CONT_CATCH)
-            || !shielded
-                && !matches!(
-                    status,
-                    crate::native_states::GUARD_ON | crate::native_states::GUARD
-                )
-                && enabled(crate::native_states::transition_terms::CONT_CATCH_DASH))
-}
-/// Unshielded automatic grabs require observed enemy shield startup/hold/damage.
-/// Native vulnerability, capture links, front side and range are separate gates.
-pub fn automatic_grab_target_status(status: i32) -> bool {
-    matches!(
-        status,
-        crate::native_states::GUARD_ON
-            | crate::native_states::GUARD
-            | crate::native_states::GUARD_DAMAGE
-    )
+            || enabled(crate::native_states::transition_terms::CONT_CATCH))
 }
 /// Shield grabs may punish ordinary hittable opponents without enemy shield.
 /// Downed/tripped bodies cannot be ordinary-grab targets; shield Up-B may hit
 /// them instead. Current vulnerability/capture links and reach are checked too.
 pub fn automatic_grab_target_status_with_shield(status: i32, shielded: bool) -> bool {
-    if shielded {
-        automatic_shield_target_status(status)
-            && !crate::native_states::ordinary_grab_immune(status)
-    } else {
-        automatic_grab_target_status(status)
-    }
+    shielded
+        && automatic_shield_target_status(status)
+        && !crate::native_states::ordinary_grab_immune(status)
 }
 /// Up-B may hit a vulnerable downed opponent that cannot be grabbed. Keep
 /// captures, ledge visits and noncombat states outside the ordinary OOS policy.
@@ -281,10 +243,6 @@ impl OutOfShield {
         }
     }
 
-    /// Observes the statuses.
-    pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
-        self.simple.observe_statuses(known);
-    }
     /// Returns the selected target observation.
     pub fn target(&self) -> Option<u32> {
         self.simple
@@ -360,12 +318,12 @@ impl OutOfShield {
         context: crate::gameplay::GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
         attacker: Option<crate::gameplay::Opponent>,
-        close: f32,
+        range: f32,
         _legacy_far: f32,
     ) -> ControllerOutput {
         let startup = crate::fighter_data::ordinary_grab(c.kind, crate::native_states::CATCH)
             .map(|g| f32::from(g.first));
-        self.sample_simple_timed(allowed, c, context, targets, attacker, close, startup)
+        self.sample_simple_timed(allowed, c, context, targets, attacker, range, startup)
     }
     /// The live adapter supplies this fighter's resolved standing/shield startup.
     /// No new delay: this only rejects projected misses before pressing Grab.
@@ -391,8 +349,6 @@ impl OutOfShield {
                 range,
                 height: 24.,
                 startup,
-                close: range,
-                approach: false,
                 shielded: matches!(
                     c.status,
                     crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
@@ -400,9 +356,7 @@ impl OutOfShield {
             },
         )
     }
-    /// Front vulnerable-target grab (enemy shield required only when unshielded):
-    /// direct neutral-axis R in shield, immediate
-    /// R during ground movement/landing, or one idle approach pulse then R.
+    /// Front vulnerable-target grab: direct neutral-axis R while shielding.
     pub fn sample_automatic(
         &mut self,
         allowed: bool,
@@ -412,7 +366,7 @@ impl OutOfShield {
         follow: Option<crate::gameplay::Opponent>,
         shielded: bool,
         close: f32,
-        approach: f32,
+        _legacy_approach: f32,
         startup: Option<f32>,
     ) -> ControllerOutput {
         self.sample_automatic_configured(
@@ -423,7 +377,7 @@ impl OutOfShield {
             follow,
             shielded,
             close,
-            approach,
+            _legacy_approach,
             startup,
             crate::settings::AssistSettings {
                 fighter_kind: c.kind,
@@ -431,28 +385,6 @@ impl OutOfShield {
             },
             AutomaticConfig::default(),
         )
-    }
-    /// Neutralize the stick during unshielded Grab delivery while preserving
-    /// manual turning-away cancellation. Shield grabs already use neutral axes.
-    pub fn with_grab_movement(
-        &mut self,
-        mut output: ControllerOutput,
-        physical: [f32; 2],
-    ) -> ControllerOutput {
-        if self.simple.turning_away(physical[0]) {
-            self.suspend_automatic();
-            return ControllerOutput::default();
-        }
-        if self.simple.unshielded_grab_started()
-            && output.requested & crate::native_input::MAPPER_R != 0
-        {
-            output.stick = Some([0.0, 0.0]);
-        }
-        output
-    }
-    /// Determines whether the `unshielded_grab_started` condition holds.
-    pub fn unshielded_grab_started(&self) -> bool {
-        self.simple.unshielded_grab_started()
     }
     /// Determines whether the `shield_up_b_pending` condition holds.
     pub fn shield_up_b_pending(&self) -> bool {
@@ -501,18 +433,6 @@ impl OutOfShield {
     /// Determines whether the `automatic_grab_pending` condition holds.
     pub fn automatic_grab_pending(&self) -> bool {
         self.simple.active() && !self.configured_response && !self.configured_settling
-    }
-    /// Determines whether the `approach_pending` condition holds.
-    pub fn approach_pending(&self) -> bool {
-        self.simple.approach_pending()
-    }
-    /// Determines whether the `approach_active` condition holds.
-    pub fn approach_active(&self) -> bool {
-        self.simple.approach_active()
-    }
-    /// Updates the `mapped_approach` state using the supplied inputs.
-    pub fn mapped_approach(&mut self, tick: i64, target: u32) {
-        self.simple.mapped_approach(tick, target);
     }
     /// Samples the configured.
     pub fn sample_configured(

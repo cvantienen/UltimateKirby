@@ -1,7 +1,4 @@
-# ---- NEUTRAL ----
-
 [min_min.neutral.nair]
-# F34 target; Neutral Air active 10-23; includes 3f jump squat
 name = Nair
 start_delay = 21
 timeout = 3600
@@ -10,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [min_min.neutral.down_tilt]
-# F34 target; Down Tilt active 10-14
 name = Down tilt
 start_delay = 23
 timeout = 3600
@@ -19,7 +15,6 @@ default = false
 actions = opponent_input:a:0:-0.6:1
 
 [min_min.neutral.forward_tilt]
-# F34 target; Forward Tilt active 14-14
 name = Forward tilt
 start_delay = 19
 timeout = 3600
@@ -28,7 +23,6 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [min_min.neutral.up_tilt]
-# F34 target; Up Tilt active 5-6
 name = Up tilt
 start_delay = 28
 timeout = 3600
@@ -36,10 +30,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- JUMP ----
-
 [min_min.jump.nair]
-# F14 target; Neutral Air active 10-23; includes 3f jump squat
 name = Nair
 start_delay = 1
 timeout = 3600
@@ -48,7 +39,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [min_min.jump.up_air]
-# F14 target; Up Air active 7-13; includes 3f jump squat
 name = Up air
 start_delay = 4
 timeout = 3600
@@ -57,7 +47,6 @@ default = true
 actions = opponent_input:a+x:0:1:1
 
 [min_min.jump.up_tilt]
-# F14 target; Up Tilt active 5-6
 name = Grounded up tilt
 start_delay = 8
 timeout = 3600
@@ -65,10 +54,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
-
 [min_min.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 13
 timeout = 3600
@@ -77,15 +63,12 @@ default = true
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [min_min.roll.down_tilt]
-# F31 target; Down Tilt active 10-14
 name = Down tilt
 start_delay = 21
 timeout = 3600
 spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
-
-# ---- ATTACK ----
 
 [min_min.attack.shield_nair]
 name = Shield > Nair
@@ -110,8 +93,6 @@ timeout = 3600
 spatial_timeout = 60
 default = true
 actions = shield_until_block:90, opponent_input:a+x:0:1:1
-
-# ---- DROP ----
 
 [min_min.drop.shield]
 name = Shield
@@ -144,8 +125,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, down_smash:1
-
-# ---- AUTO REACT ----
 
 [min_min.roll.auto_shield_backup]
 name = Shield backup > Up Air

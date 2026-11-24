@@ -1,6 +1,4 @@
-# ---- NEUTRAL ----
 [zero_suit_samus.neutral.nair]
-# F34 target; Neutral Air active 10-11; includes 3f jump squat
 name = Nair
 start_delay = 20
 timeout = 3600
@@ -9,7 +7,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [zero_suit_samus.neutral.down_tilt]
-# F34 target; Down Tilt active 8-9
 name = Down tilt
 start_delay = 25
 timeout = 3600
@@ -18,7 +15,6 @@ default = true
 actions = opponent_input:a:0:-0.6:1
 
 [zero_suit_samus.neutral.forward_tilt]
-# F34 target; Forward Tilt active 6-8
 name = Forward tilt
 start_delay = 27
 timeout = 3600
@@ -27,7 +23,6 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [zero_suit_samus.neutral.up_tilt]
-# F34 target; Up Tilt active 3-4
 name = Up tilt
 start_delay = 30
 timeout = 3600
@@ -36,7 +31,6 @@ default = false
 actions = opponent_input:a:0:0.6:1
 
 [zero_suit_samus.neutral.forward_smash]
-# F34 target; Forward Smash active 13-14; charge point 9, hold 29
 name = Forward smash
 start_delay = 0
 timeout = 3600
@@ -44,9 +38,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:1:0:29, release:1
 
-# ---- JUMP ----
 [zero_suit_samus.jump.nair]
-# F14 target; Neutral Air active 10-11; includes 3f jump squat
 name = Nair
 start_delay = 1
 timeout = 3600
@@ -55,7 +47,6 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [zero_suit_samus.jump.forward_air]
-# F14 target; Forward Air active 6-7; includes 3f jump squat
 name = Forward air
 start_delay = 5
 timeout = 3600
@@ -64,7 +55,6 @@ default = false
 actions = opponent_input:a+x:1:0:1
 
 [zero_suit_samus.jump.up_air]
-# F14 target; Up Air active 6-12; includes 3f jump squat
 name = Up air
 start_delay = 2
 timeout = 3600
@@ -73,7 +63,6 @@ default = true
 actions = opponent_input:a+x:0:1:1
 
 [zero_suit_samus.jump.up_tilt]
-# F14 target; Up Tilt active 3-4
 name = Grounded up tilt
 start_delay = 11
 timeout = 3600
@@ -81,9 +70,7 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:0.6:1
 
-# ---- ROLL ----
 [zero_suit_samus.roll.down_smash]
-# F31 target; Down Smash active 20-24; charge point 15, hold 24
 name = Down smash
 start_delay = 0
 timeout = 3600
@@ -92,7 +79,6 @@ default = true
 actions = opponent_input:a:0:-1:24, release:1
 
 [zero_suit_samus.roll.grab]
-# F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 start_delay = 16
 timeout = 3600
@@ -101,7 +87,6 @@ default = false
 actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [zero_suit_samus.roll.down_tilt]
-# F31 target; Down Tilt active 8-9
 name = Down tilt
 start_delay = 23
 timeout = 3600
@@ -109,7 +94,6 @@ spatial_timeout = 60
 default = false
 actions = opponent_input:a:0:-0.6:1
 
-# ---- ATTACK ----
 [zero_suit_samus.attack.shield_nair]
 name = Shield > Nair
 start_delay = 0
@@ -150,7 +134,6 @@ spatial_timeout = 60
 default = false
 actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
-# ---- DROP ----
 [zero_suit_samus.drop.shield]
 name = Shield
 start_delay = 0
@@ -182,16 +165,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = face:opponent, short_hop_fair:1
-
-# ---- AUTO REACT ----
-[zero_suit_samus.roll.auto_grab]
-name = Automatic grab (unshielded)
-start_delay = 0
-timeout = 240
-spatial_timeout = 60
-default = false
-reaction = auto_grab:45:24
-actions = input:r:0:0:4
 
 [zero_suit_samus.roll.auto_shield_grab]
 name = Automatic grab (shielded)
