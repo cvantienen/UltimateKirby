@@ -423,7 +423,7 @@ pub struct AutoDi {
     /// Runtime manual value used by AutoDi..
     manual: bool,
     /// Runtime stage key value used by AutoDi..
-    stage_key: Option<([f32; 2], Settings)>,
+    stage_key: Option<([f32; 2], f32, Settings, Trajectory)>,
     /// Runtime stage decision value used by AutoDi..
     stage_decision: Option<Decision>,
 }
@@ -442,8 +442,22 @@ impl AutoDi {
         self.manual = false;
         self.sample(settings, c, [0.; 2])
     }
-    /// Re-evaluate at the start of the final launch-input phase, then hold the
-    /// same result through release. Early SDI may have changed the position.
+    fn cached_trajectory_decision(
+        &mut self,
+        settings: Settings,
+        c: Context,
+        trajectory: Trajectory,
+    ) -> Option<Decision> {
+        let key = (c.launch, c.outward, settings, trajectory);
+        if self.stage_key != Some(key) {
+            self.stage_decision = choose_trajectory(settings, c, trajectory);
+            self.stage_key = Some(key);
+        }
+        self.stage_decision
+    }
+
+    /// Re-evaluate when the observed launch or trajectory changes; repeated
+    /// observations with identical facts reuse the decision through release.
     pub fn sample_exclusive_with_trajectory(
         &mut self,
         settings: Settings,
@@ -459,12 +473,7 @@ impl AutoDi {
             return fallback;
         }
         if let Some(trajectory) = trajectory.filter(|t| t.valid()) {
-            let key = (c.launch, settings);
-            if self.stage_key != Some(key) {
-                self.stage_decision = choose_trajectory(settings, c, trajectory);
-                self.stage_key = Some(key);
-            }
-            self.decision = self.stage_decision;
+            self.decision = self.cached_trajectory_decision(settings, c, trajectory);
             self.decision.map(|d| d.stick)
         } else {
             fallback
@@ -509,5 +518,68 @@ impl AutoDi {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trajectory_cache_tracks_position_and_survival_window() {
+        let settings = Settings::default();
+        let context = Context {
+            object: 1,
+            damage_stop: true,
+            remaining: 2,
+            launch: [8., 0.5],
+            outward: 1.,
+        };
+        let blast = BlastZone {
+            left: -100.,
+            right: 100.,
+            bottom: -100.,
+            top: 100.,
+        };
+        let first = Trajectory {
+            position: [80., 0.],
+            blast,
+            hitstun: 10.,
+            gravity: 0.1,
+            fall_speed: 2.,
+        };
+        let mut di = AutoDi::default();
+        assert_eq!(
+            di.cached_trajectory_decision(settings, context, first),
+            Some(choose_trajectory(settings, context, first).unwrap())
+        );
+        let moved = Trajectory {
+            position: [-80., 0.],
+            ..first
+        };
+        assert_ne!(
+            choose_trajectory(settings, context, first).unwrap().stick,
+            choose_trajectory(settings, context, moved).unwrap().stick
+        );
+        assert_eq!(
+            di.cached_trajectory_decision(settings, context, moved),
+            choose_trajectory(settings, context, moved)
+        );
+        let shorter = Trajectory {
+            hitstun: 2.,
+            ..moved
+        };
+        assert_eq!(
+            di.cached_trajectory_decision(settings, context, shorter),
+            choose_trajectory(settings, context, shorter)
+        );
+        let reversed = Context {
+            outward: -1.,
+            ..context
+        };
+        assert_eq!(
+            di.cached_trajectory_decision(settings, reversed, shorter),
+            choose_trajectory(settings, reversed, shorter)
+        );
     }
 }

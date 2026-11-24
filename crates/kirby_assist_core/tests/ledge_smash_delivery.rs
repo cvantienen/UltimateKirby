@@ -203,6 +203,32 @@ fn static_guard_uses_enemy_frames_for_the_configured_four_frame_release_tail() {
     assert!(!g.sample_with_progress(true, false, own, 4., source(5.)));
 }
 #[test]
+fn zero_rate_guard_preserves_tail_using_only_observed_enemy_progress() {
+    for status in [
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
+        let own = GuardClock {
+            status,
+            rate: 0.,
+            ..gc(0.)
+        };
+        let mut g = GuardHold::default();
+        assert!(g.sample_with_progress(true, true, own, 4., source(0.)));
+        for frame in 1..4 {
+            for _ in 0..20 {
+                assert!(g.sample_with_progress(true, false, own, 4., source(frame as f32)));
+            }
+        }
+        assert!(!g.sample_with_progress(true, false, own, 4., source(4.)));
+        assert!(g.sample_with_progress(true, true, own, 4., source(5.)));
+        assert!(!g.sample_with_progress(true, false, own, 4., None));
+        assert!(g.sample_with_progress(true, true, own, 4., source(6.)));
+        assert!(!g.sample_with_progress(false, true, own, 4., source(6.)));
+    }
+}
+
+#[test]
 fn missing_or_passive_clock_cannot_latch_shield_after_the_threat_ends() {
     for source in [
         None,
