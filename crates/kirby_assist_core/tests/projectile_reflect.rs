@@ -548,7 +548,8 @@ fn reflector_and_punishes_cannot_own_input_together_and_ledge_off_safety_win() {
     }
     assert_eq!(
         ownership.select(true, &[input(Owner::Reflect), input(Owner::Safety)]),
-        Some(Owner::Safety)
+        Some(Owner::Reflect),
+        "Auto-Tech/SDI must yield to committed automatic reactions"
     );
     ownership = ActionOwnership::new();
     ownership.select(true, &[input(Owner::Reflect)]);

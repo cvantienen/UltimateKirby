@@ -91,10 +91,12 @@ fn ledge_toggle_reserves_auto_modes_through_manual_pauses_but_safety_and_shield_
                 }
             ]
         ),
-        Some(Owner::Safety)
+        Some(Owner::Ledge)
     );
     menu.auto_ledge = false;
-    owners.set_automatic_suspended(menu.reserves_automatic_modes());
+    owners.release(Owner::Ledge);
+    owners.set_ledge_priority(false);
+    owners.set_automatic_suspended(false);
     assert!(owners.allows(Owner::GrabDodge));
 }
 #[test]
