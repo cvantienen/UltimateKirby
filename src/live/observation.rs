@@ -132,6 +132,8 @@ struct ObservationPolicySnapshot {
     want_up_special: bool,
     /// Whether ordinary backup rules are available.
     ordinary_backup: bool,
+    /// Whether native policy inputs indicate shielding.
+    self_shielded: bool,
     /// Whether a grab is waiting for dash-state progression.
     grab_dash_pending: bool,
 }
@@ -390,6 +392,12 @@ fn snapshot_observation_policy(
                     .is_none_or(kirby_assist_core::reaction_rules::starts_direct_up_b),
                 want_up_special,
                 ordinary_backup,
+                self_shielded: state.action_owner.policy_inputs().shield_held()
+                    || matches!(
+                        native_status,
+                        kirby_assist_core::native_states::GUARD_ON
+                            ..=kirby_assist_core::native_states::GUARD_DAMAGE
+                    ),
                 grab_dash_pending: state.oos.approach_pending(),
             }
         })
@@ -1073,7 +1081,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         reads,
         object,
         own,
-        tech_obs: TechObservation { clatter, .. },
+        tech_obs: TechObservation { clatter, tech, .. },
         policy:
             ObservationPolicySnapshot {
                 grab_dodge_enabled,
@@ -2032,7 +2040,7 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
                 automatic_suspended,
                 ..
             },
-        tech_obs: TechObservation { clatter, .. },
+        tech_obs: TechObservation { clatter, tech, .. },
         ..
     } = *p;
     let (configured, target, allowed) = STATE.lock().ok().map_or((None, None, false), |s| {
@@ -2410,7 +2418,7 @@ fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) 
             capture_link: own_capture_link,
             ..
         },
-        tech_obs: TechObservation { clatter, .. },
+        tech_obs: TechObservation { clatter, tech, .. },
         ..
     } = *p;
     let spot_observation = c.spot_observation;
@@ -2613,7 +2621,11 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
             file_ledge_timeline,
             ..
         },
-        policy: ObservationPolicySnapshot { oos_enabled, .. },
+        policy: ObservationPolicySnapshot {
+            oos_enabled,
+            self_shielded,
+            ..
+        },
         flags:
             AutomaticFlags {
                 capture_link: own_capture_link,
