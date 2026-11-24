@@ -360,7 +360,7 @@ fn dodge_context(status: i32, frame: f32) -> spot_dodge::Context {
     }
 }
 #[test]
-fn ordinary_grab_defense_only_starts_when_standing_or_shielding() {
+fn ordinary_grab_defense_starts_from_controllable_ground_states() {
     for status in [
         kirby_assist_core::native_states::status::WAIT,
         kirby_assist_core::native_states::status::WALK,
@@ -368,6 +368,8 @@ fn ordinary_grab_defense_only_starts_when_standing_or_shielding() {
         kirby_assist_core::native_states::status::RUN,
         kirby_assist_core::native_states::status::TURN_DASH,
         kirby_assist_core::native_states::status::TURN_RUN,
+        kirby_assist_core::native_states::status::JUMP_SQUAT,
+        kirby_assist_core::native_states::status::LANDING_LIGHT,
         kirby_assist_core::native_states::GUARD_ON,
         kirby_assist_core::native_states::GUARD,
     ] {
@@ -375,17 +377,8 @@ fn ordinary_grab_defense_only_starts_when_standing_or_shielding() {
         let mut targets = [None; 8];
         targets[0] = Some(grab());
         let out = s.sample(true, dodge_context(status, 1.), targets);
-        if matches!(
-            status,
-            kirby_assist_core::native_states::status::WAIT
-                | kirby_assist_core::native_states::GUARD_ON
-                | kirby_assist_core::native_states::GUARD
-        ) {
-            assert_eq!(out.requested & MAPPER_ZR, MAPPER_ZR);
-            assert_eq!(out.stick, Some([0., -1.]));
-        } else {
-            assert_eq!(out.owned, 0);
-        }
+        assert_eq!(out.requested & MAPPER_ZR, MAPPER_ZR, "status {status}");
+        assert_eq!(out.stick, Some([0., -1.]), "status {status}");
     }
 }
 #[test]

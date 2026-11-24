@@ -129,6 +129,7 @@ struct HitboxScan<'a> {
     own: *mut game::Object,
     position: [f32; 2],
     velocity: [f32; 2],
+    situation: i32,
     envelope: kirby_assist_core::autopilot_guard::Envelope,
     geometry_budget: &'a mut usize,
     own_z: &'a mut Option<f32>,
@@ -139,7 +140,6 @@ struct HitboxScan<'a> {
 unsafe fn object_has_active_hitbox_threat(
     enemy: *mut game::Object,
     target_velocity: [f32; 2],
-    near: bool,
     scan: &mut HitboxScan<'_>,
 ) -> bool {
     let mut scale = None;
@@ -147,10 +147,6 @@ unsafe fn object_has_active_hitbox_threat(
         // Skip inactive attack slots early to save computation.
         if !game::attack_active(enemy, slot, false) {
             continue;
-        }
-        // Early exit if the enemy is near, as it poses an immediate threat.
-        if near {
-            return true;
         }
         // Early exit if the geometry budget is exhausted, as we cannot safely evaluate further.
         if *scan.geometry_budget == 0 {
@@ -169,6 +165,18 @@ unsafe fn object_has_active_hitbox_threat(
         }
 
         let data = data.read();
+        let mask = match scan.situation {
+            kirby_assist_core::native_states::situation::GROUND => {
+                kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
+            }
+            kirby_assist_core::native_states::situation::AIR => {
+                kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
+            }
+            _ => continue,
+        };
+        if data.situation & mask == 0 {
+            continue;
+        }
         // Invalid coordinates and non-positive hitbox sizes will still be rejected
         if ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
             .iter()
@@ -233,7 +241,12 @@ pub(super) unsafe fn incoming_fighter_attack(
         }
         // Skip targets that are outside the attack scan range.
         let target = [reads.pos_x(enemy), reads.pos_y(enemy)];
-        let target_velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
+        let stopped = reads.is_stop(enemy);
+        let target_velocity = if stopped {
+            [0.; 2]
+        } else {
+            [reads.speed_x(enemy), reads.speed_y(enemy)]
+        };
         // Is this object close enough to examine?
         if !is_within_attack_scan_range(position, velocity, target, target_velocity, envelope) {
             continue;
@@ -247,7 +260,8 @@ pub(super) unsafe fn incoming_fighter_attack(
             envelope,
         );
         // check for incoming up-special recovery attacks
-        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
+        let fighter = id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER;
+        if fighter && !stopped {
             let status = reads.status_kind(enemy);
             if status >= kirby_assist_core::native_states::status::SPECIAL_HI {
                 let previous = if status >= kirby_assist_core::native_states::status::FINAL {
@@ -274,11 +288,11 @@ pub(super) unsafe fn incoming_fighter_attack(
         if object_has_active_hitbox_threat(
             enemy,
             target_velocity,
-            near,
             &mut HitboxScan {
                 own,
                 position,
                 velocity,
+                situation: reads.situation_kind(own),
                 envelope,
                 geometry_budget: &mut geometry_budget,
                 own_z: &mut own_z,
@@ -286,8 +300,13 @@ pub(super) unsafe fn incoming_fighter_attack(
         ) {
             return true;
         }
-        // If the opponent is not near, skip further imminent attack checks.
-        if !near {
+        // Startup tables use fighter-kind IDs only. Once hitboxes exist their
+        // geometry is authoritative, even when the fighter's root is nearby.
+        if !near
+            || !fighter
+            || stopped
+            || (0..8).any(|slot| game::attack_active(enemy, slot, false))
+        {
             continue;
         }
         // Check for imminent attacks from nearby opponents.

@@ -1,7 +1,7 @@
 # Project Instructions
 
 ## Project Scope
-- Primary development: `crates/kirby_assist_core/`.
+- Primary development: `crates/kirby_assist_core/` & 'src'
 
 - Default source reads/searches: only task-relevant `crates/kirby_assist_core/src/**/*.rs`. As well as the root `src/` or other crates.
 - Scope glob/grep explicitly to that directory and `*.rs`; use bounded line ranges, not whole large files or recursive repository listings. Read immediate dependencies only as needed.

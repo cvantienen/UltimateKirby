@@ -86,10 +86,24 @@ fn fighter_tilt_settings_are_independent_of_ledge_recipes() {
         up: true,
     };
     assert_eq!(catalog.tuning[&kind].tilt_turn(kind), expected);
-    let recipe = catalog.entries().iter().find(|entry| entry.choice == "down_tilt").unwrap();
-    assert_eq!(recipe.sequence.auto_tilt, Some(TiltSettings { down: true, ..Default::default() }));
+    let recipe = catalog
+        .entries()
+        .iter()
+        .find(|entry| entry.choice == "down_tilt")
+        .unwrap();
+    assert_eq!(
+        recipe.sequence.auto_tilt,
+        Some(TiltSettings {
+            down: true,
+            ..Default::default()
+        })
+    );
     assert_eq!(catalog.tuning[&kind].tilt_turn(kind), expected);
-    let neutral = catalog.entries().iter().find(|entry| entry.choice == "nair").unwrap();
+    let neutral = catalog
+        .entries()
+        .iter()
+        .find(|entry| entry.choice == "nair")
+        .unwrap();
     assert_eq!(neutral.sequence.auto_tilt, None);
     assert!(neutral.default);
     assert_eq!(neutral.sequence.actions().len(), 1);
@@ -109,7 +123,7 @@ fn selected_c_stick_tilts_aim_without_creating_attack_buttons() {
                     ..Default::default()
                 },
                 [0.0, 1.0],
-                [-facing * 0.8, 1.0],
+                [0.0, 1.0],
             ),
             (
                 TiltSettings {

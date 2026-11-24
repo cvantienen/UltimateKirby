@@ -36,7 +36,7 @@ pub struct Context {
 /// Determines whether the `ground_status` condition holds.
 /// Checks whether ground status.
 pub fn ground_status(status: i32) -> bool {
-    crate::out_of_shield::stationary_grab_state(status)
+    crate::reaction_rules::automatic_start_status(status)
 }
 // Held shields may have a stationary animation. Only these guard states may
 // use a zero motion rate; native escape readiness still gates every new request.

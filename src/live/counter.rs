@@ -113,12 +113,14 @@ pub(super) unsafe fn observe(
     let stopped = reads.is_stop(own);
     let can_special = !stopped
         && status != kirby_assist_core::native_states::status::SPECIAL_LW
-        && (game::transition_enabled(
-            own,
-            kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
-        ) || kirby_assist_core::native_states::moving_down_special_input(status, situation)
-            || situation == kirby_assist_core::native_states::situation::AIR
-                && kirby_assist_core::native_states::jump_or_fall(status));
+        && policy::can_request(
+            status,
+            situation,
+            game::transition_enabled(
+                own,
+                kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
+            ),
+        );
     let context = Context {
         kind,
         situation,
@@ -156,11 +158,7 @@ pub(super) unsafe fn observe(
             continue;
         }
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || game::battle_object_id(enemy) != id
-            || reads.team(enemy) == team
-            || reads.is_stop(enemy)
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let position = [reads.pos_x(enemy), reads.pos_y(enemy), game::pos_z(enemy)];
@@ -171,18 +169,28 @@ pub(super) unsafe fn observe(
         let enemy_status = reads.status_kind(enemy);
         let enemy_frame = reads.motion_frame(enemy);
         let velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        if !policy::nearby_attacker(config, origin, own_velocity, position, velocity) {
+        // Root proximity is only a startup estimate: an extended sword or
+        // disjoint active hitbox can reach us while its owner's root is far away.
+        // Always inspect live geometry before rejecting that attacker by root.
+        let has_active_hitbox = (0..8).any(|slot| game::attack_active(enemy, slot, false));
+        if !policy::attacker_relevant(
+            config,
+            origin,
+            own_velocity,
+            position,
+            velocity,
+            has_active_hitbox,
+        ) {
             continue;
         }
         // A known move may be answered during startup; once any live hitbox
         // exists, its native geometry is authoritative instead of frame data.
-        let has_active_hitbox = (0..8).any(|slot| game::attack_active(enemy, slot, false));
         let facing = reads.facing(enemy);
         let imminent = (!has_active_hitbox
+            && !reads.is_stop(enemy)
             && facing.is_finite()
             && facing.abs() >= 0.5
-            && facing * (origin[0] - position[0]) >= 0.0
-            && (position[0] - origin[0]).abs() <= config.half_width + 8.0)
+            && facing * (origin[0] - position[0]) >= 0.0)
             .then(|| {
                 policy::predicted_attack(
                     config,

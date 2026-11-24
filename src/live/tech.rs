@@ -21,13 +21,31 @@ pub(super) struct TechAssessment {
     pub(super) status: i32,
     /// Native ground/air situation at assessment time.
     pub(super) situation: i32,
-    /// First predicted floor, wall, or ceiling contact in frames.
+    /// First predicted floor, wall, or ceiling contact, including remaining hitstop.
     pub(super) contact_in: Option<f32>,
     /// Remaining native damage-stop frames.
     pub(super) remaining_stop: u64,
     /// Stable diagnostic label for the native gate that matched.
     #[cfg_attr(not(feature = "diagnostic-logging"), allow(dead_code))]
     pub(super) reason: &'static str,
+}
+
+/// Reads the fighter's consumed Guard and independent damage-reaction clock.
+/// # Safety
+/// `object` must be a live fighter with the pinned native control/work modules.
+pub(super) unsafe fn input_feedback(object: *mut game::Object, status: i32) -> (bool, Option<f32>) {
+    if !kirby_assist_core::tech_prediction::is_tech_status(status) {
+        return (false, None);
+    }
+    // CONTROL_PAD_BUTTON_GUARD / GUARD_HOLD in the pinned skyline-smash constants.
+    let guard = game::check_button_on(object, 0x3) || game::check_button_on(object, 0x10);
+    let reaction = kirby_assist_core::tech_prediction::is_tumble_status(status).then(|| {
+        game::work_float(
+            object,
+            kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME,
+        )
+    });
+    (guard, reaction)
 }
 
 /// Reads only native status, work flags, and passive transition terms.
@@ -161,7 +179,7 @@ pub(super) unsafe fn assess_tech(
     TechAssessment {
         status,
         situation,
-        contact_in,
+        contact_in: contact_in.map(|frames| frames + remaining_stop as f32),
         remaining_stop,
         reason,
     }

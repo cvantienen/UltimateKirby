@@ -425,6 +425,12 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
     }
 }
 
+/// The posture turn owns only A: suppress a held physical attack while turning,
+/// or deliver the one buffered A without clearing unrelated mapped controls.
+pub fn mapped_posture_attack(buttons: u32, requested: bool) -> u32 {
+    mapped_attack_hold(buttons & !MAPPED_ATTACK_HOLD_BITS, requested)
+}
+
 /// Final literal controller actions, after raw-source/history filtering. The
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.
