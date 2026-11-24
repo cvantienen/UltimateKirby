@@ -101,9 +101,11 @@ pub fn predicted_attack(
     let t = in_frames.max(config.startup);
     let dx = enemy_position[0] + (enemy_velocity[0] - own_velocity[0]) * t - origin[0];
     let dy = enemy_position[1] + (enemy_velocity[1] - own_velocity[1]) * t - origin[1];
-    if dx.abs() > config.half_width + 18.0
-        || dy < -8.0
-        || dy > config.height + 8.0
+    // Frame data contains active timing, not a move's hitbox direction/reach.
+    // Do not infer a counterable contact from an opponent's root alone.
+    if dx.abs() > config.half_width + 12.0
+        || dy < -6.0
+        || dy > config.height + 6.0
         || (enemy_position[2] - origin[2]).abs() > config.half_depth + 4.0
     {
         return None;
@@ -117,7 +119,8 @@ pub fn predicted_attack(
     })
 }
 
-/// Reject distant disjoint hitboxes even when their geometry reaches the fighter.
+/// Root-space startup screening only. Live hitboxes must instead be checked
+/// against their actual world-space geometry, including long disjoints.
 pub fn nearby_attacker(
     config: Config,
     origin: [f32; 3],
@@ -147,6 +150,26 @@ pub fn nearby_attacker(
         && dy >= -12.0
         && dy <= config.height + 12.0
         && (enemy_position[2] - origin[2]).abs() <= config.half_depth + 4.0
+}
+
+/// A disjoint hitbox can reach the defender even if the attacking fighter's
+/// root is too far away for startup-only prediction.
+pub fn attacker_relevant(
+    config: Config,
+    origin: [f32; 3],
+    own_velocity: [f32; 2],
+    enemy_position: [f32; 3],
+    enemy_velocity: [f32; 2],
+    has_active_hitbox: bool,
+) -> bool {
+    origin
+        .iter()
+        .chain(own_velocity.iter())
+        .chain(enemy_position.iter())
+        .chain(enemy_velocity.iter())
+        .all(|v| v.is_finite())
+        && (has_active_hitbox
+            || nearby_attacker(config, origin, own_velocity, enemy_position, enemy_velocity))
 }
 
 /// Check live melee geometry when the counter becomes active, not just while it is starting.
@@ -193,11 +216,24 @@ pub fn active_melee_threat(
     )
 }
 
+/// Native transition flags may lag controller readiness in idle, movement and
+/// ordinary air states; the special input is still subject to native acceptance.
+pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> bool {
+    ready(status, situation)
+        && (transition_enabled
+            || crate::native_states::moving_down_special_input(status, situation)
+            || situation == crate::native_states::situation::GROUND
+                && status == crate::native_states::status::WAIT
+            || situation == crate::native_states::situation::AIR
+                && crate::native_states::jump_or_fall(status))
+}
+
 pub fn ready(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => matches!(status,
             crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT
             | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT
+            | crate::native_states::status::GUARD_OFF
             | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT),
         crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
         _ => false,
@@ -531,6 +567,10 @@ mod tests {
             );
             assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
         }
+        assert!(ready(
+            crate::native_states::status::GUARD_OFF,
+            crate::native_states::situation::GROUND
+        ));
         assert!(!ready(
             crate::native_states::status::GUARD,
             crate::native_states::situation::GROUND
@@ -772,6 +812,29 @@ mod tests {
     }
 
     #[test]
+    fn startup_root_estimate_rejects_missed_ground_attack() {
+        let motion = crate::timing::motion_hash("attack_air_f");
+        let predict = |x, vx| {
+            predicted_attack(
+                config(),
+                [0.0; 3],
+                [0.0; 2],
+                [x, 0.0, 0.0],
+                [vx, 0.0],
+                5,
+                7,
+                motion,
+                crate::native_states::status::ATTACK_AIR,
+                12.0,
+                1.0,
+            )
+        };
+        assert!(predict(12.0, 0.0).is_some());
+        assert!(predict(40.0, -5.0).is_some());
+        assert!(predict(22.0, 0.0).is_none());
+    }
+
+    #[test]
     fn nearby_attacker_rejects_disjoint_remote_attacks() {
         let own = [0.0; 3];
         assert!(!nearby_attacker(
@@ -801,6 +864,59 @@ mod tests {
             [0.0; 2],
             [6.0, 0.0, 0.0],
             [0.0; 2]
+        ));
+    }
+
+    #[test]
+    fn idle_and_ground_movement_can_request_without_lagging_transition_term() {
+        use crate::native_states::{situation, status};
+        for state in [
+            status::WAIT,
+            status::WALK,
+            status::DASH,
+            status::RUN,
+            status::JUMP_SQUAT,
+        ] {
+            assert!(
+                can_request(state, situation::GROUND, false),
+                "status {state}"
+            );
+        }
+        assert!(can_request(status::FALL, situation::AIR, false));
+        assert!(!can_request(status::GUARD, situation::GROUND, true));
+        assert!(!can_request(status::ATTACK, situation::GROUND, true));
+    }
+
+    #[test]
+    fn active_disjoint_is_not_discarded_by_attacker_root_screen() {
+        let origin = [0.0; 3];
+        let far_root = [45.0, 0.0, 0.0];
+        assert!(!attacker_relevant(
+            config(),
+            origin,
+            [0.0; 2],
+            far_root,
+            [0.0; 2],
+            false
+        ));
+        assert!(attacker_relevant(
+            config(),
+            origin,
+            [0.0; 2],
+            far_root,
+            [0.0; 2],
+            true
+        ));
+        assert!(active_melee_threat(
+            config(),
+            origin,
+            [0.0; 2],
+            crate::autopilot_guard::Hitbox {
+                start: [7.0, 8.0, 0.0],
+                end: [7.0, 8.0, 0.0],
+                radius: 2.0,
+                velocity: [0.0; 2],
+            }
         ));
     }
 

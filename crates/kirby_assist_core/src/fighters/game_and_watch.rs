@@ -78,7 +78,7 @@ impl Config {
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
-            matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
+            matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::GUARD_OFF | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
         }
         // Ordinary jump/fall only.
         crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
@@ -676,6 +676,10 @@ mod tests {
             let output = Reflector::new().sample(true, Some(config()), airborne, Some(threat));
             assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
         }
+        assert!(movable(
+            crate::native_states::status::GUARD_OFF,
+            crate::native_states::situation::GROUND
+        ));
         assert!(!movable(
             crate::native_states::status::GUARD,
             crate::native_states::situation::GROUND

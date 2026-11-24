@@ -3,7 +3,15 @@
 /// Controllable grounded movement, ordinary landing, or native ready shield.
 /// A cancel flag alone never admits a new punish during an attack or dodge.
 pub fn automatic_start_status(status: i32) -> bool {
-    matches!(status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT|crate::native_states::GUARD_ON|crate::native_states::GUARD|crate::native_states::status::OTTOTTO|crate::native_states::status::OTTOTTO_WAIT)
+    matches!(
+        status,
+        crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT
+            | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT
+            | crate::native_states::GUARD_ON
+            | crate::native_states::GUARD
+            | crate::native_states::status::OTTOTTO
+            | crate::native_states::status::OTTOTTO_WAIT
+    )
 }
 /// Determines whether the `automatic_start_allowed` condition holds.
 /// Checks whether automatic start allowed.
@@ -112,4 +120,63 @@ impl AutomaticObservationScope {
 /// Checks whether automatic fighter target available.
 pub fn automatic_fighter_target_available(kind: i32, status: i32) -> bool {
     automatic_target_available(status) && !crate::native_states::fighter_noncombat(kind, status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::native_states::{situation, status};
+
+    #[test]
+    fn grounded_automatic_modes_recognize_transitions_without_admitting_lockouts() {
+        for status in [
+            status::WAIT,
+            status::WALK,
+            status::TURN,
+            status::TURN_DASH,
+            status::RUN,
+            status::TURN_RUN_BRAKE,
+            status::JUMP_SQUAT,
+            status::SQUAT_RV,
+            status::LANDING,
+            status::LANDING_LIGHT,
+            status::GUARD_ON,
+            status::GUARD,
+            status::OTTOTTO_WAIT,
+        ] {
+            assert!(
+                automatic_start_allowed(status, situation::GROUND, false, false),
+                "status {status}"
+            );
+            assert!(crate::spot_dodge::ground_status(status), "status {status}");
+        }
+        for status in [
+            status::LANDING_ATTACK_AIR,
+            status::GUARD_DAMAGE,
+            status::ATTACK,
+            status::ESCAPE,
+            status::FALL_SPECIAL,
+        ] {
+            assert!(!automatic_start_status(status), "status {status}");
+            assert!(!crate::spot_dodge::ground_status(status), "status {status}");
+        }
+        assert!(!automatic_start_allowed(
+            status::FALL,
+            situation::AIR,
+            false,
+            false
+        ));
+        assert!(!automatic_start_allowed(
+            status::WAIT,
+            situation::GROUND,
+            true,
+            false
+        ));
+        assert!(!automatic_start_allowed(
+            status::WAIT,
+            situation::GROUND,
+            false,
+            true
+        ));
+    }
 }
