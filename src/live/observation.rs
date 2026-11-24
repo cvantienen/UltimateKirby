@@ -96,8 +96,6 @@ struct ObservationPolicySnapshot {
     grab_dodge_enabled: bool,
     /// Idle-crouch and tilt-turn mode switches.
     posture_modes: (bool, bool),
-    /// Whether physical down is currently a posture intent.
-    posture_down: bool,
     /// Whether roster data was unavailable for this pass.
     roster_missing: bool,
     /// Whether out-of-shield assistance is enabled.
@@ -361,7 +359,6 @@ fn snapshot_observation_policy(
                 } else {
                     (false, false)
                 },
-                posture_down: state.posture_down,
                 roster_missing: state
                     .ledge_roster
                     .is_none_or(|(_, observed_tick)| observed_tick != state.raw_tick),
@@ -630,6 +627,10 @@ struct TechObservation {
     auto_tech_enabled: bool,
     /// Native eligibility result.
     assessment: tech::TechAssessment,
+    /// Guard already consumed by the fighter, not merely written by the mapper.
+    native_guard: bool,
+    /// Remaining native hitstun advances even when the damage pose is frozen.
+    reaction_remaining: Option<f32>,
     /// Whether a collision is currently predicted inside the tech window.
     tech: bool,
 }
@@ -675,8 +676,6 @@ impl NativeObservationBasics {
 unsafe fn observe_native_basics(
     reads: &frame::FrameReads,
     object: *mut game::Object,
-    object_id: u32,
-    fighter_kind: i32,
     config: &Config,
 ) -> NativeObservationBasics {
     let mut basics = NativeObservationBasics {
@@ -725,11 +724,14 @@ unsafe fn observe_tech_state(
         stopped,
     );
     let tech = !clatter && assessment.contact_in.is_some();
+    let (native_guard, reaction_remaining) = tech::input_feedback(object, assessment.status);
     TechObservation {
         clatter_remaining,
         clatter,
         auto_tech_enabled,
         assessment,
+        native_guard,
+        reaction_remaining,
         tech,
     }
 }
@@ -849,7 +851,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     let _performance = crate::performance::Scope::root();
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::Observation);
-    let own = observe_native_basics(&reads, object, object_id, fighter_kind, &config);
+    let own = observe_native_basics(&reads, object, &config);
     // Copy saved-mode flags once; no native queries happen while holding this
     // lock. All readers in this observation use the same configuration snapshot.
     let policy = snapshot_observation_policy(fighter_kind, own.status, &config);
@@ -1073,7 +1075,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         reads,
         object,
         own,
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         policy:
             ObservationPolicySnapshot {
                 grab_dodge_enabled,
@@ -1182,7 +1184,6 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -1440,7 +1441,6 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -2032,7 +2032,7 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
                 automatic_suspended,
                 ..
             },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let (configured, target, allowed) = STATE.lock().ok().map_or((None, None, false), |s| {
@@ -2273,8 +2273,6 @@ fn observe_known_statuses(state: &mut State, p: &Pass) {
 struct Admission {
     /// Whether automatic behavior is suspended by higher-priority ownership.
     automatic_suspended: bool,
-    /// Whether the local fighter is shielded.
-    self_shielded: bool,
     /// Whether ledge priority preempts other automatic policies.
     ledge_priority: bool,
 }
@@ -2288,7 +2286,7 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
                 ..
             },
         needs: ObservationNeeds { observe_ledge, .. },
-        tech_obs: TechObservation { assessment, .. },
+        tech_obs: TechObservation { .. },
         ..
     } = *p;
     let ledge_opponent = c.ledge.opponent;
@@ -2300,12 +2298,6 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     // A cancelled unshielded response must not add a frame to a legal OOS grab.
     // Continuation uses the committed snapshot. Once a completed owner is
     // released above, new admission must see the current physical intent.
-    let self_shielded = state.action_owner.policy_inputs().shield_held()
-        || matches!(
-            assessment.status,
-            kirby_assist_core::native_states::GUARD_ON
-                ..=kirby_assist_core::native_states::GUARD_DAMAGE
-        );
     let committed_automatic = state.action_owner.automatic_active();
     let admission_suspended = automatic_suspended
         || !committed_automatic
@@ -2331,7 +2323,6 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     state.action_owner.set_ledge_priority(ledge_priority);
     Admission {
         automatic_suspended,
-        self_shielded,
         ledge_priority,
     }
 }
@@ -2838,6 +2829,8 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
                 clatter,
                 auto_tech_enabled,
                 assessment,
+                native_guard,
+                reaction_remaining,
                 tech,
                 ..
             },
@@ -2873,8 +2866,8 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
             state.last_tech_diagnostic = None;
         }
     }
-    // During hitstop, publish neutral mash input. Auto-tech remains keyed to
-    // the deduplicated controller frame and native transition state.
+    // During hitstop, publish neutral mash input. Tech retains native delivery
+    // receipts and advances cooldown only from native reaction/motion progress.
     let policy_tick = state
         .animation_clock
         .get_or_insert_with(AnimationClock::default)
@@ -2924,7 +2917,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
     state.tech_output = state
         .tech_input
         .get_or_insert_with(TechInput::default)
-        .sample(
+        .sample_with_native_delivery(
             config.controls.enabled && auto_tech_enabled,
             true,
             config.controls.tech_cooldown,
@@ -2945,6 +2938,10 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
                 previous_guard: guard_held,
                 prepare_guard,
             },
+            reaction_remaining,
+            kirby_assist_core::tech_input::DEFAULT_PASSIVE_TRIGGER_FRAME,
+            kirby_assist_core::tech_input::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME,
+            native_guard,
         );
     let _requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
     #[cfg(feature = "diagnostic-logging")]
@@ -3116,7 +3113,6 @@ fn sample_ledge_response(
         tech_obs:
             TechObservation {
                 clatter,
-                tech,
                 assessment,
                 ..
             },
@@ -3556,7 +3552,7 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
 /// Advances the reflector policy from the copied projectile threat result.
 fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let reflect_observation = c.reflect_observation;

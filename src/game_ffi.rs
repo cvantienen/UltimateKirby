@@ -248,6 +248,9 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind36ControlModule__get_clatter_time_implEPNS_26BattleObjectModuleAccessorEi"]
     /// Reads the native clatter timer for a specified clatter kind.
     pub fn clatter_time(module_accessor: *mut Object, clatter_kind: i32) -> f32;
+    #[link_name = "\u{1}_ZN3app8lua_bind35ControlModule__check_button_on_implEPNS_26BattleObjectModuleAccessorEi"]
+    /// Reads a game-consumed button using the pinned ControlModule button ID.
+    pub fn check_button_on(module_accessor: *mut Object, button: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind30StatusModule__status_kind_implEPNS_26BattleObjectModuleAccessorE"]
     /// Reads the object's current native status ID.
     pub fn status_kind(module_accessor: *mut Object) -> i32;
