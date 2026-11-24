@@ -231,6 +231,22 @@ fn mapped_a_hold_survives_filtered_frames_without_touching_other_buttons() {
 }
 
 #[test]
+fn exclusive_reaction_packet_removes_unrequested_physical_actions() {
+    let manual = MAPPED_ATTACK_HOLD_BITS | MAPPED_SPECIAL | MAPPED_JUMP | MAPPED_CATCH;
+    let neutral = mapped_literal_buttons(mapped_automatic_actions(manual, 0), 0);
+    assert_eq!(
+        neutral & (MAPPED_ATTACK_HOLD_BITS | MAPPED_SPECIAL | MAPPED_JUMP | MAPPED_CATCH),
+        0
+    );
+    let counter = mapped_literal_buttons(mapped_automatic_actions(manual, MAPPER_B), MAPPER_B);
+    assert_eq!(counter & MAPPED_SPECIAL, MAPPED_SPECIAL);
+    assert_eq!(
+        counter & (MAPPED_ATTACK_HOLD_BITS | MAPPED_JUMP | MAPPED_CATCH),
+        0
+    );
+}
+
+#[test]
 fn full_gameplay_ownership_covers_unused_raw_buttons_in_both_layouts() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         let owned = layout.physical_owned_buttons(GAMEPLAY_BUTTONS);

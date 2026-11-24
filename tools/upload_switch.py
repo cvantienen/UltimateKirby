@@ -14,7 +14,7 @@ By default uploads an inactive sequences.upload.txt copy.
 --replace-sequences --smash-closed backs up and replaces active sequences.txt.
 Never builds, extracts archives, or reads the old UPLOAD folder.
 Close Smash and start the Switch FTP server first.
-Diagnostic uploads require typing yes only when targeting an IP ending in .105.
+Diagnostic uploads require typing yes only when targeting an IP ending in .106.
 Before replacing anything, retrieve all existing selected destination files,
 copy them to /ultimate/kirby_assist/bak/, and read back every backup to
 verify SHA-256. Failed backup means no installed files are overwritten.
@@ -254,7 +254,7 @@ def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
         print("Dry run: no FTP connection or remote changes.", flush=True)
         return
     binary = next(data for remote, data in payloads if remote == PLUGIN)
-    if (not verify_only and host.endswith(".105")
+    if (not verify_only and host.endswith(".106")
             and all(marker in binary for marker in LOG_MARKERS)):
         try:
             answer = input("Are you sure you want to upload diagnostic? Type yes to continue [default: no]: ")

@@ -339,6 +339,32 @@ pub mod action_owner {
             winner.map(|i| i.owner)
         }
     }
+
+    #[cfg(test)]
+    mod takeover_tests {
+        use super::*;
+        use crate::{gameplay::ControllerOutput, native_input::GAMEPLAY_BUTTONS};
+
+        #[test]
+        fn detected_ledge_wait_and_queued_reaction_own_neutral_controller() {
+            for owner in [Owner::Ledge, Owner::RollRead] {
+                let mut ownership = ActionOwnership::new();
+                let intent = Intent::sequence_receipt(owner, 0, true);
+                assert_eq!(ownership.select(true, &[intent]), Some(owner));
+                assert_eq!(ownership.current_owner(), Some(owner));
+                let output = exclusive_output(
+                    ownership.current_owner(),
+                    true,
+                    ControllerOutput::default(),
+                );
+                assert_eq!(output.owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
+                assert_eq!(output.stick, Some([0.; 2]));
+                assert_eq!(ownership.select(true, &[intent]), Some(owner));
+                assert_eq!(ownership.select(true, &[]), None);
+                assert_eq!(ownership.current_owner(), None);
+            }
+        }
+    }
 }
 pub mod input {
     //! Logical controller input and conservative arbitration.

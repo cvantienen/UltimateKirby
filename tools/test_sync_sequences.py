@@ -80,7 +80,7 @@ class SequenceSyncTests(unittest.TestCase):
     def test_copies_diagnostic_active_to_silent_after_verified_backup(self):
         self.assertEqual(self.run_sync(), 2)
         self.assertEqual(self.source.connection, ("192.168.1.142", 5000))
-        self.assertEqual(self.destination.connection, ("192.168.1.105", 5000))
+        self.assertEqual(self.destination.connection, ("192.168.1.106", 5000))
         self.assertEqual(self.source.commands, [f"RETR {sync.ACTIVE}"])
         self.assertEqual(self.destination.files[sync.ACTIVE], SOURCE)
         self.assertEqual(self.destination.files[sync.REMOTE_BACKUP], ORIGINAL)
@@ -97,7 +97,7 @@ class SequenceSyncTests(unittest.TestCase):
 
     def test_reverse_sync_keeps_silent_source_and_backs_up_diagnostic_destination(self):
         self.assertEqual(self.run_sync(source_variant="silent"), 2)
-        self.assertEqual(self.source.connection, ("192.168.1.105", 5000))
+        self.assertEqual(self.source.connection, ("192.168.1.106", 5000))
         self.assertEqual(self.destination.connection, ("192.168.1.142", 5000))
         self.assertEqual(self.source.commands, [f"RETR {sync.ACTIVE}"])
         self.assertEqual(self.destination.files[sync.ACTIVE], SOURCE)

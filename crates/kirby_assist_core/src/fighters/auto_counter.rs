@@ -92,7 +92,10 @@ pub fn predicted_attack(
         .iter()
         .filter_map(|window| {
             let until = (window.first as f32 - frame) / rate;
-            (frame <= window.last as f32 && until <= config.horizon()).then_some(until.max(0.0))
+            (frame <= window.last as f32
+                && frame + config.startup * rate <= window.last as f32
+                && until <= config.horizon())
+            .then_some(until.max(0.0))
         })
         .min_by(|a, b| a.total_cmp(b))?;
     let t = in_frames.max(config.startup);
@@ -114,10 +117,86 @@ pub fn predicted_attack(
     })
 }
 
+/// Reject distant disjoint hitboxes even when their geometry reaches the fighter.
+pub fn nearby_attacker(
+    config: Config,
+    origin: [f32; 3],
+    own_velocity: [f32; 2],
+    enemy_position: [f32; 3],
+    enemy_velocity: [f32; 2],
+) -> bool {
+    if !(1.0..=30.0).contains(&config.startup)
+        || !config.half_width.is_finite()
+        || config.half_width <= 0.0
+        || !config.height.is_finite()
+        || config.height <= 0.0
+        || !config.half_depth.is_finite()
+        || config.half_depth <= 0.0
+        || !origin
+            .iter()
+            .chain(enemy_position.iter())
+            .chain(own_velocity.iter())
+            .chain(enemy_velocity.iter())
+            .all(|v| v.is_finite())
+    {
+        return false;
+    }
+    let dx = enemy_position[0] - origin[0] + (enemy_velocity[0] - own_velocity[0]) * config.startup;
+    let dy = enemy_position[1] - origin[1] + (enemy_velocity[1] - own_velocity[1]) * config.startup;
+    dx.abs() <= config.half_width + 18.0
+        && dy >= -12.0
+        && dy <= config.height + 12.0
+        && (enemy_position[2] - origin[2]).abs() <= config.half_depth + 4.0
+}
+
+/// Check live melee geometry when the counter becomes active, not just while it is starting.
+pub fn active_melee_threat(
+    config: Config,
+    origin: [f32; 3],
+    own_velocity: [f32; 2],
+    hitbox: crate::autopilot_guard::Hitbox,
+) -> bool {
+    if !config.startup.is_finite()
+        || !(1.0..=30.0).contains(&config.startup)
+        || !config.margin.is_finite()
+        || !(0.0..=10.0).contains(&config.margin)
+        || !config.half_width.is_finite()
+        || config.half_width <= 0.0
+        || !config.height.is_finite()
+        || config.height <= 0.0
+        || !config.half_depth.is_finite()
+        || config.half_depth <= 0.0
+    {
+        return false;
+    }
+    let mut projected = hitbox;
+    for point in [&mut projected.start, &mut projected.end] {
+        point[0] += hitbox.velocity[0] * config.startup;
+        point[1] += hitbox.velocity[1] * config.startup;
+    }
+    let origin = [
+        origin[0] + own_velocity[0] * config.startup,
+        origin[1] + own_velocity[1] * config.startup,
+        origin[2],
+    ];
+    crate::autopilot_guard::active_hitbox_threat_with(
+        origin,
+        own_velocity,
+        projected,
+        crate::autopilot_guard::Envelope {
+            half_width: config.half_width,
+            height: config.height,
+            half_depth: config.half_depth,
+            forecast: config.margin,
+            ..Default::default()
+        },
+    )
+}
+
 pub fn ready(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => matches!(status,
-            crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE
+            crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT
             | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT
             | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT),
         crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
@@ -173,12 +252,6 @@ impl Counter {
     }
     pub fn awaiting_receipt(&self) -> bool {
         self.receipt
-    }
-    /// Discard a previously consumed attack after it ceases to be observable.
-    pub fn clear_stale_attack(&mut self) {
-        self.last = None;
-        self.last_object = 0;
-        self.attempts = 0;
     }
     pub fn cancel(&mut self) {
         self.target = None;
@@ -273,9 +346,6 @@ impl Counter {
         }
         let Some(threat) = threat.filter(|t| t.in_frames.is_finite() && t.in_frames >= 0.0) else {
             self.cancel();
-            if c.animation.status != crate::native_states::status::SPECIAL_LW {
-                self.clear_stale_attack();
-            }
             return ControllerOutput::default();
         };
         self.observe_attacker(threat);
@@ -394,6 +464,7 @@ mod tests {
             crate::native_states::status::WALK,
             crate::native_states::status::RUN,
             crate::native_states::status::TURN_RUN_BRAKE,
+            crate::native_states::status::JUMP_SQUAT,
             crate::native_states::status::SQUAT_WAIT,
         ] {
             let mut counter = Counter::new();
@@ -423,6 +494,47 @@ mod tests {
             counter.mapped();
             assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 1.0));
         }
+    }
+
+    #[test]
+    fn air_jump_and_fall_request_counter_but_guard_does_not() {
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK_AIR,
+            frame: 3.0,
+            in_frames: 6.0,
+        };
+        for status in [
+            crate::native_states::status::JUMP,
+            crate::native_states::status::JUMP_AERIAL,
+            crate::native_states::status::FALL,
+            crate::native_states::status::FALL_AERIAL,
+        ] {
+            let output = Counter::new().sample(
+                true,
+                Some(config()),
+                Context {
+                    kind: crate::fighter_kinds::LUCINA,
+                    situation: crate::native_states::situation::AIR,
+                    can_special: true,
+                    stopped: false,
+                    animation: AnimationSample {
+                        object: 1,
+                        status,
+                        kind: 1,
+                        frame: 3.0,
+                        auxiliary: 0.0,
+                    },
+                },
+                Some(threat),
+            );
+            assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
+        }
+        assert!(!ready(
+            crate::native_states::status::GUARD,
+            crate::native_states::situation::GROUND
+        ));
     }
 
     #[test]
@@ -468,7 +580,7 @@ mod tests {
         context.animation.frame = 3.0;
         assert_eq!(
             counter
-                .sample(true, Some(config()), context, Some(threat))
+                .sample(true, Some(config()), context, None)
                 .requested,
             0
         );
@@ -495,6 +607,78 @@ mod tests {
                 .requested,
             0
         );
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested,
+            0
+        );
+    }
+
+    #[test]
+    fn a_temporarily_missing_hitbox_does_not_rearm_the_same_counter_attempt() {
+        let mut counter = Counter::new();
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames: 0.0,
+        };
+        let mut context = Context {
+            kind: crate::fighter_kinds::LUCINA,
+            situation: crate::native_states::situation::GROUND,
+            can_special: true,
+            stopped: false,
+            animation: AnimationSample {
+                object: 1,
+                status: crate::native_states::status::WAIT,
+                kind: 1,
+                frame: 1.0,
+                auxiliary: 0.0,
+            },
+        };
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested
+                & MAPPER_B,
+            0
+        );
+        counter.mapped();
+        context.animation.frame = 2.0;
+        counter.poll_receipt(1);
+        counter.poll_receipt(2);
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, None)
+                .requested,
+            0
+        );
+        context.animation.frame = 3.0;
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, None)
+                .requested,
+            0
+        );
+        context.animation.frame = 4.0;
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), context, Some(threat))
+                .requested
+                & MAPPER_B,
+            0
+        );
+        counter.mapped();
+        context.animation.frame = 5.0;
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), context, None)
+                .requested,
+            0
+        );
+        context.animation.frame = 6.0;
         assert_eq!(
             counter
                 .sample(true, Some(config()), context, Some(threat))
@@ -571,6 +755,119 @@ mod tests {
         assert!(predict([12.0, 0.0, 0.0], [12.0, 0.0], motion).is_none());
         assert!(predict([12.0, 0.0, 0.0], [0.0; 2], 0).is_none());
         assert!(predict([40.0, 0.0, 0.0], [-5.0, 0.0], motion).is_some());
+        assert!(predicted_attack(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            [8.0, 0.0, 0.0],
+            [0.0; 2],
+            5,
+            7,
+            motion,
+            crate::native_states::status::ATTACK_AIR,
+            19.0,
+            1.0,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn nearby_attacker_rejects_disjoint_remote_attacks() {
+        let own = [0.0; 3];
+        assert!(!nearby_attacker(
+            config(),
+            own,
+            [0.0; 2],
+            [45.0, 0.0, 0.0],
+            [0.0; 2]
+        ));
+        assert!(!nearby_attacker(
+            config(),
+            own,
+            [0.0; 2],
+            [0.0, 45.0, 0.0],
+            [0.0; 2]
+        ));
+        assert!(nearby_attacker(
+            config(),
+            own,
+            [0.0; 2],
+            [30.0, 0.0, 0.0],
+            [-3.0, 0.0]
+        ));
+        assert!(nearby_attacker(
+            config(),
+            own,
+            [0.0; 2],
+            [6.0, 0.0, 0.0],
+            [0.0; 2]
+        ));
+    }
+
+    #[test]
+    fn active_melee_requires_hitbox_to_reach_grounded_counter() {
+        let hitbox = |start: [f32; 3], velocity: [f32; 2]| crate::autopilot_guard::Hitbox {
+            start,
+            end: start,
+            radius: 2.0,
+            velocity,
+        };
+        assert!(active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([6.0, 8.0, 0.0], [0.0; 2]),
+        ));
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([6.0, 25.0, 0.0], [0.0; 2]),
+        ));
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([6.0, 25.0, 0.0], [-1.0, 0.0]),
+        ));
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([20.0, 8.0, 0.0], [-1.0, 0.0]),
+        ));
+        assert!(active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([10.0, 8.0, 0.0], [-1.0, 0.0]),
+        ));
+        // An active hitbox that crosses the fighter before startup, then leaves,
+        // cannot be countered by pressing down-special now.
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([6.0, 8.0, 0.0], [3.0, 0.0]),
+        ));
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([40.0, 8.0, 0.0], [-3.0, 0.0]),
+        ));
+        assert!(active_melee_threat(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            hitbox([25.0, 8.0, 0.0], [-3.0, 0.0]),
+        ));
+        assert!(!active_melee_threat(
+            config(),
+            [0.0; 3],
+            [-3.0, 0.0],
+            hitbox([25.0, 8.0, 0.0], [-3.0, 0.0]),
+        ));
     }
 
     #[test]

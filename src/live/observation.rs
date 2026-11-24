@@ -362,7 +362,9 @@ fn snapshot_observation_policy(
                     (false, false)
                 },
                 posture_down: state.posture_down,
-                roster_missing: state.ledge_roster.is_none(),
+                roster_missing: state
+                    .ledge_roster
+                    .is_none_or(|(_, observed_tick)| observed_tick != state.raw_tick),
                 counter_enabled: menu
                     .is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
                 oos_enabled: grabs_enabled,
@@ -1242,7 +1244,7 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                 previous_status: reads
                     .previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
                 // Only admit a new grounded Up-B reaction when the native game
-                // can accept it now. Locomotion keeps its momentum until then.
+                // can accept it now; ordinary reaction tapes use their own readiness.
                 can_act: want_up_special
                     && !own_capture_link
                     && !clatter
@@ -2039,7 +2041,9 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
                 .as_ref()
                 .and_then(|m| m.reflect_config(fighter_kind)),
             s.reflector.target_key(),
-            !automatic_suspended && !clatter && s.action_owner.allows(Owner::Reflect),
+            !automatic_suspended
+                && !clatter
+                && s.action_owner.allows(Owner::Reflect),
         )
     });
     reflect::observe(

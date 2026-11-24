@@ -690,13 +690,18 @@ impl ManualOverlay {
                 0
             };
         self.had_stick_override = output.stick.is_some();
-        if entering_reaction
-            && output
+        if entering_reaction {
+            // A held physical button must not swallow the first automatic
+            // press when an exclusive reaction takes over this mapper poll.
+            self.buttons
+                .rearm_requested(requested_buttons & owned_buttons, human.previous);
+            if output
                 .stick
                 .is_some_and(|s| s[0].abs() >= 0.95 && s[1].abs() <= 0.3)
-        {
-            self.buttons
-                .rearm_requested(requested & ((1 << 21) | (1 << 23)), human.previous);
+            {
+                self.buttons
+                    .rearm_requested(requested & ((1 << 21) | (1 << 23)), human.previous);
+            }
         }
         ManualFrame {
             // Menu controls can share buttons with a configured recipe. Physical
@@ -793,6 +798,33 @@ mod takeover_tests {
         );
         assert_eq!(frame.buttons.held & crate::native_input::MAPPER_A, 0);
         assert_ne!(frame.buttons.pressed & right, 0);
+    }
+
+    #[test]
+    fn committed_reaction_rearms_held_manual_special_without_leaking_attack() {
+        let held = ButtonTrace {
+            held: crate::native_input::MAPPER_A | crate::native_input::MAPPER_B,
+            previous: crate::native_input::MAPPER_A | crate::native_input::MAPPER_B,
+            ..Default::default()
+        };
+        let mut overlay = ManualOverlay::default();
+        let frame = overlay.apply_reaction_controls(
+            held,
+            [0., 0.],
+            TurboOutput {
+                stick: Some([0., -1.]),
+            },
+            0,
+            crate::native_input::MAPPER_B,
+            crate::ledge_trap::SEQUENCE_BUTTONS,
+            true,
+        );
+        assert_eq!(frame.buttons.held & crate::native_input::MAPPER_A, 0);
+        assert_eq!(
+            frame.buttons.pressed & crate::native_input::MAPPER_B,
+            crate::native_input::MAPPER_B
+        );
+        assert_eq!(frame.buttons.previous & crate::native_input::MAPPER_B, 0);
     }
 }
 

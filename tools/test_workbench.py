@@ -190,7 +190,7 @@ class HistoryAndLauncherTests(unittest.TestCase):
         self.assertEqual(workbench.helper("upload_switch.py", "$(not-a-shell)")[-1], "$(not-a-shell)")
         with self.assertRaises(ValueError):
             workbench.helper("../bad.py")
-        self.assertEqual(dict(workbench.TARGETS)["192.168.1.105"], "silent")
+        self.assertEqual(dict(workbench.TARGETS)["192.168.1.106"], "silent")
 
     def test_cli_fighter_edit_writes_only_that_fighter_after_confirmation(self):
         data = b"[universal.settings]\nx=1\n[kirby.neutral.a]\nstart_delay=0\nactions=a:4\n[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n"
@@ -309,7 +309,7 @@ class HistoryAndLauncherTests(unittest.TestCase):
                 app.upload()
             self.assertEqual(execute.call_count, 2)
             first, second = [call.args[1] for call in execute.call_args_list]
-            self.assertEqual((first["host"], first["target"]), ("192.168.1.105", "silent"))
+            self.assertEqual((first["host"], first["target"]), ("192.168.1.106", "silent"))
             self.assertIn("-s", first["command"])
             self.assertEqual((second["host"], second["target"]), ("192.168.1.142", "diagnostic"))
             self.assertIn("-d", second["command"])

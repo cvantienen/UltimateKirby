@@ -275,7 +275,7 @@ class UploadTests(unittest.TestCase):
         for answer in ["no", "", "y", EOFError(), KeyboardInterrupt()]:
             kwargs = {"side_effect": answer} if isinstance(answer, BaseException) else {"return_value": answer}
             with patch("builtins.input", **kwargs), patch.object(builder.ftplib, "FTP") as ftp:
-                builder.upload_files(self.source, "192.168.1.105")
+                builder.upload_files(self.source, "192.168.1.106")
                 ftp.assert_not_called()
 
     def test_diagnostic_dry_run_and_verify_only_do_not_prompt(self):
@@ -286,8 +286,8 @@ class UploadTests(unittest.TestCase):
         for remote, data in builder.upload_payloads(self.source):
             fake.files["/" + str(remote)] = data
         with patch("builtins.input") as confirmation, patch.object(builder.ftplib, "FTP", return_value=fake):
-            builder.upload_files(self.source, "192.168.1.105", dry_run=True)
-            builder.upload_files(self.source, "192.168.1.105", verify_only=True)
+            builder.upload_files(self.source, "192.168.1.106", dry_run=True)
+            builder.upload_files(self.source, "192.168.1.106", verify_only=True)
             confirmation.assert_not_called()
         self.assertEqual(fake.stores, [])
 
