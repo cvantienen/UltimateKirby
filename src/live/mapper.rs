@@ -702,9 +702,7 @@ fn run_settings_menu(
 /// Applies the menu's mode switches: attack-source tracking, automatic-mode
 /// suspension and the ledge-assist lifecycle.
 fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) {
-    let OverlayFrame {
-        config, physical, ..
-    } = *frame;
+    let OverlayFrame { config, .. } = *frame;
     let menu = state.settings_menu.as_ref();
     let ledge_held = menu
         .is_some_and(|p| p.sequence_enabled(config.assist.enabled) && p.ledge_held)
@@ -716,7 +714,6 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
         config.autopilot_shield && ledge_held
             || !ledge_held && menu.is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
     );
-    let manual_actions = menu.map_or(0, |m| m.manual_native_actions());
     let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
     // Mode buttons may block acquisition, never replace a committed tape.
     let suspend_auto = !state.action_owner.automatic_active() && ledge_inputs_reserved;
@@ -1825,7 +1822,7 @@ fn arbitrate_owner(
                 mash_stick,
                 di_stick,
                 sdi_stick,
-                state.tech_output.press,
+                state.tech_input.as_ref().is_some_and(TechInput::urgent_press),
             );
     }
     selected = kirby_assist_core::action_owner::exclusive_output(

@@ -401,18 +401,6 @@ impl SettingsMenu {
     pub fn sequence_enabled(&self, base: bool) -> bool {
         base || self.ledge_held || self.scoped().is_some_and(|s| s.sequence_enabled(false))
     }
-    /// Resolves manual native actions for the scoped fighter selection.
-    pub fn manual_native_actions(&self) -> u32 {
-        let Some((kind, selection)) = self.kind.zip(self.scoped()) else {
-            return 0;
-        };
-        PROFILES
-            .get()
-            .and_then(|p| p.profile(kind))
-            .map_or(0, |profile| {
-                selection.manual_native_actions(&profile.menu_options)
-            })
-    }
     /// Queries whether the scoped selection reserves automatic modes.
     pub fn reserves_automatic_modes(&self) -> bool {
         self.scoped().is_some_and(|s| s.reserves_automatic_modes())
