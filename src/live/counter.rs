@@ -20,13 +20,6 @@ unsafe fn active_threat(
     if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
         return false;
     }
-    let envelope = kirby_assist_core::autopilot_guard::Envelope {
-        half_width: config.half_width,
-        height: config.height,
-        half_depth: config.half_depth,
-        forecast: config.horizon(),
-        ..Default::default()
-    };
     for slot in 0..8 {
         if !game::attack_active(enemy, slot, false) {
             continue;
@@ -47,10 +40,13 @@ unsafe fn active_threat(
         };
         if data.direct != 1
             || data.situation & mask == 0
-            || ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
-                .iter()
-                .all(|v| v.is_finite())
+            || ![
+                data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size, data.power,
+            ]
+            .iter()
+            .all(|v| v.is_finite())
             || data.size <= 0.0
+            || data.power <= 0.0
         {
             continue;
         }
@@ -78,7 +74,8 @@ unsafe fn active_threat(
             };
             game::joint_position(enemy, data.node, &local, &mut to, true);
         }
-        if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
+        if policy::active_melee_threat(
+            config,
             origin,
             own_velocity,
             kirby_assist_core::autopilot_guard::Hitbox {
@@ -87,7 +84,6 @@ unsafe fn active_threat(
                 radius: data.size * scale,
                 velocity: enemy_velocity,
             },
-            envelope,
         ) {
             return true;
         }
@@ -175,15 +171,36 @@ pub(super) unsafe fn observe(
         let enemy_status = reads.status_kind(enemy);
         let enemy_frame = reads.motion_frame(enemy);
         let velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        if !velocity.iter().all(|v| v.is_finite())
-            || (position[0] - origin[0]).abs()
-                > 96.0 + (velocity[0] - own_velocity[0]).abs() * config.horizon()
-            || (position[1] - origin[1]).abs()
-                > 96.0 + (velocity[1] - own_velocity[1]).abs() * config.horizon()
-        {
+        if !policy::nearby_attacker(config, origin, own_velocity, position, velocity) {
             continue;
         }
-        let attack = if active_threat(
+        // A known move may be answered during startup; once any live hitbox
+        // exists, its native geometry is authoritative instead of frame data.
+        let has_active_hitbox = (0..8).any(|slot| game::attack_active(enemy, slot, false));
+        let facing = reads.facing(enemy);
+        let imminent = (!has_active_hitbox
+            && facing.is_finite()
+            && facing.abs() >= 0.5
+            && facing * (origin[0] - position[0]) >= 0.0
+            && (position[0] - origin[0]).abs() <= config.half_width + 8.0)
+            .then(|| {
+                policy::predicted_attack(
+                    config,
+                    origin,
+                    own_velocity,
+                    position,
+                    velocity,
+                    reads.fighter_kind(enemy),
+                    id,
+                    enemy_motion,
+                    enemy_status,
+                    enemy_frame,
+                    reads.motion_rate(enemy),
+                )
+                .filter(|t| t.in_frames > 0.0)
+            })
+            .flatten();
+        let attack = active_threat(
             enemy,
             situation,
             origin,
@@ -191,29 +208,15 @@ pub(super) unsafe fn observe(
             velocity,
             config,
             &mut geometry_budget,
-        ) {
-            Some(Threat {
-                id,
-                motion: enemy_motion,
-                status: enemy_status,
-                frame: enemy_frame,
-                in_frames: 0.0,
-            })
-        } else {
-            policy::predicted_attack(
-                config,
-                origin,
-                own_velocity,
-                position,
-                velocity,
-                reads.fighter_kind(enemy),
-                id,
-                enemy_motion,
-                enemy_status,
-                enemy_frame,
-                reads.motion_rate(enemy),
-            )
-        };
+        )
+        .then_some(Threat {
+            id,
+            motion: enemy_motion,
+            status: enemy_status,
+            frame: enemy_frame,
+            in_frames: 0.0,
+        })
+        .or(imminent);
         if let Some(threat) = attack {
             if threat.in_frames < soonest {
                 soonest = threat.in_frames;

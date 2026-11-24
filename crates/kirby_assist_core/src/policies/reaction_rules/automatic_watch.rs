@@ -101,12 +101,14 @@ pub fn simple_readiness(
         }
         result[event] = if start.up_special {
             c.can_act
-        } else if !crate::out_of_shield::stationary_grab_state(c.status) {
-            false
-        } else if c.status == crate::native_states::status::WAIT || c.can_act {
-            true
-        } else {
+        } else if matches!(
+            c.status,
+            crate::native_states::GUARD_ON | crate::native_states::GUARD
+        ) && !c.can_act
+        {
             *shield.get_or_insert_with(&mut shield_ready)
+        } else {
+            true
         };
     }
     result
@@ -199,17 +201,11 @@ impl Engine {
             };
             let d = (t.position[0] - c.position[0]).abs();
             let r = sequence.reaction;
-            // Moving admission is reserved for a direct Up-B input. A
-            // configured grab/ordinary attack must not brake locomotion.
-            let immediate_up_b = starts_up_b(sequence);
-            if (crate::out_of_shield::stationary_grab_state(c.status) || immediate_up_b)
-                && d.is_finite()
-                && d <= r.max
-                && (t.position[1] - c.position[1]).abs() <= r.height
-            // The first observed eligible event owns the response. Do
-            // not reorder simultaneous events by distance: that made a
-            // later target steal a sequence from the event seen first.
-            {
+            // A controllable moving status can hand its buttons/stick to the
+            // reaction on this observation; native move startup remains native.
+            // The first observed eligible event owns the response, rather than
+            // a later, closer target stealing the event.
+            if d.is_finite() && d <= r.max && (t.position[1] - c.position[1]).abs() <= r.height {
                 return Some((i, sequence));
             }
         }
@@ -353,7 +349,7 @@ impl Engine {
         output
     }
 
-    /// Commit the nearest ready, unconsumed event.
+    /// Commit the first ready, unconsumed event.
     fn admit_simple(
         &mut self,
         rules: &Resolved,

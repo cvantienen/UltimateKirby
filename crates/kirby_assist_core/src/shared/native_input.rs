@@ -430,11 +430,13 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
 /// These are held input bits; no command flags, move/state writes or new edges.
 pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     let mut mapped = buttons;
-    // An explicit Grab must not inherit a stale native Attack bit from the
-    // preceding drift/dash packet. Without this, Catch and Attack arrive in
-    // the same mapped frame and the game performs a jab instead of a grab.
-    if requested & MAPPER_R != 0 && requested & MAPPER_A == 0 {
+    // A fully owned packet must not inherit unrelated native mapped actions
+    // from a held physical button or the mapper's preceding history.
+    if requested & MAPPER_A == 0 {
         mapped &= !MAPPED_ATTACK_HOLD_BITS;
+    }
+    if requested & MAPPER_B == 0 {
+        mapped &= !MAPPED_SPECIAL;
     }
     // Fully owned neutral/attack frames release the preceding shield too.
     // Otherwise mapper hold history can outlive the raw ZR release and prevent

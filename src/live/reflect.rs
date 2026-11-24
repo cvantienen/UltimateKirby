@@ -54,7 +54,9 @@ pub(super) unsafe fn observe(
         && (game::transition_enabled(
             own,
             kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
-        ) || kirby_assist_core::native_states::moving_down_special_input(status, situation));
+        ) || kirby_assist_core::native_states::moving_down_special_input(status, situation)
+            || situation == kirby_assist_core::native_states::situation::AIR
+                && kirby_assist_core::native_states::jump_or_fall(status));
     if !active && !can_special {
         return None;
     }

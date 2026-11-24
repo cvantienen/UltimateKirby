@@ -154,7 +154,7 @@ Preferences remember the local sequences path, edited file/fighter, FTP ports,
 cargo cache and last successfully built version. Enter keeps a displayed default;
 `-` clears the custom cargo cache. File fields default to the repository source
 `deployment/ultimate/kirby_assist/sequences.txt`. The fixed Switch addresses
-remain silent `192.168.1.105` and diagnostic `192.168.1.142`; the default FTP
+remain silent `192.168.1.106` and diagnostic `192.168.1.142`; the default FTP
 port is `5000`.
 
 ## Sequence transfers

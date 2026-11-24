@@ -6,7 +6,7 @@ Usage:
     python3 tools/upload_all_switches.py -v 1.7.6 --dry-run
     python3 tools/upload_all_switches.py -v 1.7.6 --replace-sequences --smash-closed
 
-The .105 Switch is permanently restricted to SILENT. The .142 Switch receives
+The .106 Switch is permanently restricted to SILENT. The .142 Switch receives
 DIAGNOSTIC. Each target is attempted even if another target is unavailable.
 Sequences are staged by default; --replace-sequences replaces the active file
 after verified backups, using the current assembled fighter configurations.
@@ -22,16 +22,16 @@ import upload_switch
 
 
 TARGETS = (
-    ("192.168.1.105", "silent"),
+    ("192.168.1.106", "silent"),
     ("192.168.1.142", "diagnostic"),
 )
 
 
 def deployment_plan(version: str) -> tuple[tuple[str, str], ...]:
-    """Return fixed safe routing; diagnostic can never target .105."""
+    """Return fixed safe routing; diagnostic can never target .106."""
     upload_switch.release_version(version)
-    if any(host.endswith(".105") and variant != "silent" for host, variant in TARGETS):
-        raise RuntimeError("Safety rule violated: 192.168.1.105 may receive SILENT only")
+    if any(host.endswith(".106") and variant != "silent" for host, variant in TARGETS):
+        raise RuntimeError("Safety rule violated: 192.168.1.106 may receive SILENT only")
     return TARGETS
 
 

@@ -17,6 +17,11 @@ class UploadAllTests(unittest.TestCase):
             self.assertTrue(uploader.parse_options(args + [extra]).replace_sequences)
         self.assertFalse(uploader.parse_options(["-v", "2.3.1"]).replace_sequences)
 
+    def test_configured_hosts_route_silent_and_diagnostic_without_misbinding(self):
+        self.assertEqual(uploader.TARGETS, (("192.168.1.106", "silent"),
+                                           ("192.168.1.142", "diagnostic")))
+        self.assertEqual(uploader.deployment_plan("2.3.1"), uploader.TARGETS)
+
     def test_both_targets_receive_replacement_and_selected_read_only_flags(self):
         for mode in [[], ["--dry-run"], ["--verify-only"]]:
             options = uploader.parse_options(["-v", "2.3.1", "--replace-sequences", "--smash-closed"] + mode)

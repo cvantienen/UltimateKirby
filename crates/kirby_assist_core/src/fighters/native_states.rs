@@ -422,7 +422,7 @@ pub mod situation {
 pub fn moving_down_special_input(status: i32, situation: i32) -> bool {
     situation == situation::GROUND
         && matches!(status,
-            status::WALK..=status::TURN_RUN_BRAKE
+            status::WALK..=status::JUMP_SQUAT
             | status::SQUAT..=status::SQUAT_RV)
 }
 
@@ -437,6 +437,7 @@ mod moving_special_tests {
             status::DASH,
             status::RUN,
             status::TURN_RUN_BRAKE,
+            status::JUMP_SQUAT,
             status::SQUAT_WAIT,
         ] {
             assert!(moving_down_special_input(status, situation::GROUND));

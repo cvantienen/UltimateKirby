@@ -102,8 +102,8 @@ class UploadSequencesTests(unittest.TestCase):
     def test_upload_writes_only_sequence_file_and_verifies_it(self):
         ftp = FakeFTP()
         with patch.object(uploader.ftplib, "FTP", return_value=ftp):
-            uploader.upload_one("192.168.1.105", b"actions=test")
-        self.assertEqual(ftp.connection, ("192.168.1.105", 5000, 10))
+            uploader.upload_one("192.168.1.106", b"actions=test")
+        self.assertEqual(ftp.connection, ("192.168.1.106", 5000, 10))
         self.assertEqual(uploader.REMOTE, "/ultimate/kirby_assist/sequences.upload.txt")
         self.assertNotIn("STOR /ultimate/kirby_assist/sequences.txt", ftp.commands)
         self.assertEqual(ftp.commands, [f"STOR {uploader.REMOTE}", "TYPE I",
@@ -119,7 +119,7 @@ class UploadSequencesTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertFalse(uploader.upload_both(b"actions=test"))
         self.assertEqual([call.args[0] for call in upload.call_args_list],
-                         ["192.168.1.105", "192.168.1.142"])
+                         ["192.168.1.106", "192.168.1.142"])
 
     def test_replace_reuses_workbench_backups_and_verification(self):
         from types import SimpleNamespace

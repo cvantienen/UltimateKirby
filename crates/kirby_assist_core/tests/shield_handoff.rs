@@ -74,7 +74,7 @@ fn block_to_down_smash_releases_neutral_until_guard_off_ends_then_holds_full_dur
 #[test]
 fn direct_oos_inputs_do_not_gain_an_extra_release_frame() {
     for (action, button) in [
-        ("grab:4", MAPPER_R),
+        ("input:r:0:0:4", MAPPER_R),
         ("up_b:4", MAPPER_B),
         ("up_smash:4", MAPPER_A),
         ("short_hop:1", MAPPER_X),
@@ -84,16 +84,33 @@ fn direct_oos_inputs_do_not_gain_an_extra_release_frame() {
             sequence(&format!("shield_until_block:30,{action}")),
             Opponent::default(),
         );
-        t.sample(
-            AssistSettings::default(),
-            context(kirby_assist_core::native_states::GUARD_DAMAGE, 0.),
-            None,
-            None,
-            0.,
+        assert_eq!(
+            t.sample(
+                AssistSettings::default(),
+                context(kirby_assist_core::native_states::GUARD, 0.),
+                None,
+                None,
+                0.,
+            )
+            .requested,
+            MAPPER_ZR,
+            "{action}: initial shield"
+        );
+        assert_eq!(
+            t.sample(
+                AssistSettings::default(),
+                context(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+                None,
+                None,
+                0.,
+            )
+            .requested,
+            MAPPER_ZR,
+            "{action}: shield hit"
         );
         let o = t.sample(
             AssistSettings::default(),
-            context(kirby_assist_core::native_states::GUARD, 1.),
+            context(kirby_assist_core::native_states::GUARD, 2.),
             None,
             None,
             0.,

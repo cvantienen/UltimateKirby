@@ -894,7 +894,8 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
     // An idle always-on watch must not swallow Turbo movement. Acquired ledge
     // visits/tapes keep priority.
     let ledge_present = state.ledge_active
-        && (state.action_owner.current_owner() == Some(Owner::Ledge)
+        && (ledge_committed
+            || state.action_owner.current_owner() == Some(Owner::Ledge)
             || !state.autopilot_guarding
                 && (!inputs.turbo_active || ledge_acquired)
                 && (state.oos_output.owned == 0 || ledge_acquired))
@@ -942,7 +943,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
             state
                 .rule_engine
                 .as_ref()
-                .is_some_and(|e| e.awaiting_up_b()),
+                .is_some_and(|e| e.committed() || e.awaiting_up_b()),
         ),
         committed_intent(
             Owner::GrabDodge,
@@ -2185,6 +2186,8 @@ fn apply_manual_overlay(
                         | Owner::Counter
                         | Owner::Trip
                         | Owner::Fair
+                        | Owner::Ledge
+                        | Owner::Trump
                 )
             ),
         );

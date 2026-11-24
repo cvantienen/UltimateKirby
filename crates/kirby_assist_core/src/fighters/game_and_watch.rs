@@ -78,7 +78,7 @@ impl Config {
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
-            matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
+            matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
         }
         // Ordinary jump/fall only.
         crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
@@ -634,6 +634,7 @@ mod tests {
             crate::native_states::status::WALK,
             crate::native_states::status::RUN,
             crate::native_states::status::TURN_RUN_BRAKE,
+            crate::native_states::status::JUMP_SQUAT,
             crate::native_states::status::SQUAT_WAIT,
         ] {
             let mut reflector = Reflector::new();
@@ -653,6 +654,32 @@ mod tests {
             );
             assert!(!reflector.active());
         }
+    }
+
+    #[test]
+    fn air_jump_and_fall_request_oil_panic_but_guard_does_not() {
+        let threat = Threat {
+            id: 7,
+            generation: 1,
+            in_frames: 8.0,
+            direction: 1.0,
+        };
+        for status in [
+            crate::native_states::status::JUMP,
+            crate::native_states::status::JUMP_AERIAL,
+            crate::native_states::status::FALL,
+            crate::native_states::status::FALL_AERIAL,
+        ] {
+            let mut airborne = context(status, 2.0);
+            airborne.situation = crate::native_states::situation::AIR;
+            airborne.can_special = true;
+            let output = Reflector::new().sample(true, Some(config()), airborne, Some(threat));
+            assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
+        }
+        assert!(!movable(
+            crate::native_states::status::GUARD,
+            crate::native_states::situation::GROUND
+        ));
     }
 
     #[test]

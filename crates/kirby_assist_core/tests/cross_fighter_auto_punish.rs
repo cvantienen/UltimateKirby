@@ -176,17 +176,43 @@ fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured
             status: kirby_assist_core::native_states::status::CATCH_WAIT,
             ..c
         },
-        GameplayContext {
-            status: kirby_assist_core::native_states::status::DASH,
-            ..c
-        },
     ] {
         assert_eq!(
             simple_readiness(rules.simple_starts(), c, &t, || panic!(
-                "invalid state or locomotion must not start a new ordinary punish"
+                "invalid or uncontrollable state must not start a new ordinary punish"
             )),
             [false; 3]
         );
+    }
+}
+
+#[test]
+fn moving_grounded_roll_reaction_starts_without_waiting_for_idle() {
+    let rules = rules(&[("auto_roll", "down_smash:1")]);
+    for status in [
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+    ] {
+        let c = GameplayContext {
+            status,
+            ..context()
+        };
+        let t = targets(kirby_assist_core::native_states::ESCAPE_F, 10., 0.);
+        let readiness = simple_readiness(rules.simple_starts(), c, &t, || {
+            panic!("moving attack should not query shield readiness")
+        });
+        assert!(readiness[0]);
+        let output = sample_optional_simple(
+            &mut None,
+            true,
+            Some(&rules),
+            AssistSettings::default(),
+            c,
+            t,
+            None,
+            readiness,
+        );
+        assert_ne!(output.requested & MAPPER_A, 0, "status {status}");
     }
 }
 
@@ -196,10 +222,9 @@ fn grab_backup_and_grab_dodge_floor_requirements_are_independent_of_auto_react()
         (0, "auto_roll"),
         (1, "auto_spot_dodge"),
         (2, "auto_air_dodge"),
-        (3, "auto_grab"),
-        (4, "auto_shield_grab"),
-        (5, "auto_grab_dodged"),
-        (6, "auto_shield_backup"),
+        (3, "auto_shield_grab"),
+        (4, "auto_grab_dodged"),
+        (5, "auto_shield_backup"),
     ] {
         for actions in [
             "walk:opponent:4:50%,a:1",
@@ -215,15 +240,15 @@ fn grab_backup_and_grab_dodge_floor_requirements_are_independent_of_auto_react()
                 Some((20., 8.)),
                 "{event}: {actions}"
             );
-            assert_eq!(rules.automatic_ground_watch(0x7f ^ (1 << index)), None);
+            assert_eq!(rules.automatic_ground_watch(0x3f ^ (1 << index)), None);
         }
     }
     let rules = rules(&[
         ("auto_roll", "up_b:4,drift:opponent:1:69"),
-        ("auto_grab", "input:r:0:0:4"),
+        ("auto_shield_grab", "input:r:0:0:4"),
     ]);
     assert_eq!(
-        rules.automatic_ground_watch(0x7f),
+        rules.automatic_ground_watch(0x3f),
         None,
         "literal grab and spin drift need no floor probes"
     );
@@ -234,8 +259,8 @@ fn grab_backup_and_grab_dodge_floor_requirements_are_independent_of_auto_react()
 #[test]
 fn unconfigured_fighters_do_not_construct_or_retain_a_roll_engine_during_grab_observations() {
     let grabs = rules(&[
-        ("auto_grab", "input:r:0:0:4"),
         ("auto_shield_grab", "input:r:0:0:4"),
+        ("auto_shield_backup", "input:r:0:0:4"),
     ]);
     let mut engine = None;
     for _ in 0..600 {
@@ -322,7 +347,9 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
                     ..Default::default()
                 },
                 AutomaticConfig {
-                    backup: rules.simple_sequence(6),
+                    backup: rules.automatic_sequence(
+                        kirby_assist_core::reaction_rules::AutomaticEvent::ShieldBackup,
+                    ),
                     ..Default::default()
                 },
             );
