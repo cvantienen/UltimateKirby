@@ -132,6 +132,72 @@ def canonical_bundle(data: bytes) -> bytes:
     ).rstrip() + b'\n'
 
 
+def restore_comments(reference: bytes, authoritative: bytes) -> bytes:
+    """Reapply repository-only comments to matching sections and settings."""
+    section_comments: dict[str, list[bytes]] = {}
+    section_inline: dict[str, bytes] = {}
+    setting_comments: dict[tuple[str, str], list[bytes]] = {}
+    setting_inline: dict[tuple[str, str], bytes] = {}
+    global_comments: list[bytes] = []
+    section = None
+    pending: list[bytes] = []
+    for text_line in reference.decode('utf-8').splitlines(keepends=True):
+        line = text_line.encode('utf-8')
+        content, marker, comment = line.partition(b'#')
+        stripped = content.strip()
+        inline = b'#' + comment.rstrip(b'\r\n') if marker else b''
+        if stripped.startswith(b'[') and stripped.endswith(b']'):
+            if section is None:
+                global_comments.extend(pending)
+            else:
+                section_comments[section] = pending
+            section = stripped.decode()
+            if inline:
+                section_inline[section] = inline
+            pending = []
+        elif not stripped and marker:
+            pending.append(line)
+        elif stripped:
+            if section is None:
+                global_comments.extend(pending)
+            else:
+                key = stripped.split(b'=', 1)[0].strip().decode()
+                identity = (section, key)
+                if pending:
+                    setting_comments[identity] = pending
+                if inline:
+                    setting_inline[identity] = inline
+            pending = []
+    if section is None:
+        global_comments.extend(pending)
+
+    output: list[bytes] = []
+    section = None
+    emitted_global = False
+    for line in authoritative.splitlines(keepends=True):
+        content, marker, _comment = line.partition(b'#')
+        stripped = content.strip()
+        if stripped.startswith(b'[') and stripped.endswith(b']'):
+            if not emitted_global:
+                output.extend(global_comments)
+                emitted_global = True
+            section = stripped.decode()
+            output.extend(section_comments.get(section, ()))
+            inline = section_inline.get(section)
+            if inline and not marker:
+                line = line.rstrip(b'\r\n') + b' ' + inline + (b'\n' if line.endswith(b'\n') else b'')
+        elif stripped and section is not None:
+            identity = (section, stripped.split(b'=', 1)[0].strip().decode())
+            output.extend(setting_comments.get(identity, ()))
+            inline = setting_inline.get(identity)
+            if inline and not marker:
+                line = line.rstrip(b'\r\n') + b' ' + inline + (b'\n' if line.endswith(b'\n') else b'')
+        output.append(line)
+    if not emitted_global:
+        output.extend(global_comments)
+    return b''.join(output)
+
+
 def plan_breakdown(source: Path, data: bytes) -> dict:
     """Describe the per-file result of splitting a combined file; writes nothing."""
     canonical = canonical_bundle(data)

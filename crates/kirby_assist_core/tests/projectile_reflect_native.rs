@@ -38,6 +38,9 @@ mod game_ffi {
         pub active: bool,
         pub attacks: bool,
         pub geometry: AttackGeometry,
+        pub motion: u64,
+        pub frame: f32,
+        pub rate: f32,
     }
     impl Object {
         pub fn new(id: u32) -> Self {
@@ -66,6 +69,9 @@ mod game_ffi {
                 active: true,
                 attacks: true,
                 geometry,
+                motion: 1,
+                frame: 0.,
+                rate: 1.,
             }
         }
     }
@@ -156,13 +162,20 @@ mod frame {
             read();
             (*o).facing
         }
-        pub unsafe fn motion_kind(&self, _: *mut game_ffi::Object) -> u64 {
+        pub unsafe fn motion_kind(&self, o: *mut game_ffi::Object) -> u64 {
             read();
-            1
+            (*o).motion
         }
-        pub unsafe fn motion_frame(&self, _: *mut game_ffi::Object) -> f32 {
+        pub unsafe fn motion_frame(&self, o: *mut game_ffi::Object) -> f32 {
             read();
-            0.
+            (*o).frame
+        }
+        pub unsafe fn motion_rate(&self, o: *mut game_ffi::Object) -> f32 {
+            read();
+            (*o).rate
+        }
+        pub fn roster(&self) -> Option<kirby_assist_core::battle_objects::FightersInGame> {
+            Some(OBJECTS.with(|v| std::array::from_fn(|i| v.borrow().get(i).map(|o| o.id))))
         }
         pub unsafe fn pos_x(&self, o: *mut game_ffi::Object) -> f32 {
             read();
@@ -202,6 +215,8 @@ mod attack_sources {
 }
 #[path = "../../../src/live/reflect.rs"]
 mod reflect;
+#[path = "../../../src/live/counter.rs"]
+mod counter;
 use kirby_assist_core::{fighter_tuning::Tuning, projectile_reflect::Config};
 fn config() -> Config {
     let mut t = Tuning::default();
@@ -222,6 +237,110 @@ fn projectile(edit: impl FnOnce(&mut game_ffi::Object)) {
     p.velocity[0] = -5.;
     edit(&mut p);
     OBJECTS.with(|v| v.borrow_mut().push(p));
+}
+fn counter_config() -> kirby_assist_core::auto_counter::Config {
+    kirby_assist_core::auto_counter::Config {
+        startup: 5., input_delay: 0., margin: 2.,
+        half_width: 5., height: 16., half_depth: 5.,
+    }
+}
+fn counter_enemy(edit: impl FnOnce(&mut game_ffi::Object)) {
+    let mut enemy = Box::new(game_ffi::Object::new(7));
+    enemy.kind = kirby_assist_core::fighter_kinds::MARIO;
+    enemy.team = 2;
+    enemy.status = kirby_assist_core::native_states::status::ATTACK_AIR;
+    enemy.motion = kirby_assist_core::timing::motion_hash("attack_air_n");
+    enemy.frame = 6.;
+    enemy.position[0] = 12.;
+    enemy.velocity[0] = -1.;
+    enemy.geometry.direct = 1;
+    enemy.geometry.power = 10.;
+    edit(&mut enemy);
+    OBJECTS.with(|v| v.borrow_mut().push(enemy));
+}
+#[test]
+fn counter_native_permission_is_required_in_movement_and_air() {
+    use kirby_assist_core::native_states::{status, situation};
+    for (state, air) in [(status::WAIT, false), (status::WALK, false),
+        (status::DASH, false), (status::RUN, false), (status::TURN_RUN_BRAKE, false),
+        (status::JUMP_SQUAT, false), (status::LANDING, false),
+        (status::JUMP, true), (status::FALL, true)] {
+        let mut own = reset();
+        own.status = state;
+        own.situation = if air { situation::AIR } else { situation::GROUND };
+        own.ready = false;
+        counter_enemy(|_| {});
+        let (_, context, threat) = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap();
+        assert!(!context.can_special);
+        assert!(threat.is_none());
+        assert_eq!(GEOMETRY.with(Cell::get), 0);
+    }
+}
+#[test]
+fn counter_observation_requires_live_geometry_and_current_window() {
+    for scenario in 0..7 {
+        let mut own = reset();
+        counter_enemy(|e| match scenario {
+            1 => e.attacks = false,
+            2 => e.stopped = true,
+            3 => e.frame = 100.,
+            4 => e.geometry.size = f32::NAN,
+            5 => e.motion = 0,
+            6 => e.active = false,
+            _ => {},
+        });
+        let (_, _, threat) = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap();
+        assert_eq!(threat.is_some(), scenario == 0, "scenario {scenario}: {threat:?}");
+    }
+}
+#[test]
+fn truncated_counter_scan_withholds_instead_of_claiming_safe_contact() {
+    let mut own = reset();
+    for id in 7..10 { counter_enemy(|e| e.id = id); }
+    let (_, _, threat) = unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+    }.unwrap();
+    assert!(threat.is_none());
+    assert_eq!(GEOMETRY.with(Cell::get), 16);
+}
+#[test]
+fn earlier_uncounterable_attacker_is_not_hidden_by_a_later_candidate() {
+    let mut own = reset();
+    counter_enemy(|_| {});
+    counter_enemy(|e| { e.id = 8; e.position[0] = 8.; });
+    let (_, _, threat) = unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+    }.unwrap();
+    assert!(threat.is_none());
+}
+#[test]
+fn counter_contact_respects_delay_approach_and_defender_situation() {
+    use kirby_assist_core::native_states::situation;
+    for air in [false, true] {
+        for delay in [0., 2.] {
+            let mut own = reset();
+            if air {
+                own.situation = situation::AIR;
+                own.status = kirby_assist_core::native_states::status::FALL;
+            }
+            counter_enemy(|e| e.facing = -1.);
+            let mut config = counter_config();
+            config.input_delay = delay;
+            let (_, _, threat) = unsafe {
+                counter::observe(&frame::FrameReads, &mut *own, 1,
+                    kirby_assist_core::fighter_kinds::LUCINA, Some(config), true)
+            }.unwrap();
+            assert_eq!(threat.is_some(), delay == 0., "air={air}, delay={delay}");
+        }
+    }
 }
 #[test]
 fn disabled_unsupported_and_unconfigured_modes_make_zero_native_queries() {
@@ -432,7 +551,7 @@ fn crowded_projectiles_and_hitstop_keep_native_work_bounded() {
             1,
             28,
             Some(config()),
-            Some(2),
+            attack_sources::projectiles().into_iter().flatten().find(|key| key.id == 0x10000002),
             true,
         )
     }
@@ -461,7 +580,7 @@ fn an_existing_target_is_not_replaced_by_another_projectile_mid_bucket() {
             1,
             28,
             Some(config()),
-            Some(0x10000002),
+            attack_sources::projectiles().into_iter().flatten().find(|key| key.id == 0x10000002),
             true,
         )
     }

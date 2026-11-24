@@ -329,6 +329,8 @@ pub fn update(
                     "while_held"
                         | "ground_only"
                         | "auto_tilt"
+                        | "auto_tilts"
+                        | "tilt_turn"
                         | "reaction"
                         | "actions"
                         | "start_delay"
@@ -1027,7 +1029,29 @@ mod default_selection_tests {
 #[cfg(test)]
 mod unchanged_save_tests {
     use super::*;
-    /// Regression test for `same_sequence_and_name_preserve_original_bytes`.
+    #[test]
+    fn scoped_regression_tilt_aliases_are_replaced_semantically() {
+        for alias in ["auto_tilts", "tilt_turn"] {
+            let original = format!("[kirby.neutral.custom]\nstart_delay=0\nactions=jab\n{alias}=down\n[kirby.roll.keep]\nstart_delay=0\nactions=grab\n{alias}=up\n");
+            let catalog = Catalog::parse(&original).unwrap();
+            for disable in [false, true] {
+                let mut seq = catalog.entries()[0].sequence;
+                seq.actions[0] = Action::Wait(2);
+                if disable {
+                    seq.auto_tilt = None;
+                }
+                let saved =
+                    update(&original, 6, PresetSlot::Neutral, "custom", seq, false).unwrap();
+                let parsed = Catalog::parse(&saved).unwrap();
+                assert_eq!(parsed.entries()[0].sequence, seq);
+                assert_eq!(parsed.entries()[1], catalog.entries()[1]);
+                assert!(saved.ends_with(&format!(
+                    "[kirby.roll.keep]\nstart_delay=0\nactions=grab\n{alias}=up\n"
+                )));
+            }
+        }
+    }
+
     #[test]
     fn same_sequence_and_name_preserve_original_bytes() {
         let original="[yoshi.neutral.test]\n# preserve formatting\nname=Grab\nstart_delay=0\nactions=grab:4\n";

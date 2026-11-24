@@ -171,6 +171,19 @@ class UploadTests(unittest.TestCase):
         self.assertIn(b"[template.basic]", payloads[builder.ACTIVE_SEQUENCES])
         self.assertNotIn(builder.SEQUENCES, payloads)
 
+    def test_workbench_override_skips_hardcoded_silent_ip_diagnostic_guard(self):
+        fake = FakeFTP()
+        (self.source / "RELEASE_SUMMARY.txt").write_bytes(b"Build: DIAGNOSTIC\n")
+        diagnostic_binary = self.binary + b"".join(builder.LOG_MARKERS)
+        (self.source / "libkirby_assist.nro").write_bytes(diagnostic_binary)
+        payloads = builder.upload_payloads(self.source)
+        for remote, data in payloads:
+            fake.allowed.add("/" + str(remote))
+        with patch.object(builder.ftplib, "FTP", return_value=fake):
+            builder.upload_files(self.source, "10.0.0.10", variant="diagnostic",
+                                 allow_diagnostic_on_silent_ip=True)
+        self.assertIn("/" + str(builder.PLUGIN), fake.stores)
+
     def test_active_replacement_cli_requires_closed_game_except_read_only_modes(self):
         args = ["192.0.2.10", "-v", "2.3.1", "--replace-sequences"]
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):

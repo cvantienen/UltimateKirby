@@ -1231,7 +1231,11 @@ impl Engine {
         self.feedback = Feedback::Watching;
         for candidate in rules.rules.iter().flatten() {
             let r = candidate.sequence.reaction;
-            if r.trigger.defensive() || rules.enabled_controls & r.control.bit() == 0 {
+            if !matches!(
+                r.trigger,
+                Trigger::Roll | Trigger::Crossed | Trigger::Vulnerable | Trigger::CrossVulnerable
+            ) || rules.enabled_controls & r.control.bit() == 0
+            {
                 continue;
             }
             for (i, t) in targets.iter().enumerate() {
@@ -1512,6 +1516,26 @@ mod tests {
         assert!(validate_response(sequence("roll:any:0:20:12:any:1", "walk:ledge:8:50%")).is_err());
     }
     /// Regression test for `one_attempt_per_roll_and_new_roll_rearms`.
+    #[test]
+    fn scoped_regression_roll_dispatch_ignores_automatic_event_recipes() {
+        for trigger in Trigger::AUTO_EVENTS {
+            let mut r = resolved(sequence(&format!("{}:20:12", trigger.token()), "a:1"));
+            let mut e = Engine::default();
+            assert_eq!(sample(&mut e, &r, context(0.), target(0., 5.)).requested, 0);
+            assert!(!e.committed());
+            r.add(Candidate {
+                slot: 0,
+                index: 1,
+                sequence: sequence("roll:any:0:20:12:any:2", "up_b:1"),
+            })
+            .unwrap();
+            assert_eq!(
+                sample(&mut e, &r, context(1.), target(1., 5.)).requested,
+                MAPPER_B
+            );
+        }
+    }
+
     #[test]
     fn one_attempt_per_roll_and_new_roll_rearms() {
         let r = resolved(sequence("roll:any:0:20:12:any:1", "jab:1"));

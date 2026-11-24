@@ -159,12 +159,11 @@ unsafe fn object_has_active_hitbox_threat(
         if data.is_null() {
             continue;
         }
+        let data = data.read();
         let scale = *scale.get_or_insert_with(|| game::scale(enemy));
         if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
             continue;
         }
-
-        let data = data.read();
         let mask = match scan.situation {
             kirby_assist_core::native_states::situation::GROUND => {
                 kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK

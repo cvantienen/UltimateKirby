@@ -333,6 +333,10 @@ impl Timeline {
         if let Some(out) = self.gate(settings.fighter_kind, ctx) {
             return out;
         }
+        let fresh = enemy.filter(|e| e.id == self.enemy.id && finite2(e.position));
+        if fresh.is_none() && self.current().is_some_and(|a| needs_opponent(a, anchor)) {
+            return self.release("opponent_target_unavailable");
+        }
         if !self.timing_initialized {
             if !ctx.sequence_input_delay.is_finite()
                 || !(0.0..=120.0).contains(&ctx.sequence_input_delay)
@@ -377,7 +381,6 @@ impl Timeline {
         if !self.shield_handoff || !self.entered {
             self.right_stick = [0.0; 2];
         }
-        let fresh = enemy.filter(|e| e.id == self.enemy.id && finite2(e.position));
         if let Some(enemy) = fresh {
             self.enemy = enemy;
         }
@@ -529,6 +532,9 @@ impl Timeline {
                 }
                 return self.finish("completed");
             };
+            if f.fresh.is_none() && needs_opponent(action, f.anchor) {
+                return self.release("opponent_target_unavailable");
+            }
             if let Some(reason) = self.invalid_step(action, &f) {
                 return self.finish(reason);
             }
@@ -1087,6 +1093,34 @@ fn steps_remain(mask: u32, cursor: u8) -> bool {
     mask.checked_shr(u32::from(cursor))
         .is_some_and(|rest| rest != 0)
 }
+fn needs_opponent(action: Action, anchor: Option<[f32; 2]>) -> bool {
+    let direction_needs_opponent = |d| {
+        matches!(d, Direction::Opponent | Direction::AwayFromOpponent)
+            || d == Direction::Ledge && !anchor.is_some_and(finite2)
+    };
+    match action {
+        Action::OpponentInput { .. }
+        | Action::Chase { .. }
+        | Action::Approach { .. }
+        | Action::IfFacingOpponent { .. } => true,
+        Action::Walk {
+            min_gap: Some(_), ..
+        } => true,
+        Action::Face(d)
+        | Action::Walk { direction: d, .. }
+        | Action::Run { direction: d, .. }
+        | Action::Drift { direction: d, .. } => direction_needs_opponent(d),
+        Action::Controller {
+            reference,
+            cstick_reference,
+            ..
+        } => reference == InputReference::Opponent || cstick_reference == InputReference::Opponent,
+        Action::Range(range) => range != RangeCheck::Ignore,
+        Action::Check { condition, .. } => condition.needs_enemy(),
+        _ => false,
+    }
+}
+
 /// Steps that read the opponent or ground observations.
 fn is_spatial(action: &Action) -> bool {
     use InputReference::Opponent as Reference;

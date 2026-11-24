@@ -25,6 +25,7 @@ class Endpoint:
     kind: str
     path: str
     port: int = 5000
+    address: str | None = None
 
     def __post_init__(self):
         if self.kind not in ("local", "silent", "diagnostic"):
@@ -38,7 +39,9 @@ class Endpoint:
 
     @property
     def host(self) -> str:
-        return next(host for host, variant in TARGETS if variant == self.kind)
+        if self.kind == "local":
+            raise ValueError("Local files do not have a Switch address")
+        return self.address or next(host for host, variant in TARGETS if variant == self.kind)
 
     def label(self) -> str:
         return self.path if self.kind == "local" else f"{self.kind} {self.host}:{self.port}{self.path}"

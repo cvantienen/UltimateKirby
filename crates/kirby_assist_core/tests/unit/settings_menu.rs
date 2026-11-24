@@ -314,7 +314,7 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     assert!(!menu.ledge_held(MAPPER_Y));
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert_eq!(MenuRow::ALL.len(), 31);
+    assert_eq!(MenuRow::ALL.len(), 32);
 }
 
 #[test]

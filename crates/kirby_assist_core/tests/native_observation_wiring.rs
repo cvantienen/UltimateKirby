@@ -16,6 +16,7 @@ mod native_params {
 thread_local! {
     static LINKS:std::cell::Cell<u32>=const{std::cell::Cell::new(0)};
     static LINK_READS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};
+    static INVALIDATE_GEOMETRY_ON_SCALE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static SOURCES: std::cell::RefCell<Vec<Box<Actor>>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 #[repr(C)]
@@ -107,7 +108,10 @@ mod game_ffi {
     pub unsafe fn team(o: *mut Object) -> u64 {
         u64::from(actor(o).id != 1)
     }
-    pub unsafe fn scale(_: *mut Object) -> f32 {
+    pub unsafe fn scale(o: *mut Object) -> f32 {
+        if super::INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.get()) {
+            (*o.cast::<super::Actor>()).geometry.size = 0.;
+        }
         1.
     }
     pub unsafe fn motion_kind(o: *mut Object) -> u64 {
@@ -270,6 +274,22 @@ fn nearby_hitboxes_use_geometry_and_situation_instead_of_root_or_startup() {
         }
     }
     SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn attack_geometry_is_copied_before_the_next_native_call() {
+    let mut own = Actor::new(1);
+    SOURCES.with(|s| *s.borrow_mut() = vec![Box::new(Actor::new(2))]);
+    INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.set(true));
+    let threat = unsafe {
+        observations::incoming_fighter_attack(
+            &frame::FrameReads::default(), own.object(), 1, [0.; 2], [0.; 2],
+            kirby_assist_core::autopilot_guard::Envelope::default(),
+        )
+    };
+    INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.set(false));
+    SOURCES.with(|s| s.borrow_mut().clear());
+    assert!(threat);
 }
 
 #[test]

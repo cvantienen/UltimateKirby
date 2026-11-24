@@ -609,10 +609,12 @@ pub mod observation {
     }
 }
 pub(crate) mod projectile_geometry {
-    //! Continuous swept capsule bounds against an observed body envelope.
+    //! Translating capsules against explicit estimated body envelopes, not native hurtboxes.
     use crate::autopilot_guard::Hitbox;
 
-    /// Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
+    /// Earliest contact in [0, horizon], including initial overlap. Uses relative
+    /// XY translation with fixed depth/orientation; does not predict attack expiry.
+    /// A bounded numerical narrow phase rejects empty corners of capsule bounds.
     pub(crate) fn swept_capsule_aabb(
         hit: Hitbox,
         body_lo: [f32; 3],
@@ -620,24 +622,37 @@ pub(crate) mod projectile_geometry {
         velocity: [f32; 2],
         horizon: f32,
     ) -> Option<f32> {
+        if !hit.start.iter().chain(hit.end.iter()).chain(hit.velocity.iter())
+            .chain(body_lo.iter()).chain(body_hi.iter()).chain(velocity.iter())
+            .chain([&hit.radius, &horizon]).all(|v| v.is_finite())
+            || hit.radius <= 0. || horizon < 0.
+            || (0..3).any(|i| body_lo[i] > body_hi[i])
+        {
+            return None;
+        }
+        let start = hit.start.map(f64::from);
+        let end = hit.end.map(f64::from);
+        let low = body_lo.map(f64::from);
+        let high = body_hi.map(f64::from);
+        let radius = f64::from(hit.radius);
         let relative = [
-            hit.velocity[0] - velocity[0],
-            hit.velocity[1] - velocity[1],
+            f64::from(hit.velocity[0]) - f64::from(velocity[0]),
+            f64::from(hit.velocity[1]) - f64::from(velocity[1]),
             0.,
         ];
-        let mut enter = 0.0f32;
-        let mut leave = horizon;
+        let mut enter = 0.0_f64;
+        let mut leave = f64::from(horizon);
         for axis in 0..3 {
-            let lo = hit.start[axis].min(hit.end[axis]) - hit.radius;
-            let hi = hit.start[axis].max(hit.end[axis]) + hit.radius;
+            let lo = start[axis].min(end[axis]) - radius;
+            let hi = start[axis].max(end[axis]) + radius;
             let speed = relative[axis];
-            if speed.abs() < 0.0001 {
-                if hi < body_lo[axis] || lo > body_hi[axis] {
+            if speed == 0. {
+                if hi < low[axis] || lo > high[axis] {
                     return None;
                 }
             } else {
-                let a = (body_lo[axis] - hi) / speed;
-                let b = (body_hi[axis] - lo) / speed;
+                let a = (low[axis] - hi) / speed;
+                let b = (high[axis] - lo) / speed;
                 enter = enter.max(a.min(b));
                 leave = leave.min(a.max(b));
                 if enter > leave {
@@ -645,10 +660,204 @@ pub(crate) mod projectile_geometry {
                 }
             }
         }
-        if leave < 0. || enter > horizon {
+        let distance = |time: f64| {
+            let a = std::array::from_fn(|i| start[i] + relative[i] * time);
+            let b = std::array::from_fn(|i| end[i] + relative[i] * time);
+            segment_box_distance_squared(a, b, low, high)
+        };
+        // Roundoff tolerance for tangency, not a configurable collision padding.
+        let contact = radius * radius * (1. + 1e-12);
+        if distance(enter) <= contact {
+            return Some(enter as f32);
+        }
+        if enter == leave || relative == [0.; 3] {
             return None;
         }
-        Some(enter)
+        // Squared distance between convex sets under translation is convex.
+        // Locate its minimum before bisecting the decreasing side; unlike time
+        // sampling, this also finds fast crossings and single-instant tangency.
+        let (mut left, mut right) = (enter, leave);
+        const GOLDEN: f64 = 0.6180339887498949;
+        let mut a = right - GOLDEN * (right - left);
+        let mut b = left + GOLDEN * (right - left);
+        let (mut da, mut db) = (distance(a), distance(b));
+        // Forty golden-section steps preserve tangency precision while reusing
+        // one distance per step; 24 bisections then suffice for f32 frame times.
+        for _ in 0..40 {
+            if da <= db {
+                right = b;
+                b = a;
+                db = da;
+                a = right - GOLDEN * (right - left);
+                da = distance(a);
+            } else {
+                left = a;
+                a = b;
+                da = db;
+                b = left + GOLDEN * (right - left);
+                db = distance(b);
+            }
+        }
+        let mut first = (left + right) * 0.5;
+        if distance(leave) < distance(first) {
+            first = leave;
+        }
+        if distance(first) > contact {
+            return None;
+        }
+        for _ in 0..24 {
+            let middle = (enter + first) * 0.5;
+            if distance(middle) <= contact {
+                first = middle;
+            } else {
+                enter = middle;
+            }
+        }
+        Some(first as f32)
+    }
+
+    fn segment_box_distance_squared(
+        start: [f64; 3], end: [f64; 3], low: [f64; 3], high: [f64; 3],
+    ) -> f64 {
+        let delta: [f64; 3] = std::array::from_fn(|i| end[i] - start[i]);
+        let mut cuts = [0.; 8];
+        cuts[1] = 1.;
+        let mut count = 2;
+        for axis in 0..3 {
+            if delta[axis] != 0. {
+                for bound in [low[axis], high[axis]] {
+                    let u = (bound - start[axis]) / delta[axis];
+                    if u > 0. && u < 1. {
+                        cuts[count] = u;
+                        count += 1;
+                    }
+                }
+            }
+        }
+        cuts[..count].sort_unstable_by(f64::total_cmp);
+        let mut best = f64::INFINITY;
+        // Between slab crossings the squared point/box distance is quadratic
+        // in the segment parameter; minimize it exactly on each interval.
+        for interval in cuts[..count].windows(2) {
+            let midpoint = (interval[0] + interval[1]) * 0.5;
+            let (mut quadratic, mut linear) = (0., 0.);
+            for axis in 0..3 {
+                let p = start[axis] + delta[axis] * midpoint;
+                let bound = p.clamp(low[axis], high[axis]);
+                if p != bound {
+                    quadratic += delta[axis] * delta[axis];
+                    linear += delta[axis] * (start[axis] - bound);
+                }
+            }
+            let u = if quadratic > 0. {
+                (-linear / quadratic).clamp(interval[0], interval[1])
+            } else {
+                midpoint
+            };
+            let mut squared = 0.;
+            for axis in 0..3 {
+                let p = start[axis] + delta[axis] * u;
+                let d = p - p.clamp(low[axis], high[axis]);
+                squared += d * d;
+            }
+            best = best.min(squared);
+        }
+        best
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn hit(start: [f32; 3], end: [f32; 3], velocity: [f32; 2]) -> Hitbox {
+            Hitbox { start, end, radius: 1., velocity }
+        }
+
+        #[test]
+        fn diagonal_bounds_are_not_capsule_contact() {
+            let diagonal = hit([-10., -5., 0.], [5., 10., 0.], [0.; 2]);
+            assert_eq!(swept_capsule_aabb(diagonal, [-1.; 3], [1.; 3], [0.; 2], 10.), None);
+            let crossing = hit([-10., -10., 0.], [10., 10., 0.], [0.; 2]);
+            assert_eq!(swept_capsule_aabb(crossing, [-1.; 3], [1.; 3], [0.; 2], 0.), Some(0.));
+        }
+
+        #[test]
+        fn earliest_contact_uses_relative_motion_and_rounded_corners() {
+            let sphere = hit([5., 2., 0.], [5., 2., 0.], [-1., 0.]);
+            let t = swept_capsule_aabb(sphere, [-1.; 3], [1.; 3], [0.; 2], 8.).unwrap();
+            assert!((t - 4.).abs() < 0.0001, "{t}");
+            let sphere = hit([10., 0., 0.], [10., 0., 0.], [-2., 0.]);
+            let t = swept_capsule_aabb(sphere, [-1.; 3], [1.; 3], [2., 0.], 3.).unwrap();
+            assert!((t - 2.).abs() < 0.0001, "{t}");
+            assert_eq!(swept_capsule_aabb(sphere, [-1.; 3], [1.; 3], [2., 0.], 1.), None);
+        }
+
+        #[test]
+        fn fast_crossing_and_single_instant_tangency_are_not_skipped() {
+            let sphere = hit([-1000., 0., 0.], [-1000., 0., 0.], [10000., 0.]);
+            let t = swept_capsule_aabb(sphere, [-1.; 3], [1.; 3], [0.; 2], 1.).unwrap();
+            assert!((t - 0.0998).abs() < 0.000001, "{t}");
+            let tangent = hit([-5., 1., 0.], [-5., 1., 0.], [2., 0.]);
+            let t = swept_capsule_aabb(tangent, [0.; 3], [0.; 3], [0.; 2], 5.).unwrap();
+            assert!((t - 2.5).abs() < 0.0001, "{t}");
+        }
+
+        #[test]
+        fn moving_diagonal_uses_segment_interior_and_depth() {
+            let diagonal = hit([-10., 5., 0.], [5., 20., 0.], [0., -1.]);
+            let t = swept_capsule_aabb(diagonal, [-1.; 3], [1.; 3], [0.; 2], 20.).unwrap();
+            let expected = 13. - 2.0_f32.sqrt();
+            assert!((t - expected).abs() < 0.0001, "{t}");
+            assert_eq!(swept_capsule_aabb(diagonal, [-1.; 3], [1.; 3], [0.; 2], 10.), None);
+            let off_plane = Hitbox { start: [-10., 5., 3.], end: [5., 20., 3.], ..diagonal };
+            assert_eq!(swept_capsule_aabb(off_plane, [-1.; 3], [1.; 3], [0.; 2], 20.), None);
+        }
+
+        #[test]
+        fn contact_time_precision_covers_gameplay_horizons_and_tangencies() {
+            for time in [0.01_f32, 1., 7.12345, 39.9, 119.9] {
+                for speed in [0.01_f32, 1., 10000.] {
+                    let x = 2. + speed * time;
+                    let expected = (x - 2.) / speed;
+                    let sphere = hit([x, 0., 0.], [x, 0., 0.], [-speed, 0.]);
+                    let contact = swept_capsule_aabb(sphere, [-1.; 3], [1.; 3], [0.; 2], 120.).unwrap();
+                    assert!((contact - expected).abs() <= 0.00003, "time={time} speed={speed}: {contact} vs {expected}");
+                }
+            }
+            // A tiny radius makes missing an isolated tangent easier than
+            // missing an ordinary crossing; its center reaches the point at t=40.
+            let tangent = Hitbox { radius: 0.001, ..hit([-40., 0.001, 0.], [-40., 0.001, 0.], [1., 0.]) };
+            let contact = swept_capsule_aabb(tangent, [0.; 3], [0.; 3], [0.; 2], 120.).unwrap();
+            assert!((contact - 40.).abs() <= 0.00003, "{contact}");
+        }
+
+        #[test]
+        fn estimated_body_dimensions_change_admission_and_contact_time() {
+            let overhead = hit([0., 12., 0.], [0., 12., 0.], [0.; 2]);
+            let small = ([-2., 0., -2.], [2., 6., 2.]);
+            let large = ([-6., 0., -6.], [6., 18., 6.]);
+            assert_eq!(swept_capsule_aabb(overhead, small.0, small.1, [0.; 2], 10.), None);
+            assert_eq!(swept_capsule_aabb(overhead, large.0, large.1, [0.; 2], 10.), Some(0.));
+            let incoming = hit([20., 3., 0.], [20., 3., 0.], [-2., 0.]);
+            let small_contact = swept_capsule_aabb(incoming, small.0, small.1, [0.; 2], 10.).unwrap();
+            let large_contact = swept_capsule_aabb(incoming, large.0, large.1, [0.; 2], 10.).unwrap();
+            assert!((small_contact - 8.5).abs() < 0.00003);
+            assert!((large_contact - 6.5).abs() < 0.00003);
+        }
+
+        #[test]
+        fn malformed_geometry_is_unavailable() {
+            let valid = hit([0.; 3], [0.; 3], [0.; 2]);
+            for horizon in [f32::NAN, f32::INFINITY, -1.] {
+                assert_eq!(swept_capsule_aabb(valid, [-1.; 3], [1.; 3], [0.; 2], horizon), None);
+            }
+            for radius in [0., -1., f32::NAN, f32::INFINITY] {
+                assert_eq!(swept_capsule_aabb(Hitbox { radius, ..valid }, [-1.; 3], [1.; 3], [0.; 2], 1.), None);
+            }
+            assert_eq!(swept_capsule_aabb(valid, [2.; 3], [1.; 3], [0.; 2], 1.), None);
+            assert_eq!(swept_capsule_aabb(valid, [-1.; 3], [1.; 3], [f32::NAN, 0.], 1.), None);
+            assert_eq!(swept_capsule_aabb(Hitbox { end: [f32::INFINITY; 3], ..valid }, [-1.; 3], [1.; 3], [0.; 2], 1.), None);
+        }
     }
 }
 pub mod state {

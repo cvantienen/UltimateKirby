@@ -80,7 +80,10 @@ pub fn stationary_grab_state(status: i32) -> bool {
 }
 /// Only shield states may start an automatic shield grab.
 pub fn ground_grab_state(status: i32) -> bool {
-    matches!(status, crate::native_states::GUARD_ON | crate::native_states::GUARD)
+    matches!(
+        status,
+        crate::native_states::GUARD_ON | crate::native_states::GUARD
+    )
 }
 /// Held guard permits direct shield grab using native standing-catch readiness.
 pub fn automatic_grab_ready(status: i32, enabled: impl FnMut(i32) -> bool) -> bool {
@@ -211,7 +214,8 @@ pub struct OutOfShield {
     configured_grab_wait: bool,
     /// Runtime configured settling value used by OutOfShield..
     configured_settling: bool,
-    guard_hold: u8,
+    guard_hold: f32,
+    guard_clock: crate::ledge_trap::NativeAttempt,
 }
 
 impl OutOfShield {
@@ -230,7 +234,8 @@ impl OutOfShield {
             configured_shielded: false,
             configured_grab_wait: false,
             configured_settling: false,
-            guard_hold: 0,
+            guard_hold: 0.,
+            guard_clock: crate::ledge_trap::NativeAttempt::new(),
         }
     }
 
@@ -259,7 +264,8 @@ impl OutOfShield {
         self.configured_shielded = false;
         self.configured_grab_wait = false;
         self.configured_settling = false;
-        self.guard_hold = 0;
+        self.guard_hold = 0.;
+        self.guard_clock = crate::ledge_trap::NativeAttempt::new();
         self.simple.cancel();
         self.shield_up_b.cancel();
         self.target = None;
@@ -267,7 +273,8 @@ impl OutOfShield {
     /// Ledge/manual takeover releases inputs immediately. Delivered R retains
     /// only its bounded receipt so a competing script cannot turn it into Up-B.
     pub fn suspend_automatic(&mut self) {
-        self.guard_hold = 0;
+        self.guard_hold = 0.;
+        self.guard_clock = crate::ledge_trap::NativeAttempt::new();
         self.shield_up_b.cancel();
         self.response.suspend();
         if !self.simple.delivery_pending() {
@@ -512,11 +519,91 @@ impl OutOfShield {
 mod tests {
     use super::{copied_target, target_within_range, AutomaticConfig, Context, OutOfShield};
     use crate::{
-        gameplay::{GameplayContext, MotionTiming},
+        gameplay::{GameplayContext, MotionTiming, Opponent},
         native_input::MAPPER_ZR,
         roll_read::Target as ObservedTarget,
         settings::AssistSettings,
     };
+
+    #[test]
+    fn scoped_regression_shield_tail_requires_native_progress() {
+        let mut oos = OutOfShield::new();
+        let mut c = Context {
+            object: 1,
+            kind: crate::fighter_kinds::LUCINA,
+            status: crate::native_states::GUARD,
+            motion: 1,
+            frame: 0.,
+            rate: 0.,
+            stopped: false,
+            grounded: true,
+            position: [0.; 2],
+            facing: 1.,
+            shield_ready: true,
+            can_grab: true,
+            can_jump: true,
+            can_up_special: true,
+            threatened: true,
+        };
+        let mut lc = GameplayContext {
+            gameplay: true,
+            situation: crate::native_states::situation::GROUND,
+            ..Default::default()
+        };
+        let enemy = |frame| {
+            Some(Opponent {
+                id: 2,
+                status: crate::native_states::status::ATTACK,
+                motion: Some(MotionTiming {
+                    kind: 2,
+                    frame,
+                    rate: 1.,
+                    remaining: None,
+                }),
+                ..Default::default()
+            })
+        };
+        let sample = |oos: &mut OutOfShield, c, lc, follow| {
+            oos.sample_automatic_configured(
+                true,
+                c,
+                lc,
+                [None; 8],
+                follow,
+                true,
+                10.,
+                20.,
+                None,
+                AssistSettings::default(),
+                AutomaticConfig::default(),
+            )
+        };
+        assert_eq!(sample(&mut oos, c, lc, enemy(0.)).requested, MAPPER_ZR);
+        c.threatened = false;
+        for _ in 0..30 {
+            assert_eq!(sample(&mut oos, c, lc, enemy(0.)).requested, MAPPER_ZR);
+        }
+        for frame in 1..=2 {
+            assert_eq!(
+                sample(&mut oos, c, lc, enemy(frame as f32)).requested,
+                MAPPER_ZR
+            );
+        }
+        for _ in 0..30 {
+            assert_eq!(sample(&mut oos, c, lc, None).requested, MAPPER_ZR);
+        }
+        lc.stopped = true;
+        assert_eq!(sample(&mut oos, c, lc, enemy(20.)).requested, MAPPER_ZR);
+        lc.stopped = false;
+        assert_eq!(sample(&mut oos, c, lc, enemy(20.)).requested, MAPPER_ZR);
+        for frame in 21..24 {
+            assert_eq!(
+                sample(&mut oos, c, lc, enemy(frame as f32)).requested,
+                MAPPER_ZR
+            );
+        }
+        assert_eq!(sample(&mut oos, c, lc, enemy(24.)).owned, 0);
+    }
 
     #[test]
     fn threatened_shield_stays_held_without_a_punish_target() {
@@ -525,7 +612,7 @@ mod tests {
             object: 1,
             kind: crate::fighter_kinds::LUCINA,
             status: crate::native_states::GUARD,
-            motion: 0,
+            motion: 1,
             frame: 1.,
             rate: 1.,
             stopped: false,
@@ -559,7 +646,8 @@ mod tests {
         assert_eq!(output.stick, Some([0.; 2]));
         let mut safe = context;
         safe.threatened = false;
-        for _ in 0..5 {
+        for frame in 2..=6 {
+            safe.frame = frame as f32;
             let output = oos.sample_automatic_configured(
                 true,
                 safe,
@@ -578,6 +666,7 @@ mod tests {
             );
             assert_eq!(output.requested & MAPPER_ZR, MAPPER_ZR);
         }
+        safe.frame = 7.;
         let output = oos.sample_automatic_configured(
             true,
             safe,

@@ -19,6 +19,96 @@ fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
     m.input(b, p);
 }
 #[test]
+fn l3_defaults_to_selectable_turbo_without_starting_a_recipe() {
+    use crate::button_bindings::Builtin;
+    let (p, mut m) = setup("", 6);
+    let index = m.choices[PresetSlot::L3 as usize];
+    assert_eq!(
+        m.choice(&p, PresetSlot::L3, index).unwrap().id,
+        Builtin::TurboTeabag.choice_id()
+    );
+    assert_eq!(index, Builtin::TurboTeabag.template_offset());
+    assert!(Builtin::MENU.contains(&Builtin::TurboTeabag));
+    m.input(0, &p);
+    assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
+    assert_ne!(
+        m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER,
+        0
+    );
+    assert!(m.preview_slot.is_none());
+}
+
+#[test]
+fn saved_turbo_binding_survives_reload_without_changing_identity() {
+    use crate::{button_bindings::Builtin, sequence_config::Sequence};
+    let saved = persist::update(
+        "",
+        6,
+        PresetSlot::Y,
+        "saved_turbo",
+        Sequence {
+            builtin: Some(Builtin::TurboTeabag),
+            ..Sequence::default()
+        },
+        true,
+    )
+    .unwrap();
+    let (p, mut m) = setup(&saved, 6);
+    m.load_saved_recipes(&p, &Catalog::parse(&saved).unwrap(), 6);
+    assert_eq!(
+        m.choice(&p, PresetSlot::Y, m.choices[PresetSlot::Y as usize])
+            .unwrap()
+            .id,
+        "saved_turbo"
+    );
+    m.input(0, &p);
+    assert_ne!(m.input(MAPPER_Y, &p) & MAPPER_Y, 0);
+    assert_ne!(
+        m.native_buttons(MAPPER_Y) & crate::manual_controls::TURBO_TRIGGER,
+        0
+    );
+    assert!(m.preview_slot.is_none());
+}
+
+#[test]
+fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper() {
+    use crate::button_bindings::Builtin;
+    for text in ["", "[kirby.x.saved]\nstart_delay=0\nactions=b:4\n"] {
+        let (p, mut m) = setup(text, 6);
+        for slot in PresetSlot::BUTTONS {
+            let base = p.list(slot).options.len();
+            let templates: Vec<_> = (base..base + slot.templates())
+                .map(|index| m.choice(&p, slot, index).unwrap().id.to_owned())
+                .collect();
+            assert_eq!(
+                templates,
+                [
+                    Builtin::Normal.choice_id(),
+                    "menu_custom",
+                    "universal_b_reverse",
+                    Builtin::TurboTeabag.choice_id(),
+                    Builtin::LedgeTrump.choice_id(),
+                ]
+            );
+            assert!(m.choice(&p, slot, base + slot.templates()).is_none());
+            assert_eq!(
+                m.choice(&p, slot, slot.default_index(base)).unwrap().id,
+                Builtin::default_for(slot).choice_id()
+            );
+            m.choices[slot as usize] =
+                base + Builtin::LedgeTrump.visible_template_offset().unwrap();
+            m.input(0, &p);
+            let consumed = m.input(slot.button(), &p);
+            assert_ne!(consumed & slot.button(), 0);
+            assert!(m.ledge_trump_held());
+            assert!(m.preview_slot.is_none());
+            m.choices[slot as usize] = slot.default_index(base);
+            m.input(0, &p);
+        }
+    }
+}
+
+#[test]
 fn idle_gameplay_reuses_button_roles_and_configuration_changes_refresh_them() {
     let (p, mut m) = setup("[bowser.x.hop]\nstart_delay=0\nactions=short_hop\n", 15);
     m.input_with_editing(0, &p, false);
@@ -104,10 +194,6 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
                         "dpad_down",
                         "dpad_left",
                         "dpad_right",
-                        "l",
-                        "r",
-                        "zl",
-                        "zr",
                         "l3",
                         "r3"
                     ][slot as usize - PresetSlot::X as usize]
@@ -137,15 +223,13 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
     }
 }
 #[test]
-fn legacy_default_mode_keeps_saved_sequences_and_starts_on_normal_button() {
+fn legacy_default_mode_keeps_saved_sequences_and_starts_on_first_regular_recipe() {
     let text="[yoshi.x.recipe]\ndefault=false\nstart_delay=0\nactions=short_hop_nair:4\n[yoshi.x.old_mode]\ndefault=true\nmode=out_of_shield\nactivation=toggle\n";
     let (p, mut m) = setup(text, 5);
     assert_eq!(p.list(PresetSlot::X).options.len(), 1);
     assert_eq!(p.list(PresetSlot::X).options[0].id, "recipe");
-    assert_eq!(
-        m.choices[PresetSlot::X as usize],
-        PresetSlot::X.default_index(p.list(PresetSlot::X).options.len())
-    );
+    assert_eq!(m.choices[PresetSlot::X as usize], 0);
+    assert_eq!(m.choice(&p, PresetSlot::X, 0).unwrap().id, "recipe");
     m.show_quick();
     m.button_menu = true;
     for slot in PresetSlot::BUTTONS {
@@ -218,7 +302,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 4);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 3);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m

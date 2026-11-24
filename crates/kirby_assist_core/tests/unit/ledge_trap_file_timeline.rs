@@ -39,6 +39,92 @@ fn moving_enemy(frame: f32) -> Opponent {
     }
 }
 #[test]
+fn scoped_regression_opponent_steps_cancel_before_cached_or_stopped_output() {
+    for actions in [
+        "opponent_input:a:1:0:4",
+        "controller_input:a:1:0:0:0:4:opponent",
+        "controller_input:none:0:0:1:0:4:screen:opponent",
+        "walk_to_opponent:0.5:10:2",
+        "walk:opponent:8:0.5",
+        "run:opponent:8",
+        "chase_if_far:2:0.5:10",
+        "drift:opponent:0.5:10",
+        "face:opponent",
+        "range:fighter_range",
+    ] {
+        for stopped in [false, true] {
+            for wrong_id in [false, true] {
+                let opponent = Opponent {
+                    position: [-20., 0.],
+                    ..moving_enemy(0.)
+                };
+                let mut t = Timeline::new(sequence(actions), opponent);
+                t.sample(AssistSettings::default(), ctx(0.), Some(opponent), None, 1.);
+                let missing = wrong_id.then_some(Opponent {
+                    id: opponent.id + 1,
+                    ..opponent
+                });
+                let out = t.sample(
+                    AssistSettings::default(),
+                    GameplayContext { stopped, ..ctx(0.) },
+                    missing,
+                    None,
+                    1.,
+                );
+                assert_eq!(out.requested, 0, "{actions}");
+                assert_eq!(out.stick, None, "{actions}");
+                assert_eq!(t.right_stick(), [0.; 2], "{actions}");
+                assert!(t.finished(), "{actions}");
+            }
+        }
+    }
+}
+
+#[test]
+fn scoped_regression_missing_opponent_cancels_advancing_steering_and_later_steps_only() {
+    let opponent = Opponent {
+        position: [20., 0.],
+        ..moving_enemy(0.)
+    };
+    let mut t = Timeline::new(sequence("walk_to_opponent:0.5:10:2"), opponent);
+    t.sample(AssistSettings::default(), ctx(0.), Some(opponent), None, 1.);
+    let out = t.sample(AssistSettings::default(), ctx(1.), None, None, 1.);
+    assert_eq!(out.stick, None);
+    assert!(t.finished());
+
+    let mut t = Timeline::new(sequence("a:2,walk_to_opponent:0.5:10:2"), opponent);
+    for frame in [0., 0., 1.] {
+        assert_eq!(sample(&mut t, ctx(frame)).requested, MAPPER_A);
+        assert!(!t.finished());
+    }
+    assert_eq!(sample(&mut t, ctx(2.)).stick, None);
+    assert!(t.finished());
+}
+
+#[test]
+fn scoped_regression_missing_opponent_preserves_self_and_saved_ledge_steps() {
+    for actions in [
+        "a:4",
+        "drift:facing:0.5:4",
+        "drift:backward:0.5:4",
+        "drift:saved_ledge:0.5:4",
+    ] {
+        let mut t = timeline(actions);
+        for frame in [0., 0., 1.] {
+            let out = t.sample(
+                AssistSettings::default(),
+                ctx(frame),
+                None,
+                Some([50., 0.]),
+                1.,
+            );
+            assert!(out.stick.is_some(), "{actions}");
+            assert!(!t.finished(), "{actions}");
+        }
+    }
+}
+
+#[test]
 fn recipe_jump_duration_distinguishes_short_and_full_hop() {
     let mut short = timeline("short_hop:1");
     assert!(sample(&mut short, ctx(0.)).native_short_hop);
@@ -166,9 +252,30 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
         );
         assert!(t.finished(), "never use the cached or a different enemy");
     }
+    let unshielded = moving_enemy(0.);
     let mut t = timeline("check:enemy_shielding:3,hold:a:4");
-    assert_eq!(sample(&mut t, ctx(0.)).requested, 0);
-    assert_eq!(sample(&mut t, ctx(1.)).requested, 0);
+    assert_eq!(
+        t.sample(
+            AssistSettings::default(),
+            ctx(0.),
+            Some(unshielded),
+            None,
+            1.
+        )
+        .requested,
+        0
+    );
+    assert_eq!(
+        t.sample(
+            AssistSettings::default(),
+            ctx(1.),
+            Some(unshielded),
+            None,
+            1.
+        )
+        .requested,
+        0
+    );
     // A new observation may satisfy a predicate in the same native frame.
     assert_eq!(
         t.sample(AssistSettings::default(), ctx(1.), Some(target), None, 1.)
@@ -177,7 +284,17 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
     );
     let mut t = timeline("check:enemy_shielding:2,hold:a:4");
     for frame in 0..=2 {
-        assert_eq!(sample(&mut t, ctx(frame as f32)).requested, 0);
+        assert_eq!(
+            t.sample(
+                AssistSettings::default(),
+                ctx(frame as f32),
+                Some(unshielded),
+                None,
+                1.
+            )
+            .requested,
+            0
+        );
     }
     assert!(t.finished());
     let mut t = timeline("check:self_grounded,hold:a:4");
@@ -646,7 +763,17 @@ fn file_fractional_motion_rate_roundoff_does_not_add_a_wait_frame() {
 fn file_observation_demand_drops_after_the_final_spatial_step() {
     let mut t = timeline("face:opponent,shield_until_block:5,grab");
     assert!(!t.inputs_only());
-    assert_eq!(sample(&mut t, ctx(0.0)).requested, MAPPER_ZR);
+    assert_eq!(
+        t.sample(
+            AssistSettings::default(),
+            ctx(0.),
+            Some(moving_enemy(0.)),
+            None,
+            1.
+        )
+        .requested,
+        MAPPER_ZR
+    );
     assert!(
         t.inputs_only(),
         "block/inputs use own status only, without opponent or ground probes"
@@ -1230,14 +1357,21 @@ fn timeline_walk_then_wait_preserves_order_and_stops_at_explicit_gap() {
         sequence("walk:opponent:8:0.8:4, wait:2, up_special"),
         target,
     );
-    assert_eq!(sample(&mut t, ctx(0.0)).stick, Some([0.8, 0.0]));
     assert_eq!(
-        sample(
-            &mut t,
+        t.sample(AssistSettings::default(), ctx(0.), Some(target), None, 1.)
+            .stick,
+        Some([0.8, 0.0])
+    );
+    assert_eq!(
+        t.sample(
+            AssistSettings::default(),
             GameplayContext {
                 position: [6.0, 0.0],
                 ..ctx(1.0)
-            }
+            },
+            Some(target),
+            None,
+            1.,
         )
         .requested,
         0

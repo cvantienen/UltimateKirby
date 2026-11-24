@@ -614,7 +614,7 @@ fn idle_match_polls_and_live_feedback_never_invalidate_selector_contents() {
 }
 
 #[test]
-fn match_all_eleven_saved_slots_select_the_matching_payload() {
+fn match_all_supported_saved_slots_select_the_matching_payload() {
     let mut source = String::new();
     for slot in [
         "neutral",
@@ -628,10 +628,6 @@ fn match_all_eleven_saved_slots_select_the_matching_payload() {
         "dpad_down",
         "dpad_left",
         "dpad_right",
-        "l",
-        "r",
-        "zl",
-        "zr",
         "l3",
         "r3",
     ] {
@@ -660,7 +656,7 @@ fn match_all_eleven_saved_slots_select_the_matching_payload() {
         );
         let (position, count) = m.choice_position(&p, slot);
         assert_eq!(position, 1);
-        assert_eq!(count, if slot.is_button() { 6 } else { 2 });
+        assert_eq!(count, if slot.is_button() { 5 } else { 2 });
     }
     assert!(m.editor.is_none() && m.catalog.is_none());
 }
@@ -776,24 +772,35 @@ fn saved_button_defaults_restore_by_identity_with_all_timings_and_loop_flags() {
     }
 }
 #[test]
-fn reload_without_explicit_button_default_matches_cold_start_normal_button() {
-    for slot in PresetSlot::ALL.into_iter().filter(|s| s.is_button()) {
+fn reload_button_selection_matches_cold_start_first_regular_policy() {
+    for slot in PresetSlot::BUTTONS {
         let token = button_slot_token(slot);
-        let source = format!("[kirby.{token}.saved]\nstart_delay=0\ndefault=true\nactions=b:4\n");
+        let source = format!("[kirby.{token}.old]\nstart_delay=0\ndefault=true\nactions=b:4\n");
         let p = presets(&source);
-        let saved = Catalog::parse(&source.replace("default=true", "default=false")).unwrap();
-        let mut next = MenuSelection::new(&p);
-        next.load_saved_recipes(&p, &saved, 6);
-        assert_eq!(
-            next.choice(&p, slot, next.choices[slot as usize])
-                .unwrap()
-                .id,
-            crate::button_bindings::Builtin::default_for(slot).choice_id()
-        );
-        assert!(next
-            .settings(&p, AssistSettings::default())
-            .sequence_overrides[slot as usize]
-            .is_none());
+        let reaction = format!("[kirby.{token}.rule]\nstart_delay=0\nreaction=roll:any:0:20:12:any:1:menu\nactions=jab:4\n");
+        let fallback = crate::button_bindings::Builtin::default_for(slot).choice_id();
+        for (text, expected) in [
+            (String::new(), fallback),
+            (reaction.clone(), fallback),
+            (format!("{reaction}[kirby.{token}.first]\nstart_delay=0\nactions=b:4\n[kirby.{token}.second]\nstart_delay=0\nactions=a:4\n"), "first"),
+            (format!("{reaction}[kirby.{token}.first]\nstart_delay=0\nactions=b:4\n[kirby.{token}.second]\ndefault=true\nstart_delay=0\nactions=a:4\n"), "second"),
+            (source.replace("default=true", "default=false"), "old"),
+        ] {
+            let saved = Catalog::parse(&text).unwrap();
+            let cold = presets(&text);
+            let cold_menu = MenuSelection::new(&cold);
+            let cold_choice = cold_menu.choice(&cold, slot, cold_menu.choices[slot as usize]).unwrap();
+            assert_eq!(cold_choice.id, expected);
+            let mut next = MenuSelection::new(&p);
+            next.load_saved_recipes(&p, &saved, 6);
+            let choice = next.choice(&p, slot, next.choices[slot as usize]).unwrap();
+            assert_eq!(choice.id, cold_choice.id);
+            assert_eq!(choice.sequence, cold_choice.sequence);
+            assert_eq!(
+                next.settings(&p, AssistSettings::default()).sequence_overrides[slot as usize],
+                cold_menu.settings(&cold, AssistSettings::default()).sequence_overrides[slot as usize]
+            );
+        }
     }
 }
 

@@ -166,12 +166,12 @@ pub fn referenced_imminent_attack_with(
             }
         })
 }
-/// Conservative swept hitbox AABB versus a standing defensive envelope.
-/// Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
+/// Swept hitbox capsule versus a conservative standing defensive envelope.
+/// Body bounds are estimates, not live hurtboxes; reads never alter attack geometry.
 pub fn active_hitbox_threat(position: [f32; 3], velocity: [f32; 2], h: Hitbox) -> bool {
     active_hitbox_threat_with(position, velocity, h, Envelope::default())
 }
-/// Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
+/// Swept hitbox capsule versus a caller-supplied estimated body envelope.
 pub fn active_hitbox_threat_with(
     position: [f32; 3],
     velocity: [f32; 2],
@@ -191,36 +191,16 @@ pub fn active_hitbox_threat_with(
     {
         return false;
     }
-    let mut enter = 0.0_f32;
-    let mut leave = e.forecast;
-    for (axis, (&start, &end)) in h.start.iter().zip(&h.end).enumerate() {
-        let (low, high) = match axis {
-            0 => (position[0] - e.half_width, position[0] + e.half_width),
-            1 => (position[1], position[1] + e.height),
-            _ => (position[2] - e.half_depth, position[2] + e.half_depth),
-        };
-        let lo = start.min(end) - h.radius;
-        let hi = start.max(end) + h.radius;
-        let v = if axis < 2 {
-            h.velocity[axis] - velocity[axis]
-        } else {
-            0.0
-        };
-        if v.abs() < 0.0001 {
-            if hi < low || lo > high {
-                return false;
-            }
-        } else {
-            let a = (low - hi) / v;
-            let b = (high - lo) / v;
-            enter = enter.max(a.min(b));
-            leave = leave.min(a.max(b));
-            if enter > leave {
-                return false;
-            }
-        }
+    if ![e.half_width, e.height, e.half_depth].iter().all(|v| v.is_finite() && *v > 0.) {
+        return false;
     }
-    true
+    crate::projectile_geometry::swept_capsule_aabb(
+        h,
+        [position[0] - e.half_width, position[1], position[2] - e.half_depth],
+        [position[0] + e.half_width, position[1] + e.height, position[2] + e.half_depth],
+        velocity,
+        e.forecast,
+    ).is_some()
 }
 
 /// Runtime Smash data carried by `GuardClock`.

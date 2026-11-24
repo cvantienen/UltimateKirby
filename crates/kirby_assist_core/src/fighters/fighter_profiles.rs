@@ -87,11 +87,19 @@ pub mod presets {
         pub fn default_index(self, saved: usize) -> usize {
             saved
                 + if self.is_button() {
-                    crate::button_bindings::Builtin::default_for(self).template_offset()
+                    crate::button_bindings::Builtin::default_for(self)
+                        .visible_template_offset()
+                        .unwrap()
                 } else {
-                    0
+                    Self::CUSTOM_OFFSET
                 }
         }
+        /// Custom recipe offset within a button slot's template choices.
+        pub const BUTTON_CUSTOM_OFFSET: usize = 1;
+        /// Universal B-reverse offset within a button slot's template choices.
+        pub const B_REVERSE_OFFSET: usize = Self::BUTTON_CUSTOM_OFFSET + 1;
+        /// Custom recipe offset within a ledge slot's template choices.
+        pub const CUSTOM_OFFSET: usize = 0;
         /// Returns the maximum number of choices supported by the slot.
         pub fn max_choices(self) -> usize {
             32
@@ -99,7 +107,7 @@ pub mod presets {
         /// Returns the stored recipe templates.
         pub fn templates(self) -> usize {
             if self.is_button() {
-                5
+                crate::button_bindings::Builtin::MENU.len() + 2
             } else {
                 1
             }
@@ -684,11 +692,6 @@ impl FighterProfiles {
                         && e.slot == slot
                         && e.sequence.mode.is_none()
                 });
-                let has_button_entries = catalog.entries().iter().any(|entry| {
-                    entry.fighter_kind == profile.fighter_kind
-                        && entry.slot == slot
-                        && entry.sequence.mode.is_none()
-                });
                 let list = &mut profile.menu_options.lists[slot as usize];
                 let mut options = Vec::new();
                 let mut selected = None;
@@ -711,17 +714,9 @@ impl FighterProfiles {
                     let sequence = Box::leak(Box::new(entry.sequence));
                     options.push(presets::SavedChoice::file(id, name, sequence));
                 }
-                list.selected = selected.unwrap_or_else(|| {
-                    if slot.is_button() {
-                        if !has_button_entries {
-                            slot.default_index(options.len())
-                        } else {
-                            first_regular.unwrap_or(options.len())
-                        }
-                    } else {
-                        first_regular.unwrap_or(options.len())
-                    }
-                });
+                list.selected = selected
+                    .or(first_regular)
+                    .unwrap_or_else(|| slot.default_index(options.len()));
                 list.options = Box::leak(options.into_boxed_slice());
             }
         }
@@ -762,8 +757,8 @@ impl FighterProfiles {
             }
             for slot in presets::PresetSlot::ALL {
                 let list = profile.menu_options.list(slot);
-                // Button lists append a permanent Normal button choice after
-                // their file entries. No explicit default selects that choice.
+                // Button lists append the supported templates after file entries.
+                // Without an explicit default, the first regular recipe wins.
                 let selected_is_valid = list.selected < list.options.len()
                     || slot.is_button() && list.selected < list.options.len() + slot.templates()
                     || list.selected == list.options.len()

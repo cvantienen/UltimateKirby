@@ -51,6 +51,26 @@ fn relative_motion_predicts_approach_from_either_side_but_not_distant_attacks() 
 }
 
 #[test]
+fn active_capsules_reject_empty_diagonal_corners_and_invalid_envelopes() {
+    use kirby_assist_core::autopilot_guard::{active_hitbox_threat_with, Envelope, Hitbox};
+    let hit = Hitbox {
+        start: [-20., 10., 0.], end: [10., 40., 0.], radius: 1., velocity: [0.; 2],
+    };
+    let envelope = Envelope::default();
+    assert!(!active_hitbox_threat_with([0.; 3], [0.; 2], hit, envelope));
+    let overlap = Hitbox { start: [0., 8., 0.], end: [0., 8., 0.], ..hit };
+    assert!(active_hitbox_threat_with([0.; 3], [0.; 2], overlap, envelope));
+    for invalid in [
+        Envelope { half_width: f32::NAN, ..envelope },
+        Envelope { height: -1., ..envelope },
+        Envelope { forecast: f32::INFINITY, ..envelope },
+        Envelope { forecast: -1., ..envelope },
+    ] {
+        assert!(!active_hitbox_threat_with([0.; 3], [0.; 2], overlap, invalid));
+    }
+}
+
+#[test]
 fn imminent_moves_use_real_startup_and_rate_without_predicting_unknown_aerials() {
     use kirby_assist_core::{
         autopilot_guard::referenced_imminent_attack_with, fighter_data::named_move,

@@ -13,6 +13,37 @@ fn intent(owner: Owner, committed: bool) -> Intent {
 }
 
 #[test]
+fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() {
+    for owner in [
+        Owner::Ledge,
+        Owner::RollRead,
+        Owner::OutOfShield,
+        Owner::Reflect,
+    ] {
+        let mut control = ActionOwnership::new();
+        control.select(true, &[intent(owner, true)]);
+        assert!(!control.allows(Owner::Counter));
+        assert_eq!(
+            control.select(true, &[intent(owner, true), intent(Owner::Counter, true)]),
+            Some(owner)
+        );
+    }
+    let mut control = ActionOwnership::new();
+    control.select(true, &[intent(Owner::Counter, true)]);
+    assert_eq!(
+        control.select(
+            true,
+            &[intent(Owner::Counter, true), intent(Owner::RollRead, true)]
+        ),
+        Some(Owner::Counter)
+    );
+    control.release(Owner::Counter);
+    assert_eq!(
+        control.select(true, &[intent(Owner::RollRead, true)]),
+        Some(Owner::RollRead)
+    );
+}
+#[test]
 fn acquired_ledge_visit_reserves_new_work_without_replacing_committed_reads() {
     for read in [Owner::OptionRead, Owner::RollRead] {
         let mut control = ActionOwnership::new();

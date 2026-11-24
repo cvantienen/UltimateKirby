@@ -35,6 +35,24 @@ class SequenceSourceTests(unittest.TestCase):
             self.assertEqual(set(sources.split_bundle(file.read_bytes())),{file.stem})
         self.assertIn(b'[template.up_b_chase]',data)
 
+    def test_restore_comments_reapplies_only_comments_for_matching_sections_and_settings(self):
+        reference = ("# Repository overview\n"
+                    "[universal.settings] # shared settings\n"
+                    "# Keep this documented\n" "enabled=true # default stays on\n"
+                    "[kirby.neutral.jab]\n" "# Jab timing\n" "start_delay=3\n"
+                    "[yoshi.roll.p]\n" "actions=roll\n").encode()
+        silent = ("[universal.settings]\n" "enabled=false\n"
+                  "[kirby.neutral.jab]\n" "start_delay=8\n"
+                  "[newcomer.neutral.a]\n" "actions=jump\n").encode()
+        restored = sources.restore_comments(reference, silent)
+        self.assertIn(b"# Repository overview\n[universal.settings]", restored)
+        self.assertIn(b"[universal.settings] # shared settings", restored)
+        self.assertIn(b"# Keep this documented\n", restored)
+        self.assertIn(b"enabled=false # default stays on", restored)
+        self.assertIn(b"# Jab timing\nstart_delay=8", restored)
+        self.assertNotIn(b"[yoshi.roll.p]", restored)
+        self.assertIn(b"[newcomer.neutral.a]", restored)
+
     def test_strip_comments_keeps_every_parsed_value_and_shrinks_the_switch_copy(self):
         data=sources.assemble()
         stripped=sources.strip_comments(data)

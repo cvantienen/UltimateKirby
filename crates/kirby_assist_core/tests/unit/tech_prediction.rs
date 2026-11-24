@@ -106,6 +106,40 @@ fn stationary_or_invalid_motion_does_not_request_collision_probes() {
     }
 }
 #[test]
+fn invalid_body_geometry_never_reaches_collision_queries() {
+    for body in [
+        Body {
+            half_width: f32::NAN,
+            ..Body::default()
+        },
+        Body {
+            floor_origin: f32::INFINITY,
+            ..Body::default()
+        },
+        Body {
+            wall: [-1.0, 5.0, 8.0],
+            ..Body::default()
+        },
+        Body {
+            ceiling_padding: 101.0,
+            ..Body::default()
+        },
+    ] {
+        assert!(tech_probes_with_body(0.0, 10.0, 1.0, -1.0, 5.0, body)
+            .iter()
+            .all(Option::is_none));
+        for acceleration in [0.0, -0.1] {
+            assert_eq!(
+                first_contact_with_body(0.0, 10.0, 1.0, -1.0, 5.0, acceleration, body, |_| {
+                    panic!("invalid body reached a collision query")
+                }),
+                None
+            );
+        }
+    }
+}
+
+#[test]
 fn contact_refinement_finds_early_impact_inside_a_delay_extended_horizon() {
     let hit = first_contact_in(0.0, 0.0, 10.0, 0.0, 12.0, |ray| {
         crosses_plane(&ray, 0, 42.5)

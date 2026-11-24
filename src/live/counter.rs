@@ -14,17 +14,21 @@ unsafe fn active_threat(
     own_velocity: [f32; 2],
     enemy_velocity: [f32; 2],
     config: Config,
+    remaining: f32,
     budget: &mut usize,
-) -> bool {
+    exhausted: &mut bool,
+) -> Option<f32> {
     let scale = game::scale(enemy);
     if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
-        return false;
+        return None;
     }
+    let mut earliest: Option<f32> = None;
     for slot in 0..8 {
         if !game::attack_active(enemy, slot, false) {
             continue;
         }
         if *budget == 0 {
+            *exhausted = true;
             break;
         }
         *budget -= 1;
@@ -74,7 +78,7 @@ unsafe fn active_threat(
             };
             game::joint_position(enemy, data.node, &local, &mut to, true);
         }
-        if policy::active_melee_threat(
+        if let Some(contact) = policy::active_melee_contact(
             config,
             origin,
             own_velocity,
@@ -84,11 +88,12 @@ unsafe fn active_threat(
                 radius: data.size * scale,
                 velocity: enemy_velocity,
             },
+            remaining,
         ) {
-            return true;
+            earliest = Some(earliest.map_or(contact, |old| old.min(contact)));
         }
     }
-    false
+    earliest
 }
 
 /// # Safety
@@ -134,7 +139,7 @@ pub(super) unsafe fn observe(
             auxiliary: 0.0,
         },
     };
-    if stopped || status == kirby_assist_core::native_states::status::SPECIAL_LW {
+    if !can_special {
         return Some((config, context, None));
     }
     let origin = [reads.pos_x(own), reads.pos_y(own), game::pos_z(own)];
@@ -150,6 +155,7 @@ pub(super) unsafe fn observe(
     let mut best: Option<Threat> = None;
     let mut soonest = f32::INFINITY;
     let mut geometry_budget = 16;
+    let mut exhausted = false;
     let roster = reads
         .roster()
         .unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
@@ -169,45 +175,17 @@ pub(super) unsafe fn observe(
         let enemy_status = reads.status_kind(enemy);
         let enemy_frame = reads.motion_frame(enemy);
         let velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        // Root proximity is only a startup estimate: an extended sword or
-        // disjoint active hitbox can reach us while its owner's root is far away.
-        // Always inspect live geometry before rejecting that attacker by root.
-        let has_active_hitbox = (0..8).any(|slot| game::attack_active(enemy, slot, false));
-        if !policy::attacker_relevant(
-            config,
-            origin,
-            own_velocity,
-            position,
-            velocity,
-            has_active_hitbox,
-        ) {
+        if reads.is_stop(enemy) {
             continue;
         }
-        // A known move may be answered during startup; once any live hitbox
-        // exists, its native geometry is authoritative instead of frame data.
-        let facing = reads.facing(enemy);
-        let imminent = (!has_active_hitbox
-            && !reads.is_stop(enemy)
-            && facing.is_finite()
-            && facing.abs() >= 0.5
-            && facing * (origin[0] - position[0]) >= 0.0)
-            .then(|| {
-                policy::predicted_attack(
-                    config,
-                    origin,
-                    own_velocity,
-                    position,
-                    velocity,
-                    reads.fighter_kind(enemy),
-                    id,
-                    enemy_motion,
-                    enemy_status,
-                    enemy_frame,
-                    reads.motion_rate(enemy),
-                )
-                .filter(|t| t.in_frames > 0.0)
-            })
-            .flatten();
+        let Some(remaining) = policy::active_remaining(
+            reads.fighter_kind(enemy),
+            enemy_motion,
+            enemy_frame,
+            reads.motion_rate(enemy),
+        ) else {
+            continue;
+        };
         let attack = active_threat(
             enemy,
             situation,
@@ -215,16 +193,17 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             config,
+            remaining,
             &mut geometry_budget,
+            &mut exhausted,
         )
-        .then_some(Threat {
+        .map(|in_frames| Threat {
             id,
             motion: enemy_motion,
             status: enemy_status,
             frame: enemy_frame,
-            in_frames: 0.0,
-        })
-        .or(imminent);
+            in_frames,
+        });
         if let Some(threat) = attack {
             if threat.in_frames < soonest {
                 soonest = threat.in_frames;
@@ -232,5 +211,10 @@ pub(super) unsafe fn observe(
             }
         }
     }
-    Some((config, context, best))
+    // A truncated scan cannot establish which attack will arrive first.
+    Some((
+        config,
+        context,
+        best.filter(|threat| !exhausted && threat.in_frames >= config.activation()),
+    ))
 }
