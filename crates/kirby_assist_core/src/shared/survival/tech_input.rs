@@ -61,6 +61,25 @@ pub fn native_tech_state(
     }
 }
 
+/// Native surface contacts can need a Guard edge even when a ray forecast
+/// missed the collision. Airborne tumble alone is not evidence of contact.
+pub fn native_contact_due(
+    status: i32,
+    situation: i32,
+    passive_disabled: bool,
+    floor_enabled: bool,
+    wall_enabled: bool,
+    ceiling_enabled: bool,
+) -> bool {
+    use crate::native_states::{situation as situation_kind, status as status_kind};
+    !passive_disabled
+        && (situation == situation_kind::GROUND
+            && is_tumble_status(status)
+            && floor_enabled
+            || status == status_kind::STOP_WALL && wall_enabled
+            || status == status_kind::STOP_CEIL && ceiling_enabled)
+}
+
 /// Minimal frame-deduplicated shield pulser used by the live adapter.
 #[derive(Default)]
 pub struct FrameTechInput {
@@ -653,6 +672,16 @@ mod frame_pulse_tests {
     }
 
     #[test]
+    fn native_surface_contact_can_trigger_without_a_ray_forecast() {
+        use crate::native_states::{situation, status};
+        assert!(native_contact_due(status::DAMAGE_FLY, situation::GROUND, false, true, false, false));
+        assert!(native_contact_due(status::STOP_WALL, situation::AIR, false, false, true, false));
+        assert!(native_contact_due(status::STOP_CEIL, situation::AIR, false, false, false, true));
+        assert!(!native_contact_due(status::DAMAGE_FLY, situation::AIR, false, true, false, false));
+        assert!(!native_contact_due(status::DAMAGE_FLY, situation::GROUND, true, true, false, false));
+        assert!(!native_contact_due(status::STOP_WALL, situation::AIR, false, false, false, false));
+    }
+    #[test]
     fn pulses_once_per_frame_and_releases_when_the_opportunity_ends() {
         let mut input = FrameTechInput::default();
         let on = input.sample(true, 7, 10, NativeTechState::Opportunity, false);
@@ -825,6 +854,29 @@ mod ganon_and_release_regressions {
         );
         assert_eq!(ended, TechOutput::default());
         assert_eq!(input.cooldown_remaining(), 0.0);
+    }
+
+    #[test]
+    fn native_surface_contact_requests_a_fresh_guard_without_a_forecast_ray() {
+        use crate::native_states::{situation, status};
+        for (kind, location, floor, wall, ceiling) in [
+            (status::DAMAGE_FLY, situation::GROUND, true, false, false),
+            (status::STOP_WALL, situation::AIR, false, true, false),
+            (status::STOP_CEIL, situation::AIR, false, false, true),
+        ] {
+            let mut input = TechInput::default();
+            let contact = native_contact_due(kind, location, false, floor, wall, ceiling);
+            let ctx = TechContext {
+                status: kind,
+                contact_in: contact.then_some(0.0),
+                prepare_guard: contact,
+                ..capture(20.0, 0.0)
+            };
+            let output = input.sample(true, true, 40, ctx);
+            assert!(output.press && output.owns_guard, "status {kind}");
+            input.mapped_press();
+            assert!(!input.sample(true, true, 40, ctx).press);
+        }
     }
 
     #[test]

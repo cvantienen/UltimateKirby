@@ -249,6 +249,7 @@ pub struct OutOfShield {
     configured_grab_wait: bool,
     /// Runtime configured settling value used by OutOfShield..
     configured_settling: bool,
+    guard_hold: u8,
 }
 
 impl OutOfShield {
@@ -267,6 +268,7 @@ impl OutOfShield {
             configured_shielded: false,
             configured_grab_wait: false,
             configured_settling: false,
+            guard_hold: 0,
         }
     }
 
@@ -299,6 +301,7 @@ impl OutOfShield {
         self.configured_shielded = false;
         self.configured_grab_wait = false;
         self.configured_settling = false;
+        self.guard_hold = 0;
         self.simple.cancel();
         self.shield_up_b.cancel();
         self.target = None;
@@ -306,6 +309,7 @@ impl OutOfShield {
     /// Ledge/manual takeover releases inputs immediately. Delivered R retains
     /// only its bounded receipt so a competing script cannot turn it into Up-B.
     pub fn suspend_automatic(&mut self) {
+        self.guard_hold = 0;
         self.shield_up_b.cancel();
         self.response.suspend();
         if !self.simple.delivery_pending() {
@@ -586,8 +590,131 @@ impl OutOfShield {
 
 #[cfg(test)]
 mod tests {
-    use super::{copied_target, target_within_range};
-    use crate::{gameplay::MotionTiming, roll_read::Target as ObservedTarget};
+    use super::{copied_target, target_within_range, AutomaticConfig, Context, OutOfShield};
+    use crate::{
+        gameplay::{GameplayContext, MotionTiming},
+        native_input::MAPPER_ZR,
+        roll_read::Target as ObservedTarget,
+        settings::AssistSettings,
+    };
+
+    #[test]
+    fn threatened_shield_stays_held_without_a_punish_target() {
+        let mut oos = OutOfShield::new();
+        let context = Context {
+            object: 1,
+            kind: crate::fighter_kinds::LUCINA,
+            status: crate::native_states::GUARD,
+            motion: 0,
+            frame: 1.,
+            rate: 1.,
+            stopped: false,
+            grounded: true,
+            position: [0.; 2],
+            facing: 1.,
+            shield_ready: true,
+            can_grab: true,
+            can_jump: true,
+            can_up_special: true,
+            threatened: true,
+        };
+        let output = oos.sample_automatic_configured(
+            true,
+            context,
+            GameplayContext {
+                gameplay: true,
+                ..Default::default()
+            },
+            [None; 8],
+            None,
+            true,
+            10.,
+            20.,
+            None,
+            AssistSettings::default(),
+            AutomaticConfig::default(),
+        );
+        assert_eq!(output.requested & MAPPER_ZR, MAPPER_ZR);
+        assert_eq!(output.owned, crate::ledge_trap::SEQUENCE_BUTTONS);
+        assert_eq!(output.stick, Some([0.; 2]));
+        let mut safe = context;
+        safe.threatened = false;
+        for _ in 0..5 {
+            let output = oos.sample_automatic_configured(
+                true,
+                safe,
+                GameplayContext {
+                    gameplay: true,
+                    ..Default::default()
+                },
+                [None; 8],
+                None,
+                true,
+                10.,
+                20.,
+                None,
+                AssistSettings::default(),
+                AutomaticConfig::default(),
+            );
+            assert_eq!(output.requested & MAPPER_ZR, MAPPER_ZR);
+        }
+        let output = oos.sample_automatic_configured(
+            true,
+            safe,
+            GameplayContext {
+                gameplay: true,
+                ..Default::default()
+            },
+            [None; 8],
+            None,
+            true,
+            10.,
+            20.,
+            None,
+            AssistSettings::default(),
+            AutomaticConfig::default(),
+        );
+        assert_eq!(output.owned, 0);
+        let mut stunned = context;
+        stunned.status = crate::native_states::GUARD_DAMAGE;
+        stunned.threatened = false;
+        let output = oos.sample_automatic_configured(
+            true,
+            stunned,
+            GameplayContext {
+                gameplay: true,
+                ..Default::default()
+            },
+            [None; 8],
+            None,
+            true,
+            10.,
+            20.,
+            None,
+            AssistSettings::default(),
+            AutomaticConfig::default(),
+        );
+        assert_eq!(output.requested & MAPPER_ZR, MAPPER_ZR);
+        let mut paused = context;
+        paused.stopped = true;
+        let output = oos.sample_automatic_configured(
+            true,
+            paused,
+            GameplayContext {
+                gameplay: true,
+                ..Default::default()
+            },
+            [None; 8],
+            None,
+            true,
+            10.,
+            20.,
+            None,
+            AssistSettings::default(),
+            AutomaticConfig::default(),
+        );
+        assert_eq!(output.requested & MAPPER_ZR, MAPPER_ZR);
+    }
 
     /// Regression test for `target_range_is_inclusive_and_rejects_invalid_facts`.
     #[test]

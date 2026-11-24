@@ -1042,8 +1042,10 @@ impl Timeline {
     }
     /// Returns the `step_range` result.
     fn step_range(&self, range: RangeCheck, f: &Frame) -> Step {
+        if range == RangeCheck::Ignore {
+            return Step::Advance(f.now);
+        }
         let max = match range {
-            RangeCheck::Ignore => f32::MAX,
             RangeCheck::Verify(value) => value,
             RangeCheck::FighterGrabRange | RangeCheck::FighterGrabRangeInstant => {
                 if !f.grab_reach.is_finite() || f.grab_reach <= 0.0 {
@@ -1051,15 +1053,16 @@ impl Timeline {
                 }
                 f.grab_reach
             }
+            RangeCheck::Ignore => unreachable!(),
         };
-        // Immediate checks require this observation's target. Waiting
-        // ledge checks retain their existing last-position behavior.
-        if range == RangeCheck::FighterGrabRangeInstant && f.fresh.is_none() {
+        // Only the non-instant fighter grab range is an authored wait.
+        // Immediate checks must use the target from this observation.
+        if range != RangeCheck::FighterGrabRange && f.fresh.is_none() {
             return Step::End("range_check_failed");
         }
         if f.enemy_dx().abs() <= max {
             Step::Advance(f.now)
-        } else if range == RangeCheck::FighterGrabRangeInstant
+        } else if range != RangeCheck::FighterGrabRange
             || f.elapsed >= f32::from(self.sequence.spatial_timeout)
         {
             Step::End("range_check_failed")

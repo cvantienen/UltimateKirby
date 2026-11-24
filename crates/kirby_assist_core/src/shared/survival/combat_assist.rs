@@ -99,7 +99,8 @@ impl SdiState {
     ) -> Option<[f32; 2]> {
         // None means leave the player's stick alone. Some([0, 0]) deliberately
         // owns a neutral sample between flicks; those outputs are different.
-        if !enabled
+        if !crate::config::AUTO_DAMAGE_STICK_ENABLED
+            || !enabled
             || !(0.0..=60.0).contains(&ctx.damage_percent)
             || !ctx.damage_stop
             || ctx.remaining <= LAUNCH_DI_FRAMES

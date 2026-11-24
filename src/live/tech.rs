@@ -94,6 +94,29 @@ pub(super) unsafe fn assess_tech(
             reason: "tech_status_observed",
         };
     }
+    let native_contact = kirby_assist_core::tech_input::native_contact_due(
+        status,
+        situation,
+        passive_disabled,
+        floor_enabled,
+        game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_WALL,
+        ),
+        game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL,
+        ),
+    );
+    if native_contact {
+        return TechAssessment {
+            status,
+            situation,
+            contact_in: Some(0.0),
+            remaining_stop,
+            reason: "native_tech_contact",
+        };
+    }
     let gate = tech_gate_with_floor(status, situation, passive_disabled, stopped, floor_enabled);
     let late_hitstop = gate == TechGate::Hitstop
         && late_damage_stop_prediction(remaining_stop, TECH_INPUT_DELAY_FRAMES);

@@ -135,8 +135,8 @@ fn action(a: Action) -> Result<String, String> {
             frames,
         } => {
             let names = button_names(buttons)?;
-            if hold == 0 && buttons == 0 {
-                return Err("Until-manual hold requires a button".into());
+            if buttons == 0 || hold == 0 || gap == 0 || frames == 0 {
+                return Err("Repeated taps require a button and positive hold, gap and duration".into());
             }
             format!(
                 "tap:{names}:{}:{}:{hold}:{gap}:{frames}",
@@ -248,8 +248,16 @@ pub fn update(
         }
         format!("builtin = {}\n", builtin.token())
     } else if let Some(binding) = sequence.mode {
-        if !slot.is_button() || sequence.len != 0 || sequence.start_delay != 0 {
-            return Err("Mode bindings cannot include action timings".into());
+        if !slot.is_button()
+            || !binding.mode.supports(kind)
+            || sequence.len != 0
+            || sequence.start_delay != 0
+            || sequence.reaction.active()
+            || sequence.while_held
+            || sequence.ground_only
+            || sequence.auto_tilt.is_some()
+        {
+            return Err("Mode bindings cannot include recipe actions or conditions".into());
         }
         format!(
             "mode = {}\nactivation = {}\n",
@@ -354,7 +362,9 @@ pub fn update(
         .iter()
         .find(|e| e.fighter_kind == kind && e.slot == slot && e.choice == choice)
         .ok_or("Saved recipe not found after validation")?;
-    if saved.sequence.ground_only != sequence.ground_only
+    if saved.sequence.mode != sequence.mode
+        || saved.sequence.builtin != sequence.builtin
+        || saved.sequence.ground_only != sequence.ground_only
         || saved.sequence.reaction != sequence.reaction
         || saved.sequence.while_held != sequence.while_held
         || saved.sequence.actions() != sequence.actions()
@@ -655,6 +665,42 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn mode_and_builtin_reject_inert_recipe_settings() {
+        for text in [
+            "[kirby.x.test]\nmode = auto_mash\nground_only = true\n",
+            "[kirby.x.test]\nmode = auto_mash\nwhile_held = true\n",
+            "[kirby.x.test]\nbuiltin = normal\nauto_tilt = up\n",
+        ] {
+            assert!(Catalog::parse(text).is_err(), "{text}");
+        }
+    }
+
+    #[test]
+    fn saving_rejects_invalid_tap_instead_of_silently_normalizing_it() {
+        let mut bad = sequence("tap:a:0:0:1:1:60");
+        for action in [
+            Action::Tap { buttons: 0, stick: [0.; 2], hold: 1, gap: 1, frames: 60 },
+            Action::Tap { buttons: crate::native_input::MAPPER_A, stick: [0.; 2], hold: 0, gap: 1, frames: 60 },
+            Action::Tap { buttons: crate::native_input::MAPPER_A, stick: [0.; 2], hold: 1, gap: 0, frames: 60 },
+            Action::Tap { buttons: crate::native_input::MAPPER_A, stick: [0.; 2], hold: 1, gap: 1, frames: 0 },
+        ] {
+            bad.actions[0] = action;
+            assert!(update(SOURCE, 5, PresetSlot::Roll, "grab", bad, false).is_err());
+        }
+    }
+
+    #[test]
+    fn saved_range_and_condition_options_keep_immediate_defaults() {
+        let original = sequence(
+            "range:ignore,range:5,range:fighter_range,range:fighter_range_instant,check:self_grounded,check:enemy_within:10,grab:verified",
+        );
+        assert!(matches!(original.actions()[4], Action::Check { wait: 0, .. }));
+        assert!(matches!(original.actions()[5], Action::Check { wait: 0, .. }));
+        let text = update(SOURCE, 5, PresetSlot::Roll, "grab", original, false).unwrap();
+        assert_eq!(Catalog::parse(&text).unwrap().entries()[0].sequence, original);
+    }
+
     /// Regression test for `saving_a_ledge_recipe_preserves_ignored_retired_button_sections`.
     #[test]
     fn saving_a_ledge_recipe_preserves_ignored_retired_button_sections() {

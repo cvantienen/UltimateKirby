@@ -278,6 +278,24 @@ fn fighter_range_uses_the_selected_fighter_profile() {
     }
 }
 #[test]
+fn literal_range_checks_finish_on_first_observation_without_waiting() {
+    let far = Opponent {
+        position: [15., 0.],
+        ..enemy(CLIFF_CLIMB, true)
+    };
+    for (actions, observed, expected) in [
+        ("range:9,grab", Some(far), false),
+        ("range:20,grab", Some(far), true),
+        ("range:20,grab", None, false),
+        ("range:ignore,grab", None, true),
+    ] {
+        let mut t = Timeline::new(sequence(actions), far);
+        let out = t.sample(AssistSettings::default(), ctx(0.), observed, None, 0.);
+        assert_eq!(out.requested & MAPPER_R != 0, expected, "{actions}");
+        assert_eq!(t.finished(), !expected, "{actions}");
+    }
+}
+#[test]
 fn instant_grab_range_passes_now_or_cancels_without_a_late_grab() {
     let profiles = crate::fighter_profiles::FighterProfiles::default();
     for kind in [6] {

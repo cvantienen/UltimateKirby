@@ -2,7 +2,7 @@
 use super::*;
 use crate::{
     gameplay::{GameplayContext, Opponent},
-    native_input::{MAPPER_B, MAPPER_R},
+    native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
     sequence_config::{Action, Direction, Sequence},
     settings::AssistSettings,
 };
@@ -205,6 +205,43 @@ impl OutOfShield {
             config,
         };
         self.revalidate_grab_wait(&f);
+        if !f.allowed || !f.shielded || !f.context.gameplay {
+            self.guard_hold = 0;
+        } else if f.c.threatened || f.c.status == crate::native_states::GUARD_DAMAGE {
+            if self.configured_response
+                && !self.simple.delivery_pending()
+                && !self.shield_up_b.receipt_pending()
+            {
+                self.cancel_pending();
+            }
+            self.guard_hold = 6;
+        }
+        if f.allowed
+            && f.context.gameplay
+            && f.shielded
+            && self.guard_hold > 0
+            && matches!(
+                f.c.status,
+                crate::native_states::GUARD_ON
+                    | crate::native_states::GUARD
+                    | crate::native_states::GUARD_DAMAGE
+            )
+            && !self.simple.delivery_pending()
+            && !self.shield_up_b.receipt_pending()
+            && !self.configured_response
+        {
+            if !f.c.stopped {
+                self.guard_hold -= 1;
+            }
+            self.simple.cancel();
+            self.shield_up_b.cancel();
+            return ControllerOutput {
+                owned: crate::ledge_trap::SEQUENCE_BUTTONS,
+                requested: MAPPER_ZR,
+                stick: Some([0.; 2]),
+                ..Default::default()
+            };
+        }
         if self.configured_settling {
             return self.settle_grab(&f);
         }

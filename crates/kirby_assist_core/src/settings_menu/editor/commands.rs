@@ -217,7 +217,7 @@ fn next_group(
     group
 }
 /// Replacing a move keeps its configured hold. Until-takeover (0 frames)
-/// transfers only to another button input.
+/// transfers only to another shield button input.
 fn carry_hold(old: Action, new: &mut Action) {
     let held = match old {
         Action::Input { frames, .. }
@@ -229,7 +229,7 @@ fn carry_hold(old: Action, new: &mut Action) {
     match new {
         Action::Input {
             buttons, frames, ..
-        } => *frames = if held == 0 && *buttons == 0 { 4 } else { held },
+        } => *frames = if held == 0 && *buttons != MAPPER_ZR { 4 } else { held },
         Action::OpponentInput { frames, .. } | Action::Controller { frames, .. } => {
             *frames = if held == 0 { 4 } else { held }
         }
@@ -1115,6 +1115,22 @@ mod tests {
         tap(&mut e, MAPPER_B);
         assert_eq!(e.compiled(KEY).unwrap(), before);
     }
+    #[test]
+    fn replacing_manual_hold_with_non_shield_input_uses_finite_duration() {
+        let mut e = RecipeEditor::default();
+        let mut source = Sequence::default();
+        source.len = 1;
+        source.actions[0] = Action::ShieldUntilManual;
+        e.ensure(KEY, source);
+        let kind = PRESETS.iter().position(|(name, _)| *name == "Neutral A / Nair").unwrap();
+        assert_eq!(e.apply_kind(KEY, 0, kind), Some((true, true)));
+        assert_eq!(e.compiled(KEY).unwrap().actions(), &[key(MAPPER_A, 0., 0., 4)]);
+        let kind = PRESETS.iter().position(|(name, _)| *name == "Shield / air dodge").unwrap();
+        e.recipes.get_mut(&KEY).unwrap().sequence.actions[0] = Action::ShieldUntilManual;
+        assert_eq!(e.apply_kind(KEY, 0, kind), Some((true, true)));
+        assert_eq!(e.compiled(KEY).unwrap().actions(), &[key(MAPPER_ZR, 0., 0., 0)]);
+    }
+
     /// Regression test for `custom_saved_inputs_remain_available_after_reorder_and_replace`.
     #[test]
     fn custom_saved_inputs_remain_available_after_reorder_and_replace() {

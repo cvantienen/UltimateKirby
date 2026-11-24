@@ -367,15 +367,48 @@ struct Recipe {
 impl Recipe {
     /// Constructs a new value with the type’s initial state.
     fn new(mut sequence: Sequence) -> Self {
-        // Present file Wait steps as delays, preserving their exact frame total.
+        // Folding waits across a branch marker can move a branch-local pause
+        // into the other branch. Keep explicit waits if the recipe branches or
+        // if expanding its delays would exceed the fixed action capacity.
         let original = sequence;
+        let mut pending = 0usize;
+        let mut expanded = 0usize;
+        for action in original.actions() {
+            match action {
+                Action::Wait(frames) => pending += usize::from(*frames),
+                _ => {
+                    expanded += pending.div_ceil(255) + 1;
+                    pending = 0;
+                }
+            }
+        }
+        expanded += pending.div_ceil(255);
+        if expanded > MAX_ACTIONS || original.actions().iter().any(|a| matches!(a,
+            Action::IfFacingLedge { .. } | Action::IfFacingOpponent { .. }
+                | Action::ElseFacing | Action::EndFacing
+        )) {
+            sequence.len = sequence.len.max(6);
+            let mut recipe = Self {
+                button_recipe: false,
+                sequence,
+                before: [0; MAX_ACTIONS],
+                kinds: [0; MAX_ACTIONS],
+                imported: Vec::new(),
+                edited: 0,
+                modified: false,
+            };
+            for (i, action) in original.actions().iter().enumerate() {
+                recipe.kinds[i] = recipe.kind_for(*action);
+            }
+            return recipe;
+        }
         sequence.actions.fill(Action::Empty);
         let mut before = [0; MAX_ACTIONS];
         let mut len = 0;
-        let mut pending = 0u16;
+        let mut pending = 0usize;
         for action in original.actions() {
             if let Action::Wait(frames) = action {
-                pending += u16::from(*frames);
+                pending += usize::from(*frames);
                 continue;
             }
             while pending > 255 {
@@ -1599,6 +1632,27 @@ mod tests {
         }
         assert_eq!(editor.compiled(key).unwrap().actions(), &[action]);
     }
+    #[test]
+    fn wait_inside_facing_branch_remains_in_that_branch() {
+        let sequence = crate::sequence_config::Catalog::parse(
+            "[kirby.x.branch]\nstart_delay=0\nactions=if_facing_opponent,wait:3,a:1,else_facing,b:1,end_facing",
+        ).unwrap().entries()[0].sequence;
+        let recipe = Recipe::new(sequence);
+        assert_eq!(recipe.compile().unwrap().actions(), sequence.actions());
+        assert_eq!(recipe.before[1], 0);
+    }
+
+    #[test]
+    fn full_recipe_with_waits_can_open_and_compile_without_overflow() {
+        let mut sequence = Sequence::default();
+        sequence.len = MAX_ACTIONS as u8;
+        for (i, action) in sequence.actions.iter_mut().enumerate() {
+            *action = if i % 2 == 0 { Action::Wait(255) } else { key(MAPPER_A, 0., 0., 1) };
+        }
+        let recipe = Recipe::new(sequence);
+        assert_eq!(recipe.compile().unwrap().actions(), sequence.actions());
+    }
+
     /// Regression test for `conditional_range_choices_keep_distinct_names_and_controls`.
     #[test]
     fn conditional_range_choices_keep_distinct_names_and_controls() {

@@ -1257,7 +1257,8 @@ fn sample_damage_sticks(
     #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
 ) -> DamageStickSample {
     let sdi_context = state.sdi_context;
-    let sdi_enabled = config.auto_sdi && manual_scope && fresh;
+    let damage_enabled = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED;
+    let sdi_enabled = damage_enabled && config.auto_sdi && manual_scope && fresh;
     let di_context = state.di_context;
     let damage_trajectory = state.damage_trajectory;
     let di_stick = di_context.and_then(|context| {
@@ -1266,14 +1267,14 @@ fn sample_damage_sticks(
             .get_or_insert_with(Default::default)
             .sample_exclusive_with_trajectory(
                 kirby_assist_core::auto_di::Settings {
-                    enabled: config.auto_di.enabled && manual_scope && fresh,
+                    enabled: damage_enabled && config.auto_di.enabled && manual_scope && fresh,
                     ..config.auto_di
                 },
                 context,
                 damage_trajectory,
             )
     });
-    if !config.auto_di.enabled || di_context.is_none() || !manual_scope || !fresh {
+    if !damage_enabled || !config.auto_di.enabled || di_context.is_none() || !manual_scope || !fresh {
         state.di = None;
     }
     #[cfg(feature = "diagnostic-logging")]
@@ -1292,7 +1293,7 @@ fn sample_damage_sticks(
     // yields to launch DI. Losing modes cannot emit inputs
     // or consume a flick as though it had been delivered.
     let tech_owns = state.tech_output.press || state.tech_output.owns_guard;
-    let sdi_stick = if di_stick.is_none() && !tech_owns && mash_stick.is_none() {
+    let sdi_stick = if sdi_enabled && di_stick.is_none() && !tech_owns && mash_stick.is_none() {
         let previous = state.last_mapped_stick.unwrap_or(physical_stick);
         sdi_context.and_then(|context| {
             state
@@ -1309,7 +1310,7 @@ fn sample_damage_sticks(
         state.sdi = None;
         None
     };
-    let damage_stick = di_stick.or(sdi_stick);
+    let damage_stick = damage_enabled.then(|| di_stick.or(sdi_stick)).flatten();
     if !sdi_enabled || sdi_context.is_none() {
         state.sdi = None;
     }
@@ -2193,7 +2194,19 @@ fn apply_manual_overlay(
             config
                 .control_layout
                 .physical_owned_buttons(canonical_owned),
-            winner == Some(Owner::RollRead) || approach_pulse,
+            matches!(
+                winner,
+                Some(
+                    Owner::RollRead
+                        | Owner::OptionRead
+                        | Owner::GrabDodge
+                        | Owner::OutOfShield
+                        | Owner::Reflect
+                        | Owner::Counter
+                        | Owner::Trip
+                        | Owner::Fair
+                )
+            ) || approach_pulse,
         );
     (manual, approach_pulse)
 }

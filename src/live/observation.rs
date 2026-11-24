@@ -690,7 +690,8 @@ unsafe fn observe_native_basics(
         sequence_input_delay: f32::from(config.sequence_input_delay_frames),
         ..NativeObservationBasics::default()
     };
-    basics.damage_stop = (config.auto_sdi || config.auto_di.enabled)
+    basics.damage_stop = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED
+        && (config.auto_sdi || config.auto_di.enabled)
         && (kirby_assist_core::native_states::status::DAMAGE
             ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
             .contains(&basics.status)
@@ -1910,7 +1911,8 @@ unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
     };
     // Read reserved launch velocity only for the damage victim during hitstop.
     // Pinned FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_X/Y.
-    let di_context = (config.auto_di.enabled
+    let di_context = (kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED
+        && config.auto_di.enabled
         && damage_stop
         && (kirby_assist_core::native_states::status::DAMAGE_FLY
             ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
@@ -1973,7 +1975,25 @@ unsafe fn collect_oos_context(
         tech_obs: TechObservation { assessment, .. },
         ..
     } = *p;
-    ((oos_enabled && automatic_scope.acquire) || oos_target.is_some()).then(|| {
+    let guarding = matches!(
+        assessment.status,
+        kirby_assist_core::native_states::GUARD_ON
+            | kirby_assist_core::native_states::GUARD
+            | kirby_assist_core::native_states::GUARD_DAMAGE
+    );
+    ((oos_enabled && (automatic_scope.acquire || guarding)) || oos_target.is_some()).then(|| {
+        let threatened = guard_threat
+            || oos_enabled
+                && guarding
+                && !p.own.stopped
+                && observations::incoming_fighter_attack(
+                    reads,
+                    object,
+                    object_id,
+                    [reads.pos_x(object), reads.pos_y(object)],
+                    [reads.speed_x(object), reads.speed_y(object)],
+                    p.policy.analysis_settings.shield(),
+                );
         kirby_assist_core::out_of_shield::Context {
             object: object_id,
             kind: fighter_kind,
@@ -1989,7 +2009,7 @@ unsafe fn collect_oos_context(
             can_grab: oos_readiness.1,
             can_jump: oos_readiness.2,
             can_up_special: oos_readiness.3,
-            threatened: guard_threat,
+            threatened,
         }
     })
 }
@@ -2657,7 +2677,16 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
             && (ledge_priority || file_ledge_timeline);
     let oos_allowed = oos_enabled
         && !own_capture_link
-        && (automatic_scope.acquire || automatic_scope.follow || state.oos.configured_committed())
+        && (automatic_scope.acquire
+            || automatic_scope.follow
+            || state.oos.configured_committed()
+            || self_shielded
+                && matches!(
+                    p.tech_obs.assessment.status,
+                    kirby_assist_core::native_states::GUARD_ON
+                        | kirby_assist_core::native_states::GUARD
+                        | kirby_assist_core::native_states::GUARD_DAMAGE
+                ))
         && !oos_reserved
         && state.spot_output.owned == 0
         && state.roll_read_output.owned == 0

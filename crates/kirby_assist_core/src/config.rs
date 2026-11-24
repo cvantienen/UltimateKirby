@@ -13,6 +13,10 @@ use crate::{
 /// Maximum number of scenarios that can be configured without a heap allocator.
 pub const MAX_SCENARIO_RULES: usize = 10;
 
+/// Temporary global gate for automatic DI and SDI controller output.
+/// Keep parsed preferences intact so they can be restored when the gate is lifted.
+pub const AUTO_DAMAGE_STICK_ENABLED: bool = false;
+
 /// Top-level configuration. Rules are disabled by default.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistConfig {
