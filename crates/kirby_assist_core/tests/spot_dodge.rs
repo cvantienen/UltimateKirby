@@ -796,6 +796,106 @@ fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_
     );
 }
 #[test]
+fn delivered_dodge_keeps_neutral_receipt_after_threat_or_readiness_disappears() {
+    for missing_target in [false, true] {
+        let mut tool = SpotDodge::default();
+        let t = target();
+        assert_eq!(tool.sample(true, context(0.), roster(t)).requested, MAPPER_ZR);
+        tool.mapped_dodge(0, t.id);
+        let targets = if missing_target {
+            [None; 8]
+        } else {
+            roster(Target { frame: 8., ..t })
+        };
+        for tick in 1..=3 {
+            let out = tool.sample(
+                true,
+                Context {
+                    can_spot_dodge: !missing_target,
+                    ..context(tick as f32)
+                },
+                targets,
+            );
+            assert_eq!(tool.target(), Some(t.id));
+            assert_eq!(out.requested, 0);
+            assert_ne!(out.owned, 0);
+            assert_eq!(out.stick, Some([0.; 2]));
+            tool.delivery_tick(tick);
+        }
+        let out = tool.sample(
+            true,
+            Context {
+                status: ESCAPE,
+                can_spot_dodge: false,
+                ..context(4.)
+            },
+            targets,
+        );
+        assert_eq!(out.owned, 0);
+        assert_eq!(tool.target(), None);
+        assert!(tool.punish_pending());
+        assert_eq!(tool.follow_target(), Some(t.id));
+        let sequence = kirby_assist_core::sequence_config::Catalog::parse(
+            "[bowser.roll.after]\nstart_delay=0\nreaction=auto_grab_dodged:25:10\nactions=input:a:0:0:2\n",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let followup = tool.punish_automatic(
+            true,
+            Some(&sequence),
+            kirby_assist_core::settings::AssistSettings::default(),
+            kirby_assist_core::gameplay::GameplayContext {
+                gameplay: true,
+                can_act: true,
+                status: kirby_assist_core::native_states::status::WAIT,
+                situation: kirby_assist_core::native_states::situation::GROUND,
+                motion_kind: 1,
+                motion_frame: 5.,
+                motion_rate: 1.,
+                ..Default::default()
+            },
+            Some(kirby_assist_core::gameplay::Opponent {
+                id: t.id,
+                status: t.status,
+                position: t.position,
+                ..Default::default()
+            }),
+        );
+        assert_eq!(followup.requested, MAPPER_A);
+    }
+}
+
+#[test]
+fn delivered_dodge_receipt_still_cancels_on_disabled_or_unsafe_scope() {
+    for (enabled, c) in [
+        (false, context(1.)),
+        (
+            true,
+            Context {
+                situation: kirby_assist_core::native_states::situation::AIR,
+                ..context(1.)
+            },
+        ),
+        (
+            true,
+            Context {
+                status: kirby_assist_core::native_states::status::DAMAGE,
+                ..context(1.)
+            },
+        ),
+    ] {
+        let mut tool = SpotDodge::default();
+        let t = target();
+        tool.sample(true, context(0.), roster(t));
+        tool.mapped_dodge(0, t.id);
+        assert_eq!(tool.sample(enabled, c, [None; 8]).owned, 0);
+        assert_eq!(tool.target(), None);
+        assert!(!tool.punish_pending());
+    }
+}
+
+#[test]
 fn delivered_dodge_wait_has_a_mapper_budget_even_with_frozen_poses_and_never_repeats_a_guard_edge()
 {
     let mut tool = SpotDodge::default();
@@ -813,8 +913,23 @@ fn delivered_dodge_wait_has_a_mapper_budget_even_with_frozen_poses_and_never_rep
     }
     for tick in 2..=25 {
         tool.delivery_tick(tick);
-        assert_eq!(tool.sample(true, context(0.), roster(t)).requested, 0);
+        assert_eq!(
+            tool.sample(
+                true,
+                Context {
+                    can_spot_dodge: false,
+                    ..context(0.)
+                },
+                [None; 8],
+            )
+            .requested,
+            0
+        );
+        if tick < 24 {
+            assert_eq!(tool.target(), Some(t.id));
+        }
     }
+    assert_eq!(tool.target(), None);
     assert_eq!(tool.sample(true, context(0.), roster(t)).owned, 0);
 }
 

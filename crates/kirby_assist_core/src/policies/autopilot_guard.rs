@@ -290,6 +290,19 @@ impl GuardHold {
         // A gap between multihit hitboxes must not release an existing shield
         // during native shieldstun. Never generate an attack on shield release.
         let threat = threat || c.status == crate::native_states::GUARD_DAMAGE;
+        let stationary_guard = source_aware
+            && c.rate == 0.
+            && matches!(
+                c.status,
+                crate::native_states::GUARD_ON | crate::native_states::GUARD
+            );
+        // Normalize only the copied clock; the opponent supplies elapsed time
+        // while the native guard pose has zero playback rate.
+        let c = if stationary_guard {
+            GuardClock { rate: 1., ..c }
+        } else {
+            c
+        };
         let valid = c.motion != crate::timing::NO_MOTION_KIND
             && c.frame.is_finite()
             && c.frame >= 0.0
@@ -309,7 +322,7 @@ impl GuardHold {
             *self = Self::default();
             return threat;
         }
-        let mut elapsed = if c.stopped {
+        let mut elapsed = if c.stopped || stationary_guard {
             0.0
         } else {
             self.previous.map_or(0.0, |p| {

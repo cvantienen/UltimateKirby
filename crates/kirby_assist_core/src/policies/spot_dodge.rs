@@ -717,7 +717,7 @@ impl SpotDodge {
             self.cancel_pending();
             return self.output;
         }
-        if !c.can_spot_dodge {
+        if !c.can_spot_dodge && !self.dodge_delivered {
             // Readiness applies to retries too. Keep this grab eligible when
             // native recovery temporarily prevents the unaccepted request.
             self.cancel_pending();
@@ -728,9 +728,12 @@ impl SpotDodge {
             self.age += elapsed;
             if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT
                 || self.mapped >= 24
-                || !targets.iter().flatten().any(|t| {
-                    t.id == id && contact_with_shape(c, *t, lookahead, padding, height).is_some()
-                })
+                // A delivered packet awaits native confirmation, not another
+                // forecast. Target loss must not discard its bounded receipt.
+                || !self.dodge_delivered
+                    && !targets.iter().flatten().any(|t| {
+                        t.id == id && contact_with_shape(c, *t, lookahead, padding, height).is_some()
+                    })
             {
                 // Only exhaust an attempt after its bounded delivery budget.
                 // A changed forecast may become threatening again before the
