@@ -376,7 +376,7 @@ unsafe fn install_mapper_if_ready() {
         skyline::install_hook!(map_controls);
         // Read-only bounded projectile IDs for ledge shield; no Lua arguments
         // or native attacks are edited. Tracking runs only for enabled ledge
-        // shield or a configured selected-fighter projectile reflector.
+        // shield or a configured selected-fighter reflector/counter.
         attack_sources::install();
         log!("deferred mapper hook installed; existing Skyline mapper chain preserved");
     }

@@ -34,6 +34,7 @@ mod game_ffi {
         pub position: [f32; 3],
         pub velocity: [f32; 2],
         pub team: u64,
+        pub owner: u64,
         pub scale: f32,
         pub active: bool,
         pub attacks: bool,
@@ -65,6 +66,7 @@ mod game_ffi {
                 position: [0.; 3],
                 velocity: [0.; 2],
                 team: 1,
+                owner: u64::MAX,
                 scale: 1.,
                 active: true,
                 attacks: true,
@@ -104,6 +106,10 @@ mod game_ffi {
             kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW
         );
         (*o).ready
+    }
+    pub unsafe fn team_owner_id(o: *mut Object) -> u64 {
+        read();
+        (*o).owner
     }
     pub unsafe fn scale(o: *mut Object) -> f32 {
         read();
@@ -318,7 +324,7 @@ fn counter_native_permission_is_required_in_movement_and_air() {
     }
 }
 #[test]
-fn counter_observation_requires_live_geometry_and_current_window() {
+fn counter_observation_requires_live_geometry_not_a_catalog_window() {
     for scenario in 0..7 {
         let mut own = reset();
         counter_enemy(|e| match scenario {
@@ -334,7 +340,7 @@ fn counter_observation_requires_live_geometry_and_current_window() {
             counter::observe(&frame::FrameReads, &mut *own, 1,
                 kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
         }.unwrap();
-        assert_eq!(threat.is_some(), scenario == 0, "scenario {scenario}: {threat:?}");
+        assert_eq!(threat.is_some(), matches!(scenario, 0 | 3), "scenario {scenario}: {threat:?}");
     }
 }
 #[test]
@@ -349,7 +355,7 @@ fn truncated_counter_scan_withholds_instead_of_claiming_safe_contact() {
     assert_eq!(GEOMETRY.with(Cell::get), 16);
 }
 #[test]
-fn earlier_uncounterable_attacker_is_not_hidden_by_a_later_candidate() {
+fn imminent_attacker_is_selected_for_best_effort_counter_before_later_candidate() {
     let mut own = reset();
     counter_enemy(|_| {});
     counter_enemy(|e| { e.id = 8; e.position[0] = 8.; });
@@ -357,10 +363,10 @@ fn earlier_uncounterable_attacker_is_not_hidden_by_a_later_candidate() {
         counter::observe(&frame::FrameReads, &mut *own, 1,
             kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
     }.unwrap();
-    assert!(threat.is_none());
+    assert_eq!(threat.unwrap().id, 8);
 }
 #[test]
-fn unknown_timing_attacker_cannot_be_hidden_by_a_later_known_counter_candidate() {
+fn unknown_catalog_timing_keeps_observed_melee_contact() {
     let mut own = reset();
     counter_enemy(|_| {});
     counter_enemy(|e| {
@@ -372,7 +378,7 @@ fn unknown_timing_attacker_cannot_be_hidden_by_a_later_known_counter_candidate()
         counter::observe(&frame::FrameReads, &mut *own, 1,
             kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
     }.unwrap();
-    assert!(threat.is_none());
+    assert_eq!(threat.unwrap().id, 8);
 }
 
 #[test]
@@ -425,10 +431,56 @@ fn counter_contact_respects_delay_approach_and_defender_situation() {
                 counter::observe(&frame::FrameReads, &mut *own, 1,
                     kirby_assist_core::fighter_kinds::LUCINA, Some(config), true)
             }.unwrap();
-            assert_eq!(threat.is_some(), delay == 0., "air={air}, delay={delay}");
+            assert!(threat.is_some(), "air={air}, delay={delay}");
         }
     }
 }
+#[test]
+fn live_contact_delivers_down_b_without_root_distance_or_catalog_admission() {
+    use kirby_assist_core::{auto_counter::Counter, native_input::{mapped_literal_buttons, MAPPED_SPECIAL, MAPPER_B}};
+    for distant_root in [false, true] {
+        let mut own = reset();
+        counter_enemy(|e| {
+            e.motion = 999;
+            e.position[0] = if distant_root { 200.0 } else { 4.0 };
+            e.geometry.x = if distant_root { -196.0 } else { 0.0 };
+            e.velocity = [0.0; 2];
+        });
+        let (config, context, threat) = unsafe { counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true) }.unwrap();
+        assert_eq!(threat.unwrap().in_frames, 0.0);
+        let mut policy = Counter::new();
+        let output = policy.sample(true, Some(config), context, threat);
+        assert_eq!(output.requested, MAPPER_B);
+        assert_eq!(output.stick, Some([0.0, -1.0]));
+        assert_ne!(mapped_literal_buttons(0, output.requested) & MAPPED_SPECIAL, 0);
+        policy.mapped();
+        assert!(policy.awaiting_receipt());
+    }
+}
+
+#[test]
+fn projectile_counter_requires_a_current_nearby_enemy_owner() {
+    for scenario in 0..7 {
+        let mut own = reset();
+        counter_enemy(|e| {
+            e.attacks = false;
+            e.position[0] = if scenario == 1 { 200.0 } else { 12.0 };
+            e.active = scenario != 3;
+            if scenario == 4 { e.team = 3; }
+        });
+        projectile(|p| {
+            p.owner = match scenario { 2 => u64::MAX, 5 => 1, _ => 7 };
+            p.geometry.power = 10.0;
+            p.position[0] = if scenario == 6 { 400.0 } else { 4.0 };
+            p.velocity = [0.0; 2];
+        });
+        let (_, _, threat) = unsafe { counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true) }.unwrap();
+        assert_eq!(threat.is_some(), scenario == 0, "scenario {scenario}: {threat:?}");
+    }
+}
+
 #[test]
 fn disabled_unsupported_and_unconfigured_modes_make_zero_native_queries() {
     let mut own = reset();

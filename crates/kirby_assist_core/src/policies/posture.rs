@@ -147,6 +147,9 @@ impl Posture {
     /// Determines whether the `any_tilt_intent` condition holds.
     pub fn any_tilt_intent(buttons: u32, left: [f32; 2], right: [f32; 2]) -> bool {
         Self::down_tilt_intent(buttons, left, right)
+            || buttons & MAPPER_A != 0
+                && left.iter().all(|v| v.is_finite())
+                && (left[0].abs() > 0.5 || left[1] > 0.5)
             || right.iter().all(|v| v.is_finite()) && (right[0].abs() > 0.5 || right[1] > 0.5)
     }
     /// Up and forward are explicitly opted in for a C-stick mapped to Tilt Attack.
@@ -175,9 +178,9 @@ impl Posture {
             0.0
         };
         if settings.up && right[1] > 0.5 && right[1].abs() > right[0].abs() {
-            // The right stick selects Up Tilt; a horizontal component turns it
-            // into a diagonal/side attack in the native mapper.
-            Some(([x, 0.0], [0.0, 1.0]))
+            // Reversal is handled by sample_manual_up_turn, never by combining
+            // a horizontal left stick with a live tilt-stick attack.
+            Some(([0.0, 0.0], [0.0, 1.0]))
         } else if settings.down && right[1] < -0.5 && right[1].abs() > right[0].abs() {
             Some(([x, 0.0], [x, -1.0]))
         } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
@@ -223,6 +226,43 @@ impl Posture {
     pub fn cancel_up_turn(&mut self) {
         self.up_spent |= self.up_turn.is_some();
         self.up_turn = None;
+    }
+
+    /// Share the turn-before-attack handshake between manual A+Up and tilt stick.
+    /// Never call this with authored sequence input.
+    pub fn sample_manual_up_turn(
+        &mut self,
+        tick: i64,
+        enabled: bool,
+        settings: TiltSettings,
+        physical_a: bool,
+        buttons: u32,
+        left: [f32; 2],
+        right: [f32; 2],
+        target: Option<f32>,
+        c: ManualContext,
+    ) -> Option<ControllerOutput> {
+        let stick_up = right.iter().all(|v| v.is_finite())
+            && right[1] > 0.5
+            && right[1] > right[0].abs()
+            && left.iter().all(|v| v.is_finite() && v.abs() <= 0.2);
+        let mut output = self.sample_up_turn(
+            tick,
+            enabled,
+            settings,
+            physical_a || stick_up,
+            if stick_up {
+                (buttons & !RIGHT_STICK_DIRECTIONS) | MAPPER_A
+            } else {
+                buttons
+            },
+            if stick_up { [0.0, 1.0] } else { left },
+            target,
+            c,
+        )?;
+        // Digital aliases can trigger Tilt Attack even when its axes are zero.
+        output.owned |= RIGHT_STICK_DIRECTIONS;
+        Some(output)
     }
 
     /// A physical A/Up intent is held only while native facing turns. Once
@@ -777,7 +817,7 @@ mod tests {
     }
 
     #[test]
-    fn configured_up_c_stick_keeps_attack_vertical_while_turning_left_stick() {
+    fn configured_up_c_stick_never_combines_attack_with_sideways_turn() {
         let settings = TiltSettings {
             up: true,
             ..TiltSettings::default()
@@ -791,7 +831,7 @@ mod tests {
                 Some(-1.0),
                 grounded(1.0),
             ),
-            Some(([-0.8, 0.0], [0.0, 1.0]))
+            Some(([0.0, 0.0], [0.0, 1.0]))
         );
         assert_eq!(
             Posture::configured_c_stick(

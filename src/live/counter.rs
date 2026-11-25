@@ -1,4 +1,6 @@
-//! Read-only bounded fighter melee scan for configured down-special counters.
+//! Read-only bounded live-hit scan for configured down-special counters.
+//! Melee uses contact geometry, not fighter-root distance. Projectiles additionally
+//! require an explicit nearby enemy owner; late contact is a best-effort input.
 use crate::game_ffi as game;
 use kirby_assist_core::{
     auto_counter::{self as policy, Config, Context, Threat},
@@ -17,6 +19,7 @@ unsafe fn active_threat(
     remaining: f32,
     budget: &mut usize,
     exhausted: &mut bool,
+    melee: bool,
 ) -> Option<f32> {
     let mut scale = None;
     let mut earliest: Option<f32> = None;
@@ -36,7 +39,7 @@ unsafe fn active_threat(
         }
         let data = data.read();
         let mask = super::hitboxes::situation_mask(situation)?;
-        if data.direct != 1
+        if data.direct != u8::from(melee)
             || data.situation & mask == 0
             || !data.power.is_finite()
             || data.power <= 0.0
@@ -122,12 +125,14 @@ pub(super) unsafe fn observe(
     let mut soonest = f32::INFINITY;
     let mut geometry_budget = 16;
     let mut exhausted = false;
-    let mut uncertain_contact = f32::INFINITY;
     let roster = reads
         .roster()
         .unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     for id in roster.into_iter().flatten() {
-        if id == own_id || !game::is_active(id) {
+        if id == own_id
+            || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
             continue;
         }
         let enemy = game::module_accessor(id);
@@ -142,7 +147,11 @@ pub(super) unsafe fn observe(
         let enemy_status = reads.status_kind(enemy);
         let enemy_frame = reads.motion_frame(enemy);
         let velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        if reads.is_stop(enemy) {
+        if reads.is_stop(enemy)
+            || enemy_motion == 0
+            || !enemy_frame.is_finite()
+            || enemy_frame < 0.0
+        {
             continue;
         }
         let remaining = policy::active_remaining(
@@ -161,15 +170,8 @@ pub(super) unsafe fn observe(
             remaining.unwrap_or(config.horizon()),
             &mut geometry_budget,
             &mut exhausted,
+            true,
         );
-        if remaining.is_none() {
-            // Unknown expiry cannot admit a counter, but an observed earlier
-            // hazard must not disappear behind a catalogued later candidate.
-            if let Some(contact) = attack {
-                uncertain_contact = uncertain_contact.min(contact);
-            }
-            continue;
-        }
         let attack = attack.map(|in_frames| Threat {
             id,
             motion: enemy_motion,
@@ -184,14 +186,82 @@ pub(super) unsafe fn observe(
             }
         }
     }
+    for source in super::attack_sources::projectiles().into_iter().flatten() {
+        if exhausted
+            || !matches!(
+                source.id >> 28,
+                kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
+            )
+            || !game::is_active(source.id)
+        {
+            continue;
+        }
+        let projectile = game::module_accessor(source.id);
+        if projectile.is_null()
+            || game::battle_object_id(projectile) != source.id
+            || reads.team(projectile) == team
+            || reads.is_stop(projectile)
+        {
+            continue;
+        }
+        let Ok(owner_id) = u32::try_from(game::team_owner_id(projectile)) else {
+            continue;
+        };
+        // Resolve an explicit current owner, never infer one from a team number.
+        if owner_id == own_id
+            || owner_id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !roster.contains(&Some(owner_id))
+            || !game::is_active(owner_id)
+        {
+            continue;
+        }
+        let owner = game::module_accessor(owner_id);
+        if owner.is_null()
+            || game::battle_object_id(owner) != owner_id
+            || reads.team(owner) != reads.team(projectile)
+            || !policy::nearby_attacker(
+                config,
+                origin,
+                [0.0; 2],
+                [reads.pos_x(owner), reads.pos_y(owner), game::pos_z(owner)],
+                [0.0; 2],
+            )
+        {
+            continue;
+        }
+        if !kirby_assist_core::battle_objects::is_projectile(
+            source.id,
+            reads.fighter_kind(projectile),
+            reads.status_kind(projectile),
+        ) {
+            continue;
+        }
+        if let Some(in_frames) = active_threat(
+            projectile,
+            situation,
+            origin,
+            own_velocity,
+            [reads.speed_x(projectile), reads.speed_y(projectile)],
+            config,
+            config.horizon(),
+            &mut geometry_budget,
+            &mut exhausted,
+            false,
+        ) {
+            if in_frames < soonest {
+                soonest = in_frames;
+                best = Some(Threat {
+                    id: source.id,
+                    // The attack generation distinguishes reused projectile IDs.
+                    motion: u64::from(source.generation) + 1,
+                    status: reads.status_kind(projectile),
+                    frame: reads.motion_frame(projectile),
+                    in_frames,
+                });
+            }
+        }
+    }
     // A truncated scan cannot establish which attack will arrive first.
-    Some((
-        config,
-        context,
-        best.filter(|threat| {
-            !exhausted
-                && threat.in_frames >= config.activation()
-                && threat.in_frames < uncertain_contact
-        }),
-    ))
+    Some((config, context, best.filter(|_| !exhausted)))
 }

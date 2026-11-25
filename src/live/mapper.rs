@@ -716,7 +716,11 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
             .is_some_and(LedgeTrap::committed_input_pending);
     attack_sources::tracking(
         config.autopilot_shield && ledge_held
-            || !ledge_held && menu.is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
+            || !ledge_held
+                && menu.is_some_and(|m| {
+                    m.reflect_config(kind.unwrap_or(-1)).is_some()
+                        || m.counter_config(kind.unwrap_or(-1)).is_some()
+                }),
     );
     let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
     // Mode buttons may block acquisition, never replace a committed tape.
@@ -991,7 +995,7 @@ fn committed_intent(owner: Owner, present: bool) -> Intent {
         committed: true,
     }
 }
-/// An intent that yields to every committed owner.
+/// A non-reserving intent; native safety still preempts committed owners.
 fn passive_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -1134,7 +1138,7 @@ fn sample_mapper_posture(
     }
     let posture = manual_context.map_or_else(ControllerOutput::default, |context| {
         let tool = state.posture.get_or_insert_with(Default::default);
-        let up_turn = tool.sample_up_turn(
+        let up_turn = tool.sample_manual_up_turn(
             state.raw_tick,
             manual_scope && fresh && tilt_turn,
             tilt_settings,
@@ -1145,6 +1149,7 @@ fn sample_mapper_posture(
             ),
             policy_buttons,
             physical_stick,
+            physical_right_stick,
             posture_target,
             context,
         );

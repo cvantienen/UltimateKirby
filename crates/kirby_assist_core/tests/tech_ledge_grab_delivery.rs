@@ -193,7 +193,7 @@ fn every_grab_owner_blocks_other_punishes_and_its_own_up_b_until_native_receipt(
         ];
         h.restrict(&mut intents);
         let mut arbitration = ActionOwnership::new();
-        assert_eq!(arbitration.select(true, &intents), Some(owner));
+        assert_eq!(arbitration.select(true, &intents), Some(Owner::Safety));
         for other in [
             Owner::Ledge,
             Owner::RollRead,
@@ -260,7 +260,7 @@ fn first_grab_packet_never_contains_synthetic_throw_directions_or_extra_attacks(
     assert!(h.permits(None, ControllerOutput::default(), None));
 }
 #[test]
-fn a_tech_yields_to_committed_automatic_modes_and_keeps_mapped_guard_override_available() {
+fn a_tech_preempts_committed_automatic_modes_and_keeps_mapped_guard_override_available() {
     for old in [
         Owner::Reflect,
         Owner::Counter,
@@ -288,7 +288,7 @@ fn a_tech_yields_to_committed_automatic_modes_and_keeps_mapped_guard_override_av
                 },
             ],
         );
-        assert_eq!(winner, Some(old));
+        assert_eq!(winner, Some(Owner::Safety));
         let release = mapped_guard(
             0x8,
             TechOutput {

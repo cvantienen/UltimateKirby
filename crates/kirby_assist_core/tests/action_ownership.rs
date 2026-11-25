@@ -103,7 +103,7 @@ fn committed_actions_keep_control_through_release_frames_and_passive_competitors
     }
 }
 #[test]
-fn auto_tech_and_sdi_yield_to_committed_reactions_and_scope_still_cancels() {
+fn native_safety_preempts_committed_reactions_and_scope_still_cancels() {
     let mut control = ActionOwnership::new();
     control.select(true, &[intent(Owner::RollRead, true)]);
     assert!(!control.allows(Owner::Ledge));
@@ -127,12 +127,48 @@ fn auto_tech_and_sdi_yield_to_committed_reactions_and_scope_still_cancels() {
             true,
             &[intent(Owner::Trip, true), intent(Owner::Safety, false)]
         ),
-        Some(Owner::Trip),
-        "native tech/SDI must yield to an active auto reaction"
+        Some(Owner::Safety),
+        "native safety must preempt an active auto reaction"
     );
     assert_eq!(control.select(false, &[intent(Owner::Trip, true)]), None);
     assert!(control.allows(Owner::Ledge));
 }
+#[test]
+fn safety_preemption_respects_presence_and_releases_the_old_reservation() {
+    for committed in [false, true] {
+        let mut control = ActionOwnership::new();
+        let tape = intent(Owner::RollRead, true);
+        control.select(true, &[tape]);
+        control.set_ledge_priority(true);
+        control.set_automatic_suspended(true);
+        assert!(control.allows(Owner::Safety));
+        assert_eq!(
+            control.select(
+                true,
+                &[
+                    tape,
+                    Intent {
+                        owner: Owner::Safety,
+                        present: false,
+                        committed,
+                    }
+                ]
+            ),
+            Some(Owner::RollRead)
+        );
+        assert_eq!(
+            control.select(true, &[tape, intent(Owner::Safety, committed)]),
+            Some(Owner::Safety)
+        );
+        assert_eq!(control.current_owner(), committed.then_some(Owner::Safety));
+        assert_eq!(control.select(true, &[tape]), None);
+        assert_eq!(
+            control.select(false, &[intent(Owner::Safety, committed)]),
+            None
+        );
+    }
+}
+
 #[test]
 fn explicit_manual_tools_yield_to_roll_reads_and_confirmed_followups() {
     for manual in [Owner::Trump] {
@@ -250,8 +286,8 @@ fn priority_reads_cannot_interrupt_committed_ledge_or_other_tapes() {
         );
         assert_eq!(
             control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
-            Some(current),
-            "Auto-Tech/SDI must yield to committed controller sequences"
+            Some(Owner::Safety),
+            "native safety must preempt committed controller sequences"
         );
     }
 }
@@ -334,7 +370,7 @@ fn incoming_grab_defense_waits_for_committed_work_and_yields_to_native_safety() 
                 true,
                 &[intent(Owner::GrabDodge, true), intent(Owner::Safety, true)]
             ),
-            Some(Owner::GrabDodge)
+            Some(Owner::Safety)
         );
     }
 }
@@ -370,8 +406,8 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         }
         assert_eq!(
             control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
-            Some(current),
-            "Auto-Tech/SDI must yield to committed controller sequences"
+            Some(Owner::Safety),
+            "native safety must preempt committed controller sequences"
         );
     }
     let mut control = ActionOwnership::new();

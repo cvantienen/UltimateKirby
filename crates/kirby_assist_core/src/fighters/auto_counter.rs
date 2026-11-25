@@ -468,7 +468,7 @@ impl Counter {
         }
         let Some(threat) = threat.filter(|t| {
             t.in_frames.is_finite()
-                && t.in_frames >= config.activation()
+                && t.in_frames >= 0.0
                 && t.in_frames <= config.horizon()
                 && t.frame.is_finite()
                 && t.frame >= 0.0
@@ -531,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn late_startup_estimate_cannot_request_counter_on_ground_or_in_air() {
+    fn imminent_contact_requests_best_effort_counter_on_ground_or_in_air() {
         for status in [
             crate::native_states::status::ATTACK_S3,
             crate::native_states::status::ATTACK_AIR,
@@ -576,8 +576,8 @@ mod tests {
                     },
                     Some(threat),
                 );
-                assert_eq!(output.requested, 0);
-                assert_eq!(output.stick, None);
+                assert_eq!(output.requested, MAPPER_B);
+                assert_eq!(output.stick, Some([0.0, -1.0]));
             }
         }
     }
@@ -1089,7 +1089,7 @@ mod tests {
     }
 
     #[test]
-    fn contact_before_activation_is_not_a_counter_opportunity() {
+    fn contact_before_activation_still_requests_best_effort_down_b() {
         let threat = Threat {
             id: 7,
             motion: 9,
@@ -1115,7 +1115,8 @@ mod tests {
             },
             Some(threat),
         );
-        assert_eq!(output.requested, 0);
+        assert_eq!(output.requested, MAPPER_B);
+        assert_eq!(output.stick, Some([0.0, -1.0]));
     }
 
     fn context() -> Context {

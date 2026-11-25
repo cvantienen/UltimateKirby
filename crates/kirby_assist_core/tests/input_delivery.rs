@@ -480,8 +480,8 @@ fn admission_escape_does_not_cancel_a_committed_owner_and_explicit_cancellation_
         ledge.set_automatic_suspended(true);
         assert_eq!(ledge.current_owner(), Some(Owner::Ledge));
         assert!(
-            !ledge.allows(Owner::Safety),
-            "a committed ledge tape retains its owner"
+            ledge.allows(Owner::Safety),
+            "native safety may preempt a committed ledge tape"
         );
         ledge.release(Owner::Ledge);
         assert!(
