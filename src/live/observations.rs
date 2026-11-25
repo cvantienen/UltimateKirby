@@ -89,40 +89,6 @@ unsafe fn non_valid_enemy(
     unsafe { game::battle_object_id(enemy) != id || reads.team(enemy) == team }
 }
 
-/// Converts joint-relative attack endpoints to world coordinates.
-/// # Safety
-/// `object` must point to a live game object with the native joint API available.
-unsafe fn world_hitbox_endpoints(
-    object: *mut game::Object,
-    data: &game::AttackGeometry,
-) -> (game::Vector3, game::Vector3) {
-    let mut from = game::Vector3 {
-        x: f32::NAN,
-        y: f32::NAN,
-        z: f32::NAN,
-    };
-    let local = game::Vector3 {
-        x: data.x,
-        y: data.y,
-        z: data.z,
-    };
-    unsafe { game::joint_position(object, data.node, &local, &mut from, true) };
-    let mut to = game::Vector3 {
-        x: from.x,
-        y: from.y,
-        z: from.z,
-    };
-    if data.x2 != 0.0 || data.y2 != 0.0 || data.z2 != 0.0 {
-        let local = game::Vector3 {
-            x: data.x2,
-            y: data.y2,
-            z: data.z2,
-        };
-        unsafe { game::joint_position(object, data.node, &local, &mut to, true) };
-    }
-    (from, to)
-}
-
 /// Checks one object's active hitboxes, sharing the scan budget and own-depth cache.
 /// An exhausted geometry budget conservatively reports a threat.
 struct HitboxScan<'a> {
@@ -155,48 +121,27 @@ unsafe fn object_has_active_hitbox_threat(
         // Consume one unit of the geometry budget for this attack slot.
         *scan.geometry_budget -= 1;
         let data = game::attack_geometry(enemy, slot, false);
-        // Skip if the attack geometry data is not available.
+        // Missing active geometry is uncertainty, not proof of a safe gap.
         if data.is_null() {
-            continue;
+            return true;
         }
         let data = data.read();
         let scale = *scale.get_or_insert_with(|| game::scale(enemy));
-        if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
+        let Some(mask) = super::hitboxes::situation_mask(scan.situation) else {
             continue;
-        }
-        let mask = match scan.situation {
-            kirby_assist_core::native_states::situation::GROUND => {
-                kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
-            }
-            kirby_assist_core::native_states::situation::AIR => {
-                kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
-            }
-            _ => continue,
         };
         if data.situation & mask == 0 {
             continue;
         }
-        // Invalid coordinates and non-positive hitbox sizes will still be rejected
-        if ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
-            .iter()
-            .all(|x| x.is_finite())
-            || data.size <= 0.0
-        {
-            continue;
-        }
-        // Compute the world-space hitbox endpoints for the attack.
-        let (from, to) = world_hitbox_endpoints(enemy, &data);
+        let Some(hitbox) = super::hitboxes::world_geometry(enemy, data, scale, target_velocity) else {
+            return true;
+        };
         let z = *scan.own_z.get_or_insert_with(|| game::pos_z(scan.own));
         // Early exit if the active hitbox poses a threat.
         if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
             [scan.position[0], scan.position[1], z],
             scan.velocity,
-            kirby_assist_core::autopilot_guard::Hitbox {
-                start: [from.x, from.y, from.z],
-                end: [to.x, to.y, to.z],
-                radius: data.size * scale,
-                velocity: target_velocity,
-            },
+            hitbox,
             scan.envelope,
         ) {
             return true;
@@ -220,6 +165,7 @@ pub(super) unsafe fn incoming_fighter_attack(
     let roster = reads.roster();
     let roster = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let team = reads.team(own);
+    let velocity = if reads.is_stop(own) { [0.; 2] } else { velocity };
     let mut geometry_budget = ATTACK_GEOMETRY_SCAN_BUDGET;
     let mut own_z = None;
 
@@ -246,7 +192,23 @@ pub(super) unsafe fn incoming_fighter_attack(
         } else {
             [reads.speed_x(enemy), reads.speed_y(enemy)]
         };
-        // Is this object close enough to examine?
+        // Active geometry may be far from its owner's root (disjoints/articles).
+        if object_has_active_hitbox_threat(
+            enemy,
+            target_velocity,
+            &mut HitboxScan {
+                own,
+                position,
+                velocity,
+                situation: reads.situation_kind(own),
+                envelope,
+                geometry_budget: &mut geometry_budget,
+                own_z: &mut own_z,
+            },
+        ) {
+            return true;
+        }
+        // Root cutoffs apply only to estimated startup/recovery warnings.
         if !is_within_attack_scan_range(position, velocity, target, target_velocity, envelope) {
             continue;
         }
@@ -283,24 +245,8 @@ pub(super) unsafe fn incoming_fighter_attack(
                 }
             }
         }
-        // Does an active hitbox currently overlap—or soon sweep into—the defensive area?
-        if object_has_active_hitbox_threat(
-            enemy,
-            target_velocity,
-            &mut HitboxScan {
-                own,
-                position,
-                velocity,
-                situation: reads.situation_kind(own),
-                envelope,
-                geometry_budget: &mut geometry_budget,
-                own_z: &mut own_z,
-            },
-        ) {
-            return true;
-        }
-        // Startup tables use fighter-kind IDs only. Once hitboxes exist their
-        // geometry is authoritative, even when the fighter's root is nearby.
+        // Startup tables use fighter-kind IDs only. Active geometry takes
+        // precedence over a root-only warning, without proving future contact.
         if !near
             || !fighter
             || stopped

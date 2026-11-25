@@ -10,7 +10,7 @@ pub struct Hitbox {
     pub end: [f32; 3],
     /// Hitbox radius in world units.
     pub radius: f32,
-    /// Relative velocity used for swept threat prediction.
+    /// Source world velocity in units/game frame; the sweep subtracts defender velocity.
     pub velocity: [f32; 2],
 }
 /// How many frames to look ahead to shield against incoming attacks.

@@ -18,10 +18,7 @@ unsafe fn active_threat(
     budget: &mut usize,
     exhausted: &mut bool,
 ) -> Option<f32> {
-    let scale = game::scale(enemy);
-    if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
-        return None;
-    }
+    let mut scale = None;
     let mut earliest: Option<f32> = None;
     for slot in 0..8 {
         if !game::attack_active(enemy, slot, false) {
@@ -34,60 +31,28 @@ unsafe fn active_threat(
         *budget -= 1;
         let data = game::attack_geometry(enemy, slot, false);
         if data.is_null() {
+            *exhausted = true;
             continue;
         }
         let data = data.read();
-        let mask = if situation == kirby_assist_core::native_states::situation::GROUND {
-            kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
-        } else {
-            kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
-        };
+        let mask = super::hitboxes::situation_mask(situation)?;
         if data.direct != 1
             || data.situation & mask == 0
-            || ![
-                data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size, data.power,
-            ]
-            .iter()
-            .all(|v| v.is_finite())
-            || data.size <= 0.0
+            || !data.power.is_finite()
             || data.power <= 0.0
         {
             continue;
         }
-        let mut from = game::Vector3 {
-            x: f32::NAN,
-            y: f32::NAN,
-            z: f32::NAN,
+        let scale = *scale.get_or_insert_with(|| game::scale(enemy));
+        let Some(hitbox) = super::hitboxes::world_geometry(enemy, data, scale, enemy_velocity) else {
+            *exhausted = true;
+            continue;
         };
-        let local = game::Vector3 {
-            x: data.x,
-            y: data.y,
-            z: data.z,
-        };
-        game::joint_position(enemy, data.node, &local, &mut from, true);
-        let mut to = game::Vector3 {
-            x: from.x,
-            y: from.y,
-            z: from.z,
-        };
-        if data.x2 != 0.0 || data.y2 != 0.0 || data.z2 != 0.0 {
-            let local = game::Vector3 {
-                x: data.x2,
-                y: data.y2,
-                z: data.z2,
-            };
-            game::joint_position(enemy, data.node, &local, &mut to, true);
-        }
         if let Some(contact) = policy::active_melee_contact(
             config,
             origin,
             own_velocity,
-            kirby_assist_core::autopilot_guard::Hitbox {
-                start: [from.x, from.y, from.z],
-                end: [to.x, to.y, to.z],
-                radius: data.size * scale,
-                velocity: enemy_velocity,
-            },
+            hitbox,
             remaining,
         ) {
             earliest = Some(earliest.map_or(contact, |old| old.min(contact)));
@@ -139,7 +104,8 @@ pub(super) unsafe fn observe(
             auxiliary: 0.0,
         },
     };
-    if !can_special {
+    if !can_special || !(0.99..=1.01).contains(&game::scale(own)) {
+        // The configured body is a nominal-size estimate, not scaled hurtbox data.
         return Some((config, context, None));
     }
     let origin = [reads.pos_x(own), reads.pos_y(own), game::pos_z(own)];
@@ -156,6 +122,7 @@ pub(super) unsafe fn observe(
     let mut soonest = f32::INFINITY;
     let mut geometry_budget = 16;
     let mut exhausted = false;
+    let mut uncertain_contact = f32::INFINITY;
     let roster = reads
         .roster()
         .unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
@@ -178,14 +145,12 @@ pub(super) unsafe fn observe(
         if reads.is_stop(enemy) {
             continue;
         }
-        let Some(remaining) = policy::active_remaining(
+        let remaining = policy::active_remaining(
             reads.fighter_kind(enemy),
             enemy_motion,
             enemy_frame,
             reads.motion_rate(enemy),
-        ) else {
-            continue;
-        };
+        );
         let attack = active_threat(
             enemy,
             situation,
@@ -193,11 +158,19 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             config,
-            remaining,
+            remaining.unwrap_or(config.horizon()),
             &mut geometry_budget,
             &mut exhausted,
-        )
-        .map(|in_frames| Threat {
+        );
+        if remaining.is_none() {
+            // Unknown expiry cannot admit a counter, but an observed earlier
+            // hazard must not disappear behind a catalogued later candidate.
+            if let Some(contact) = attack {
+                uncertain_contact = uncertain_contact.min(contact);
+            }
+            continue;
+        }
+        let attack = attack.map(|in_frames| Threat {
             id,
             motion: enemy_motion,
             status: enemy_status,
@@ -215,6 +188,10 @@ pub(super) unsafe fn observe(
     Some((
         config,
         context,
-        best.filter(|threat| !exhausted && threat.in_frames >= config.activation()),
+        best.filter(|threat| {
+            !exhausted
+                && threat.in_frames >= config.activation()
+                && threat.in_frames < uncertain_contact
+        }),
     ))
 }

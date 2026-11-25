@@ -45,6 +45,7 @@ mod controller;
 mod damage;
 /// Caches copied native facts for one synchronous observation.
 mod frame;
+mod hitboxes;
 /// Adapts Kirby observations to trip and forward-air follow-up policies.
 mod kirby_followups;
 /// Contains pinned native parameter-table and key identifiers.

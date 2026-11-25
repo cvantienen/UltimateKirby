@@ -6,7 +6,6 @@
 //! response without changing game state.
 use crate::game_ffi as game;
 use kirby_assist_core::{
-    autopilot_guard::Hitbox,
     projectile_reflect::{self as policy, Config, Context, Threat},
     timing::AnimationSample,
 };
@@ -98,6 +97,7 @@ pub(super) unsafe fn observe(
     let team = reads.team(own);
     let mut best: Option<Threat> = None;
     let mut geometry = 0;
+    let mut exhausted = false;
     'sources: for source in sources.into_iter().flatten() {
         let id = source.id;
         // `attack_sources` admits only weapon and item IDs, so each snapshot
@@ -120,12 +120,8 @@ pub(super) unsafe fn observe(
         {
             continue;
         }
-        let root = [reads.pos_x(object), reads.pos_y(object)];
         let speed = [reads.speed_x(object), reads.speed_y(object)];
-        if !root.iter().chain(speed.iter()).all(|v| v.is_finite())
-            || (root[0] - origin[0]).abs() > 96. + (speed[0] - velocity[0]).abs() * config.horizon()
-            || (root[1] - origin[1]).abs() > 96. + (speed[1] - velocity[1]).abs() * config.horizon()
-        {
+        if !speed.iter().all(|v| v.is_finite()) {
             continue;
         }
         if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
@@ -146,76 +142,44 @@ pub(super) unsafe fn observe(
                 continue;
             }
         }
-        let scale = game::scale(object);
-        if !scale.is_finite() || !(0.01..=10.).contains(&scale) {
-            continue;
-        }
+        let mut scale = None;
         for slot in 0..8 {
             if !game::attack_active(object, slot, false) {
                 continue;
             }
             // Bound expensive native geometry even with many overlapping articles.
             if geometry >= 16 {
+                exhausted = true;
                 break 'sources;
             }
             geometry += 1;
             let data = game::attack_geometry(object, slot, false);
             if data.is_null() {
+                exhausted = true;
                 continue;
             }
             let data = data.read();
+            let Some(mask) = super::hitboxes::situation_mask(situation) else {
+                continue;
+            };
             if data.direct != 0
                 || data.reflectable != 1 && data.absorbable != 1
-                || data.situation
-                    & if situation == kirby_assist_core::native_states::situation::GROUND {
-                        kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
-                    } else {
-                        kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
-                    }
-                    == 0
-                || ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
-                    .iter()
-                    .all(|v| v.is_finite())
-                || data.size <= 0.
+                || data.situation & mask == 0
             {
                 continue;
             }
-            let local = game::Vector3 {
-                x: data.x,
-                y: data.y,
-                z: data.z,
+            let scale = *scale.get_or_insert_with(|| game::scale(object));
+            let Some(hitbox) = super::hitboxes::world_geometry(object, data, scale, speed) else {
+                exhausted = true;
+                continue;
             };
-            let mut start = game::Vector3 {
-                x: f32::NAN,
-                y: f32::NAN,
-                z: f32::NAN,
-            };
-            game::joint_position(object, data.node, &local, &mut start, true);
-            let mut end = game::Vector3 {
-                x: start.x,
-                y: start.y,
-                z: start.z,
-            };
-            if data.x2 != 0. || data.y2 != 0. || data.z2 != 0. {
-                let local = game::Vector3 {
-                    x: data.x2,
-                    y: data.y2,
-                    z: data.z2,
-                };
-                game::joint_position(object, data.node, &local, &mut end, true);
-            }
             let candidate = policy::predict(
                 config,
                 origin,
                 velocity,
                 facing,
                 id,
-                Hitbox {
-                    start: [start.x, start.y, start.z],
-                    end: [end.x, end.y, end.z],
-                    radius: data.size * scale,
-                    velocity: speed,
-                },
+                hitbox,
                 data.reflectable == 1,
                 data.absorbable == 1,
             );
@@ -230,6 +194,9 @@ pub(super) unsafe fn observe(
                 }
             }
         }
+    }
+    if exhausted {
+        best = None;
     }
     // Projectile progress also advances bounded delivery/hold accounting when
     // the player's idle pose has a frozen native animation frame.

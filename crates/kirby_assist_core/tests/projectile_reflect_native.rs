@@ -129,9 +129,9 @@ mod game_ffi {
         _: bool,
     ) {
         JOINTS.with(|v| v.set(v.get() + 1));
-        (*out).x = (*o).position[0] + (*local).x;
-        (*out).y = (*o).position[1] + (*local).y;
-        (*out).z = (*o).position[2] + (*local).z;
+        (*out).x = (*o).position[0] + (*local).x * (*o).scale * (*o).facing;
+        (*out).y = (*o).position[1] + (*local).y * (*o).scale;
+        (*out).z = (*o).position[2] + (*local).z * (*o).scale;
     }
 }
 mod frame {
@@ -213,6 +213,8 @@ mod attack_sources {
         })
     }
 }
+#[path = "../../../src/live/hitboxes.rs"]
+mod hitboxes;
 #[path = "../../../src/live/reflect.rs"]
 mod reflect;
 #[path = "../../../src/live/counter.rs"]
@@ -258,6 +260,42 @@ fn counter_enemy(edit: impl FnOnce(&mut game_ffi::Object)) {
     edit(&mut enemy);
     OBJECTS.with(|v| v.borrow_mut().push(enemy));
 }
+#[test]
+fn shared_conversion_uses_native_transformed_endpoints_and_rejects_missing_facts() {
+    let mut own = reset();
+    own.position = [20., 3., 2.];
+    own.scale = 2.;
+    own.facing = -1.;
+    own.geometry.x = 4.;
+    own.geometry.x2 = 8.;
+    own.geometry.y2 = 2.;
+    let data = own.geometry;
+    let hit = unsafe { hitboxes::world_geometry(&mut *own, data, 2., [3., -1.]) }.unwrap();
+    assert_eq!(hit.start, [12., 19., 2.]);
+    assert_eq!(hit.end, [4., 7., 2.]);
+    assert_eq!(hit.radius, 2.);
+    assert_eq!(hit.velocity, [3., -1.]);
+    own.position[2] = f32::NAN;
+    assert!(unsafe { hitboxes::world_geometry(&mut *own, data, 2., [0.; 2]) }.is_none());
+    assert!(unsafe { hitboxes::world_geometry(&mut *own, data, 0., [0.; 2]) }.is_none());
+    assert!(hitboxes::situation_mask(-1).is_none());
+}
+
+#[test]
+fn counter_withholds_for_non_nominal_defender_size() {
+    for scale in [0.5, 2., f32::NAN] {
+        let mut own = reset();
+        own.scale = scale;
+        counter_enemy(|_| {});
+        let (_, _, threat) = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap();
+        assert!(threat.is_none());
+        assert_eq!(GEOMETRY.with(Cell::get), 0);
+    }
+}
+
 #[test]
 fn counter_native_permission_is_required_in_movement_and_air() {
     use kirby_assist_core::native_states::{status, situation};
@@ -321,6 +359,55 @@ fn earlier_uncounterable_attacker_is_not_hidden_by_a_later_candidate() {
     }.unwrap();
     assert!(threat.is_none());
 }
+#[test]
+fn unknown_timing_attacker_cannot_be_hidden_by_a_later_known_counter_candidate() {
+    let mut own = reset();
+    counter_enemy(|_| {});
+    counter_enemy(|e| {
+        e.id = 8;
+        e.motion = 999;
+        e.position[0] = 8.;
+    });
+    let (_, _, threat) = unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+    }.unwrap();
+    assert!(threat.is_none());
+}
+
+#[test]
+fn unreadable_competing_geometry_withholds_timed_specials() {
+    let mut own = reset();
+    counter_enemy(|_| {});
+    counter_enemy(|e| { e.id = 8; e.geometry.x = f32::NAN; });
+    assert!(unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+    }.unwrap().2.is_none());
+
+    let mut own = reset();
+    projectile(|_| {});
+    projectile(|p| { p.id += 1; p.geometry.x = f32::NAN; });
+    assert!(unsafe {
+        reflect::observe(&frame::FrameReads, &mut *own, 1, 28,
+            Some(config()), None, true)
+    }.unwrap().2.is_none());
+}
+
+#[test]
+fn projectile_geometry_is_not_culled_by_its_distant_root() {
+    let mut own = reset();
+    projectile(|p| {
+        p.position[0] = 241.;
+        p.geometry.x = -200.;
+    });
+    let (_, _, threat) = unsafe {
+        reflect::observe(&frame::FrameReads, &mut *own, 1, 28,
+            Some(config()), None, true)
+    }.unwrap();
+    assert_eq!(threat.unwrap().in_frames, 7.);
+}
+
 #[test]
 fn counter_contact_respects_delay_approach_and_defender_situation() {
     use kirby_assist_core::native_states::situation;
@@ -527,7 +614,7 @@ fn crowded_projectiles_and_hitstop_keep_native_work_bounded() {
             v.borrow_mut().push(p);
         }
     });
-    unsafe {
+    let (_, _, threat) = unsafe {
         reflect::observe(
             &frame::FrameReads,
             &mut *own,
@@ -537,7 +624,8 @@ fn crowded_projectiles_and_hitstop_keep_native_work_bounded() {
             None,
             true,
         )
-    };
+    }.unwrap();
+    assert!(threat.is_none(), "a truncated scan cannot establish the first contact");
     assert_eq!(GEOMETRY.with(Cell::get), 16);
     assert!(JOINTS.with(Cell::get) <= 32);
     let mut own = reset();
