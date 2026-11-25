@@ -110,6 +110,8 @@ const COPY_GROUPS: &[&str] = &[
     "D-pad Down",
     "D-pad Left",
     "D-pad Right",
+    "L3 button",
+    "R3 button",
     "Generic templates",
 ];
 /// `TEMPLATE_GROUP` is a configuration value used by the Smash runtime.

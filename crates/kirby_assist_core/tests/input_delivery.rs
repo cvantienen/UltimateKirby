@@ -41,6 +41,34 @@ fn spacing_fair_delivery_preserves_direction_in_both_control_layouts() {
 }
 
 #[test]
+fn adaptive_spacing_drift_survives_manual_overlay_without_weakening_fair_selection() {
+    use kirby_assist_core::{auto_spacing::{Spacing, Config, Attack, AttackConfig},
+        native_states::{situation, status}};
+    let c = GameplayContext { gameplay: true, can_control: true, situation: situation::AIR,
+        status: status::FALL, facing: 1., ..Default::default() };
+    let cfg = Config { minimum_distance: 15., maximum_drift: 0.6, minimum_drift: 0.1,
+        ..Default::default() };
+    let target = Some(Opponent { position: [20., 0.], vulnerable: true, ..Default::default() });
+    let out = Spacing::default().sample(1, true, cfg, c, target);
+    assert_eq!(out.controller.stick, None);
+    for (input, expected) in [(1., 0.35), (-1., -1.)] {
+        let stick = kirby_assist_core::auto_spacing::manual_movement([input, 0.], out.movement_caps.unwrap());
+        let raw = ManualOverlay::default().apply_reaction_controls(
+            ButtonTrace::default(), [input, 0.], TurboOutput { stick: Some(stick), ..Default::default() },
+            0, out.controller.requested, out.controller.owned, true,
+        );
+        assert!((raw.stick[0] - expected).abs() < 0.0001);
+        assert_eq!(mapped_stick_axis(raw.stick[0]), mapped_stick_axis(expected));
+    }
+    let attack = Spacing::default().sample(2, true, Config {
+        aerial: AttackConfig { attack: Attack::Forward, startup: 6., active_frames: 3.,
+            reach: 20., height: 12., commitment: 30. }, ..cfg
+    }, GameplayContext { can_air_attack: true, ..c }, target);
+    assert!(attack.attack);
+    assert_eq!(attack.controller.stick, Some([1., 0.]));
+}
+
+#[test]
 fn spacing_manual_walk_keeps_buttons_and_direction_but_removes_dash_flicks() {
     let cap = fastest_walk_stick(0.2, 0.8).unwrap();
     for side in [-1., 1.] {

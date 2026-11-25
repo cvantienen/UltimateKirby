@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 76;
+    pub const COUNT: usize = 79;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -121,6 +121,9 @@ mod schema {
         "auto_di_default",
         "auto_sdi_default",
         "auto_spacing_engagement_range",
+        "auto_spacing_ground_speed",
+        "auto_spacing_maximum_drift",
+        "auto_spacing_minimum_drift",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -201,6 +204,9 @@ mod schema {
         "Auto DI (experimental)",
         "Auto SDI (experimental)",
         "Spacing: attack engagement range",
+        "Spacing: ground strength (0 = fastest walk)",
+        "Spacing: maximum approach drift",
+        "Spacing: minimum approach strength",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -280,10 +286,16 @@ mod schema {
         "Estimated total aerial commitment in frames; independent of startup and active duration.",
         "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
         "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
-        "Attack only inside this horizontal distance. Outside it, direction stays manual with a native walk-only cap while held. Independent of minimum retreat spacing; holding blocks other automatic modes.",
+        "Attack only inside this horizontal distance. Outside it, direction stays manual with configured movement limits while held. Independent of minimum retreat spacing; holding blocks other automatic modes.",
+        "0 selects the largest native mapped input below dash entry. 0.01-1 set an explicit horizontal stick cap; 1 allows full dash input. Approach braking still applies within the final 10 units.",
+        "Maximum approaching aerial stick strength while held. Lucina defaults to 0.6; others to 1. Moving away permits full drift. Attack-selection packets retain their required direction.",
+        "Minimum approaching horizontal strength at the spacing boundary (0-1, default 0.1), capped by the selected maximum. Approach strength tapers linearly across the final 10 units; this does not change native physics.",
     ];
 
     pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
+    pub const AUTO_SPACING_GROUND_SPEED: usize = 76;
+    pub const AUTO_SPACING_MAXIMUM_DRIFT: usize = 77;
+    pub const AUTO_SPACING_MINIMUM_DRIFT: usize = 78;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -511,6 +523,8 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HALF_DEPTH] = 5.;
     d[AUTO_SPACING_MINIMUM_DISTANCE] = 12.;
     d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
+    d[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
+    d[AUTO_SPACING_MINIMUM_DRIFT] = 0.1;
     d[AUTO_SPACING_GROUND_STARTUP] = 8.;
     d[AUTO_SPACING_GROUND_ACTIVE_FRAMES] = 5.;
     d[AUTO_SPACING_GROUND_REACH] = 20.;
@@ -647,6 +661,10 @@ impl Tuning {
         Config {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
             engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
+            ground_speed: self.get(AUTO_SPACING_GROUND_SPEED),
+            maximum_drift: self.value(AUTO_SPACING_MAXIMUM_DRIFT,
+                if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. }),
+            minimum_drift: self.get(AUTO_SPACING_MINIMUM_DRIFT),
             ground: AttackConfig {
                 attack: attack(AUTO_SPACING_GROUND_MOVE, false),
                 startup: self.get(AUTO_SPACING_GROUND_STARTUP),
@@ -727,6 +745,8 @@ impl Tuning {
         }
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
+            AUTO_SPACING_GROUND_SPEED | AUTO_SPACING_MAXIMUM_DRIFT
+            | AUTO_SPACING_MINIMUM_DRIFT => (0., 1., 0.01),
             AUTO_SPACING_MINIMUM_DISTANCE
             | AUTO_SPACING_ENGAGEMENT_RANGE
             | AUTO_SPACING_GROUND_REACH
@@ -834,6 +854,7 @@ impl Tuning {
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         values[AUTO_SPACING_GROUND_MOVE] = auto_spacing_move_default(s.fighter_kind);
         values[AUTO_SPACING_AERIAL_MOVE] = auto_spacing_move_default(s.fighter_kind);
+        values[AUTO_SPACING_MAXIMUM_DRIFT] = if s.fighter_kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. };
         Values(values)
     }
     /// Applies saved per-fighter overrides to the runtime assistance settings.
@@ -936,6 +957,9 @@ mod tests {
         for (key, value) in [
             ("auto_spacing_minimum_distance", "14.5"),
             ("auto_spacing_engagement_range", "23.5"),
+            ("auto_spacing_ground_speed", "1"),
+            ("auto_spacing_maximum_drift", "0.6"),
+            ("auto_spacing_minimum_drift", "0.15"),
             ("auto_spacing_ground_move", "3"),
             ("auto_spacing_ground_startup", "9"),
             ("auto_spacing_ground_active_frames", "2"),
@@ -957,6 +981,9 @@ mod tests {
         let config = loaded.auto_spacing(crate::fighter_kinds::YOSHI);
         assert_eq!(config.minimum_distance, 14.5);
         assert_eq!(config.engagement_range, 23.5);
+        assert_eq!(config.ground_speed, 1.);
+        assert_eq!(config.maximum_drift, 0.6);
+        assert_eq!(config.minimum_drift, 0.15);
         assert!(matches!(config.ground.attack, Attack::Up));
         assert!(matches!(config.aerial.attack, Attack::Back));
         assert_eq!(
@@ -1000,6 +1027,9 @@ mod tests {
             "auto_spacing_aerial_reach=-1",
             "auto_spacing_aerial_height=inf",
             "auto_spacing_aerial_commitment=0",
+            "auto_spacing_ground_speed=1.01",
+            "auto_spacing_maximum_drift=-0.1",
+            "auto_spacing_minimum_drift=NaN",
             "auto_spacing_minimum_distance=12\nauto_spacing_minimum_distance=14",
         ] {
             assert!(
@@ -1022,6 +1052,10 @@ mod tests {
                 ..AssistSettings::default()
             });
             assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
+            assert_eq!(config.maximum_drift, menu[AUTO_SPACING_MAXIMUM_DRIFT]);
+            assert_eq!(config.ground_speed, 0.);
+            assert_eq!(config.minimum_drift, 0.1);
+            assert_eq!(config.maximum_drift, if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. });
             if kind == crate::fighter_kinds::LUCINA {
                 assert!(matches!(config.ground.attack, Attack::Forward));
                 assert!(matches!(config.aerial.attack, Attack::Forward));

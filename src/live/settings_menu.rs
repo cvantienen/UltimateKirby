@@ -265,6 +265,10 @@ pub(super) struct SettingsMenu {
     diagnostics: DiagnosticState,
 }
 impl SettingsMenu {
+    #[cfg(test)]
+    pub(super) fn test_view_revision(&self) -> Option<(u64, u64)> {
+        self.current().map(|s| (s.revision, s.content_revision))
+    }
     /// Returns the selection for the currently selected fighter.
     fn current(&self) -> Option<&MenuSelection> {
         self.kind.and_then(|kind| self.selections.get(&kind))
@@ -670,8 +674,12 @@ impl SettingsMenu {
         self.scope = gameplay;
         let selection = self.selections.get_mut(&kind).unwrap();
         selection.y_fighter_kind = kind;
+        let damage_before = selection.damage_sticks();
         selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_DI_DEFAULT] = f32::from(damage_defaults[0]);
         selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_SDI_DEFAULT] = f32::from(damage_defaults[1]);
+        if selection.damage_sticks() != damage_before {
+            bump_content(selection);
+        }
         // Apply after new-profile/reset_inputs, which deliberately disarms L.
         if let Some((buttons, layout)) = self.passthrough_buttons.take() {
             selection.observe_physical_passthrough(buttons, layout);

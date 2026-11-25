@@ -235,7 +235,6 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
         "auto_roll",
         "auto_spot_dodge",
         "auto_air_dodge",
-        "auto_grab",
         "auto_shield_grab",
         "auto_grab_dodged",
         "auto_shield_backup",

@@ -77,7 +77,32 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
     sample(6, 0);
     assert_eq!(CONFIGS.lock().unwrap().len(), 2);
     assert_ne!(CONFIGS.lock().unwrap()[1].rows[1], before);
-    sample(5, 0);
+    drop(sample);
+    let before = menu.test_view_revision();
+    menu.input(live_menu::MenuInput {
+        available: true, gameplay: true, bindings_blocked: false, safety_jump: false,
+        fighter_kind: Some(6), buttons: 0, physical: 0,
+        layout: kirby_assist_core::native_input::ControlLayout::Default,
+        base: AssistSettings::default(), mash_default: true, grab_default: true,
+        tech_default: true, damage_defaults: [true, false], training: true,
+    });
+    assert_ne!(menu.test_view_revision(), before, "changed inherited DI must invalidate displayed content");
+    let changed = menu.test_view_revision();
+    menu.input(live_menu::MenuInput {
+        available: true, gameplay: true, bindings_blocked: false, safety_jump: false,
+        fighter_kind: Some(6), buttons: 0, physical: 0,
+        layout: kirby_assist_core::native_input::ControlLayout::Default,
+        base: AssistSettings::default(), mash_default: true, grab_default: true,
+        tech_default: true, damage_defaults: [true, false], training: true,
+    });
+    assert_eq!(menu.test_view_revision(), changed, "unchanged defaults must not rebuild every poll");
+    menu.input(live_menu::MenuInput {
+        available: true, gameplay: true, bindings_blocked: false, safety_jump: false,
+        fighter_kind: Some(5), buttons: 0, physical: 0,
+        layout: kirby_assist_core::native_input::ControlLayout::Default,
+        base: AssistSettings::default(), mash_default: true, grab_default: true,
+        tech_default: true, damage_defaults: [false; 2], training: true,
+    });
     let reports = CONFIGS.lock().unwrap();
     assert_eq!(reports.len(), 3);
     assert_eq!(reports[2].fighter, "yoshi");

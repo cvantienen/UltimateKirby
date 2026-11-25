@@ -217,6 +217,13 @@ fn post_map_wiring_checks_before_mutations_and_restores_rejected_packets() {
     assert!(fence < rejection && rejection < restore && restore < exit && exit < apply);
     assert!(apply < unlock && taunts < unlock);
     assert!(finish[unlock..].contains("saved.restore();"));
+    let delivery = source.split("unsafe fn record_mapped_delivery(").nth(1).unwrap();
+    let delivery = delivery.split("///").next().unwrap();
+    let recheck = delivery.find("runtime::mapper_output_current").unwrap();
+    assert!(delivery.find("STATE.lock()").unwrap() < recheck);
+    assert!(recheck < delivery.find("spacing.mapped(tick)").unwrap());
+    assert!(delivery.contains("publication: Option<(u64, i64, u32)>"));
+    assert!(finish.contains("            publication,\n            feedback,"));
 }
 
 #[test]

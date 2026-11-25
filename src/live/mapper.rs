@@ -410,6 +410,7 @@ unsafe fn record_mapped_delivery(
     output: *mut c_void,
     index: i32,
     session_ticket: SessionTicket,
+    publication: Option<(u64, i64, u32)>,
     feedback: MapperDeliveryFeedback,
     #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
 ) {
@@ -421,7 +422,9 @@ unsafe fn record_mapped_delivery(
     let Ok(mut state) = STATE.lock() else {
         return;
     };
-    if state.mapping_index != Some(index) || !state.session.accepts(session_ticket) {
+    // The post-map output check released STATE before reaching this recorder.
+    // A newer observation must not receive an older packet's delivery receipt.
+    if !runtime::mapper_output_current(&state, index, session_ticket, publication) {
         return;
     }
 
@@ -1728,12 +1731,11 @@ fn sample_tools(
     } = *gate;
     let (turbo_output, pivot_stick) = sample_turbo_and_pivot(state, frame, gate);
     let turbo_stick = turbo_output.stick;
-    let spacing_walk = (fresh && manual_scope
-        && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
-        && state.manual_context.is_some_and(|c| c.situation == kirby_assist_core::native_states::situation::GROUND))
-        .then_some(state.spacing_output.walk_cap.unwrap_or(0.));
-    let manual_walk_stick = spacing_walk
-        .map(|cap| kirby_assist_core::auto_spacing::manual_walk(physical_stick, cap))
+    let spacing_caps = (fresh && manual_scope
+        && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()))
+        .then_some(state.spacing_output.movement_caps.unwrap_or([0.; 2]));
+    let manual_walk_stick = spacing_caps
+        .map(|caps| kirby_assist_core::auto_spacing::manual_movement(physical_stick, caps))
         .or_else(|| manual_ledge_walk(state, frame, gate, turbo_output));
     let manual_context = state.manual_context;
     let posture = sample_mapper_posture(state, frame, gate, manual_context);
@@ -2144,7 +2146,9 @@ fn compose_native_request(
         // A moving grab retains raw horizontal input; it is not a file Walk.
         Some(Owner::OutOfShield) => false,
         Some(Owner::OptionRead) => state.spot_dodge.as_ref().is_some_and(|s| s.walking()),
-        Some(Owner::Spacing) => handoff_situation == kirby_assist_core::native_states::situation::GROUND,
+        Some(Owner::Spacing) => handoff_situation == kirby_assist_core::native_states::situation::GROUND
+            && state.settings_menu.as_ref().is_none_or(|m| m.fighter_tuning(
+                state.menu_fighter_kind.unwrap_or(-1)).auto_spacing(state.menu_fighter_kind.unwrap_or(-1)).ground_speed == 0.),
         _ => false,
     };
     let exclusive_sequence = selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
@@ -2168,7 +2172,7 @@ fn compose_native_request(
     ) | prep.reserved_dpad
         | menu_consumed
         | mask_if(
-            owned_direction_flick || walk_cap_flick
+            winner != Some(Owner::Spacing) && (owned_direction_flick || walk_cap_flick)
                 || winner == Some(Owner::Spacing) && sequence_walking,
             LEFT_STICK_SIDE_FLICKS,
         );
@@ -2311,7 +2315,7 @@ fn plan_stick_overlay(
             cstick,
         ));
     }
-    if fresh && manual_scope && (sequence_walking || winner == Some(Owner::Posture)) {
+    if fresh && manual_scope && (sequence_walking || matches!(winner, Some(Owner::Posture | Owner::Spacing))) {
         adjustments.left_stick = selected.stick.or(manual_walk_stick);
     }
     if fresh
@@ -2694,7 +2698,7 @@ pub(super) unsafe fn finish_mapper_overlay(
         return;
     }
     let MapperPreparation {
-        publication: _,
+        publication,
         restore,
         adjustments,
         feedback,
@@ -2732,6 +2736,7 @@ pub(super) unsafe fn finish_mapper_overlay(
             output,
             index,
             session_ticket,
+            publication,
             feedback,
             #[cfg(feature = "diagnostic-logging")]
             &mut messages,

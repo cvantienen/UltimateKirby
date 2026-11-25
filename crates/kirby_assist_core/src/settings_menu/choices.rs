@@ -419,11 +419,9 @@ impl MenuSelection {
                 if source.id() == Builtin::Normal.choice_id() {
                     continue;
                 }
-                let sequence = self
-                    .editor
-                    .as_ref()
-                    .and_then(|e| e.compiled((slot as usize, index)))
-                    .unwrap_or_else(|| source.sequence());
+                let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                    continue;
+                };
                 if sequence.mode.is_none() && !is_blank(&sequence) {
                     sources.push(editor::CopySource {
                         slot,
@@ -813,12 +811,13 @@ impl MenuSelection {
         let next = self.choice_end(presets, slot);
         let (id, serial) = self.fresh_choice_id(presets, slot, next);
         let mut sequence = if copy {
-            self.editor
-                .as_ref()
-                .and_then(|e| e.compiled((slot as usize, index)))
-                .unwrap_or(current.sequence)
-        } else if current.id == "universal_b_reverse" {
-            current.sequence
+            let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                self.save_status = Some(
+                    "Cannot duplicate: Too many expanded steps; remove a step or delay".into(),
+                );
+                return;
+            };
+            sequence
         } else {
             editor::RecipeEditor::custom()
         };

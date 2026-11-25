@@ -1,11 +1,11 @@
 # Project Instructions
 
 ## Project Scope
-- Primary development: `crates/kirby_assist_core/` & 'src'
+- Primary development: `crates/kirby_assist_core/` and root `src/`.
 
-- Default source reads/searches: only task-relevant `crates/kirby_assist_core/src/**/*.rs`. As well as the root `src/` or other crates.
-- Scope glob/grep explicitly to that directory and `*.rs`; use bounded line ranges, not whole large files or recursive repository listings. Read immediate dependencies only as needed.
-- Non-Rust files, tests outside `src/`, documentation, logs, and configuration require explicit task authorization or permission before access. These instructions are exempt. Do not read or update Cargo descriptions for unrelated code changes.
+- Source reads, searches, and edits may cover task-relevant Rust files in root `src/` and any crate without additional permission.
+- Scope glob/grep explicitly to task-relevant directories and `*.rs`; use bounded line ranges, not whole large files or recursive repository listings. Read immediate dependencies only as needed.
+- Task-relevant tests, dependency manifests, and configuration may be inspected and edited without additional permission. Documentation and logs still require explicit task authorization or permission before access. These instructions are exempt. Do not read or update Cargo descriptions for unrelated code changes.
 - Documentation, when authorized: `crates/kirby_assist_core/docs/`. Ask before expanding scope.
 - These are agent workflow restrictions, not a filesystem sandbox; search exclusions do not enforce access control.
 

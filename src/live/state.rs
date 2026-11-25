@@ -453,6 +453,7 @@ impl State {
                 right_stick: [0.; 2],
                 attack: false,
                 walk_cap: None,
+                movement_caps: None,
             },
             oos: kirby_assist_core::out_of_shield::OutOfShield::new(),
             oos_output: ControllerOutput::NONE,

@@ -1364,6 +1364,49 @@ mod tests {
         assert!(!m.save_requested);
         assert_eq!(e.copy_sources.capacity(), 0);
     }
+    #[test]
+    fn copy_picker_visits_stick_click_recipes_and_templates_without_aliasing() {
+        let file = crate::sequence_config::Catalog::parse(
+            "[kirby.neutral.target]\nstart_delay=0\nactions=grab\n[kirby.l3.left]\nname=Left click\nstart_delay=2\nactions=nair\n[kirby.r3.right]\nname=Right click\nstart_delay=3\nactions=up_b\n[template.generic]\nname=Generic\nstart_delay=4\nactions=down_b\n",
+        ).unwrap();
+        let mut profiles = FighterProfiles::default();
+        profiles.add_sequence_choices(&file).unwrap();
+        let p = profiles.profile(6).unwrap().menu_options;
+        for (slot, label, name) in [
+            (Some(PresetSlot::L3), "L3 button", "Left click"),
+            (Some(PresetSlot::R3), "R3 button", "Right click"),
+            (None, "Generic templates", "Generic"),
+        ] {
+            let mut m = MenuSelection::new(&p);
+            m.show();
+            tap(&mut m, &p, MENU_STICK_CLICK);
+            tap(&mut m, &p, MAPPER_ZL | MAPPER_ZR);
+            for _ in 0..8 {
+                tap(&mut m, &p, DPAD_DOWN);
+            }
+            tap(&mut m, &p, MAPPER_A);
+            let mut visited = false;
+            for _ in 0..14 {
+                let panel = m.recipe_panel(&p);
+                if panel.header.iter().any(|line| line.contains(label)) {
+                    assert!(panel.body.iter().any(|line| line.contains(name)));
+                    visited = true;
+                    break;
+                }
+                tap(&mut m, &p, DPAD_RIGHT);
+            }
+            assert!(visited, "{slot:?} copy category is unreachable");
+            tap(&mut m, &p, MAPPER_A);
+            let copied = m.recipe_snapshot(&p, PresetSlot::Neutral, 0).unwrap();
+            let source = slot.map_or(p.templates[0].sequence, |slot| {
+                *p.list(slot).options[0].sequence
+            });
+            assert_eq!(copied.actions(), source.actions());
+            assert_eq!(copied.start_delay, source.start_delay);
+            assert!(!m.editor.as_ref().unwrap().command_active());
+        }
+    }
+
     /// Regression test for `editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle`.
     #[test]
     fn editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle() {
@@ -2417,6 +2460,17 @@ mod reaction_editor_tests {
         editor.recipes.get_mut(&key).unwrap().before[0] = 1;
         assert!(editor.compiled(key).is_none());
         m.editor = Some(Box::new(editor));
+        assert!(m.recipe_snapshot(&p, PresetSlot::Neutral, 0).is_none());
+        assert!(!m.template_sources(&p, (PresetSlot::X as usize, 0))
+            .iter().any(|source| source.slot == PresetSlot::Neutral && source.index == 0));
+        m.show();
+        m.open_editor(&p, PresetSlot::Neutral);
+        for button in [MAPPER_B, crate::ledge_trap::DPAD_DOWN,
+            crate::ledge_trap::DPAD_DOWN, MAPPER_A] {
+            m.manage_input(&p, button, button);
+        }
+        assert_eq!(m.choices[PresetSlot::Neutral as usize], 0);
+        assert!(m.save_status.as_ref().unwrap().starts_with("Cannot duplicate:"));
         assert!(m.recipe_snapshot(&p, PresetSlot::Neutral, 0).is_none());
         assert!(
             m.choice(&p, PresetSlot::Neutral, 0).is_some(),

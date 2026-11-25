@@ -493,6 +493,9 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
     }
     igPopStyleColor(1);
     igSeparator();
+    if super::save::busy() {
+        card_text(c"Saving now; keep Smash open until complete");
+    }
     draw_value_rows(view, scale);
     for line in &view.header {
         igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.60, 0.84, 0.94, 1.0));
