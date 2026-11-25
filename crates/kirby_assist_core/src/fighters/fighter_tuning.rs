@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 75;
+    pub const COUNT: usize = 76;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -120,6 +120,7 @@ mod schema {
         "auto_spacing_aerial_commitment",
         "auto_di_default",
         "auto_sdi_default",
+        "auto_spacing_engagement_range",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -199,6 +200,7 @@ mod schema {
         "Spacing aerial: commitment frames",
         "Auto DI (experimental)",
         "Auto SDI (experimental)",
+        "Spacing: attack engagement range",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -278,7 +280,10 @@ mod schema {
         "Estimated total aerial commitment in frames; independent of startup and active duration.",
         "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
         "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
+        "Attack only inside this horizontal distance. Outside it, direction stays manual with a native walk-only cap while held. Independent of minimum retreat spacing; holding blocks other automatic modes.",
     ];
+
+    pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -505,6 +510,7 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HEIGHT] = 16.;
     d[COUNTER_HALF_DEPTH] = 5.;
     d[AUTO_SPACING_MINIMUM_DISTANCE] = 12.;
+    d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
     d[AUTO_SPACING_GROUND_STARTUP] = 8.;
     d[AUTO_SPACING_GROUND_ACTIVE_FRAMES] = 5.;
     d[AUTO_SPACING_GROUND_REACH] = 20.;
@@ -640,6 +646,7 @@ impl Tuning {
         };
         Config {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
+            engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
             ground: AttackConfig {
                 attack: attack(AUTO_SPACING_GROUND_MOVE, false),
                 startup: self.get(AUTO_SPACING_GROUND_STARTUP),
@@ -721,6 +728,7 @@ impl Tuning {
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
             AUTO_SPACING_MINIMUM_DISTANCE
+            | AUTO_SPACING_ENGAGEMENT_RANGE
             | AUTO_SPACING_GROUND_REACH
             | AUTO_SPACING_AERIAL_REACH => (0., 150., 0.5),
             AUTO_SPACING_GROUND_HEIGHT | AUTO_SPACING_AERIAL_HEIGHT => (0., 100., 0.5),
@@ -927,6 +935,7 @@ mod tests {
         let mut tuning = Tuning::default();
         for (key, value) in [
             ("auto_spacing_minimum_distance", "14.5"),
+            ("auto_spacing_engagement_range", "23.5"),
             ("auto_spacing_ground_move", "3"),
             ("auto_spacing_ground_startup", "9"),
             ("auto_spacing_ground_active_frames", "2"),
@@ -947,6 +956,7 @@ mod tests {
         assert_eq!(loaded, tuning);
         let config = loaded.auto_spacing(crate::fighter_kinds::YOSHI);
         assert_eq!(config.minimum_distance, 14.5);
+        assert_eq!(config.engagement_range, 23.5);
         assert!(matches!(config.ground.attack, Attack::Up));
         assert!(matches!(config.aerial.attack, Attack::Back));
         assert_eq!(

@@ -301,7 +301,7 @@ pub fn projectile_owner_near(origin: [f32; 3], owner: [f32; 3], half_depth: f32)
     origin.iter().chain(owner.iter()).all(|v| v.is_finite())
         && half_depth.is_finite()
         && half_depth > 0.0
-        && (owner[0] - origin[0]).abs() <= 80.0
+        && (owner[0] - origin[0]).abs() <= 40.0
         && (owner[1] - origin[1]).abs() <= 40.0
         && (owner[2] - origin[2]).abs() <= half_depth + 4.0
 }
@@ -672,7 +672,8 @@ mod tests {
         assert_eq!(incoming_contact(config(), [0.0; 3], [-2.0, 0.0], hit, 7.0, None), None);
         assert_eq!(incoming_contact(config(), [0.0; 3], [2.0, 0.0], hit, 7.0,
             Some(crate::gameplay::AirPhysics { gravity: f32::NAN, terminal_speed: 2.0 })), None);
-        assert!(projectile_owner_near([0.0; 3], [70.0, 30.0, 0.0], 5.0));
+        assert!(projectile_owner_near([0.0; 3], [40.0, 30.0, 0.0], 5.0));
+        assert!(!projectile_owner_near([0.0; 3], [40.1, 0.0, 0.0], 5.0));
         assert!(!projectile_owner_near([0.0; 3], [81.0, 0.0, 0.0], 5.0));
     }
 

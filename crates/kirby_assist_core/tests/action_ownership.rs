@@ -13,6 +13,24 @@ fn intent(owner: Owner, committed: bool) -> Intent {
 }
 
 #[test]
+fn held_spacing_reserves_modes_even_without_an_attack_packet() {
+    let mut control = ActionOwnership::new();
+    control.select(true, &[intent(Owner::Counter, true)]);
+    control.release(Owner::Counter);
+    control.set_automatic_suspended(true);
+    let spacing = intent(Owner::Spacing, true);
+    assert_eq!(control.select(true, &[spacing, intent(Owner::Counter, true)]), Some(Owner::Spacing));
+    for owner in [Owner::Counter, Owner::Reflect, Owner::RollRead, Owner::Ledge,
+        Owner::Turbo, Owner::Posture, Owner::Trump] {
+        assert!(!control.allows(owner));
+    }
+    assert!(control.allows(Owner::Safety));
+    control.release(Owner::Spacing);
+    control.set_automatic_suspended(false);
+    assert!(control.allows(Owner::Counter));
+}
+
+#[test]
 fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() {
     for owner in [
         Owner::Ledge,

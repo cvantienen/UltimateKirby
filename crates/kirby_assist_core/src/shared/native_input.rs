@@ -273,6 +273,20 @@ pub fn mapped_stick_axis(axis: f32) -> i8 {
     }
 }
 
+/// Select the largest signed-byte stick value strictly below native dash entry.
+/// Unknown thresholds must not be replaced by an assumed walking strength.
+pub fn fastest_walk_stick(walk_threshold: f32, dash_threshold: f32) -> Option<f32> {
+    if !walk_threshold.is_finite()
+        || !dash_threshold.is_finite()
+        || !(0.0..dash_threshold).contains(&walk_threshold)
+        || dash_threshold > 1.0
+    {
+        return None;
+    }
+    (1..=127).rev().map(|v| v as f32 / 127.0)
+        .find(|v| *v < dash_threshold && *v >= walk_threshold)
+}
+
 /// Drop every `sources` bit, then add each pair's destination when any of its
 /// source bits is held. Bits outside `sources` pass through unchanged.
 fn remap_buttons(buttons: u32, sources: u32, pairs: &[(u32, u32)]) -> u32 {

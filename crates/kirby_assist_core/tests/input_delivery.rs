@@ -8,6 +8,58 @@ use kirby_assist_core::{
     settings::AssistSettings,
 };
 #[test]
+fn spacing_fair_delivery_preserves_direction_in_both_control_layouts() {
+    use kirby_assist_core::{auto_spacing::{Spacing, Config, Attack, AttackConfig},
+        native_states::{situation, status}};
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        for side in [-1., 1.] {
+            let mut spacing = Spacing::default();
+            let c = GameplayContext { gameplay: true, can_control: true, can_air_attack: true,
+                situation: situation::AIR, status: status::FALL, facing: side, ..Default::default() };
+            let config = Config { aerial: AttackConfig { attack: Attack::Forward, startup: 6.,
+                active_frames: 3., reach: 20., height: 12., commitment: 30. }, ..Default::default() };
+            let out = spacing.sample(1, true, config, c, Some(Opponent {
+                position: [side * 10., 0.], vulnerable: true, ..Default::default()
+            }));
+            let physical = layout.physical_buttons(MAPPER_A | MAPPER_B | SEQUENCE_JUMP_BUTTONS);
+            let raw = ManualOverlay::default().apply_reaction_controls(
+                ButtonTrace { held: physical, previous: physical, ..Default::default() },
+                [-side, 0.], TurboOutput { stick: out.controller.stick, ..Default::default() },
+                0, layout.physical_buttons(out.controller.requested),
+                layout.physical_owned_buttons(out.controller.owned), true,
+            );
+            assert_eq!(raw.stick, [side, 0.]);
+            assert_ne!(raw.buttons.held & layout.physical_buttons(MAPPER_A), 0);
+            assert_eq!(raw.buttons.held & MAPPER_RIGHT_STICK_DIRECTIONS, 0);
+            let mapped = mapped_spacing_attack(MAPPED_JUMP | MAPPED_SPECIAL | 0x80, out.attack, false);
+            assert_ne!(mapped & MAPPED_ATTACK, 0);
+            assert_ne!(mapped & MAPPED_JUMP, 0);
+            assert_eq!(mapped & (MAPPED_SPECIAL | 0x80), 0);
+            assert_eq!(mapped_stick_axis(raw.stick[0]), (side * 127.) as i8);
+        }
+    }
+}
+
+#[test]
+fn spacing_manual_walk_keeps_buttons_and_direction_but_removes_dash_flicks() {
+    let cap = fastest_walk_stick(0.2, 0.8).unwrap();
+    for side in [-1., 1.] {
+        let physical = MAPPER_A | MAPPER_X | MAPPER_LEFT_STICK_HORIZONTAL;
+        let raw = ManualOverlay::default().apply_reaction_controls(
+            ButtonTrace { held: physical, previous: physical, ..Default::default() },
+            [side, 0.], TurboOutput {
+                stick: Some(kirby_assist_core::auto_spacing::manual_walk([side, 0.], cap)),
+                ..Default::default()
+            }, MAPPER_LEFT_STICK_HORIZONTAL, 0, 0, true,
+        );
+        assert_eq!(raw.stick, [side * cap, 0.]);
+        assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_HORIZONTAL, 0);
+        assert_eq!(raw.buttons.held & (MAPPER_A | MAPPER_X), MAPPER_A | MAPPER_X);
+        assert!((mapped_stick_axis(raw.stick[0]) as f32 / 127.).abs() < 0.8);
+    }
+}
+
+#[test]
 fn counter_down_special_and_retry_release_survive_held_physical_inputs() {
     use kirby_assist_core::{auto_counter::{Config, Context, Counter, Threat},
         fighter_kinds::LUCINA, native_states::{status, situation}, timing::AnimationSample};

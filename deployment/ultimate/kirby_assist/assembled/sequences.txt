@@ -9037,6 +9037,12 @@ reaction = auto_grab_dodged:10:12
 name = Dodged grab > Up B
 default = false
 
+[lucina.y.__builtin_auto_spacing]
+default = true
+name = Built-in: Auto-Spacing & Attack (hold)
+builtin = auto_spacing
+
+
 [lucina.settings]
 tilt_turn_forward = true
 tilt_turn_up = true
@@ -9046,6 +9052,9 @@ counter_margin = 0
 counter_half_width = 10
 counter_height = 20
 counter_half_depth = 6
+auto_spacing_minimum_distance = 15
+auto_di_default = false
+auto_sdi_default = false
 
 [luigi.neutral.nair]
 default = false

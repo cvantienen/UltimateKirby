@@ -396,15 +396,31 @@ fn counter_observation_requires_live_geometry_not_a_catalog_window() {
     }
 }
 #[test]
-fn truncated_counter_scan_withholds_instead_of_claiming_safe_contact() {
-    let mut own = reset();
-    for id in 7..10 { counter_enemy(|e| e.id = id); }
-    let (_, _, threat) = unsafe {
-        counter::observe(&frame::FrameReads, &mut *own, 1,
-            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-    }.unwrap();
-    assert!(threat.is_none());
-    assert_eq!(GEOMETRY.with(Cell::get), 16);
+fn full_roster_counter_scan_keeps_close_contact_and_stays_bounded() {
+    for missing in [false, true] {
+        let mut own = reset();
+        for id in 7..23 {
+            counter_enemy(|e| {
+                e.id = id;
+                if id == 22 { e.position[0] = 0.; }
+            });
+        }
+        if missing { MISSING_GEOMETRY.with(|v| v.set(21)); }
+        let (_, context, threat) = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap();
+        assert_eq!(GEOMETRY.with(Cell::get), 16 * 8);
+        if missing {
+            assert!(threat.is_none());
+        } else {
+            assert_eq!(threat.unwrap().id, 22);
+            assert_eq!(threat.unwrap().in_frames, 0.);
+            let output = kirby_assist_core::auto_counter::Counter::new()
+                .sample(true, Some(counter_config()), context, threat);
+            assert_eq!(output.requested, kirby_assist_core::native_input::MAPPER_B);
+        }
+    }
 }
 #[test]
 fn imminent_attacker_is_selected_for_best_effort_counter_before_later_candidate() {

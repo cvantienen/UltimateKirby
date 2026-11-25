@@ -251,6 +251,8 @@ pub mod gameplay {
         pub velocity: [f32; 2],
         /// Native ground deceleration; None avoids assuming a stopping distance.
         pub ground_brake: Option<f32>,
+        /// Largest mapped horizontal input below the observed native dash threshold.
+        pub walk_stick: Option<f32>,
         /// Facing uses its sign (+right/-left); position/velocity remain absolute
         /// world axes. Multiplying dx by facing asks if the target is in front.
         pub facing: f32,

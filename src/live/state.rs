@@ -273,7 +273,7 @@ impl State {
     }
     /// Cancels pending actions except those owned by the selected priority owner.
     pub(super) fn cancel_non_owner(&mut self, keep: Option<Owner>) {
-        if keep != Some(Owner::Safety) {
+        if !matches!(keep, Some(Owner::Safety | Owner::Spacing)) {
             if let Some(tech) = self.tech_input.as_mut() {
                 tech.cancel_request();
             }
@@ -452,6 +452,7 @@ impl State {
                 controller: ControllerOutput::NONE,
                 right_stick: [0.; 2],
                 attack: false,
+                walk_cap: None,
             },
             oos: kirby_assist_core::out_of_shield::OutOfShield::new(),
             oos_output: ControllerOutput::NONE,

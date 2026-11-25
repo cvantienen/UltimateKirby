@@ -16,6 +16,7 @@ fn context() -> GameplayContext {
         position: [50.0, 0.0],
         velocity: [0.0, 0.0],
         ground_brake: Some(0.1),
+        walk_stick: None,
         facing: 1.0,
         previous_status: crate::native_states::status::WAIT,
         can_grab: true,

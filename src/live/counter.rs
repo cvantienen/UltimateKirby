@@ -156,7 +156,11 @@ pub(super) unsafe fn observe(
     let team = reads.team(own);
     let mut best: Option<Threat> = None;
     let mut soonest = f32::INFINITY;
-    let mut geometry_budget = 16;
+    // Cover every slot in the bounded fighter and projectile snapshots. A
+    // third multi-hitbox fighter must not veto an already observed close hit.
+    let mut geometry_budget =
+        (kirby_assist_core::battle_objects::FIGHTER_CAPACITY
+            + kirby_assist_core::projectile_reflect::SOURCE_CAPACITY) * 8;
     let mut exhausted = false;
     let roster = reads
         .roster()

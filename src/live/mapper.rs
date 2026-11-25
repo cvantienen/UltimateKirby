@@ -737,13 +737,19 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
                 }),
     );
     let spacing_held = menu.is_some_and(|m| m.auto_spacing_held());
+    let ledge_inputs_reserved = ledge_held || spacing_held || menu.is_some_and(|m| m.reserves_automatic_modes());
+    if spacing_held && state.action_owner.current_owner() != Some(Owner::Safety) {
+        if let Some(owner) = state.action_owner.current_owner().filter(|o| *o != Owner::Spacing) {
+            state.action_owner.release(owner);
+        }
+        state.cancel_non_owner(Some(Owner::Spacing));
+    }
     if !spacing_held {
         state.spacing = None;
         state.spacing_output = Default::default();
         state.action_owner.release(Owner::Spacing);
     }
-    let ledge_inputs_reserved = ledge_held || spacing_held || menu.is_some_and(|m| m.reserves_automatic_modes());
-    // Mode buttons may block acquisition, never replace a committed tape.
+    // Other mode buttons block acquisition; spacing explicitly takes over above.
     let suspend_auto = !state.action_owner.automatic_active() && ledge_inputs_reserved;
     state.action_owner.set_automatic_suspended(suspend_auto);
     if suspend_auto {
@@ -910,6 +916,7 @@ struct MapperIntentInputs {
 /// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
 fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 15] {
     let ledge_priority = state.action_owner.ledge_priority()
+        && !state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
         && state.ledge_active
         && inputs.fresh
         && inputs.manual_scope
@@ -965,7 +972,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         committed_intent(Owner::Trip, state.trip_output.owned != 0),
         committed_intent(Owner::Fair, state.fair_output.owned != 0),
         committed_intent(Owner::Trump, state.trump_output.owned != 0),
-        committed_intent(Owner::Spacing, state.spacing_output.controller.owned != 0),
+        committed_intent(Owner::Spacing, state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())),
         Intent {
             owner: Owner::Ledge,
             present: ledge_present,
@@ -1061,7 +1068,8 @@ fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Optio
 /// The C-stick packet the winning script requests, for the owners that supply one.
 fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
     match winner {
-        Some(Owner::Spacing) => Some(state.spacing_output.right_stick),
+        Some(Owner::Spacing) => (state.spacing_output.controller.owned != 0)
+            .then_some(state.spacing_output.right_stick),
         Some(Owner::Ledge) => state
             .ledge
             .as_ref()
@@ -1720,7 +1728,13 @@ fn sample_tools(
     } = *gate;
     let (turbo_output, pivot_stick) = sample_turbo_and_pivot(state, frame, gate);
     let turbo_stick = turbo_output.stick;
-    let manual_walk_stick = manual_ledge_walk(state, frame, gate, turbo_output);
+    let spacing_walk = (fresh && manual_scope
+        && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
+        && state.manual_context.is_some_and(|c| c.situation == kirby_assist_core::native_states::situation::GROUND))
+        .then_some(state.spacing_output.walk_cap.unwrap_or(0.));
+    let manual_walk_stick = spacing_walk
+        .map(|cap| kirby_assist_core::auto_spacing::manual_walk(physical_stick, cap))
+        .or_else(|| manual_ledge_walk(state, frame, gate, turbo_output));
     let manual_context = state.manual_context;
     let posture = sample_mapper_posture(state, frame, gate, manual_context);
     // Menu input is reserved during entry/respawn too.
@@ -1924,7 +1938,7 @@ fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option
         Some(Owner::Ledge) if selected.owned == 0 && selected.requested == 0 => {
             selected.stick.or(manual_walk_stick)
         }
-        None => manual_walk_stick,
+        None | Some(Owner::Spacing) => selected.stick.or(manual_walk_stick),
         _ => selected.stick,
     }
 }
@@ -2154,7 +2168,8 @@ fn compose_native_request(
     ) | prep.reserved_dpad
         | menu_consumed
         | mask_if(
-            owned_direction_flick || walk_cap_flick,
+            owned_direction_flick || walk_cap_flick
+                || winner == Some(Owner::Spacing) && sequence_walking,
             LEFT_STICK_SIDE_FLICKS,
         );
     let requested =
@@ -2287,7 +2302,7 @@ fn plan_stick_overlay(
         ..
     } = *request;
     let adjustments = &mut prep.adjustments;
-    if fresh && manual_scope && winner == Some(Owner::Spacing) {
+    if fresh && manual_scope && winner == Some(Owner::Spacing) && selected.owned != 0 {
         adjustments.left_stick = selected.stick;
         adjustments.right_stick = cancel_stick;
         let cstick = cancel_stick.is_some_and(|stick| stick != [0.; 2]);
@@ -2297,7 +2312,7 @@ fn plan_stick_overlay(
         ));
     }
     if fresh && manual_scope && (sequence_walking || winner == Some(Owner::Posture)) {
-        adjustments.left_stick = selected.stick;
+        adjustments.left_stick = selected.stick.or(manual_walk_stick);
     }
     if fresh
         && manual_scope

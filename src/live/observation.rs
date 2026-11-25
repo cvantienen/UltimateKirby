@@ -1195,6 +1195,12 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
         velocity,
         facing: reads.facing(object),
         ground_brake: reads.ground_brake(object),
+        walk_stick: kirby_assist_core::native_input::fastest_walk_stick(
+            game::param_float(object, kirby_assist_core::timing::motion_hash("common"),
+                kirby_assist_core::timing::motion_hash("walk_stick_x")),
+            game::param_float(object, kirby_assist_core::timing::motion_hash("common"),
+                kirby_assist_core::timing::motion_hash("dash_stick_x")),
+        ),
         air_physics: (own.situation == situation::AIR)
             .then(|| observations::native_air_physics(object)).flatten(),
         safe_ground: if own.situation == situation::GROUND {
