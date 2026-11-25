@@ -247,7 +247,9 @@ fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     let panel = m.recipe_panel(&p);
     assert!(panel.focus.unwrap() < panel.body.len());
     assert!(!panel.body.iter().any(|s| s.contains("approach range")));
-    assert!(panel.body[panel.focus.unwrap()].contains("Walking stick"));
+    assert!(panel.body[panel.focus.unwrap()].contains("Auto-spacing: minimum distance"));
+    m.input(0, &p);
+    assert_eq!(m.tuning_row, AUTO_SPACING_MINIMUM_DISTANCE);
     m.tuning_row = usize::MAX;
     let panel = m.recipe_panel(&p);
     assert!(

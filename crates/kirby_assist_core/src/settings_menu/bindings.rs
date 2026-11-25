@@ -35,6 +35,14 @@ impl MenuSelection {
     }
     /// Determines whether the `ledge_trump_held` condition holds.
     pub fn ledge_trump_held(&self) -> bool {
+        self.native_hold_active(self.trump_sources)
+    }
+    /// Active only while an assigned physical spacing button remains held.
+    pub fn auto_spacing_held(&self) -> bool {
+        self.binding_physical & self.ledge_assist_sources == 0
+            && self.native_hold_active(self.spacing_sources)
+    }
+    fn native_hold_active(&self, sources: u32) -> bool {
         !self.cancel_pending
             && !self.binding_starts_blocked
             && self.menu_hidden
@@ -42,7 +50,7 @@ impl MenuSelection {
             && !self.managing()
             && !self.tuning_page
             && (self.binding_physical
-                & self.trump_sources
+                & sources
                 & !self
                     .binding_layout
                     .physical_buttons(self.button_latch | self.pad_quarantine))
@@ -123,6 +131,7 @@ impl MenuSelection {
         let can_start = available
             && !self.binding_starts_blocked
             && physical & (MAPPER_MINUS | MAPPER_PLUS) == 0
+            && physical & self.spacing_sources == 0
             && physical & self.ledge_assist_sources == 0
             && (physical & exclusive).count_ones() == 1;
         let mut bound = 0;
@@ -263,6 +272,7 @@ impl MenuSelection {
         self.ledge_assist_sources = 0;
         self.turbo_sources = 0;
         self.trump_sources = 0;
+        self.spacing_sources = 0;
         self.builtin_consumed = 0;
         self.binding_sources = 0;
         self.single_jump_sources = 0;
@@ -284,6 +294,7 @@ impl MenuSelection {
                 Some(Builtin::LedgeAssist) => &mut self.ledge_assist_sources,
                 Some(Builtin::TurboTeabag) => &mut self.turbo_sources,
                 Some(Builtin::LedgeTrump) => &mut self.trump_sources,
+                Some(Builtin::AutoSpacing) => &mut self.spacing_sources,
                 None => {
                     self.binding_sources |= button;
                     // Only inspect literal jump tapes when recovering from damage;

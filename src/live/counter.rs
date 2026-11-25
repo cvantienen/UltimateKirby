@@ -20,6 +20,7 @@ unsafe fn active_threat(
     budget: &mut usize,
     exhausted: &mut bool,
     melee: bool,
+    air: Option<kirby_assist_core::gameplay::AirPhysics>,
 ) -> Option<f32> {
     let mut scale = None;
     let mut earliest: Option<f32> = None;
@@ -51,12 +52,13 @@ unsafe fn active_threat(
             *exhausted = true;
             continue;
         };
-        if let Some(contact) = policy::active_melee_contact(
+        if let Some(contact) = policy::incoming_contact(
             config,
             origin,
             own_velocity,
             hitbox,
             remaining,
+            air,
         ) {
             earliest = Some(earliest.map_or(contact, |old| old.min(contact)));
         }
@@ -120,6 +122,9 @@ pub(super) unsafe fn observe(
     {
         return Some((config, context, None));
     }
+    let air = (situation == kirby_assist_core::native_states::situation::AIR)
+        .then(|| super::observations::native_air_physics(own))
+        .flatten();
     let team = reads.team(own);
     let mut best: Option<Threat> = None;
     let mut soonest = f32::INFINITY;
@@ -171,6 +176,7 @@ pub(super) unsafe fn observe(
             &mut geometry_budget,
             &mut exhausted,
             true,
+            air,
         );
         let attack = attack.map(|in_frames| Threat {
             id,
@@ -220,12 +226,10 @@ pub(super) unsafe fn observe(
         if owner.is_null()
             || game::battle_object_id(owner) != owner_id
             || reads.team(owner) != reads.team(projectile)
-            || !policy::nearby_attacker(
-                config,
+            || !policy::projectile_owner_near(
                 origin,
-                [0.0; 2],
                 [reads.pos_x(owner), reads.pos_y(owner), game::pos_z(owner)],
-                [0.0; 2],
+                config.half_depth,
             )
         {
             continue;
@@ -248,6 +252,7 @@ pub(super) unsafe fn observe(
             &mut geometry_budget,
             &mut exhausted,
             false,
+            air,
         ) {
             if in_frames < soonest {
                 soonest = in_frames;

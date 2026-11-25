@@ -42,7 +42,7 @@ struct Arbitration {
     mash_takeover: bool,
     #[cfg(feature = "diagnostic-logging")]
     /// Per-owner arbitration intent snapshot.
-    intents: [Intent; 14],
+    intents: [Intent; 15],
 }
 /// Result of admitting a mapper callback: the immutable startup config, the
 /// selected physical controller, and the match session this callback belongs to.
@@ -76,6 +76,7 @@ struct MapperOutputAdjustments {
     literal_request: Option<u32>,
     /// Suppress physical A during a posture turn, then deliver its buffered edge.
     posture_attack: Option<bool>,
+    spacing_attack: Option<(bool, bool)>,
     /// Optional tech-specific native output adjustment.
     tech_output: Option<TechOutput>,
 }
@@ -86,6 +87,7 @@ struct MapperOutputAdjustments {
 struct MapperDeliveryFeedback {
     /// Whether a manual jump was delivered.
     manual_jump: bool,
+    spacing_tick: Option<i64>,
     /// Whether a reflect action was delivered.
     reflect: bool,
     /// Whether a counter special was delivered.
@@ -205,6 +207,10 @@ unsafe fn apply_mapper_output_adjustments(
     if let Some(requested) = adjustments.posture_attack {
         (*mapped).buttons =
             kirby_assist_core::native_input::mapped_posture_attack((*mapped).buttons, requested);
+    }
+    if let Some((attack, cstick)) = adjustments.spacing_attack {
+        (*mapped).buttons = kirby_assist_core::native_input::mapped_spacing_attack(
+            (*mapped).buttons, attack, cstick);
     }
     if let Some(tech) = adjustments.tech_output {
         (*mapped).buttons = kirby_assist_core::tech_input::mapped_guard((*mapped).buttons, tech);
@@ -419,6 +425,13 @@ unsafe fn record_mapped_delivery(
         return;
     }
 
+    if let Some(tick) = feedback.spacing_tick {
+        if mapped.buttons & kirby_assist_core::native_input::MAPPED_ATTACK != 0 {
+            if let Some(spacing) = state.spacing.as_mut() {
+                spacing.mapped(tick);
+            }
+        }
+    }
     record_mapped_manual_jump(&mut state, mapped, feedback.manual_jump);
     record_mapped_reflector(
         &mut state,
@@ -661,7 +674,7 @@ fn run_settings_menu(
     let damage_recovery = state
         .manual_context
         .is_some_and(|c| kirby_assist_core::ledge_trap::sequence_interrupted(c.status));
-    let committed_inputs = state.action_owner.current_owner().is_some()
+    let committed_inputs = state.action_owner.current_owner().is_some_and(|owner| owner != Owner::Spacing)
         || state.tech_output.press
         || state.tech_output.owns_guard
         || state.mash_stick.is_some();
@@ -722,7 +735,13 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
                         || m.counter_config(kind.unwrap_or(-1)).is_some()
                 }),
     );
-    let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
+    let spacing_held = menu.is_some_and(|m| m.auto_spacing_held());
+    if !spacing_held {
+        state.spacing = None;
+        state.spacing_output = Default::default();
+        state.action_owner.release(Owner::Spacing);
+    }
+    let ledge_inputs_reserved = ledge_held || spacing_held || menu.is_some_and(|m| m.reserves_automatic_modes());
     // Mode buttons may block acquisition, never replace a committed tape.
     let suspend_auto = !state.action_owner.automatic_active() && ledge_inputs_reserved;
     state.action_owner.set_automatic_suspended(suspend_auto);
@@ -888,7 +907,7 @@ struct MapperIntentInputs {
     posture_active: bool,
 }
 /// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
-fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 14] {
+fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 15] {
     let ledge_priority = state.action_owner.ledge_priority()
         && state.ledge_active
         && inputs.fresh
@@ -945,6 +964,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         committed_intent(Owner::Trip, state.trip_output.owned != 0),
         committed_intent(Owner::Fair, state.fair_output.owned != 0),
         committed_intent(Owner::Trump, state.trump_output.owned != 0),
+        committed_intent(Owner::Spacing, state.spacing_output.controller.owned != 0),
         Intent {
             owner: Owner::Ledge,
             present: ledge_present,
@@ -1016,6 +1036,7 @@ fn selected_owner_output(
         Some(Owner::Trip) => state.trip_output,
         Some(Owner::Fair) => state.fair_output,
         Some(Owner::Trump) => state.trump_output,
+        Some(Owner::Spacing) => state.spacing_output.controller,
         Some(Owner::OutOfShield) => state.oos_output,
         Some(Owner::Posture) => posture,
         Some(Owner::Ledge | Owner::Defense) => state.ledge_output,
@@ -1039,6 +1060,7 @@ fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Optio
 /// The C-stick packet the winning script requests, for the owners that supply one.
 fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
     match winner {
+        Some(Owner::Spacing) => Some(state.spacing_output.right_stick),
         Some(Owner::Ledge) => state
             .ledge
             .as_ref()
@@ -2050,7 +2072,7 @@ fn cancel_right_stick(
         && match winner {
             Some(Owner::RollRead | Owner::OptionRead) => selected.owned != 0,
             Some(Owner::OutOfShield) => state.oos_output.owned != 0,
-            Some(Owner::Ledge) => true,
+            Some(Owner::Ledge | Owner::Spacing) => true,
             _ => false,
         };
     current.then(|| owner_right_stick(state, winner)).flatten()
@@ -2220,6 +2242,7 @@ fn apply_manual_overlay(
                         | Owner::Fair
                         | Owner::Ledge
                         | Owner::Trump
+                        | Owner::Spacing
                 )
             ),
         );
@@ -2259,6 +2282,15 @@ fn plan_stick_overlay(
         ..
     } = *request;
     let adjustments = &mut prep.adjustments;
+    if fresh && manual_scope && winner == Some(Owner::Spacing) {
+        adjustments.left_stick = selected.stick;
+        adjustments.right_stick = cancel_stick;
+        let cstick = cancel_stick.is_some_and(|stick| stick != [0.; 2]);
+        adjustments.spacing_attack = Some((
+            selected.requested & kirby_assist_core::native_input::MAPPER_A != 0 || cstick,
+            cstick,
+        ));
+    }
     if fresh && manual_scope && (sequence_walking || winner == Some(Owner::Posture)) {
         adjustments.left_stick = selected.stick;
     }
@@ -2368,6 +2400,8 @@ fn plan_delivery_feedback(
     }
     feedback.reflect = winner == Some(Owner::Reflect) && b_delivered;
     feedback.counter = winner == Some(Owner::Counter) && b_delivered;
+    feedback.spacing_tick = (winner == Some(Owner::Spacing) && state.spacing_output.attack)
+        .then_some(state.raw_tick);
     if winner == Some(Owner::OutOfShield) && r_delivered {
         feedback.auto_grab = state.oos.target().map(|target| (state.raw_tick, target));
     }

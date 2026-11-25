@@ -158,6 +158,8 @@ pub(super) struct State {
     pub(super) trump: Option<LedgeTrump>,
     /// Current ledge-trump controller proposal.
     pub(super) trump_output: ControllerOutput,
+    pub(super) spacing: Option<kirby_assist_core::auto_spacing::Spacing>,
+    pub(super) spacing_output: kirby_assist_core::auto_spacing::Output,
     // Cached with the same timestamp as requested; never used after expiry.
     /// Temporary requested stick for mash behavior.
     pub(super) mash_stick: Option<[f32; 2]>,
@@ -364,6 +366,10 @@ impl State {
                 self.spot_output = ControllerOutput::default();
             }
         }
+        if keep != Some(Owner::Spacing) {
+            self.spacing = None;
+            self.spacing_output = Default::default();
+        }
         if keep != Some(Owner::Trump) {
             if let Some(tool) = self.trump.as_mut() {
                 tool.cancel_pending();
@@ -441,6 +447,12 @@ impl State {
             ledge_position: None,
             trump: None,
             trump_output: ControllerOutput::NONE,
+            spacing: None,
+            spacing_output: kirby_assist_core::auto_spacing::Output {
+                controller: ControllerOutput::NONE,
+                right_stick: [0.; 2],
+                attack: false,
+            },
             oos: kirby_assist_core::out_of_shield::OutOfShield::new(),
             oos_output: ControllerOutput::NONE,
             autopilot_guarding: false,
@@ -534,6 +546,8 @@ impl State {
         self.trump_seek_tick = None;
         self.trump = None;
         self.trump_output = ControllerOutput::default();
+        self.spacing = None;
+        self.spacing_output = Default::default();
         self.fair_followup = None;
         self.fair_output = ControllerOutput::default();
         self.trip_followup = None;

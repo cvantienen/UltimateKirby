@@ -434,6 +434,14 @@ pub fn mapped_posture_attack(buttons: u32, requested: bool) -> u32 {
     )
 }
 
+/// Spacing owns attacks but deliberately preserves the player's mapped jump.
+/// C-stick attacks retain their direction source independently of retreat drift.
+pub fn mapped_spacing_attack(buttons: u32, attack: bool, cstick: bool) -> u32 {
+    let clean = buttons & !(MAPPED_ATTACK_HOLD_BITS | MAPPED_CSTICK_BUTTON
+        | MAPPED_SPECIAL | MAPPED_GUARD | MAPPED_GUARD_HOLD | MAPPED_CATCH);
+    mapped_attack_hold(clean, attack) | bits_if(attack && cstick, MAPPED_CSTICK_BUTTON)
+}
+
 /// Final literal controller actions, after raw-source/history filtering. The
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.

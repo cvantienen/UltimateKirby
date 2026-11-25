@@ -88,6 +88,7 @@ fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper(
                     "universal_b_reverse",
                     Builtin::TurboTeabag.choice_id(),
                     Builtin::LedgeTrump.choice_id(),
+                    Builtin::AutoSpacing.choice_id(),
                 ]
             );
             assert!(m.choice(&p, slot, base + slot.templates()).is_none());
@@ -302,7 +303,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 3);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 4);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m

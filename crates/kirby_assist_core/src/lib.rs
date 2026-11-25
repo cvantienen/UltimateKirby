@@ -94,6 +94,7 @@ pub mod manual_controls;
 /// Independent assistance policies and their decision helpers.
 pub mod policies {
     pub mod assist;
+    pub mod auto_spacing;
     pub mod autopilot_guard;
     pub mod defense_response;
     pub mod grab_handoff;
@@ -130,7 +131,7 @@ pub use fighters::{
 };
 pub use policies::spot_dodge::roll_read;
 pub use policies::{
-    assist, autopilot_guard, defense_response, grab_handoff, ledge_position, ledge_trap,
+    assist, auto_spacing, autopilot_guard, defense_response, grab_handoff, ledge_position, ledge_trap,
     ledge_trump, move_input, out_of_shield, posture, reaction_rules, shield_pressure, spot_dodge,
     spot_punish, tools,
 };
