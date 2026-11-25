@@ -607,9 +607,12 @@ pub mod button_bindings {
                 Self::LedgeAssist => 2,
                 Self::TurboTeabag => 3,
                 Self::LedgeTrump => 4,
-                Self::AutoSpacing | Self::AutoSpacingToggle => 5,
-                Self::Counter | Self::CounterToggle => 6,
-                Self::AutoDefense | Self::AutoDefenseToggle => 7,
+                Self::AutoSpacing => 5,
+                Self::Counter => 6,
+                Self::AutoDefense => 7,
+                Self::AutoSpacingToggle => 8,
+                Self::CounterToggle => 9,
+                Self::AutoDefenseToggle => 10,
             }
         }
         /// Returns the selected menu index for a visible button built-in.

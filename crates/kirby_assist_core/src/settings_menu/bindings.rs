@@ -64,7 +64,8 @@ impl MenuSelection {
         self.defensive_owner() == Some(crate::action_owner::Owner::HeldDefense)
     }
     fn toggle_active(&self, sources: u32, toggled: bool) -> bool {
-        toggled
+        sources != 0
+            && toggled
             && !self.cancel_pending
             && self.menu_hidden
             && !self.recipe_editing
@@ -367,9 +368,6 @@ impl MenuSelection {
                 Some(Builtin::AutoSpacing) => &mut self.spacing_sources,
                 Some(Builtin::Counter) => &mut self.counter_sources,
                 Some(Builtin::AutoDefense) => &mut self.defense_sources,
-                Some(Builtin::AutoSpacingToggle) => &mut self.spacing_toggle_sources,
-                Some(Builtin::CounterToggle) => &mut self.counter_toggle_sources,
-                Some(Builtin::AutoDefenseToggle) => &mut self.defense_toggle_sources,
                 Some(Builtin::AutoSpacingToggle) => &mut self.spacing_toggle_sources,
                 Some(Builtin::CounterToggle) => &mut self.counter_toggle_sources,
                 Some(Builtin::AutoDefenseToggle) => &mut self.defense_toggle_sources,

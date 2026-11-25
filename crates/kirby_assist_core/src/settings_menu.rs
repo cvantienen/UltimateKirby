@@ -972,6 +972,9 @@ impl MenuSelection {
 
     /// Resets the inputs.
     pub fn reset_inputs(&mut self) {
+        self.spacing_toggled = false;
+        self.counter_toggled = false;
+        self.defense_toggled = false;
         self.restore_mode_choices();
         self.tuning_page = false;
         self.close_tools();
@@ -1156,7 +1159,7 @@ mod auto_spacing_tests {
         let mut selection = MenuSelection::new(&presets);
         for slot in PresetSlot::BUTTONS {
             let base = presets.list(slot).options.len();
-            let spacing = base + Builtin::AutoSpacing.template_offset();
+            let spacing = base + Builtin::AutoSpacing.visible_template_offset().unwrap();
             let choices = selection.visible_choices(&presets, slot);
             assert!(choices.contains(&spacing));
             assert_eq!(selection.choice_end(&presets, slot), base + slot.templates());
@@ -1168,7 +1171,7 @@ mod auto_spacing_tests {
             assert_eq!(selection.cycle_choice(&presets, slot, true), spacing + 1);
             selection.quick_menu = true;
             let (position, count) = selection.choice_position(&presets, slot);
-            assert_eq!(position + 3, count);
+            assert_eq!(position + 6, count);
             selection.quick_menu = false;
         }
         let saved = persist::update(

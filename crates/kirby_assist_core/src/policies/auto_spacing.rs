@@ -107,9 +107,13 @@ fn movement_caps(config: Config, c: GameplayContext, target: Option<Opponent>) -
     let mut caps = [maximum; 2];
     if let Some(enemy) = target.filter(valid_target) {
         let dx = enemy.position[0] - c.position[0];
+        let relative_velocity = enemy.velocity[0] - c.velocity[0];
+        let closing_velocity = relative_velocity * dx.signum();
+        let predicted_distance = (dx.abs() + closing_velocity * 3.).max(0.);
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
         let approach = if braking && config.braking_distance > 0. {
-            let fraction = ((dx.abs() - config.minimum_distance) / config.braking_distance).clamp(0., 1.);
+            let effective_distance = dx.abs().min(predicted_distance);
+            let fraction = ((effective_distance - config.minimum_distance) / config.braking_distance).clamp(0., 1.);
             // Smoothstep joins the normal cap and boundary cap without a slope jump.
             let shaped = fraction * fraction * (3. - 2. * fraction);
             let minimum = config.minimum_drift.min(maximum);
@@ -484,6 +488,18 @@ mod tests {
     }
 
     #[test]
+    fn auto_spacing_projects_closing_and_receding_opponent_velocity_for_braking() {
+        let cfg = Config { minimum_distance: 15., braking_distance: 10., ..Config::default() };
+        let context = GameplayContext { situation: situation::AIR, ..context() };
+        let closing = movement_caps(cfg, context, enemy(30., -5.));
+        let receding = movement_caps(cfg, context, enemy(30., 5.));
+        assert!(closing[1] < receding[1]);
+        let own_closing = GameplayContext { velocity: [3., 0.], ..context };
+        let cap = movement_caps(cfg, own_closing, enemy(30., 0.));
+        assert!(cap[1] < receding[1]);
+    }
+
+    #[test]
     fn auto_spacing_ground_fraction_never_dashes_or_limits_retreat() {
         for ground_speed in [0., 0.4, 1.] {
             for side in [-1., 1.] {
@@ -673,10 +689,7 @@ mod tests {
     #[test]
     fn auto_spacing_tapers_before_boundary_and_retreats_after_breach() {
         let mut s = Spacing::default();
-        let c = GameplayContext {
-            velocity: [2., 0.],
-            ..context()
-        };
+        let c = context();
         let out = s.sample(1, true, Config::default(), c, enemy(17.5, 0.));
         let approach = 0.1 + (GROUND_WALK_STICK - 0.1) * 0.5;
         assert_eq!(out.controller.stick, Some([approach, 0.]));

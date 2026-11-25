@@ -19,6 +19,42 @@ fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
     m.input(b, p);
 }
 #[test]
+fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
+    use crate::button_bindings::Builtin;
+    let (p, mut m) = setup("", 6);
+    m.menu_hidden = true;
+    for (slot, builtin, mode_index) in [
+        (PresetSlot::Y, Builtin::AutoSpacingToggle, 0),
+        (PresetSlot::X, Builtin::CounterToggle, 1),
+        (PresetSlot::DpadUp, Builtin::AutoDefenseToggle, 2),
+    ] {
+        m.choices[slot as usize] = p.list(slot).options.len()
+            + builtin.visible_template_offset().unwrap();
+        m.input(0, &p);
+        let button = slot.button();
+        m.input(button, &p);
+        let active = [m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()];
+        assert!(active[mode_index]);
+        m.input(0, &p);
+        assert!([m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()][mode_index]);
+        m.input(button, &p);
+        assert!(![m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()][mode_index]);
+        m.input(0, &p);
+    }
+
+    let (p, mut m) = setup("", 6);
+    m.menu_hidden = true;
+    let slot = PresetSlot::Y;
+    m.choices[slot as usize] = p.list(slot).options.len()
+        + Builtin::AutoSpacing.visible_template_offset().unwrap();
+    m.input(0, &p);
+    m.input(slot.button(), &p);
+    assert!(m.auto_spacing_held());
+    m.input(0, &p);
+    assert!(!m.auto_spacing_held());
+}
+
+#[test]
 fn l3_defaults_to_defense_and_down_to_turbo_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
