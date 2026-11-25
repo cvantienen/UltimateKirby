@@ -1,0 +1,278 @@
+I’ll keep this planning-only: no code, configuration, or file changes.
+
+## Proposed workflow
+
+1. **Training-room menu**
+   - Add a configurable menu entry: **Workbench editing session**.
+   - Available only in Training, for the locally controlled fighter.
+   - Show the fighter, connection status, configuration revision, and whether changes are saved.
+   - Starting the session temporarily suspends sequence playback; testing a sequence is a separate explicit action.
+
+2. **Load the active fighter on the computer**
+   - The Switch identifies the current fighter and sends its editable configuration to the workbench.
+   - The workbench checks compatibility before opening it.
+   - Editing is restricted to fighter configuration and controller-input sequences—not physics, hitboxes, animations, or native statuses.
+
+3. **Edit → validate → apply**
+   - Edits remain drafts on the computer.
+   - **Apply live** validates the complete fighter configuration before sending it.
+   - The Switch accepts it only if the session, fighter, and starting revision still match.
+   - Apply between sequence executions, never halfway through an active sequence.
+   - An invalid update leaves the current configuration unchanged.
+
+4. **Test and save separately**
+   - **Apply live:** temporary changes for the current training session.
+   - **Test:** explicitly run a selected sequence using simulated controller inputs.
+   - **Save:** persist the accepted revision, with a backup and recoverable replacement.
+   - Include **Revert to saved** and **End editing session**.
+   - The workbench must distinguish “sent,” “applied,” and “saved”; a disconnected request must not appear successful.
+
+5. **Failure handling**
+   - Disconnecting, leaving Training, changing fighters, or closing the editing session revokes access.
+   - Stop accepting remote updates immediately; cancel pending test inputs.
+   - Preserve the last fully validated configuration.
+   - Revision checks prevent an old computer draft from overwriting newer menu edits.
+
+## Communication options
+
+These are architectural options, not yet verified capabilities of your current mod or workbench.
+
+| Method | Live editing | Advantages | Trade-offs |
+|---|---|---|---|
+| **Local LAN: Switch connects to a dedicated workbench service** | Yes | Good fit for apply/save acknowledgments; avoids a listening service on the Switch | Requires transport implementation, pairing, authentication, and preferably encryption |
+| **Existing FTP service + staged files and explicit reload** | Near-live | Potentially simplest if already installed | Plain FTP is unencrypted and commonly exposes much more filesystem access; safe reload and acknowledgments still need implementation |
+| **USB through an existing compatible bridge** | Yes, if supported | No LAN exposure; direct connection | Requires verified Switch/PC bridge support and drivers; potentially substantial setup |
+| **Manual SD-card transfer** | No | Smallest remote attack surface; simplest recovery | Interrupts training and does not meet live-editing goals |
+
+**My recommendation:** a dedicated LAN protocol with the **Switch initiating the connection**, session-only pairing, encrypted/authenticated traffic, and commands limited to reading/applying/saving the active fighter configuration. Use wired LAN or a trusted isolated network; no internet exposure or port forwarding.
+
+**Lowest network risk:** USB, **if a compatible bridge already exists**. I would not install a broad USB service solely for this feature without first checking its requirements. Manual SD transfer remains the safest non-live fallback.
+
+Before specifying exact components and implementation steps, I need your communication choice and permission to inspect the workbench’s relevant local files.
+
+Ask User
+Completed with input: {
+  "message": "Choose the communication method for the planning-only design. Also provide the workbench’s exact local path and authorize the task-relevant source/configuration reads needed to make the plan concrete. No files will be changed.",
+  "requestedSchema": {
+    "properties": {
+      "communication": {
+        "type": "string",
+        "title": "Communication method",
+        "enum": [
+          "Dedicated authenticated/encrypted LAN connection (recommended)",
+          "Existing FTP service with staged files and reload",
+          "USB bridge, subject to compatibility check",
+          "Manual SD-card transfer",
+          "Compare LAN and USB feasibility before choosing"
+        ],
+        "default": "Dedicated authenticated/encrypted LAN connection (recommended)"
+      },
+      "existing_transport": {
+        "type": "string",
+        "title": "Existing Switch communication setup",
+        "description": "List any FTP/USB bridge/sysmodule already installed, or enter “none” or “unknown”.",
+        "default": "unknown"
+      },
+      "workbench_path": {
+        "type": "string",
+        "title": "Workbench app location",
+        "description": "Exact absolute folder path, or explain where the app lives."
+      },
+      "inspection_permission": {
+        "type": "boolean",
+        "title": "Allow planning-only inspection",
+        "description": "Allow bounded reads of relevant workbench sources/configuration and the mod’s training-menu, configuration-loading, and save paths. Documentation/logs remain excluded. No edits, builds, services, installs, or deployment.",
+        "default": true
+      }
+    }
+  }
+}
+
+Find files matching `**/*work*bench*.py`
+
+Read skill `python-fact-grounded-coding`
+Completed with input: {"skill":"python-fact-grounded-coding"}
+
+Ran terminal command: rg -n '^(class |def )|ftp|socket|save|reload' tools/workbench.py tools/workbench_gui.py | head -30; rg -n --glob '*.rs' 'SEQUENCES|reload|save|training' src/live/settings_menu.rs src/live.rs | head -30; rg -n '^(class |def )|ftp|socket' tools/workbench_history.py | head -20
+
+Read , lines 102 to 163
+Completed with input: {
+  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench.py",
+  "view_range": [
+    102,
+    163
+  ]
+}
+
+Read , lines 300 to 368
+Completed with input: {
+  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench_gui.py",
+  "view_range": [
+    300,
+    368
+  ]
+}
+
+Read , lines 1 to 100
+Completed with input: {
+  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/src/live/settings_menu/save.rs",
+  "view_range": [
+    1,
+    100
+  ]
+}
+
+Read , lines 310 to 365
+Completed with input: {
+  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/src/live/settings_menu.rs",
+  "view_range": [
+    310,
+    365
+  ]
+}
+
+Read , lines 350 to 405
+Completed with input: {
+  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench.py",
+  "view_range": [
+    350,
+    405
+  ]
+}
+
+Ran terminal command: rg -n '^import|^from|socket|HTTPServer|listen|serve' tools/workbench_gui.py | head -25; rg -n 'editor|transfer' tools/workbench_gui.py | head -12; rg -n --glob '*.rs' 'TcpStream|TcpListener|nn::socket|socket::|training_mode|is_training' src/live.rs src/game_ffi.rs src/live/settings_menu.rs | head -20; rg -n '^class |^def |def (load|commit|prepare)' tools/fighter_editor.py tools/sequence_editor.py tools/sequence_transfer.py 2>/dev/null | head -20; rg -n 'thread|try_lock|pending|library' src/live/settings_menu/save.rs | head -20
+
+## Selected approach: dedicated LAN connection, without encryption
+
+The **Switch connects to a dedicated service started by the workbench on your computer**. You enable the connection explicitly from the Training-room menu.
+
+No files or code were changed. The following is the proposed implementation plan.
+
+### What the existing code already provides
+
+- `workbench_gui.py` already supports loading a file, selecting one fighter, previewing edits, and confirming a save.
+- `fighter_editor.py` is the existing single-fighter editing component.
+- `workbench.py` currently transfers files through FTP and tells users to close Smash first. **That transfer path should not be reused for live updates.**
+- `save.rs` already provides background saves, replacement/recovery files, and revision-aware results.
+- The workbench GUI server currently listens only on localhost. **Keep it that way**—do not expose its existing build, upload, and file-management actions to the LAN.
+- `live.rs` currently obtains Training-mode information conditionally. Reliable Training detection must be verified before this feature can safely depend on it.
+
+## 1. Training-menu controls
+
+Add a **Workbench live editing** page containing:
+
+| Setting/action | Proposed behavior |
+|---|---|
+| Enable live editing | Off by default; session-only |
+| Computer address | Configurable LAN IPv4 address |
+| Port | Configurable dedicated port |
+| Connect / Disconnect | Explicit connection controls |
+| Active fighter | Automatically follows the local fighter |
+| Remote testing | Off until explicitly enabled on the Switch |
+| Revert live edits | Restore the last saved fighter configuration |
+| Status | Disconnected, pairing, connected, applying, saving, or error |
+
+Opening this page does not connect automatically. Leaving Training ends the editing session.
+
+Use the existing menu navigation first; an optional configurable shortcut can be added later without taking over R3’s counter binding.
+
+## 2. Separate workbench connection service
+
+Add a dedicated live-editing service alongside the existing GUI:
+
+- Starts only when you select **Start live editing**.
+- Listens on the selected computer network interface and port.
+- Accepts one paired Switch per editing session.
+- Exposes **only configuration-editing commands**.
+- Does not expose arbitrary paths, shell commands, builds, uploads, or general filesystem access.
+- Network work runs outside the GUI and game input/render callbacks.
+
+**Initial scope:** one computer, one Switch, one locally controlled fighter.
+
+## 3. Load the actual active fighter
+
+On connection, the Switch sends:
+
+- Protocol and configuration-format versions.
+- Mod version.
+- Session identity.
+- Active fighter identity.
+- Current live revision and saved revision.
+- Editable sequences, bindings, and fighter tuning.
+
+The workbench opens that fighter in the existing editor.
+
+**Important distinction:** the Switch’s current in-memory configuration is authoritative for live editing—not an older computer file or an FTP snapshot.
+
+Loading a local fighter file becomes an explicit **Import into draft** action, followed by preview and validation.
+
+## 4. Draft → Preview → Apply → Save
+
+Keep these operations separate:
+
+1. **Edit draft:** computer-only changes.
+2. **Preview:** show changes and validation errors.
+3. **Apply live:** update the active fighter in memory.
+4. **Test sequence:** optional, explicit controller-input playback.
+5. **Save on Switch:** persist the accepted fighter configuration.
+6. **Export to computer:** optionally save the accepted fighter configuration locally.
+
+Applying a fighter update must replace its relevant configuration **as one validated transaction**, not update recipes individually while gameplay reads partially changed data.
+
+If a sequence is running, queue application until it finishes or require explicit cancellation. Do not silently interrupt it.
+
+## 5. Revision and save protection
+
+Every apply/save request carries:
+
+- Session identity.
+- Fighter identity.
+- Expected starting revision.
+- Unique request identity.
+
+Reject stale requests rather than overwriting newer edits.
+
+Reuse the existing parser, limits, persistence, and recovery mechanisms. Extend the save worker to merge a complete fighter update while preserving other fighters.
+
+The workbench displays separate acknowledgments:
+
+**Validated → Applied → Saved**
+
+A timeout means **outcome unknown**, not “failed, resend blindly.” Query the request result before retrying.
+
+## 6. Disconnect and mode behavior
+
+- Leaving Training, changing fighter, or disconnecting invalidates pending remote commands.
+- Disconnect cancels queued remote tests.
+- Already accepted live edits remain active until reverted or the session ends.
+- Unsaved edits must be clearly marked.
+- Counter, spacing, and other assistance settings are not permanently changed merely by opening the editor.
+- Sequence testing gets explicit input ownership; native safety still takes priority.
+
+## Communication safety
+
+You chose **unencrypted LAN**, which is feasible. However:
+
+- Traffic contents will not be private.
+- A trusted LAN alone does not prevent unauthorized commands.
+- Authentication and replay protection should still be required.
+- Prefer established challenge-response/message-authentication primitives rather than sending a reusable secret in plaintext.
+- Require pairing approval on the Switch.
+- Bind only to the chosen LAN interface, restrict access with the computer firewall, and use no port forwarding.
+
+**Safest version of your choice:** a wired or isolated trusted LAN, authenticated session, restricted command set, and a service that exists only while editing. Encryption can remain a later optional transport upgrade.
+
+## Implementation order and acceptance checks
+
+1. Verify native networking and reliable Training detection.
+2. Define and test the bounded protocol and revision rules.
+3. Add Training-menu session controls.
+4. Add the isolated workbench service and live editor source.
+5. Implement atomic in-memory application.
+6. Extend fighter-scoped persistence and save acknowledgments.
+7. Add explicit sequence testing.
+8. Validate stale edits, malformed/oversized messages, disconnects, fighter changes, duplicate requests, and interrupted saves.
+
+**Success criterion:** while Smash remains open in Training, load Lucina’s actual active configuration, edit a sequence, apply and test it, save it, and confirm it survives restart—without changing other fighters or exposing the workbench’s general management controls.
+
+Native networking compatibility and end-to-end behavior remain unverified; this was source inspection and planning only.

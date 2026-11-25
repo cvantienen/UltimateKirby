@@ -802,6 +802,10 @@ fn new_selection(
         let catalog = library.for_fighter(kind);
         s.load_saved_recipes(&profile.menu_options, &catalog, kind);
         s.tuning = library.tuning.get(&kind).copied().unwrap_or_default();
+    } else if kirby_assist_core::auto_counter::supports(kind) {
+        let slot = kirby_assist_core::fighter_profiles::presets::PresetSlot::R3;
+        s.choices[slot as usize] = profile.menu_options.list(slot).options.len()
+            + kirby_assist_core::button_bindings::Builtin::Counter.visible_template_offset().unwrap();
     }
     s.tuning_values = kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
     s.tuning_values[11] = if grab_default { 1.0 } else { 0.0 };

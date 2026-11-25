@@ -195,7 +195,7 @@ pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[
 
 /// Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
 pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
-    bits_if(fully_owned(owned) && walking, MAPPER_LEFT_STICK_HORIZONTAL)
+    bits_if(owned & MAPPER_LEFT_STICK_HORIZONTAL != 0 && walking, MAPPER_LEFT_STICK_HORIZONTAL)
 }
 
 /// Raw source buttons/axes were already masked before native mapping. Preserve

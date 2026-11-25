@@ -422,7 +422,7 @@ pub mod situation {
 pub fn moving_down_special_input(status: i32, situation: i32) -> bool {
     situation == situation::GROUND
         && matches!(status,
-            status::WALK..=status::JUMP_SQUAT
+            status::WAIT | status::WALK..=status::JUMP_SQUAT
             | status::SQUAT..=status::SQUAT_RV)
 }
 
@@ -433,6 +433,7 @@ mod moving_special_tests {
     #[test]
     fn permits_ground_movement_but_not_guard_landing_or_airborne_lockout() {
         for status in [
+            status::WAIT,
             status::WALK,
             status::DASH,
             status::RUN,
@@ -443,7 +444,6 @@ mod moving_special_tests {
             assert!(moving_down_special_input(status, situation::GROUND));
         }
         for status in [
-            status::WAIT,
             status::LANDING,
             status::GUARD,
             status::SPECIAL_LW,

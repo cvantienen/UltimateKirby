@@ -1185,7 +1185,13 @@ impl Engine {
         mut follow: Option<Opponent>,
     ) -> ControllerOutput {
         self.observe_events(&targets, Some(c.position[0]), |t| {
-            matches!(t.status, ESCAPE_F | ESCAPE_B) && t.rate > 0.
+            matches!(
+                t.status,
+                ESCAPE_F
+                    | ESCAPE_B
+                    | crate::native_states::status::PASSIVE_FB
+                    | crate::native_states::status::DOWN_STAND_FB
+            ) && t.rate > 0.
         });
         if !allowed
             || self
@@ -1481,6 +1487,121 @@ mod tests {
             MAPPER_B
         );
     }
+    #[test]
+    fn recovery_rolls_preserve_crossing_and_vulnerability_checks() {
+        use crate::native_states::status;
+        for status in [
+            ESCAPE_F,
+            ESCAPE_B,
+            status::PASSIVE_FB,
+            status::DOWN_STAND_FB,
+        ] {
+            let rules = resolved(sequence("roll_cross_vulnerable:any:0:20:12:any:1", "jab:1"));
+            let mut engine = Engine::default();
+            let first = Target {
+                status,
+                vulnerable_in: Some(2.),
+                ..target(0., 5.)
+            };
+            assert_eq!(sample(&mut engine, &rules, context(0.), first).requested, 0);
+            assert_eq!(engine.feedback, Feedback::Crossing);
+            let crossed = Target {
+                frame: 1.,
+                position: [-5., 0.],
+                ..first
+            };
+            assert_eq!(
+                sample(&mut engine, &rules, context(1.), crossed).requested,
+                0
+            );
+            assert_eq!(engine.feedback, Feedback::Invulnerable);
+            let vulnerable = Target {
+                frame: 2.,
+                vulnerable_in: Some(0.),
+                ..crossed
+            };
+            assert_eq!(
+                sample(&mut engine, &rules, context(2.), vulnerable).requested,
+                MAPPER_A
+            );
+            assert_eq!(
+                sample(
+                    &mut engine,
+                    &rules,
+                    context(3.),
+                    Target {
+                        frame: 3.,
+                        ..vulnerable
+                    }
+                )
+                .requested,
+                0
+            );
+        }
+        let rules = resolved(sequence("roll:any:0:20:12:any:1", "jab:1"));
+        for status in [
+            status::PASSIVE,
+            status::DOWN_STAND,
+            status::DOWN_STAND_ATTACK,
+        ] {
+            assert_eq!(
+                sample(
+                    &mut Engine::default(),
+                    &rules,
+                    context(0.),
+                    Target {
+                        status,
+                        ..target(0., 5.)
+                    }
+                )
+                .requested,
+                0
+            );
+        }
+    }
+
+    #[test]
+    fn automatic_recovery_rolls_rearm_without_confusing_getup_attacks() {
+        use crate::native_states::status;
+        let rules = resolved(sequence("auto_roll:20:12", "jab:1"));
+        let mut engine = Engine::default();
+        for (frame, status, expected) in [
+            (0., status::PASSIVE_FB, MAPPER_A),
+            (1., status::PASSIVE_FB, 0),
+            (2., status::DOWN_STAND_ATTACK, 0),
+            (3., status::DOWN_STAND_FB, MAPPER_A),
+            (4., status::DOWN_STAND_FB, 0),
+            (5., status::PASSIVE, 0),
+            (6., status::DOWN_STAND, 0),
+        ] {
+            let target = Target {
+                status,
+                ..target(frame, 5.)
+            };
+            let targets = [Some(target), None, None, None, None, None, None, None];
+            let readiness =
+                simple_readiness(rules.simple_starts(), context(frame), &targets, || false);
+            assert_eq!(
+                readiness[0],
+                matches!(status, status::PASSIVE_FB | status::DOWN_STAND_FB)
+            );
+            assert_eq!(
+                engine
+                    .sample_simple_ready(
+                        true,
+                        &rules,
+                        AssistSettings::default(),
+                        context(frame),
+                        targets,
+                        None,
+                        readiness
+                    )
+                    .requested,
+                expected
+            );
+        }
+    }
+
     /// Regression test for `reaction_persists_roundtrip_and_disabling_replaces_old_metadata`.
     #[test]
     fn reaction_persists_roundtrip_and_disabling_replaces_old_metadata() {

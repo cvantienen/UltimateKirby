@@ -148,7 +148,8 @@ pub(super) unsafe fn observe_defense(
         let source_velocity = if source_stopped { [0.0; 2] } else {
             [reads.speed_x(source), reads.speed_y(source)]
         };
-        let remaining = if stopped { 0.0 } else if source_stopped || projectile { horizon } else {
+        // Defender hitstop freezes our path, not independently moving threats.
+        let remaining = if source_stopped || projectile { horizon } else {
             // Known active windows cap a forecast; unknown moves use only their
             // already-active geometry, never a catalog's future startup hitbox.
             policy::active_remaining(reads.fighter_kind(source), reads.motion_kind(source),
@@ -310,7 +311,7 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             geometry_config,
-            policy::forecast_horizon(config, remaining),
+            if stopped { config.horizon() } else { policy::forecast_horizon(config, remaining) },
             &mut geometry_budget,
             &mut exhausted,
             !policy::melee_status(enemy_status),
@@ -323,8 +324,9 @@ pub(super) unsafe fn observe(
             frame: enemy_frame,
             in_frames,
         }).or_else(|| {
-            // Catalog startup is an estimate; active world geometry takes priority.
-            if (0..8).any(|slot| game::attack_active(enemy, slot, false)) {
+            // Frozen animation cannot advance toward a catalog startup. Active
+            // geometry remains observable, including our motion into a frozen hit.
+            if stopped || (0..8).any(|slot| game::attack_active(enemy, slot, false)) {
                 return None;
             }
             policy::predicted_attack(geometry_config, origin, own_velocity,

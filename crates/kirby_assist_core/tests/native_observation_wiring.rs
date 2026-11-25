@@ -35,6 +35,7 @@ struct Actor {
     passive_disabled: bool,
     air_escape: bool,
     guard_enabled: bool,
+    special_enabled: bool,
     floor_enabled: bool,
     active: bool,
     motion: u64,
@@ -62,6 +63,7 @@ impl Actor {
             passive_disabled: false,
             air_escape: false,
             guard_enabled: false,
+            special_enabled: false,
             floor_enabled: true,
             active: true,
             motion: kirby_assist_core::timing::motion_hash("attack_lw3"),
@@ -177,6 +179,7 @@ mod game_ffi {
         match term {
             t::CONT_ESCAPE_AIR => actor(o).air_escape,
             t::CONT_GUARD_ON => actor(o).guard_enabled,
+            t::CONT_SPECIAL_LW => actor(o).special_enabled,
             t::PASSIVE | t::PASSIVE_FB => actor(o).floor_enabled,
             _ => false,
         }
@@ -273,10 +276,7 @@ mod counter;
 
 static ROSTER_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-fn defense_scan(own: &mut Actor, lead: f32, delay: f32) -> (
-    kirby_assist_core::defense_response::Context,
-    Option<kirby_assist_core::defense_response::Contact>,
-) {
+fn source_reads() -> frame::FrameReads {
     let reads = frame::FrameReads::default();
     {
         let _lock = ROSTER_TEST_LOCK.lock().unwrap();
@@ -290,11 +290,65 @@ fn defense_scan(own: &mut Actor, lead: f32, delay: f32) -> (
         assert_eq!(reads.roster(), Some(roster));
         STATE.lock().unwrap().ledge_roster = None;
     }
+    reads
+}
+
+fn defense_scan(own: &mut Actor, lead: f32, delay: f32) -> (
+    kirby_assist_core::defense_response::Context,
+    Option<kirby_assist_core::defense_response::Contact>,
+) {
+    let reads = source_reads();
     unsafe {
         counter::observe_defense(&reads, own.object(), 1,
             kirby_assist_core::fighter_kinds::KIRBY,
             kirby_assist_core::fighter_tuning::Tuning::default(), lead, delay, true)
     }
+}
+
+fn counter_scan(own: &mut Actor) -> Option<kirby_assist_core::auto_counter::Threat> {
+    let reads = source_reads();
+    unsafe {
+        counter::observe(&reads, own.object(), 1,
+            kirby_assist_core::fighter_kinds::LUCINA,
+            Some(kirby_assist_core::auto_counter::Config {
+                startup: 5.0, input_delay: 0.0, margin: 0.0,
+                half_width: 6.0, height: 16.0, half_depth: 4.0,
+            }), true).unwrap().2
+    }
+}
+
+#[test]
+fn counter_observer_sees_close_startup_but_not_frozen_animation() {
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+    enemy.active = false;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert!(counter_scan(&mut own).is_some());
+    SOURCES.with(|s| s.borrow_mut()[0].stopped = true);
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn counter_observer_does_not_expire_frozen_active_geometry() {
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    own.velocity[0] = 1.0;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+    enemy.geometry.power = 5.0;
+    enemy.position[0] = 12.0;
+    enemy.stopped = true;
+    let data = kirby_assist_core::fighter_data::fighter(kirby_assist_core::fighter_kinds::KIRBY)
+        .unwrap().move_for_motion(enemy.motion).unwrap();
+    enemy.frame = f32::from(data.active[0].last);
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert_eq!(counter_scan(&mut own).unwrap().in_frames, 4.0);
+    SOURCES.with(|s| s.borrow_mut()[0].stopped = false);
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
 }
 
 #[test]
@@ -348,6 +402,25 @@ fn held_defense_projectiles_use_geometry_and_situation_without_owner_admission()
         });
         assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
     }
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn held_shield_damage_forecasts_unstopped_incoming_projectile() {
+    let mut own = Actor::new(1);
+    own.stopped = true;
+    own.status = kirby_assist_core::native_states::status::GUARD_DAMAGE;
+    own.velocity[0] = -100.0;
+    let mut shot = Box::new(Actor::new(0x10000002));
+    shot.geometry.power = 5.0;
+    shot.position[0] = 12.0;
+    shot.velocity[0] = -1.0;
+    SOURCES.with(|s| *s.borrow_mut() = vec![shot]);
+    let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+    assert!(context.guard_ready);
+    assert_eq!(contact.unwrap().in_frames, 4.0);
+    SOURCES.with(|s| s.borrow_mut()[0].stopped = true);
+    assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
     SOURCES.with(|s| s.borrow_mut().clear());
 }
 

@@ -142,7 +142,10 @@ pub fn sample_optional_simple(
 /// decisions. These helpers share the simple-response readiness metadata above.
 fn event(status: i32) -> Option<usize> {
     match status {
-        crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
+        crate::native_states::ESCAPE_F
+        | crate::native_states::ESCAPE_B
+        | crate::native_states::status::PASSIVE_FB
+        | crate::native_states::status::DOWN_STAND_FB => Some(0),
         crate::native_states::ESCAPE => Some(1),
         crate::native_states::ESCAPE_AIR | crate::native_states::ESCAPE_AIR_SLIDE => Some(2),
         _ => None,

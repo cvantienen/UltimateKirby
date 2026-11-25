@@ -211,7 +211,13 @@ impl MenuSelection {
             }
             self.choices[slot as usize] = selected
                 .or(first)
-                .unwrap_or_else(|| slot.default_index(options.len()));
+                .unwrap_or_else(|| {
+                    if slot == PresetSlot::R3 && crate::auto_counter::supports(kind) {
+                        options.len() + crate::button_bindings::Builtin::Counter.visible_template_offset().unwrap()
+                    } else {
+                        slot.default_index(options.len())
+                    }
+                });
         }
         if !records.drafts.is_empty() {
             self.catalog = Some(Box::new(records));

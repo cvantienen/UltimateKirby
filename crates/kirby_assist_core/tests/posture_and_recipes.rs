@@ -112,7 +112,7 @@ fn configured_down_cstick_turn_keeps_down_dominant_without_inventing_attack() {
                 settings, 0, [0.; 2], [0., -1.], Some(target), c,
             ).unwrap();
             assert!(left[1] < -left[0].abs());
-            assert!(right[1] < -right[0].abs());
+            assert_eq!(right, [0.0, -1.0], "turning must not add forward tilt input");
             let out = posture.sample_configured(
                 true, false, true, settings, 0, [0.; 2], [0., -1.], Some(target), c,
             );
@@ -249,6 +249,33 @@ fn omitted_facing_scans_cannot_change_unusable_posture_states() {
 }
 
 #[test]
+fn bare_down_flick_survives_tilt_turn_and_its_release() {
+    use kirby_assist_core::{
+        manual_controls::{ManualOverlay, TurboOutput},
+        native_input::{ButtonTrace, MAPPER_LEFT_STICK_DOWN},
+    };
+    let mut posture = Posture::default();
+    let mut overlay = ManualOverlay::default();
+    let mut previous = 0;
+    for status in [0, 0x11, 0x12, 0x13] {
+        for y in [-1.0, 0.0, -1.0] {
+            let held = if y < -0.5 { MAPPER_LEFT_STICK_DOWN } else { 0 };
+            let out = posture.sample(true, held != 0, true, held, [0.0, y], Some(-1.0),
+                ManualContext { status, facing: 1.0, ..context(0.0) });
+            assert_eq!(out.stick, None, "manual Down is not a tilt attack");
+            let raw = ButtonTrace {
+                held, previous, pressed: held & !previous, released: previous & !held,
+            };
+            let mapped = overlay.apply_controls(raw, [0.0, y],
+                TurboOutput { stick: out.stick }, 0, out.requested, out.owned);
+            assert_eq!(mapped.stick, [0.0, y]);
+            assert_eq!(mapped.buttons.pressed & MAPPER_LEFT_STICK_DOWN, raw.pressed);
+            previous = held;
+        }
+    }
+}
+
+#[test]
 fn dtilt_keeps_angle_in_hitstop_and_preserves_physical_tilt_stick() {
     use kirby_assist_core::{
         manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS},
@@ -274,7 +301,7 @@ fn dtilt_keeps_angle_in_hitstop_and_preserves_physical_tilt_stick() {
                     ..context(8.0)
                 },
             );
-            assert_eq!(out.stick, Some([-facing * 0.6, -0.65]));
+            assert_eq!(out.stick, (buttons != 0).then_some([-facing * 0.6, -0.65]));
             let mapped = overlay.apply_controls(
                 ButtonTrace {
                     held: buttons,
@@ -429,7 +456,7 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
         let mut overlay = ManualOverlay::default();
         let mut previous = 0;
         for (status, buttons, target, expected_x) in [
-            (0x12, 0, -facing, -facing * 0.8), // Aim before the first A press.
+            (0x12, 0, -facing, -facing * 0.8), // Bare Down remains a physical drop flick.
             (0x12, MAPPER_A, -facing, -facing * 0.8),
             (0x2c, 0, -facing, -facing * 0.8),
             (0x2c, MAPPER_A, facing, 0.0),
@@ -468,8 +495,12 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
             assert_eq!(mapped.buttons.held & MAPPER_A, raw.held & MAPPER_A);
             assert_eq!(mapped.buttons.pressed & MAPPER_A, raw.pressed & MAPPER_A);
             assert_eq!(mapped.buttons.released & MAPPER_A, raw.released & MAPPER_A);
-            assert_eq!(mapped.stick, [expected_x * 0.75, -0.65]);
-            if expected_x != 0.0 {
+            assert_eq!(mapped.stick, if buttons != 0 {
+                [expected_x * 0.75, -0.65]
+            } else {
+                [0.0, -1.0]
+            });
+            if expected_x != 0.0 && buttons != 0 {
                 let horizontal = if expected_x > 0.0 { 1 << 21 } else { 1 << 23 };
                 assert_ne!(
                     mapped.buttons.held & horizontal,
@@ -595,7 +626,7 @@ fn raw_down_cstick_first_poll_from_standing_and_crouch_needs_no_digital_alias() 
             assert_eq!(out.owned, 0);
             assert_eq!(
                 Posture::aimed_c_stick(0, right, out.stick),
-                Some([-facing * 0.6, -1.0])
+                Some([0.0, -1.0])
             );
             let mapped = ManualOverlay::default().apply_controls(
                 ButtonTrace::default(),

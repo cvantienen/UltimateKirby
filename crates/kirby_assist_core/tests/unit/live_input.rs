@@ -15,11 +15,17 @@ fn automatic_damage_sticks_default_off_and_saved_preferences_remain_readable() {
     let defaults = LiveConfig::default();
     assert!(!defaults.auto_sdi);
     assert!(!defaults.auto_di.enabled);
+    assert!(!defaults.controls.auto_tech);
+    assert!(!defaults.controls.auto_mash);
+    let menu = crate::settings_menu::MenuSelection::new(&crate::fighter_profiles::presets::MenuPresets::default());
+    assert!(!menu.auto_tech);
 
-    let saved = LiveConfig::parse("auto_sdi = true\nauto_di = true\nauto_di_mode = escape")
+    let saved = LiveConfig::parse("auto_sdi = true\nauto_di = true\nauto_di_mode = escape\nauto_tech = true\nauto_mash = true")
         .unwrap();
     assert!(saved.auto_sdi);
     assert!(saved.auto_di.enabled);
+    assert!(saved.controls.auto_tech);
+    assert!(saved.controls.auto_mash);
     assert_eq!(saved.auto_di.mode, crate::auto_di::Mode::Escape);
 }
 
@@ -217,7 +223,7 @@ fn removed_aerial_settings_do_not_disable_existing_sd_configs() {
     assert!(config.assist.enabled);
     assert_eq!(config.assist.grab_button, crate::native_input::MAPPER_L);
     assert!(!config.controls.auto_mash);
-    assert!(config.controls.auto_tech);
+    assert!(!config.controls.auto_tech);
 }
 #[test]
 fn old_button_mash_settings_are_ignored_without_disabling_other_tools() {
@@ -227,7 +233,7 @@ fn old_button_mash_settings_are_ignored_without_disabling_other_tools() {
         assert_eq!(controls.update(config.controls, tick, 1, true, false), 0);
         assert!(controls.mash_stick().is_some());
     }
-    assert!(config.controls.auto_tech);
+    assert!(!config.controls.auto_tech);
 }
 
 #[test]

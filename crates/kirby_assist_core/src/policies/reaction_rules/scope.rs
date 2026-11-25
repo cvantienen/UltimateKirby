@@ -91,6 +91,8 @@ impl AutomaticObservationScope {
                     && !matches!(
                         status,
                         crate::native_states::ESCAPE..=crate::native_states::ESCAPE_AIR_SLIDE
+                            | crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_CEIL
+                            | crate::native_states::status::DOWN_STAND..=crate::native_states::status::DOWN_STAND_ATTACK
                     ),
         }
     }
@@ -126,6 +128,52 @@ pub fn automatic_fighter_target_available(kind: i32, status: i32) -> bool {
 mod tests {
     use super::*;
     use crate::native_states::{situation, status};
+
+    #[test]
+    fn own_floor_recovery_blocks_follow_but_enemy_recovery_stays_observable() {
+        for status in [
+            status::PASSIVE,
+            status::PASSIVE_FB,
+            status::PASSIVE_WALL,
+            status::PASSIVE_WALL_JUMP,
+            status::PASSIVE_CEIL,
+            status::DOWN_STAND,
+            status::DOWN_STAND_FB,
+            status::DOWN_STAND_ATTACK,
+        ] {
+            assert!(automatic_target_available(status), "enemy status {status}");
+            assert!(
+                !AutomaticObservationScope::new(
+                    false,
+                    status,
+                    situation::GROUND,
+                    false,
+                    false,
+                    false,
+                    true
+                )
+                .observe_targets(),
+                "own status {status}"
+            );
+            assert!(!automatic_up_b_receipt_status(
+                status,
+                situation::GROUND,
+                false
+            ));
+        }
+        assert!(
+            AutomaticObservationScope::new(
+                false,
+                status::ATTACK,
+                situation::GROUND,
+                false,
+                false,
+                false,
+                true
+            )
+            .follow
+        );
+    }
 
     #[test]
     fn grounded_automatic_modes_recognize_transitions_without_admitting_lockouts() {

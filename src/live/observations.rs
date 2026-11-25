@@ -416,8 +416,8 @@ pub(super) unsafe fn spacing_opponent(
                 .then(|| native_air_physics(enemy)).flatten(),
             ..Default::default()
         };
-        let distance = kirby_assist_core::battle_objects::distance_squared(position, target.position);
-        if distance.is_finite() && target.velocity.iter().all(|v| v.is_finite())
+        let distance = (target.position[0] - position[0]).abs();
+        if distance.is_finite() && target.position.iter().chain(target.velocity.iter()).all(|v| v.is_finite())
             && nearest.is_none_or(|(old, _)| distance < old)
         {
             nearest = Some((distance, target));

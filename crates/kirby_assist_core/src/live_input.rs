@@ -557,7 +557,7 @@ impl Default for LiveSettings {
         Self {
             enabled: true,
             auto_mash: false,
-            auto_tech: true,
+            auto_tech: false,
             tech_debug: false,
             takeover: false,
             tech_cooldown: DEFAULT_TECH_COOLDOWN_FRAMES,

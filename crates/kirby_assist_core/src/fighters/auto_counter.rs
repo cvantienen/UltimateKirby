@@ -86,14 +86,8 @@ pub fn predicted_attack(
         || frame < 0.0
         || !rate.is_finite()
         || rate <= 0.0
-        || !(crate::native_states::status::ATTACK..=crate::native_states::status::ATTACK_AIR)
-            .contains(&status)
-        || !(1.0..=30.0).contains(&config.startup)
-        || !(0.0..=10.0).contains(&config.margin)
-        || !(0.0..=40.0).contains(&config.horizon())
-        || config.half_width <= 0.0
-        || config.height <= 0.0
-        || config.half_depth <= 0.0
+        || !melee_status(status)
+        || !config.valid()
     {
         return None;
     }
@@ -101,28 +95,14 @@ pub fn predicted_attack(
     if !move_data.has_damage_data() {
         return None;
     }
-    let in_frames = move_data
-        .active
-        .iter()
-        .filter_map(|window| {
-            let until = (window.first as f32 - frame) / rate;
-            (frame <= window.last as f32
-                && until <= config.horizon())
-            .then_some(until.max(0.0))
-        })
-        .min_by(|a, b| a.total_cmp(b))?;
-    let t = in_frames.max(config.startup);
-    let dx = enemy_position[0] + (enemy_velocity[0] - own_velocity[0]) * t - origin[0];
-    let dy = enemy_position[1] + (enemy_velocity[1] - own_velocity[1]) * t - origin[1];
-    // Frame data contains active timing, not a move's hitbox direction/reach.
-    // Do not infer a counterable contact from an opponent's root alone.
-    if dx.abs() > config.half_width + 12.0
-        || dy < -6.0
-        || dy > config.height + 6.0
-        || (enemy_position[2] - origin[2]).abs() > config.half_depth + 4.0
-    {
-        return None;
-    }
+    // Screen during each active window, not at counter activation: an early
+    // crossing is still best effort, and later contact may occur in the same hit.
+    let in_frames = move_data.active.iter().filter_map(|window| {
+        let first = ((f32::from(window.first) - frame) / rate).max(0.0);
+        let last = ((f32::from(window.last) - frame) / rate).min(config.horizon());
+        root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
+            first, last, 12.0, 6.0)
+    }).min_by(|a, b| a.total_cmp(b))?;
     Some(Threat {
         id,
         motion,
@@ -157,12 +137,48 @@ pub fn nearby_attacker(
     {
         return false;
     }
-    let dx = enemy_position[0] - origin[0] + (enemy_velocity[0] - own_velocity[0]) * config.startup;
-    let dy = enemy_position[1] - origin[1] + (enemy_velocity[1] - own_velocity[1]) * config.startup;
-    dx.abs() <= config.half_width + 18.0
-        && dy >= -12.0
-        && dy <= config.height + 12.0
-        && (enemy_position[2] - origin[2]).abs() <= config.half_depth + 4.0
+    config.valid() && root_contact(config, origin, own_velocity, enemy_position,
+        enemy_velocity, 0.0, config.horizon(), 18.0, 12.0).is_some()
+}
+
+// Root-space screening is only a broad phase, never verified hitbox reach.
+fn root_contact(
+    config: Config,
+    origin: [f32; 3],
+    own_velocity: [f32; 2],
+    enemy_position: [f32; 3],
+    enemy_velocity: [f32; 2],
+    first: f32,
+    last: f32,
+    horizontal_margin: f32,
+    vertical_margin: f32,
+) -> Option<f32> {
+    if first > last || (enemy_position[2] - origin[2]).abs() > config.half_depth + 4.0 {
+        return None;
+    }
+    let mut enter = f64::from(first);
+    let mut leave = f64::from(last);
+    for (axis, low, high) in [
+        (0, -config.half_width - horizontal_margin, config.half_width + horizontal_margin),
+        (1, -vertical_margin, config.height + vertical_margin),
+    ] {
+        let position = f64::from(enemy_position[axis]) - f64::from(origin[axis]);
+        let speed = f64::from(enemy_velocity[axis]) - f64::from(own_velocity[axis]);
+        if speed == 0.0 {
+            if position < f64::from(low) || position > f64::from(high) {
+                return None;
+            }
+        } else {
+            let first = (f64::from(low) - position) / speed;
+            let last = (f64::from(high) - position) / speed;
+            enter = enter.max(first.min(last));
+            leave = leave.min(first.max(last));
+            if enter > leave {
+                return None;
+            }
+        }
+    }
+    Some(enter as f32)
 }
 
 /// A disjoint hitbox can reach the defender even if the attacking fighter's
@@ -207,11 +223,12 @@ pub fn forecast_horizon(config: Config, remaining: Option<f32>) -> f32 {
         .unwrap_or(config.horizon()).min(config.horizon())
 }
 
-/// Fighter-owned normal attacks establish a melee source without unverified
-/// capability bytes. Specials/articles need separate ownership evidence.
+/// Fighter-owned normal and recovery attacks establish a melee source without
+/// unverified capability bytes. Specials/articles need separate ownership evidence.
 pub fn melee_status(status: i32) -> bool {
-    (crate::native_states::status::ATTACK..=crate::native_states::status::ATTACK_AIR)
-        .contains(&status)
+    use crate::native_states::status;
+    (status::ATTACK..=status::ATTACK_AIR).contains(&status)
+        || matches!(status, status::DOWN_STAND_ATTACK | status::CLIFF_ATTACK)
 }
 
 /// Unknown active lifetimes prove current contact only, not future contact.
@@ -327,9 +344,11 @@ pub fn projectile_owner_near(origin: [f32; 3], owner: [f32; 3], half_depth: f32)
         && (owner[2] - origin[2]).abs() <= half_depth + 4.0
 }
 
-/// Status eligibility never overrides a native down-special lockout.
+/// Movement may submit an input before its transition term is enabled;
+/// native input handling still decides whether the special starts.
 pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> bool {
-    ready(status, situation) && transition_enabled
+    ready(status, situation)
+        && (transition_enabled || crate::native_states::moving_down_special_input(status, situation))
 }
 
 pub fn ready(status: i32, situation: i32) -> bool {
@@ -804,6 +823,7 @@ mod tests {
             in_frames: 6.0,
         };
         for status in [
+            crate::native_states::status::WAIT,
             crate::native_states::status::WALK,
             crate::native_states::status::RUN,
             crate::native_states::status::TURN_RUN_BRAKE,
@@ -1083,6 +1103,67 @@ mod tests {
     }
 
     #[test]
+    fn close_startup_uses_contact_time_not_counter_activation_time() {
+        let motion = crate::timing::motion_hash("attack_air_f");
+        let predict = |x, vx| predicted_attack(
+            config(), [0.0; 3], [0.0; 2], [x, 0.0, 0.0], [vx, 0.0],
+            5, 7, motion, crate::native_states::status::ATTACK_AIR, 14.0, 1.0,
+        );
+        // Overlap at contact must not be discarded because the attacker has
+        // passed us by counter frame five.
+        assert_eq!(predict(0.0, 6.0).unwrap().in_frames, 2.0);
+        assert_eq!(predict(0.0, -6.0).unwrap().in_frames, 2.0);
+        assert!(nearby_attacker(config(), [0.0; 3], [0.0; 2], [0.0; 3], [6.0, 0.0]));
+        assert!(predict(0.0, 12.0).is_none());
+        // An approaching root can enter after the first active frame.
+        let later = predict(40.0, -5.0).unwrap().in_frames;
+        assert!((later - 4.6).abs() < 0.001);
+        // Crossing before the window opens is not a contact.
+        assert!(predict(-20.0, -6.0).is_none());
+        assert!(!nearby_attacker(config(), [0.0; 3], [0.0; 2],
+            [-30.0, 45.0, 0.0], [20.0, -5.0]));
+        for invalid in [Config { half_width: f32::NAN, ..config() },
+            Config { input_delay: f32::INFINITY, ..config() }] {
+            assert!(predicted_attack(invalid, [0.0; 3], [0.0; 2], [0.0; 3],
+                [0.0; 2], 5, 7, motion, crate::native_states::status::ATTACK_AIR,
+                14.0, 1.0).is_none());
+        }
+    }
+
+    #[test]
+    fn shield_and_tech_poses_rearm_the_next_identical_attack() {
+        use crate::native_states::status;
+        for pose in [status::GUARD, status::GUARD_OFF, status::PASSIVE, status::PASSIVE_FB] {
+            let mut counter = Counter::new();
+            let mut c = context();
+            let hit = threat(7);
+            assert_eq!(counter.sample(true, Some(config()), c, Some(hit)).requested, MAPPER_B);
+            counter.mapped();
+            assert!(counter.finished(status::SPECIAL_LW, 1.0));
+            counter.observe_attacker_pose((hit.id, pose, crate::timing::motion_hash("wait"), 1.0));
+            c.animation.frame += 1.0;
+            assert_eq!(counter.sample(true, Some(config()), c, Some(hit)).requested, MAPPER_B,
+                "pose {pose}");
+        }
+    }
+
+    #[test]
+    fn recovery_attacks_are_melee_but_passive_recovery_is_not() {
+        use crate::native_states::status;
+        for state in [status::DOWN_STAND_ATTACK, status::CLIFF_ATTACK] {
+            assert!(melee_status(state), "attack status {state}");
+        }
+        for state in [status::GUARD, status::GUARD_OFF, status::DOWN_WAIT,
+            status::DOWN_STAND, status::DOWN_STAND_FB, status::PASSIVE,
+            status::PASSIVE_FB, status::PASSIVE_WALL, status::PASSIVE_WALL_JUMP] {
+            assert!(!melee_status(state), "nonattack status {state}");
+            assert!(predicted_attack(config(), [0.0; 3], [0.0; 2], [0.0; 3],
+                [0.0; 2], 5, 7, crate::timing::motion_hash("attack_air_f"), state,
+                12.0, 1.0).is_none());
+        }
+    }
+
+    #[test]
     fn prediction_rejects_unknown_and_missed_attacks() {
         let motion = crate::timing::motion_hash("attack_air_f");
         let predict = |position, velocity, motion| {
@@ -1177,7 +1258,7 @@ mod tests {
     }
 
     #[test]
-    fn movement_requires_native_permission_without_overriding_lockouts() {
+    fn movement_submits_input_without_overriding_action_lockouts() {
         use crate::native_states::{situation, status};
         for state in [
             status::WAIT,
@@ -1187,7 +1268,8 @@ mod tests {
             status::JUMP_SQUAT,
         ] {
             assert!(
-                !can_request(state, situation::GROUND, false),
+                can_request(state, situation::GROUND, false)
+                    == crate::native_states::moving_down_special_input(state, situation::GROUND),
                 "status {state}"
             );
             assert!(
@@ -1201,6 +1283,9 @@ mod tests {
         }
         assert!(Config::for_fighter(crate::fighter_kinds::LUCINA, Tuning::default()).is_some());
         assert!(Config::for_fighter(crate::fighter_kinds::KIRBY, Tuning::default()).is_none());
+        for state in [status::GUARD, status::LANDING, status::ATTACK, status::SPECIAL_LW] {
+            assert!(!can_request(state, situation::GROUND, false));
+        }
         assert!(can_request(status::GUARD, situation::GROUND, true));
         assert!(can_request(status::ATTACK, situation::GROUND, true));
         assert!(!can_request(status::DAMAGE, situation::GROUND, true));

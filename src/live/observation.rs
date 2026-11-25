@@ -267,6 +267,9 @@ fn snapshot_observation_policy(
                 .and_then(|menu| menu.for_fighter(fighter_kind));
             let committed_automatic = state.action_owner.automatic_active();
             let automatic_suspended = state.fighter_kind != Some(fighter_kind)
+                || menu.is_some_and(|menu| {
+                    menu.defensive_owner().is_some() || menu.auto_spacing_held()
+                })
                 || !committed_automatic
                     && (state.ledge_active
                         || menu.is_some_and(|menu| menu.reserves_automatic_modes()));

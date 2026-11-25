@@ -796,7 +796,9 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
         state.action_owner.release(Owner::Spacing);
     }
     // Other mode buttons block acquisition; spacing explicitly takes over above.
-    let suspend_auto = !state.action_owner.automatic_active() && ledge_inputs_reserved;
+    let suspend_auto = defensive_owner.is_some()
+        || spacing_held
+        || !state.action_owner.automatic_active() && ledge_inputs_reserved;
     state.action_owner.set_automatic_suspended(suspend_auto);
     if suspend_auto {
         state.suspend_automatic_punishes();
@@ -1673,6 +1675,7 @@ struct ToolSamples {
     /// Manual ledge-walk helper's left-stick proposal.
     manual_walk_stick: Option<[f32; 2]>,
     spacing_walk_cap: Option<f32>,
+    spacing_manual_action: bool,
     /// Snapshot of the current native action context.
     manual_context: Option<ManualContext>,
     /// Posture helper output and targeting metadata.
@@ -1783,9 +1786,11 @@ fn sample_tools(
     } = *gate;
     let (turbo_output, pivot_stick) = sample_turbo_and_pivot(state, frame, gate);
     let turbo_stick = turbo_output.stick;
-    let spacing_caps = (fresh && manual_scope
+    let spacing_manual_action = kirby_assist_core::auto_spacing::manual_action(
+        gate.policy_buttons, frame.physical_right_stick);
+    let spacing_caps = (fresh && manual_scope && !spacing_manual_action
         && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()))
-        .then_some(state.spacing_output.movement_caps.unwrap_or([0.; 2]));
+        .then_some(state.spacing_output.movement_caps).flatten();
     let manual_walk_stick = spacing_caps
         .map(|caps| kirby_assist_core::auto_spacing::manual_movement(physical_stick, caps))
         .or_else(|| manual_ledge_walk(state, frame, gate, turbo_output));
@@ -1815,8 +1820,8 @@ fn sample_tools(
         turbo_stick,
         pivot_stick,
         manual_walk_stick,
-        spacing_walk_cap: state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
-            .then_some(state.spacing_output.walk_cap.unwrap_or(0.)),
+        spacing_walk_cap: spacing_caps.and(state.spacing_output.walk_cap),
+        spacing_manual_action,
         manual_context,
         posture,
         menu_consumed,
@@ -1887,6 +1892,17 @@ fn arbitrate_owner(
             posture_active: posture.stick.is_some() || posture.owned != 0,
         },
     );
+    if samples.spacing_manual_action {
+        if let Some(spacing) = state.spacing.as_mut() {
+            spacing.reset();
+        }
+        state.action_owner.release(Owner::Spacing);
+        for intent in &mut intents {
+            if intent.owner == Owner::Spacing {
+                intent.present = false;
+            }
+        }
+    }
     let handoff_status = manual_context.map_or(-1, |c| c.status);
     let handoff_situation = manual_context.map_or(
         kirby_assist_core::native_states::situation::UNAVAILABLE,
@@ -2139,6 +2155,9 @@ fn cancel_right_stick(
     situation: i32,
     fresh: bool,
 ) -> Option<[f32; 2]> {
+    if winner == Some(Owner::Spacing) && selected.owned & kirby_assist_core::native_input::MAPPER_A == 0 {
+        return None;
+    }
     if let Some(release) = grab_release_right_stick(selected, situation) {
         return Some(release);
     }
@@ -2229,8 +2248,8 @@ fn compose_native_request(
         | mask_if(
             winner != Some(Owner::Spacing) && (owned_direction_flick || walk_cap_flick)
                 || handoff_situation == kirby_assist_core::native_states::situation::GROUND
-                    && !exclusive_sequence
-                    && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()),
+                    && (winner == Some(Owner::Spacing)
+                        || !exclusive_sequence && samples.spacing_walk_cap.is_some()),
             LEFT_STICK_SIDE_FLICKS,
         );
     let requested =
@@ -2369,7 +2388,8 @@ fn plan_stick_overlay(
         && canonical_requested & kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS == 0
         && !physical_held(config, manual.buttons, kirby_assist_core::native_input::MAPPER_ZR)
         && !physical_held(config, manual.buttons, kirby_assist_core::native_input::MAPPER_R);
-    if arbitration.situation == kirby_assist_core::native_states::situation::GROUND
+    if fresh && manual_scope && matches!(winner, None | Some(Owner::Spacing))
+        && arbitration.situation == kirby_assist_core::native_states::situation::GROUND
         && !exclusive_sequence
     {
         adjustments.spacing_walk_cap = samples.spacing_walk_cap;
@@ -2381,9 +2401,10 @@ fn plan_stick_overlay(
     }
     if fresh && manual_scope && winner == Some(Owner::Spacing) && selected.owned != 0 {
         adjustments.left_stick = selected.stick;
-        adjustments.right_stick = cancel_stick;
-        let cstick = cancel_stick.is_some_and(|stick| stick != [0.; 2]);
-        adjustments.spacing_attack = Some((
+        let owns_attack = selected.owned & kirby_assist_core::native_input::MAPPER_A != 0;
+        adjustments.right_stick = if owns_attack { cancel_stick } else { None };
+        let cstick = owns_attack && cancel_stick.is_some_and(|stick| stick != [0.; 2]);
+        adjustments.spacing_attack = owns_attack.then_some((
             selected.requested & kirby_assist_core::native_input::MAPPER_A != 0 || cstick,
             selected.stick.unwrap_or([0.; 2]),
             cancel_stick.unwrap_or([0.; 2]),

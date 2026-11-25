@@ -52,7 +52,7 @@ impl Default for Config {
             minimum_drift: 0.1,
             ground_braking: true,
             air_braking: true,
-            braking_distance: 5.,
+            braking_distance: 10.,
             ground: AttackConfig::default(),
             aerial: AttackConfig::default(),
         }
@@ -79,6 +79,7 @@ pub struct Spacing {
     delivered_tick: Option<i64>,
     pending_airborne: bool,
     pending_output: Output,
+    retreat_side: Option<f32>,
 }
 
 pub fn manual_walk(stick: [f32; 2], cap: f32) -> [f32; 2] {
@@ -109,7 +110,7 @@ fn movement_caps(config: Config, c: GameplayContext, target: Option<Opponent>) -
         let dx = enemy.position[0] - c.position[0];
         let relative_velocity = enemy.velocity[0] - c.velocity[0];
         let closing_velocity = relative_velocity * dx.signum();
-        let predicted_distance = (dx.abs() + closing_velocity * 3.).max(0.);
+        let predicted_distance = (dx.abs() + closing_velocity * 5.).max(0.);
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
         let approach = if braking && config.braking_distance > 0. {
             let effective_distance = dx.abs().min(predicted_distance);
@@ -147,14 +148,11 @@ impl Spacing {
         &mut self,
         tick: i64,
         held: bool,
-        mut config: Config,
+        config: Config,
         c: GameplayContext,
         target: Option<Opponent>,
     ) -> Output {
         let selected_attack = if c.situation == situation::AIR { config.aerial } else { config.ground };
-        config.minimum_distance = if selected_attack.reach.is_finite() {
-            if selected_attack.reach > 0. { selected_attack.reach * 0.75 } else { 15. }
-        } else { 0. };
         if !held || !valid_context(config, c) {
             self.reset();
             return Output::default();
@@ -167,6 +165,7 @@ impl Spacing {
         let Some(enemy) = target.filter(valid_target) else {
             self.pending = false;
             self.pending_frames = 0;
+            self.retreat_side = None;
             self.output = Output { walk_cap, movement_caps: Some(caps),
                 controller: if !airborne && matches!(c.status,
                     status::DASH | status::TURN_DASH | status::RUN | status::TURN_RUN
@@ -179,12 +178,9 @@ impl Spacing {
             return self.output;
         };
         let in_range = true; // Admission is determined by the move's projected active window.
-        // Ground approach is independent of attack engagement; jumps stay human-owned.
         let mut out = Output {
             controller: ControllerOutput {
-                owned: (GAMEPLAY_BUTTONS & !SEQUENCE_JUMP_BUTTONS)
-                    | crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS
-                    | crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS,
+                owned: crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS,
                 stick: None,
                 ..ControllerOutput::NONE
             },
@@ -199,11 +195,7 @@ impl Spacing {
         };
         let dx = enemy.position[0] - c.position[0];
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
-        let aim = if self.pending_airborne {
-            self.pending_output.controller.stick.unwrap_or([0.; 2])[0]
-        } else {
-            self.pending_output.right_stick[0]
-        };
+        let aim = self.pending_output.controller.stick.unwrap_or([0.; 2])[0];
         if self.pending && aim * side < 0. {
             self.pending = false;
         }
@@ -223,18 +215,18 @@ impl Spacing {
         }
         {
             let distance = dx.abs();
-            let projected = distance + (enemy.velocity[0] - c.velocity[0]) * side * 3.;
-            let retreat = is_attack(c.status) || projected.min(distance) <= config.minimum_distance;
+            let projected = distance + (enemy.velocity[0] - c.velocity[0]) * side * 5.;
+            let braking = if airborne { config.air_braking } else { config.ground_braking };
+            let buffer = if braking { config.braking_distance * 0.25 } else { 0. };
+            let boundary = config.minimum_distance + buffer;
+            let retreat = projected.min(distance) <= boundary
+                || self.retreat_side == Some(side) && distance < boundary + 2.;
+            self.retreat_side = retreat.then_some(side);
             let floor_safe = airborne || c.safe_ground[usize::from(side < 0.)];
-            if retreat && floor_safe {
-                out.controller.stick =
-                    Some([-side * caps[usize::from(side < 0.)], 0.]);
-            } else if !airborne {
-                let approach = !retreat && !c.stopped && ready
-                    && c.safe_ground[usize::from(side > 0.)];
-                out.controller.stick = Some([
-                    if approach { side * caps[usize::from(side > 0.)] } else { 0. }, 0.,
-                ]);
+            if retreat && floor_safe && !c.stopped {
+                out.controller.stick = Some([-side * caps[usize::from(side < 0.)], 0.]);
+            } else if !airborne && (retreat || c.velocity[0] * side < 0.) {
+                out.controller.stick = Some([0.; 2]);
             }
             let attack = if airborne {
                 config.aerial
@@ -247,6 +239,7 @@ impl Spacing {
                 && ready
                 && !is_attack(c.status)
                 && attack_valid(attack, airborne)
+                && (airborne || attack.attack != Attack::Forward || safe_walk(c) > 0.)
                 && predicts_hit(attack, c, enemy, side)
             {
                 // Fair/Bair are relative to native facing. Never substitute the
@@ -256,11 +249,7 @@ impl Spacing {
                     Attack::Back => c.facing * side < 0.,
                     _ => true,
                 };
-                if !airborne && c.facing * side < 0. {
-                    if c.safe_ground[usize::from(side > 0.)] {
-                        out.controller.stick = Some([side * caps[usize::from(side > 0.)], 0.]);
-                    }
-                } else if facing_ok {
+                if facing_ok && (airborne || c.facing * side > 0.) {
                     out.attack = true;
                     let direction = match attack.attack {
                         Attack::Neutral => [0.; 2],
@@ -276,15 +265,14 @@ impl Spacing {
                         out.controller.stick = Some(direction);
                         out.controller.requested = MAPPER_A;
                     } else {
-                        out.controller.stick = Some([0.; 2]);
-                        out.right_stick = direction;
-                        out.controller.requested = match direction {
-                            [x, _] if x > 0. => crate::native_input::MAPPER_RIGHT_STICK_RIGHT,
-                            [x, _] if x < 0. => crate::native_input::MAPPER_RIGHT_STICK_LEFT,
-                            [_, y] if y > 0. => crate::native_input::MAPPER_RIGHT_STICK_UP,
-                            [_, y] if y < 0. => crate::native_input::MAPPER_RIGHT_STICK_DOWN,
-                            _ => MAPPER_A,
-                        };
+                        // Select tilts directly with A and a sub-dash main stick.
+                        // A raw full-strength C-stick can select a smash or flick
+                        // movement before the final mapped spacing correction.
+                        out.controller.stick = Some([
+                            direction[0] * safe_walk(c).min(0.6),
+                            direction[1] * 0.6,
+                        ]);
+                        out.controller.requested = MAPPER_A;
                     }
                     self.pending_target = Some(enemy.id);
                     self.pending_airborne = airborne;
@@ -300,7 +288,11 @@ impl Spacing {
                 out.right_stick = self.pending_output.right_stick;
                 out.attack = true;
             }
-            out.controller.stick = self.pending_output.controller.stick;
+            out.controller.stick = if airborne || out.attack {
+                self.pending_output.controller.stick
+            } else {
+                Some([0.; 2])
+            };
         }
         if !airborne && matches!(c.status,
             status::DASH | status::TURN_DASH | status::RUN | status::TURN_RUN
@@ -313,9 +305,20 @@ impl Spacing {
             out.attack = false;
             self.pending = false;
         }
+        if out.attack || self.pending {
+            out.controller.owned |= (GAMEPLAY_BUTTONS & !SEQUENCE_JUMP_BUTTONS)
+                | crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS;
+        }
         self.output = out;
         out
     }
+}
+
+/// Manual action selection must not inherit spacing's movement-only axis caps.
+pub fn manual_action(buttons: u32, right_stick: [f32; 2]) -> bool {
+    buttons & (MAPPER_A | crate::native_input::MAPPER_B | crate::native_input::MAPPER_R
+        | crate::native_input::MAPPER_ZR | crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS) != 0
+        || right_stick.iter().any(|v| v.is_finite() && v.abs() > 0.1)
 }
 
 fn valid_context(config: Config, c: GameplayContext) -> bool {
@@ -430,6 +433,32 @@ fn interval(
 mod tests {
     use super::*;
     const GROUND_WALK_STICK: f32 = 88. / 127.;
+
+    fn assert_ground_packet(out: Output, direction: [f32; 2], attack: bool) {
+        use crate::native_input::*;
+        assert_eq!(out.attack, attack);
+        assert_eq!(out.controller.stick, Some(direction));
+        assert_eq!(out.controller.requested, if attack { MAPPER_A } else { 0 });
+        assert_eq!(out.right_stick, [0.; 2]);
+        let raw = crate::manual_controls::ManualOverlay::default().apply_reaction_controls(
+            ButtonTrace { held: MAPPER_LEFT_STICK_DIRECTIONS | MAPPER_RIGHT_STICK_DIRECTIONS
+                | MAPPER_A | MAPPER_B, ..Default::default() },
+            [-1., 1.],
+            crate::manual_controls::TurboOutput { stick: out.controller.stick, ..Default::default() },
+            MAPPER_LEFT_STICK_HORIZONTAL, out.controller.requested, out.controller.owned, true,
+        );
+        assert_eq!(raw.stick, direction);
+        assert_eq!(raw.buttons.held & (MAPPER_LEFT_STICK_HORIZONTAL | MAPPER_RIGHT_STICK_DIRECTIONS), 0);
+        assert_eq!(raw.buttons.held & MAPPER_A, if attack { MAPPER_A } else { 0 });
+        let (buttons, left, right) = mapped_spacing_input(
+            MAPPED_JUMP | MAPPED_SPECIAL | 0x80,
+            out.attack, raw.stick, out.right_stick,
+        );
+        assert_eq!(left, direction);
+        assert_eq!(right, [0.; 2]);
+        assert_eq!(buttons, MAPPED_JUMP | if attack { MAPPED_ATTACK_HOLD_BITS } else { 0 });
+    }
+
     fn context() -> GameplayContext {
         GameplayContext {
             gameplay: true,
@@ -495,8 +524,8 @@ mod tests {
     }
 
     #[test]
-    fn auto_spacing_uses_move_reach_and_retreats_before_incoming_crosses_it() {
-        let cfg = Config { minimum_distance: 999., engagement_range: 0., ..config() };
+    fn auto_spacing_uses_configured_distance_and_retreats_before_incoming_crosses_it() {
+        let cfg = Config { minimum_distance: 30., engagement_range: 0., ..config() };
         let mut spacing = Spacing::default();
         let out = spacing.sample(1, true, cfg, context(), enemy(24., -4.));
         assert_eq!(out.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
@@ -551,7 +580,7 @@ mod tests {
                 let close = movement_caps(cfg, context(), enemy(side * 17., 0.));
                 let minimum = 0.2_f32.min(maximum);
                 assert_eq!(close[usize::from(side > 0.)], minimum + (maximum - minimum) * 0.5);
-                for (distance, status) in [(10., status::WAIT), (18., status::ATTACK_S3)] {
+                for (distance, status) in [(10., status::WAIT), (10., status::ATTACK_S3)] {
                     let out = Spacing::default().sample(1, true,
                         Config { ground_speed, ..Config::default() },
                         GameplayContext { status, ..context() }, enemy(side * distance, 0.));
@@ -571,15 +600,14 @@ mod tests {
     }
 
     #[test]
-    fn auto_spacing_auto_approaches_without_attacks_and_zero_stops_even_turning() {
+    fn auto_spacing_never_approaches_without_attacks_or_to_turn() {
         for side in [-1., 1.] {
             for speed in [0., 0.4, 1.] {
                 let cfg = Config { ground_speed: speed, minimum_drift: 0., ..Config::default() };
                 let c = GameplayContext { facing: -side, ..context() };
-                for (distance, fraction) in [(40., 1.), (20., 1.), (17.5, 0.5), (15.01, 0.000011984)] {
+                for distance in [40., 25., 20.] {
                     let out = Spacing::default().sample(1, true, cfg, c, enemy(side * distance, 0.));
-                    let x = out.controller.stick.unwrap()[0];
-                    assert!((x - side * GROUND_WALK_STICK * speed * fraction).abs() < 0.00001);
+                    assert_eq!(out.controller.stick, None);
                     assert!(!out.attack);
                     assert_eq!(out.controller.requested, 0);
                     assert_eq!(out.controller.owned & SEQUENCE_JUMP_BUTTONS, 0);
@@ -587,14 +615,14 @@ mod tests {
                 }
                 let blocked = Spacing::default().sample(1, true, cfg,
                     GameplayContext { safe_ground: [false; 2], ..c }, enemy(side * 40., 0.));
-                assert_eq!(blocked.controller.stick, Some([0.; 2]));
+                assert_eq!(blocked.controller.stick, None);
                 let retreat = Spacing::default().sample(1, true, cfg, c, enemy(side * 14., 0.));
                 assert_eq!(retreat.controller.stick,
                     Some([-side * if speed == 0. { 0. } else { GROUND_WALK_STICK }, 0.]));
                 let mut attack_cfg = config();
                 attack_cfg.ground_speed = 0.;
                 let turn = Spacing::default().sample(1, true, attack_cfg, c, enemy(side * 18., 0.));
-                assert_eq!(turn.controller.stick, Some([0.; 2]));
+                assert_eq!(turn.controller.stick, None);
                 assert!(!turn.attack);
             }
         }
@@ -642,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn auto_spacing_turns_ground_attacks_toward_enemy_before_pressing() {
+    fn auto_spacing_waits_for_ground_facing_without_approaching_to_turn() {
         for attack in [Attack::Neutral, Attack::Forward, Attack::Up, Attack::Down] {
             for side in [-1., 1.] {
                 let mut s = Spacing::default();
@@ -652,17 +680,22 @@ mod tests {
                 let turn = s.sample(1, true, cfg, c, enemy(side * 18., 0.));
                 assert!(!turn.attack);
                 assert_eq!(turn.controller.requested, 0);
-                assert_eq!(turn.controller.stick,
-                    Some([side * turn.movement_caps.unwrap()[usize::from(side > 0.)], 0.]));
+                assert_eq!(turn.controller.stick, None);
                 let out = s.sample(2, true, cfg, GameplayContext { facing: side, ..c }, enemy(side * 18., 0.));
-                assert!(out.attack);
-                assert_eq!(out.controller.stick, Some([0.; 2]));
+                let direction = match attack {
+                    Attack::Neutral => [0.; 2],
+                    Attack::Forward => [side * 0.6, 0.],
+                    Attack::Up => [0., 0.6],
+                    Attack::Down => [0., -0.6],
+                    _ => unreachable!(),
+                };
+                assert_ground_packet(out, direction, true);
                 s.mapped(2);
                 let out = s.sample(3, true, cfg, GameplayContext {
                     facing: side, status: status::ATTACK_S3, can_act: false, ..c
                 }, enemy(side * 18., 0.));
                 assert!(!out.attack);
-                assert_eq!(out.controller.stick, Some([-side * GROUND_WALK_STICK, 0.]));
+                assert_eq!(out.controller.stick, None);
             }
         }
     }
@@ -729,9 +762,9 @@ mod tests {
     fn auto_spacing_tapers_before_boundary_and_retreats_after_breach() {
         let mut s = Spacing::default();
         let c = context();
-        let out = s.sample(1, true, Config::default(), c, enemy(17.5, 0.));
+        let out = s.sample(1, true, Config::default(), c, enemy(20., 0.));
         let approach = 0.1 + (GROUND_WALK_STICK - 0.1) * 0.5;
-        assert_eq!(out.controller.stick, Some([approach, 0.]));
+        assert_eq!(out.controller.stick, None);
         assert_eq!(out.movement_caps, Some([GROUND_WALK_STICK, approach]));
         assert!(!out.attack);
         let out = s.sample(2, true, Config::default(), context(), enemy(-8., 0.));
@@ -755,12 +788,10 @@ mod tests {
         );
         cfg.minimum_distance = 21.;
         let out = s.sample(4, true, cfg, context(), enemy(20., 0.));
-        assert!(out.attack);
-        assert_eq!(out.controller.stick, Some([0.; 2]));
-        assert_eq!(out.controller.requested, crate::native_input::MAPPER_RIGHT_STICK_RIGHT);
+        assert_ground_packet(out, [0.6, 0.], true);
     }
     #[test]
-    fn auto_spacing_outside_range_approaches_and_retreat_never_dashes() {
+    fn auto_spacing_outside_range_stays_manual_and_retreat_never_dashes() {
         let mut s = Spacing::default();
         for side in [-1., 1.] {
             let c = GameplayContext {
@@ -775,7 +806,7 @@ mod tests {
                 enemy(side * 80., 0.),
             );
             assert!(!out.attack);
-            assert_eq!(out.controller.stick, Some([side * GROUND_WALK_STICK, 0.]));
+            assert_eq!(out.controller.stick, None);
             assert_eq!(out.controller.requested, 0);
             assert_eq!(out.walk_cap, Some(GROUND_WALK_STICK));
         }
@@ -806,12 +837,9 @@ mod tests {
             ..context()
         };
         let release = s.sample(2, true, config(), c, enemy(13., 0.));
-        assert!(!release.attack);
-        assert_eq!(release.controller.stick, Some([0.; 2]));
+        assert_ground_packet(release, [0.; 2], false);
         let retry = s.sample(3, true, config(), c, enemy(13., 0.));
-        assert!(retry.attack);
-        assert_eq!(retry.controller.requested, crate::native_input::MAPPER_RIGHT_STICK_RIGHT);
-        assert_eq!(retry.controller.stick, Some([0.; 2]));
+        assert_ground_packet(retry, [0.6, 0.], true);
         for tick in 4..=25 {
             let out = s.sample(tick, true, config(), c, enemy(13., 0.));
             if out.attack {
@@ -892,10 +920,10 @@ mod tests {
         let mut c = context();
         assert!(s.sample(1, true, config(), c, enemy(18., 0.)).attack);
         s.mapped(1);
-        assert!(!s.sample(2, true, config(), c, enemy(18., 0.)).attack);
+        let release = s.sample(2, true, config(), c, enemy(18., 0.));
+        assert_ground_packet(release, [0.; 2], false);
         let retry = s.sample(3, true, config(), c, enemy(18., 0.));
-        assert!(retry.attack);
-        assert_eq!(retry.controller.stick, Some([0.; 2]));
+        assert_ground_packet(retry, [0.6, 0.], true);
         s.mapped(3);
         c.status = status::ATTACK_S3;
         c.can_act = false;
@@ -950,6 +978,33 @@ mod tests {
             )
             .attack
         );
+    }
+
+    #[test]
+    fn auto_spacing_horizontal_retreat_has_hysteresis_and_no_vertical_gate() {
+        let mut s = Spacing::default();
+        let cfg = Config { minimum_distance: 20., braking_distance: 8., ..Config::default() };
+        let target = |x| Some(Opponent { position: [x, 200.], ..enemy(x, 0.).unwrap() });
+        let retreat = s.sample(1, true, cfg, context(), target(21.));
+        assert_eq!(retreat.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
+        assert_eq!(retreat.controller.owned & GAMEPLAY_BUTTONS, 0);
+        assert_eq!(s.sample(2, true, cfg, context(), target(23.)).controller.stick,
+            Some([-GROUND_WALK_STICK, 0.]));
+        assert_eq!(s.sample(3, true, cfg, context(), target(25.)).controller.stick, None);
+        assert_eq!(s.sample(4, true, cfg, context(), target(23.)).controller.stick, None);
+        assert_eq!(s.sample(5, true, cfg, GameplayContext { velocity: [-1., 0.], ..context() }, target(25.)).controller.stick,
+            Some([0.; 2]));
+    }
+
+    #[test]
+    fn auto_spacing_manual_actions_bypass_movement_caps_but_jump_does_not() {
+        use crate::native_input::*;
+        for button in [MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR, MAPPER_RIGHT_STICK_DOWN] {
+            assert!(manual_action(button, [0.; 2]));
+        }
+        assert!(manual_action(0, [1., 0.]));
+        assert!(!manual_action(SEQUENCE_JUMP_BUTTONS | MAPPER_STICK_CLICKS | MAPPER_DPAD_BUTTONS, [0.; 2]));
+        assert!(!manual_action(0, [0.; 2]));
     }
 
     #[test]
@@ -1016,8 +1071,7 @@ mod tests {
             },
             enemy(8., 0.),
         );
-        assert_eq!(out.controller.stick, Some([0.; 2]));
-        assert!(out.attack);
+        assert_ground_packet(out, [0.6, 0.], true);
         assert_eq!(
             s.sample(
                 4,

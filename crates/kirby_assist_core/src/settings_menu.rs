@@ -734,7 +734,7 @@ impl MenuSelection {
             idle_crouch: true,
             tilt_turn: true,
             spot_punish: true,
-            auto_tech: true,
+            auto_tech: false,
             grab_dodge: true,
             out_of_shield: true,
             menu_hidden: true,
@@ -894,7 +894,9 @@ impl MenuSelection {
     /// A toggled ledge watch stays reserved even while manual input temporarily
     /// pauses its movement. Safety tech/mash and ledge shield are separate.
     pub fn reserves_automatic_modes(&self) -> bool {
-        self.ledge_mode()
+        self.defensive_owner().is_some()
+            || self.auto_spacing_held()
+            || self.ledge_mode()
             || self.preview_slot.is_some()
             || self.native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
                 & MAPPER_L
@@ -1222,16 +1224,20 @@ mod auto_spacing_tests {
         let l3 = PresetSlot::L3.button();
         selection.capture_binding_input(MAPPER_X | l3 | MAPPER_Y, &presets);
         assert_eq!(selection.defensive_owner(), Some(Owner::HeldDefense));
+        assert!(selection.reserves_automatic_modes());
         assert!(!selection.auto_spacing_held());
         assert_eq!(selection.builtin_consumed & (MAPPER_X | l3), MAPPER_X | l3);
         selection.capture_binding_input(MAPPER_X, &presets);
         assert_eq!(selection.defensive_owner(), Some(Owner::Counter));
+        assert!(selection.reserves_automatic_modes());
         selection.capture_binding_input(0, &presets);
         assert_eq!(selection.defensive_owner(), None);
+        assert!(!selection.reserves_automatic_modes());
         selection.button_latch &= selection.binding_layout.binding_ownership(selection.binding_physical);
         selection.block_binding_starts(false);
         selection.capture_binding_input(MAPPER_Y, &presets);
         assert!(selection.auto_spacing_held());
+        assert!(selection.reserves_automatic_modes());
     }
 
     #[test]
@@ -1247,6 +1253,19 @@ mod auto_spacing_tests {
                 assert_eq!(selection.choice(&presets, slot, selection.choices[slot as usize]).unwrap().id,
                     expected.choice_id());
             }
+            let mut fresh = MenuSelection::new(&presets);
+            fresh.load_saved_recipes(&presets, &Catalog::parse("").unwrap(), kind);
+            let expected = if crate::auto_counter::supports(kind) { Builtin::Counter } else { Builtin::Normal };
+            assert_eq!(fresh.choice(&presets, PresetSlot::R3,
+                fresh.choices[PresetSlot::R3 as usize]).unwrap().id, expected.choice_id());
+            fresh.menu_hidden = true;
+            fresh.capture_binding_input(PresetSlot::R3.button(), &presets);
+            assert_eq!(fresh.counter_held(), crate::auto_counter::supports(kind));
+            let saved_r3 = persist::update("", kind, PresetSlot::R3, "saved_normal",
+                Sequence { builtin: Some(Builtin::Normal), ..Default::default() }, true).unwrap();
+            fresh.load_saved_recipes(&presets, &Catalog::parse(&saved_r3).unwrap(), kind);
+            assert_eq!(fresh.choice(&presets, PresetSlot::R3,
+                fresh.choices[PresetSlot::R3 as usize]).unwrap().id, "saved_normal");
             let saved = persist::update("", kind, PresetSlot::L3, "saved_turbo",
                 Sequence { builtin: Some(Builtin::TurboTeabag), ..Default::default() }, true).unwrap();
             let catalog = Catalog::parse(&saved).unwrap();

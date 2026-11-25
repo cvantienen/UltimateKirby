@@ -541,7 +541,7 @@ const DEFAULTS: [f32; COUNT] = {
     d[AUTO_SPACING_GROUND_SPEED] = 1.;
     d[AUTO_SPACING_GROUND_BRAKING] = 1.;
     d[AUTO_SPACING_AIR_BRAKING] = 1.;
-    d[AUTO_SPACING_BRAKING_DISTANCE] = 5.;
+    d[AUTO_SPACING_BRAKING_DISTANCE] = 10.;
     d[AUTO_DEFENSE_LEAD_FRAMES] = 4.;
     d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
     d[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
@@ -1110,7 +1110,7 @@ mod tests {
             assert_eq!(config.minimum_distance, 15.);
             assert_eq!(config.engagement_range, 20.);
             assert!(config.ground_braking && config.air_braking);
-            assert_eq!(config.braking_distance, 5.);
+            assert_eq!(config.braking_distance, 10.);
             assert_eq!(config.minimum_drift, 0.1);
             assert_eq!(config.maximum_drift, if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. });
             assert!(matches!(config.ground.attack, Attack::Disabled));

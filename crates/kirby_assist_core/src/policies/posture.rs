@@ -182,7 +182,7 @@ impl Posture {
             // a horizontal left stick with a live tilt-stick attack.
             Some(([0.0, 0.0], [0.0, 1.0]))
         } else if settings.down && right[1] < -0.5 && right[1].abs() > right[0].abs() {
-            Some(([x * 0.75, -0.65], [x, -1.0]))
+            Some(([x * 0.75, -0.65], [0.0, -1.0]))
         } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
             Some(([x, 0.0], [toward, 0.0]))
         } else {
@@ -422,8 +422,8 @@ impl Posture {
     pub fn down_tilt_intent(buttons: u32, left: [f32; 2], right: [f32; 2]) -> bool {
         left[1] < -0.5 || Self::down_c_stick(buttons, right)
     }
-    /// Only the winning grounded facing helper may apply this. Down remains
-    /// the dominant C-stick axis; no attack button or fresh edge is generated.
+    /// Only the winning grounded facing helper may apply this. Keep the attack
+    /// stick vertical; the main stick alone supplies the facing reversal.
     pub fn aimed_c_stick(
         buttons: u32,
         right: [f32; 2],
@@ -436,7 +436,7 @@ impl Posture {
             .then_some(())?;
         prepared
             .filter(|s| s.iter().all(|v| v.is_finite()) && s[1] < -0.5)
-            .map(|s| [s[0], -1.0])
+            .map(|_| [0.0, -1.0])
     }
     /// Updates the toggle state from the current button sample and match state.
     pub fn sample(
@@ -478,6 +478,7 @@ impl Posture {
         if turn
             && Self::needs_target(c.status, c.situation, c.stopped)
             && Self::down_tilt_intent(buttons, stick, right)
+            && (buttons & MAPPER_A != 0 || c_down)
             && (c_down || right.iter().all(|v| v.is_finite() && v.abs() <= 0.2))
             && buttons
                 & !(DTILT_INPUTS
@@ -489,9 +490,8 @@ impl Posture {
             if let Some(toward) = target.filter(|v| v.is_finite() && v.abs() > 0.5) {
                 // Keep Down fully held. Angle toward the enemy only when a
                 // reversal is needed; never stand/walk first or manufacture A.
-                // Prepare the angle BEFORE A is pressed, including while
-                // crouching. Waiting for A can let native command buffering
-                // select the old facing before the turnaround is established.
+                // Only prepare an actual attack. Bare Down must retain its
+                // full physical flick so platform drop-through still works.
                 // Re-evaluate during recovery so mashed inputs aim the next tilt.
                 let x = if c.facing * toward < 0.0 {
                     toward.signum() * 0.8
@@ -607,7 +607,7 @@ mod tests {
         };
         assert_eq!(
             Posture::configured_c_stick(down, 0, [0.0; 2], [0.0, -1.0], Some(-1.0), grounded(1.0),),
-            Some(([-0.6, -0.65], [-0.8, -1.0]))
+            Some(([-0.6, -0.65], [0.0, -1.0]))
         );
     }
 
