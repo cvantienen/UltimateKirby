@@ -845,7 +845,10 @@ impl Timeline {
         let phase = f.elapsed.floor() as u16 % period;
         Step::Output(if phase < u16::from(hold) {
             stick[0] *= self.direction;
-            shield_grab_input(f.ctx.status, controls(stick, buttons), [0.; 2])
+            let mut output = shield_grab_input(f.ctx.status, controls(stick, buttons), [0.; 2]);
+            output.native_short_hop = buttons & SEQUENCE_JUMP_BUTTONS != 0
+                && (hold == 1 || buttons & MAPPER_A != 0);
+            output
         } else {
             neutral()
         })
@@ -865,11 +868,14 @@ impl Timeline {
         stick[0] *= self.direction;
         cstick[0] *= self.cstick_direction;
         self.right_stick = cstick;
-        Step::Output(shield_grab_input(
+        let mut output = shield_grab_input(
             f.ctx.status,
             controls(stick, buttons | cstick_buttons(cstick)),
             cstick,
-        ))
+        );
+        output.native_short_hop = buttons & SEQUENCE_JUMP_BUTTONS != 0
+            && (frames == 1 || buttons & MAPPER_A != 0);
+        Step::Output(output)
     }
     /// Returns the `step_run` result.
     fn step_run(&self, units: f32, f: &Frame) -> Step {

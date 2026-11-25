@@ -170,6 +170,42 @@ fn lost_participation_suspends_everything_once_without_changing_the_master_prefe
 }
 
 #[test]
+fn disconnect_and_master_off_clear_even_an_awaiting_discovery_selection() {
+    let _guard = SERIAL.lock().unwrap();
+    RUNTIME_ENABLED.store(true, Ordering::Release);
+    LOCAL_PARTICIPANT.store(false, Ordering::Release);
+    *STATE.lock().unwrap() = State::new();
+    assert!(!unsafe { runtime::admit_selected_route(2) });
+    assert_eq!(STATE.lock().unwrap().mapping_index, Some(2));
+    // The disconnected-wrapper path calls the full suspension, not the
+    // connected selected-route suspension used while waiting for callbacks.
+    runtime::suspend_participation();
+    assert!(STATE.lock().unwrap().mapping_index.is_none());
+    assert!(!runtime::feature_activity_allowed());
+    assert!(!unsafe { runtime::admit_selected_route(2) });
+    runtime::set_runtime_enabled(false);
+    assert!(STATE.lock().unwrap().mapping_index.is_none());
+    assert!(!runtime::feature_activity_allowed());
+}
+
+#[test]
+fn stale_established_route_retains_discovery_but_revokes_old_policy_and_session() {
+    let _guard = SERIAL.lock().unwrap();
+    let old = seed();
+    STATE.lock().unwrap().human_routes[0] = Some((7, Instant::now() - Duration::from_secs(1)));
+    assert!(!unsafe { runtime::admit_selected_route(0) });
+    let state = STATE.lock().unwrap();
+    assert_eq!(state.mapping_index, Some(0));
+    assert!(!state.session.accepts(old));
+    assert!(state.associated_object.is_none());
+    assert_eq!(state.human_routes, [None; 8]);
+    assert_eq!((state.requested, state.owned), (0, 0));
+    assert!(state.pending_track.is_none());
+    assert!(state.settings_menu.is_none());
+    assert!(!runtime::feature_activity_allowed());
+}
+
+#[test]
 fn post_map_fence_rejects_cancelled_replaced_or_newer_packets() {
     let _guard = SERIAL.lock().unwrap();
     let ticket = seed();
@@ -236,6 +272,19 @@ fn match_lock_rejects_master_toggles_without_resetting_play_or_input_state() {
     assert_eq!(STATE.lock().unwrap().requested, u32::MAX);
     assert_eq!(CLEANUPS.load(Ordering::Relaxed), 0);
     MASTER_IN_MATCH.store(false, Ordering::Release);
+}
+
+#[test]
+fn match_session_replacement_preserves_only_mapper_discovery_not_fighter_routes() {
+    let source = include_str!("../../../src/live/state.rs");
+    let update = source.split("pub(super) fn update_match(").nth(1).unwrap();
+    let update = update.split("self.session.ticket()").next().unwrap();
+    let copy = update.find("let mapping_index = self.mapping_index;").unwrap();
+    let reset = update.find("*self = Self::new();").unwrap();
+    let restore = update.find("self.mapping_index = mapping_index;").unwrap();
+    assert!(copy < reset && reset < restore);
+    assert!(!update.contains("let human_routes"));
+    assert!(!update.contains("let associated_object"));
 }
 
 #[test]
@@ -331,6 +380,9 @@ unsafe fn game_entry_id(id: u32) -> i32 {
 }
 #[path = "../../../src/live/fighter_roster.rs"]
 mod local_fighter;
+mod observations {
+    pub(super) use super::local_fighter::valid_local_route;
+}
 
 #[test]
 fn route_checks_reject_missing_inactive_recycled_cpu_and_other_controller_fighters() {
@@ -350,13 +402,53 @@ fn route_checks_reject_missing_inactive_recycled_cpu_and_other_controller_fighte
     HUMAN.store(true, Ordering::Relaxed);
     ACCESSOR.store(accessor.as_mut_ptr().cast(), Ordering::Relaxed);
     unsafe {
+        RUNTIME_ENABLED.store(true, Ordering::Release);
+        LOCAL_PARTICIPANT.store(false, Ordering::Release);
+        *STATE.lock().unwrap() = State::new();
+        for _ in 0..3 {
+            assert!(!runtime::admit_selected_route(0));
+            let state = STATE.lock().unwrap();
+            assert_eq!(state.mapping_index, Some(0));
+            assert!(state.associated_object.is_none());
+            assert!(state.settings_menu.is_none());
+            assert!(!runtime::feature_activity_allowed());
+        }
+        // A selected human callback can now publish its identity because the
+        // passthrough mapper retained discovery, not permission to assist.
+        {
+            let mut state = STATE.lock().unwrap();
+            assert_eq!(state.mapping_index, Some(0));
+            state.session.update(true);
+            state.associated_object = Some(7);
+            state.human_routes[0] = Some((7, Instant::now()));
+        }
+        assert!(runtime::admit_selected_route(0));
+        assert!(runtime::feature_activity_allowed());
         assert!(local_fighter::valid_local_route(7, 0));
         assert!(!local_fighter::valid_local_route(7, 1));
         assert!(!local_fighter::valid_local_route(7, -1));
         assert!(!local_fighter::valid_local_route(8, 0));
         HUMAN.store(false, Ordering::Relaxed);
         assert!(!local_fighter::valid_local_route(7, 0));
+        assert!(!runtime::admit_selected_route(0));
+        {
+            let state = STATE.lock().unwrap();
+            assert_eq!(state.mapping_index, Some(0));
+            assert!(state.associated_object.is_none());
+            assert_eq!(state.human_routes, [None; 8]);
+            assert!(!runtime::feature_activity_allowed());
+        }
         HUMAN.store(true, Ordering::Relaxed);
+        {
+            let mut state = STATE.lock().unwrap();
+            state.session.update(true);
+            state.associated_object = Some(7);
+            state.human_routes[0] = Some((7, Instant::now()));
+        }
+        assert!(runtime::admit_selected_route(0));
+        assert!(!runtime::admit_selected_route(1));
+        assert_eq!(STATE.lock().unwrap().mapping_index, Some(1));
+        assert!(!runtime::feature_activity_allowed());
         accessor[1] = 8;
         assert!(!local_fighter::valid_local_route(7, 0));
         accessor[1] = 7;

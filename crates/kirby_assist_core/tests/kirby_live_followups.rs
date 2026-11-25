@@ -105,6 +105,9 @@ fn disabling_or_disallowing_followups_releases_state_and_inputs() {
         id: 2,
         status: status::SLIP,
         previous_status: status::WAIT,
+    relative_position: [8.0, 0.0],
+    grounded: true,
+    hit_confirmed: true,
     });
     let trip = TripContext {
         object: 1,
@@ -118,6 +121,11 @@ fn disabling_or_disallowing_followups_releases_state_and_inputs() {
         targets,
     };
     let mut trip_state = None;
+    let mut before = trip;
+    before.frame = 0.0;
+    before.targets[0].as_mut().unwrap().status = status::WAIT;
+    before.targets[0].as_mut().unwrap().hit_confirmed = false;
+    assert_eq!(followups::trip(&mut trip_state, true, true, before).owned, 0);
     assert_ne!(followups::trip(&mut trip_state, true, true, trip).owned, 0);
     assert!(trip_state.as_ref().unwrap().watching());
     assert_eq!(
@@ -125,7 +133,7 @@ fn disabling_or_disallowing_followups_releases_state_and_inputs() {
         ControllerOutput::default()
     );
     assert!(!trip_state.as_ref().unwrap().watching());
-    assert_ne!(followups::trip(&mut trip_state, true, true, trip).owned, 0);
+    assert_eq!(followups::trip(&mut trip_state, true, true, trip).owned, 0);
     assert_eq!(
         followups::trip(&mut trip_state, false, true, trip),
         ControllerOutput::default()

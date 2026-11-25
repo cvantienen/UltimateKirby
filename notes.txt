@@ -50,104 +50,6 @@ These are architectural options, not yet verified capabilities of your current m
 
 Before specifying exact components and implementation steps, I need your communication choice and permission to inspect the workbench’s relevant local files.
 
-Ask User
-Completed with input: {
-  "message": "Choose the communication method for the planning-only design. Also provide the workbench’s exact local path and authorize the task-relevant source/configuration reads needed to make the plan concrete. No files will be changed.",
-  "requestedSchema": {
-    "properties": {
-      "communication": {
-        "type": "string",
-        "title": "Communication method",
-        "enum": [
-          "Dedicated authenticated/encrypted LAN connection (recommended)",
-          "Existing FTP service with staged files and reload",
-          "USB bridge, subject to compatibility check",
-          "Manual SD-card transfer",
-          "Compare LAN and USB feasibility before choosing"
-        ],
-        "default": "Dedicated authenticated/encrypted LAN connection (recommended)"
-      },
-      "existing_transport": {
-        "type": "string",
-        "title": "Existing Switch communication setup",
-        "description": "List any FTP/USB bridge/sysmodule already installed, or enter “none” or “unknown”.",
-        "default": "unknown"
-      },
-      "workbench_path": {
-        "type": "string",
-        "title": "Workbench app location",
-        "description": "Exact absolute folder path, or explain where the app lives."
-      },
-      "inspection_permission": {
-        "type": "boolean",
-        "title": "Allow planning-only inspection",
-        "description": "Allow bounded reads of relevant workbench sources/configuration and the mod’s training-menu, configuration-loading, and save paths. Documentation/logs remain excluded. No edits, builds, services, installs, or deployment.",
-        "default": true
-      }
-    }
-  }
-}
-
-Find files matching `**/*work*bench*.py`
-
-Read skill `python-fact-grounded-coding`
-Completed with input: {"skill":"python-fact-grounded-coding"}
-
-Ran terminal command: rg -n '^(class |def )|ftp|socket|save|reload' tools/workbench.py tools/workbench_gui.py | head -30; rg -n --glob '*.rs' 'SEQUENCES|reload|save|training' src/live/settings_menu.rs src/live.rs | head -30; rg -n '^(class |def )|ftp|socket' tools/workbench_history.py | head -20
-
-Read , lines 102 to 163
-Completed with input: {
-  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench.py",
-  "view_range": [
-    102,
-    163
-  ]
-}
-
-Read , lines 300 to 368
-Completed with input: {
-  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench_gui.py",
-  "view_range": [
-    300,
-    368
-  ]
-}
-
-Read , lines 1 to 100
-Completed with input: {
-  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/src/live/settings_menu/save.rs",
-  "view_range": [
-    1,
-    100
-  ]
-}
-
-Read , lines 310 to 365
-Completed with input: {
-  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/src/live/settings_menu.rs",
-  "view_range": [
-    310,
-    365
-  ]
-}
-
-Read , lines 350 to 405
-Completed with input: {
-  "path": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/tools/workbench.py",
-  "view_range": [
-    350,
-    405
-  ]
-}
-
-Ran terminal command: rg -n '^import|^from|socket|HTTPServer|listen|serve' tools/workbench_gui.py | head -25; rg -n 'editor|transfer' tools/workbench_gui.py | head -12; rg -n --glob '*.rs' 'TcpStream|TcpListener|nn::socket|socket::|training_mode|is_training' src/live.rs src/game_ffi.rs src/live/settings_menu.rs | head -20; rg -n '^class |^def |def (load|commit|prepare)' tools/fighter_editor.py tools/sequence_editor.py tools/sequence_transfer.py 2>/dev/null | head -20; rg -n 'thread|try_lock|pending|library' src/live/settings_menu/save.rs | head -20
-
-## Selected approach: dedicated LAN connection, without encryption
-
-The **Switch connects to a dedicated service started by the workbench on your computer**. You enable the connection explicitly from the Training-room menu.
-
-No files or code were changed. The following is the proposed implementation plan.
-
 ### What the existing code already provides
 
 - `workbench_gui.py` already supports loading a file, selecting one fighter, previewing edits, and confirming a save.
@@ -276,3 +178,4 @@ You chose **unencrypted LAN**, which is feasible. However:
 **Success criterion:** while Smash remains open in Training, load Lucina’s actual active configuration, edit a sequence, apply and test it, save it, and confirm it survives restart—without changing other fighters or exposing the workbench’s general management controls.
 
 Native networking compatibility and end-to-end behavior remain unverified; this was source inspection and planning only.
+

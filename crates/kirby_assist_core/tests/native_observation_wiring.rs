@@ -25,6 +25,11 @@ struct Actor {
     id: u32,
     status: i32,
     situation: i32,
+    kind: i32,
+    previous_status: i32,
+    attacker_entry: i32,
+    hit_now: bool,
+    captor: u64,
     position: [f32; 3],
     scale: f32,
     velocity: [f32; 2],
@@ -53,6 +58,11 @@ impl Actor {
             id,
             status: kirby_assist_core::native_states::status::WAIT,
             situation: kirby_assist_core::native_states::situation::GROUND,
+            kind: kirby_assist_core::fighter_kinds::KIRBY,
+            previous_status: kirby_assist_core::native_states::status::WAIT,
+            attacker_entry: -1,
+            hit_now: false,
+            captor: u64::MAX,
             position: [0.; 3],
             scale: 1.,
             velocity: [0.; 2],
@@ -114,6 +124,14 @@ mod game_ffi {
     pub unsafe fn team(o: *mut Object) -> u64 {
         u64::from(actor(o).id != 1)
     }
+    pub unsafe fn attack_infliction_now(o: *mut Object, mask: i32) -> bool {
+        assert_eq!(mask, COLLISION_KIND_MASK_HIT);
+        actor(o).hit_now
+    }
+    pub unsafe fn work_int(o: *mut Object, key: i32) -> i32 {
+        assert_eq!(key, kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID);
+        actor(o).attacker_entry
+    }
     pub unsafe fn scale(o: *mut Object) -> f32 {
         if super::INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.get()) {
             (*o.cast::<super::Actor>()).geometry.size = 0.;
@@ -129,11 +147,21 @@ mod game_ffi {
     pub unsafe fn motion_rate(_: *mut Object) -> f32 {
         1.
     }
-    pub unsafe fn previous_status(_: *mut Object, _: u32) -> i32 {
-        0
+    pub unsafe fn previous_status(o: *mut Object, index: u32) -> i32 {
+        assert_eq!(index, 0);
+        actor(o).previous_status
     }
-    pub unsafe fn fighter_kind(_: u32) -> i32 {
-        kirby_assist_core::fighter_kinds::KIRBY
+    pub unsafe fn fighter_kind(id: u32) -> i32 {
+        let object = module_accessor(id);
+        if object.is_null() {
+            kirby_assist_core::fighter_kinds::KIRBY
+        } else {
+            actor(object).kind
+        }
+    }
+    pub unsafe fn link_node_object_id(o: *mut Object, slot: i32) -> u64 {
+        assert_eq!(slot, 0);
+        actor(o).captor
     }
     pub unsafe fn is_active(id: u32) -> bool {
         !module_accessor(id).is_null()
@@ -349,6 +377,53 @@ fn counter_observer_does_not_expire_frozen_active_geometry() {
     SOURCES.with(|s| s.borrow_mut()[0].stopped = false);
     assert!(counter_scan(&mut own).is_none());
     SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn counter_observer_forecasts_final_active_frame_for_ground_and_air() {
+    use kirby_assist_core::native_states::situation;
+    for where_ in [situation::GROUND, situation::AIR] {
+        let mut own = Actor::new(1);
+        own.situation = where_;
+        own.special_enabled = true;
+        let mut enemy = Box::new(Actor::new(2));
+        enemy.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+        enemy.geometry.power = 5.0;
+        enemy.geometry.situation = situation::ATTACK_GROUND_MASK | situation::ATTACK_AIR_MASK;
+        enemy.position[0] = 8.5;
+        enemy.velocity[0] = -1.0;
+        let data = kirby_assist_core::fighter_data::fighter(kirby_assist_core::fighter_kinds::KIRBY)
+            .unwrap().move_for_motion(enemy.motion).unwrap();
+        enemy.frame = f32::from(data.active[0].last);
+        SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+        let contact = counter_scan(&mut own).unwrap().in_frames;
+        assert!((contact - 0.5).abs() < 0.001, "situation {where_}: {contact}");
+        SOURCES.with(|s| s.borrow_mut().clear());
+    }
+}
+
+#[test]
+fn counter_and_held_defense_reject_forced_states_and_capture_without_safety() {
+    use kirby_assist_core::native_states::status;
+    for invalid in [status::DAMAGE, status::CAPTURE_WAIT, status::REBIRTH, status::WAIT] {
+        let mut own = Actor::new(1);
+        own.status = invalid;
+        own.special_enabled = true;
+        own.guard_enabled = true;
+        LINKS.with(|links| links.set(if invalid == status::WAIT { 1 } else { 0 }));
+        let reads = source_reads();
+        let observed = unsafe {
+            counter::observe(&reads, own.object(), 1, kirby_assist_core::fighter_kinds::LUCINA,
+                kirby_assist_core::auto_counter::Config::for_fighter(kirby_assist_core::fighter_kinds::LUCINA,
+                    kirby_assist_core::fighter_tuning::Tuning::default()), true)
+        };
+        assert!(observed.is_none(), "status {invalid}");
+        let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+        assert!(!context.allowed);
+        assert_eq!(kirby_assist_core::defense_response::Defense::new().sample(
+            0, true, context, contact, 4.0, 0.0), kirby_assist_core::gameplay::ControllerOutput::NONE);
+    }
+    LINKS.with(|links| links.set(0));
 }
 
 #[test]
@@ -684,7 +759,8 @@ fn native_tech_feedback_retains_delivery_and_advances_frozen_pose_lockout() {
     let mut input = TechInput::default();
     let sample = |input: &mut TechInput, own: &mut Actor| {
         let assessment = unsafe {
-            tech::assess_tech(&frame::FrameReads::default(), own.object(), true, 5., false)
+            tech::assess_tech(&frame::FrameReads::default(), own.object(), true, 5., false,
+                kirby_assist_core::tech_prediction::Body::default())
         };
         let (guard, reaction) = unsafe { tech::input_feedback(own.object(), own.status) };
         input.sample_with_native_delivery(
@@ -745,6 +821,7 @@ fn native_hitstop_forecast_includes_frozen_frames_before_contact() {
             true,
             5.,
             stopped,
+            kirby_assist_core::tech_prediction::Body::default(),
         )
     };
     let moving = assess(&mut own).contact_in.unwrap();
@@ -754,6 +831,130 @@ fn native_hitstop_forecast_includes_frozen_frames_before_contact() {
     own.remaining_stop = 20;
     assert_eq!(assess(&mut own).contact_in, None);
 }
+fn assess_native_tech(own: &mut Actor, body: kirby_assist_core::tech_prediction::Body) -> tech::TechAssessment {
+    unsafe {
+        let stopped = own.stopped;
+        tech::assess_tech(&frame::FrameReads::default(), own.object(), true, 5., stopped, body)
+    }
+}
+
+#[test]
+fn native_grounded_flame_choke_validates_captor_and_release_predecessor() {
+    use kirby_assist_core::{fighter_kinds, native_states::{fighter_status, situation, status}, tech_prediction::Body};
+    let mut own = Actor::new(1);
+    own.status = status::CATCHED_GANON;
+    own.captor = 2;
+    let mut captor = Box::new(Actor::new(2));
+    captor.kind = fighter_kinds::GANONDORF;
+    captor.status = fighter_status::GANON_SPECIAL_S_CATCH;
+    captor.frame = 27.;
+    SOURCES.with(|s| *s.borrow_mut() = vec![captor]);
+    LINKS.with(|l| l.set(1));
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, Some(4.));
+    for scenario in 0..7 {
+        SOURCES.with(|s| {
+            let mut s = s.borrow_mut();
+            let captor = &mut s[0];
+            captor.kind = fighter_kinds::GANONDORF;
+            captor.status = fighter_status::GANON_SPECIAL_S_CATCH;
+            captor.situation = situation::GROUND;
+            captor.stopped = false;
+            captor.frame = 27.;
+            match scenario {
+                0 => captor.kind = fighter_kinds::KIRBY,
+                1 => captor.status = fighter_status::GANON_SPECIAL_AIR_S_CATCH,
+                2 => captor.situation = situation::AIR,
+                3 => captor.stopped = true,
+                4 => captor.frame = f32::NAN,
+                5 => own.captor = u64::MAX,
+                _ => LINKS.with(|l| l.set(0)),
+            }
+        });
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None, "scenario {scenario}");
+        own.captor = 2;
+    }
+    SOURCES.with(|s| {
+        let mut s = s.borrow_mut();
+        s[0].kind = fighter_kinds::GANONDORF;
+        s[0].status = fighter_status::GANON_SPECIAL_S_CATCH;
+        s[0].frame = 27.;
+    });
+    LINKS.with(|l| l.set(1));
+    own.situation = situation::AIR;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    own.situation = situation::GROUND;
+    own.stopped = true;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    own.stopped = false;
+    own.air_escape = true;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    own.air_escape = false;
+    SOURCES.with(|s| s.borrow_mut().clear());
+    LINKS.with(|l| l.set(0));
+    own.status = status::CATCHED_AIR_END_GANON;
+    own.previous_status = status::CATCHED_GANON;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, Some(0.));
+    for previous in [status::CATCHED_AIR_GANON, status::CATCHED_AIR_FALL_GANON, status::WAIT] {
+        own.previous_status = previous;
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    }
+    own.previous_status = status::CATCHED_GANON;
+    own.floor_enabled = false;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    own.floor_enabled = true;
+    own.passive_disabled = true;
+    assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    for aerial in [status::CATCHED_AIR_GANON, status::CATCHED_AIR_FALL_GANON] {
+        own.status = aerial;
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    }
+}
+
+#[test]
+fn native_tech_forecast_uses_resolved_tuned_body_and_rejects_invalid_geometry() {
+    use kirby_assist_core::{fighter_tuning::{Tuning, TECH_FLOOR_ORIGIN}, native_states::{situation, status}, tech_prediction::Body};
+    let mut own = Actor::new(1);
+    own.status = status::DAMAGE_FLY;
+    own.situation = situation::AIR;
+    own.position[1] = 7.;
+    own.velocity[1] = -2.;
+    let mut tuning = Tuning::default();
+    let default_contact = assess_native_tech(&mut own, tuning.tech_body()).contact_in.unwrap();
+    tuning.0[TECH_FLOOR_ORIGIN] = Some(4.);
+    let tuned_contact = assess_native_tech(&mut own, tuning.tech_body()).contact_in.unwrap();
+    assert!(tuned_contact > default_contact);
+    assert_eq!(assess_native_tech(&mut own, Body { floor_origin: f32::NAN, ..Body::default() }).contact_in, None);
+}
+
+#[test]
+fn native_tech_takeover_only_releases_guard_when_configured() {
+    use kirby_assist_core::{native_states::{situation, status}, tech_input::{TechContext, TechInput}, tech_prediction::Body};
+    let mut own = Actor::new(1);
+    own.status = status::DAMAGE_FLY;
+    own.situation = situation::AIR;
+    own.position[1] = 2.;
+    own.velocity[1] = -2.;
+    let assessment = assess_native_tech(&mut own, Body::default());
+    for takeover in [false, true] {
+        let mut input = TechInput::default();
+        let output = input.sample_with_native_delivery(true, takeover, 2, TechContext {
+            object: 1, status: own.status, motion: 1, frame: 0., rate: 1., stopped: false,
+            remaining_stop: 0, contact_in: assessment.contact_in, input_delay: 1.,
+            previous_guard: true, prepare_guard: true,
+        }, Some(60.), 12, 7, true);
+        assert!(!output.press);
+        assert_eq!(output.owns_guard, takeover);
+        let mut input = TechInput::default();
+        let output = input.sample_with_native_delivery(true, takeover, 2, TechContext {
+            object: 1, status: own.status, motion: 1, frame: 0., rate: 1., stopped: false,
+            remaining_stop: 0, contact_in: assessment.contact_in, input_delay: 1.,
+            previous_guard: false, prepare_guard: true,
+        }, Some(60.), 12, 7, false);
+        assert!(output.press);
+        assert_eq!(output.owns_guard, takeover);
+    }
+}
+
 #[test]
 fn real_frame_cache_keeps_sixteen_actor_roster_copies_scoped_to_one_observation() {
     let _lock = ROSTER_TEST_LOCK.lock().unwrap();
@@ -783,4 +984,31 @@ fn capture_stop_link_is_protected_but_partner_tether_does_not_look_like_a_captur
             "same observation caches both capture-link checks"
         );
     }
+}
+
+#[export_name = "\u{1}_ZN3app7fighter20get_fighter_entry_idEj"]
+unsafe extern "C" fn trip_entry_id(id: u32) -> i32 { id as i32 - 1 }
+
+#[test]
+fn trip_snapshot_requires_victim_attacker_match_as_well_as_global_hit() {
+    use kirby_assist_core::native_states::status;
+    let mut own = Actor::new(1);
+    own.hit_now = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.status = status::SLIP;
+    enemy.position = [8.0, 3.0, 0.0];
+    enemy.attacker_entry = 7;
+    SOURCES.with(|sources| *sources.borrow_mut() = vec![enemy]);
+    let snapshot = |own: &mut Actor| unsafe {
+        observations::combat_targets(&source_reads(), own.object(), 1, true, false).0[0].unwrap()
+    };
+    let target = snapshot(&mut own);
+    assert!(!target.hit_confirmed, "global HIT is not victim attribution");
+    assert_eq!(target.relative_position, [8.0, 3.0]);
+    assert!(target.grounded);
+    SOURCES.with(|sources| sources.borrow_mut()[0].attacker_entry = 0);
+    assert!(snapshot(&mut own).hit_confirmed);
+    own.hit_now = false;
+    assert!(!snapshot(&mut own).hit_confirmed, "last attacker alone can be stale");
+    SOURCES.with(|sources| sources.borrow_mut().clear());
 }

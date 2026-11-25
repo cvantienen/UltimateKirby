@@ -146,13 +146,9 @@ pub(super) unsafe fn admit_mapper_callback(
         return None;
     }
     let session_ticket = live_match_ticket()?;
-    let candidate = runtime::mapper_candidate(index);
-    if !candidate.is_some_and(|id| observations::valid_local_route(id, index)) {
-        runtime::suspend_participation();
+    if !runtime::admit_selected_route(index) {
         return None;
     }
-
-    LOCAL_PARTICIPANT.store(true, Ordering::Release);
     Some(MapperAdmission {
         config,
         controller,
@@ -1004,7 +1000,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         ),
         committed_intent(
             Owner::HeldDefense,
-            state.settings_menu.as_ref().is_some_and(|m| m.auto_defense_held()),
+            state.held_defense_output.owned != 0,
         ),
         // Preserve the automation reservation while R may be queued; a
         // neutral output still leaves movement manual.
@@ -1925,7 +1921,6 @@ fn arbitrate_owner(
     let mut winner = state
         .action_owner
         .select(fresh && manual_scope && !native_grab, &intents);
-    prep.adjustments.short_hop = owner_native_short_hop(state, winner);
     let mut selected = selected_owner_output(state, winner, posture, handoff_situation);
     let selected_right = selected_owner_right_stick(state, winner, selected, handoff_situation);
     if !state.grab_handoff.permits(winner, selected, selected_right) {
@@ -1937,6 +1932,7 @@ fn arbitrate_owner(
         winner = None;
         selected = ControllerOutput::default();
     }
+    prep.adjustments.short_hop = selected.native_short_hop;
     let mut mapped_tech_output = None;
     if winner == Some(Owner::Safety) {
         (selected, mapped_tech_output) =
@@ -1977,16 +1973,6 @@ fn arbitrate_owner(
         mash_takeover,
         #[cfg(feature = "diagnostic-logging")]
         intents,
-    }
-}
-
-/// Whether the winning script asked the mapped jump to be shortened.
-fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
-    match winner {
-        Some(Owner::Ledge) => state.ledge_output.native_short_hop,
-        Some(Owner::OutOfShield) => state.oos_output.native_short_hop,
-        Some(Owner::OptionRead) => state.spot_output.native_short_hop,
-        _ => false,
     }
 }
 

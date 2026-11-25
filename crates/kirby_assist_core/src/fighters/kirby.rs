@@ -614,6 +614,20 @@ mod trip_followup {
         pub status: i32,
         /// Opponent's immediately preceding native status.
         pub previous_status: i32,
+        /// Opponent position relative to Kirby.
+        pub relative_position: [f32; 2],
+        /// Whether the opponent is grounded.
+        pub grounded: bool,
+        /// Current Kirby hit corroborated by the victim's recorded attacker entry.
+        /// This is not a collision-level hit-object ID.
+        pub hit_confirmed: bool,
+    }
+    impl TripTarget {
+        fn nearby(self, facing: f32) -> bool {
+            let [dx, dy] = self.relative_position;
+            self.grounded && dx.is_finite() && dy.is_finite()
+                && (0.0..=18.0).contains(&(dx * facing.signum())) && dy.abs() <= 8.0
+        }
     }
     /// Whether Kirby is performing a tilt capable of feeding the trip follow-up.
     fn trip_tilt(status: i32) -> bool {
@@ -659,6 +673,9 @@ mod trip_followup {
         spent: bool,
         /// Facing captured when the trip armed the follow-up.
         facing: f32,
+        target: Option<u32>,
+        attempts: u8,
+        progress: u8,
     }
     impl TripFollowup {
         /// Cancels the armed trip follow-up and releases its controller output.
@@ -674,17 +691,19 @@ mod trip_followup {
         pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
             // Invalid/changed identity resets the tool. An identical observation
             // reuses output, so repeated mapper polls do not manufacture new pulses.
+            if self.last.is_some_and(|last| last.object != ctx.object) {
+                *self = Self::default();
+            }
             if !enabled
                 || !ctx.kirby
                 || !ctx.frame.is_finite()
                 || ctx.frame < 0.0
                 || !valid_facing(ctx.facing)
             {
-                *self = Self::default();
-                return ControllerOutput::default();
-            }
-            if self.last.is_some_and(|last| last.object != ctx.object) {
-                *self = Self::default();
+                self.finish();
+                self.last = Some(ctx);
+                self.output = ControllerOutput::default();
+                return self.output;
             }
             if self.last == Some(ctx) {
                 return self.output;
@@ -695,11 +714,19 @@ mod trip_followup {
                         || ctx.motion != last.motion
                         || ctx.frame != last.frame
                 });
+            if self.spent && !self.queued && !native_progress {
+                self.last = Some(ctx);
+                return self.output;
+            }
             let recognized = self.recognize(ctx);
             let mut out = ControllerOutput::default();
             let was_queued = self.queued;
             if self.queued {
-                if ctx.tilt_ended() {
+                let target_valid = ctx.targets.iter().flatten().any(|target| {
+                    Some(target.id) == self.target && target.nearby(self.facing)
+                        && tripping(target.status)
+                });
+                if ctx.tilt_ended() || ctx.facing.signum() != self.facing || !target_valid {
                     self.finish();
                 } else if !recognized && !native_progress {
                     // Changed target facts are evidence, not another input frame.
@@ -718,9 +745,7 @@ mod trip_followup {
             self.output = out;
             out
         }
-        /// Rearm on a new tilt, then latch a current trip or grounded re-hit
-        /// damage whose immediate previous state was a trip. No new-trip
-        /// transition or hit flag required.
+        /// Requires an observed non-trip to trip transition during this tilt.
         fn recognize(&mut self, ctx: TripContext) -> bool {
             let new_tilt = trip_tilt(ctx.status)
                 && self.last.is_none_or(|last| {
@@ -729,35 +754,45 @@ mod trip_followup {
             if new_tilt && !self.queued {
                 self.spent = false;
             }
-            let recognized = !self.queued
-                && !self.spent
-                && trip_tilt(ctx.status)
-                && ctx.targets.iter().flatten().any(|enemy| {
-                    tripping(enemy.status)
-                        || tripping(enemy.previous_status)
-                            && matches!(enemy.status, status::DAMAGE | status::DOWN_DAMAGE)
-                });
-            if recognized {
+            if self.queued || self.spent || !ctx.grounded || !trip_tilt(ctx.status) {
+                return false;
+            }
+            let target = ctx.targets.iter().flatten().find(|enemy| {
+                enemy.hit_confirmed && enemy.nearby(ctx.facing) && tripping(enemy.status)
+                    && self.last.is_some_and(|last| {
+                        last.status == ctx.status && last.motion == ctx.motion
+                            && last.targets.iter().flatten().any(|old| {
+                                old.id == enemy.id && !tripping(old.status)
+                            })
+                    })
+            });
+            if let Some(target) = target {
                 self.queued = true;
+                self.target = Some(target.id);
                 self.facing = ctx.facing.signum();
-            }
-            recognized
-        }
-        /// Buffers forward smash through the remaining tilt lag.
-        fn tilt_lag_output(&self, ctx: TripContext, recognized: bool) -> ControllerOutput {
-            // Own every competing gameplay button and both sticks from
-            // recognition onward, including tilt lag and release gaps. First
-            // release the physical tilt/A. Then keep sending fresh directional+A
-            // flicks into the game's normal buffer until smash startup is
-            // observed. No readiness gate or six-pulse cutoff.
-            if !recognized && !ctx.stopped && self.output.requested & MAPPER_A == 0 {
-                press_a(crate::move_input::smash_stick(
-                    crate::move_input::Smash::Forward,
-                    self.facing,
-                ))
+                self.attempts = 0;
+                self.progress = 0;
+                true
             } else {
-                hold([0.0, 0.0])
+                false
             }
+        }
+        /// Releases between at most six smash flicks, counting native progress only.
+        fn tilt_lag_output(&mut self, ctx: TripContext, recognized: bool) -> ControllerOutput {
+            if !recognized && !ctx.stopped {
+                self.progress += 1;
+                if self.progress >= 18 || (self.attempts >= 6 && self.output.requested & MAPPER_A == 0) {
+                    self.finish();
+                    return hold([0.0, 0.0]);
+                }
+                if self.output.requested & MAPPER_A == 0 {
+                    self.attempts += 1;
+                    return press_a(crate::move_input::smash_stick(
+                        crate::move_input::Smash::Forward, self.facing,
+                    ));
+                }
+            }
+            hold([0.0, 0.0])
         }
         /// Completes the active operation and records its final state.
         fn finish(&mut self) {
@@ -774,6 +809,7 @@ mod trip_followup {
             accepted || !supported
         }
     }
+
 
     #[cfg(test)]
     mod tests {
@@ -795,6 +831,9 @@ mod trip_followup {
                         id: 2,
                         status: target_status,
                         previous_status: crate::native_states::status::WAIT,
+                        relative_position: [8.0, 0.0],
+                        grounded: true,
+                        hit_confirmed: true,
                     }),
                     None,
                     None,
@@ -806,79 +845,11 @@ mod trip_followup {
                 ],
             }
         }
-        /// Regression test for `trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks`.
-        #[test]
-        fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks() {
-            let mut state = TripFollowup::default();
-            let trip = TripContext {
-                stopped: true,
-                ..ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::SLIP,
-                )
-            };
-            let prepare = state.sample(true, trip);
-            assert_eq!(prepare.requested, 0);
-            assert_eq!(prepare.owned, FOLLOWUP_BUTTONS);
-            assert_eq!(prepare.stick, Some([0.0, 0.0]));
-            assert!(state.watching());
-            assert_eq!(state.sample(true, trip), prepare);
-            // A latched trip is not cancelled by missing targets or their recovery.
-            // There is no can_smash input: requests start while tilt lag remains.
-            for frame in 2..=31 {
-                let out = state.sample(
-                    true,
-                    TripContext {
-                        frame: frame as f32,
-                        stopped: false,
-                        targets: [None; 8],
-                        ..trip
-                    },
-                );
-                assert_eq!(out.owned, FOLLOWUP_BUTTONS);
-                assert_eq!(out.requested, if frame % 2 == 0 { MAPPER_A } else { 0 });
-                assert_eq!(
-                    out.stick,
-                    Some(if frame % 2 == 0 {
-                        [1.0, 0.0]
-                    } else {
-                        [0.0, 0.0]
-                    })
-                );
-            }
-            // A transition to idle still receives a forward-smash request at once.
-            let ready = TripContext {
-                status: crate::native_states::status::WAIT,
-                frame: 0.0,
-                targets: [None; 8],
-                ..trip
-            };
-            let ready = TripContext {
-                stopped: false,
-                ..ready
-            };
-            assert_eq!(state.sample(true, ready).requested, MAPPER_A);
-            let accepted = TripContext {
-                status: crate::native_states::status::ATTACK_S4_START,
-                frame: 1.0,
-                ..ready
-            };
-            let released = state.sample(true, accepted);
-            assert_eq!(released.requested, 0);
-            assert_eq!(released.stick, Some([0.0, 0.0]));
-            assert!(!state.watching());
-            assert_eq!(
-                state
-                    .sample(
-                        true,
-                        TripContext {
-                            frame: 2.0,
-                            ..accepted
-                        }
-                    )
-                    .owned,
-                0
-            );
+        fn baseline(state: &mut TripFollowup, mut trip: TripContext) {
+            trip.frame -= 0.5;
+            trip.targets[0].as_mut().unwrap().status = status::WAIT;
+            trip.targets[0].as_mut().unwrap().hit_confirmed = false;
+            state.sample(true, trip);
         }
         /// Regression test for `either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms`.
         #[test]
@@ -896,8 +867,10 @@ mod trip_followup {
                         let mut state = TripFollowup::default();
                         let trip = TripContext {
                             facing,
+                            targets: { let mut targets = ctx(status, trip_status).targets; targets[0].as_mut().unwrap().relative_position[0] *= facing; targets },
                             ..ctx(status, trip_status)
                         };
+                        baseline(&mut state, trip);
                         assert_eq!(state.sample(true, trip).requested, 0);
                         let attack = state.sample(true, TripContext { frame: 2.0, ..trip });
                         assert_eq!(attack.requested, MAPPER_A);
@@ -916,6 +889,7 @@ mod trip_followup {
                                 ..trip
                             },
                         );
+                        baseline(&mut state, trip);
                         state.sample(true, trip);
                         assert!(state.watching());
                         assert_eq!(
@@ -939,6 +913,7 @@ mod trip_followup {
                 held: FOLLOWUP_BUTTONS | LEFT_STICK_DIRECTIONS,
                 ..ButtonTrace::default()
             };
+            baseline(&mut state, ctx(status::ATTACK_LW3, status::SLIP));
             for frame in 1..=5 {
                 let out = state.sample(
                     true,
@@ -1036,6 +1011,7 @@ mod trip_followup {
                 ),
             ] {
                 let mut state = TripFollowup::default();
+                baseline(&mut state, ctx(status::ATTACK_LW3, status::SLIP));
                 state.sample(
                     true,
                     ctx(

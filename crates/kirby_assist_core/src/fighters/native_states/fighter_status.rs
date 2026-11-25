@@ -1134,7 +1134,6 @@ pub const GAMEWATCH_SPECIAL_LW_END: i32 = 0x1e8;
 /// Ganondorf's side special capture phase status.
 pub const GANON_SPECIAL_S_CATCH: i32 = 0x1e2;
 /// Ganondorf's aerial side special capture phase status.
-#[cfg(test)]
 pub const GANON_SPECIAL_AIR_S_CATCH: i32 = 0x1e3;
 /// Bowser Jr.'s up special damage ending status.
 pub const KOOPAJR_SPECIAL_HI_DAMAGE_END: i32 = 0x1eb;

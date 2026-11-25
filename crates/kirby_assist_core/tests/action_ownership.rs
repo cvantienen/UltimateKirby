@@ -221,6 +221,9 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
             id: 2,
             status: kirby_assist_core::native_states::status::SLIP_WAIT,
             previous_status: kirby_assist_core::native_states::status::SLIP,
+        relative_position: [facing * 8.0, 0.0],
+        grounded: true,
+        hit_confirmed: true,
         });
         let base = TripContext {
             object: 1,
@@ -233,6 +236,11 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
             stopped: false,
             targets,
         };
+        let mut before = base;
+        before.frame = 9.0;
+        before.targets[0].as_mut().unwrap().status = kirby_assist_core::native_states::status::WAIT;
+        before.targets[0].as_mut().unwrap().hit_confirmed = false;
+        trip.sample(true, before);
         for step in 0..6 {
             let out = trip.sample(
                 true,

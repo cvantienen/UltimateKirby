@@ -116,6 +116,17 @@ impl AutomaticEvent {
             Self::ShieldBackup => 5,
         }
     }
+    /// Observation requirements for independently enabled automatic families.
+    pub const fn enabled_mask(reactions: bool, shield: bool, grab_dodge: bool) -> u8 {
+        let reactions = if reactions {
+            (1 << Self::Roll.index()) | (1 << Self::Spot.index()) | (1 << Self::Air.index())
+        } else { 0 };
+        let shield = if shield {
+            (1 << Self::ShieldGrab.index()) | (1 << Self::ShieldBackup.index())
+        } else { 0 };
+        let dodge = if grab_dodge { 1 << Self::GrabDodged.index() } else { 0 };
+        reactions | shield | dodge
+    }
     /// Converts a serialized trigger into its automatic event identity.
     pub const fn from_trigger(trigger: Trigger) -> Option<Self> {
         match trigger {

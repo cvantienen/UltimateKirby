@@ -280,13 +280,8 @@ fn snapshot_observation_policy(
                 !automatic_suspended && menu.is_some_and(|menu| menu.grab_dodge_enabled());
             let grabs_enabled =
                 !automatic_suspended && menu.is_some_and(|menu| menu.out_of_shield_enabled());
-            let event_mask = if rules.is_some() { 0b111 } else { 0 }
-                | if grabs_enabled {
-                    (1 << 3) | (1 << 4) | (1 << 6)
-                } else {
-                    0
-                }
-                | if dodge_enabled { 1 << 5 } else { 0 };
+            let event_mask = kirby_assist_core::reaction_rules::AutomaticEvent::enabled_mask(
+                rules.is_some(), grabs_enabled, dodge_enabled);
             let cached_rules = (!automatic_suspended)
                 .then(|| menu.and_then(|menu| menu.automatic_rules()))
                 .flatten();
@@ -728,6 +723,7 @@ unsafe fn observe_tech_state(
     object: *mut game::Object,
     stopped: bool,
     config: &Config,
+    tuning: kirby_assist_core::fighter_tuning::Tuning,
 ) -> TechObservation {
     // Hitstop freezes native action progress. It differs from cancellation:
     // keep remembered cooldowns/plans while withholding new mash/tech requests.
@@ -747,6 +743,7 @@ unsafe fn observe_tech_state(
         auto_tech_enabled,
         (config.lookahead + tech::TECH_INPUT_DELAY_FRAMES).min(5.0),
         stopped,
+        tuning.tech_body(),
     );
     let tech = !clatter && assessment.contact_in.is_some();
     let (native_guard, reaction_remaining) = tech::input_feedback(object, assessment.status);
@@ -905,7 +902,9 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     }
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::FullObservation);
-    let tech_obs = observe_tech_state(&reads, object, own.stopped, &config);
+    let tech_obs = observe_tech_state(
+        &reads, object, own.stopped, &config, policy.analysis_settings,
+    );
     let pass = Pass {
         reads: &reads,
         object,
@@ -1211,7 +1210,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
 }
 
 unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)> {
-    use kirby_assist_core::native_states::{situation, status};
+    use kirby_assist_core::native_states::situation;
     let held = STATE.lock().ok()?.settings_menu.as_ref()
         .is_some_and(|menu| menu.auto_spacing_held());
     if !held {
@@ -1224,15 +1223,13 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
     let velocity = [reads.speed_x(object), reads.speed_y(object)];
     let controllable = !p.tech_obs.clatter && !reads.capture_link(object)
         && !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status);
-    let grounded_ready = matches!(own.status, status::WAIT | status::WALK | status::SQUAT_WAIT)
-        || game::cancel_enabled(object);
-    let airborne_ready = matches!(own.status, status::JUMP | status::JUMP_AERIAL | status::FALL)
-        || game::cancel_enabled(object);
+    let attack_ready = kirby_assist_core::auto_spacing::attack_ready(
+        own.status, own.situation, game::cancel_enabled(object));
     let context = GameplayContext {
         held: true,
         can_control: controllable,
-        can_act: own.situation == situation::GROUND && grounded_ready && !own.stopped,
-        can_air_attack: own.situation == situation::AIR && airborne_ready && !own.stopped,
+        can_act: own.situation == situation::GROUND && attack_ready && !own.stopped,
+        can_air_attack: own.situation == situation::AIR && attack_ready && !own.stopped,
         position,
         velocity,
         facing: reads.facing(object),
@@ -3070,7 +3067,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
         .get_or_insert_with(TechInput::default)
         .sample_with_native_delivery(
             config.controls.enabled && auto_tech_enabled,
-            true,
+            config.controls.takeover,
             config.controls.tech_cooldown,
             TechContext {
                 object: object_id,
@@ -3687,9 +3684,7 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
         state.counter.sample(allowed, Some(config), context, threat)
     } else {
-        if !allowed || !state.counter.awaiting_receipt() {
-            state.counter.cancel();
-        }
+        state.counter.cancel();
         ControllerOutput::default()
     };
 }

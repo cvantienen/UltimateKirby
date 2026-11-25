@@ -440,6 +440,9 @@ pub(super) unsafe fn combat_targets(
     let _performance = crate::performance::Scope::new(crate::performance::Part::Trip);
     let roster = reads.roster();
     let own_x = reads.pos_x(own);
+    let own_y = reads.pos_y(own);
+    let own_entry = if watch_trip { game_entry_id(own_id) } else { -1 };
+    let trip_hit = watch_trip && game::attack_infliction_now(own, game::COLLISION_KIND_MASK_HIT);
     let mut outward = 0.0;
     let mut opposing_count = 0;
     let mut sole_opponent_direction = 0.0;
@@ -489,6 +492,12 @@ pub(super) unsafe fn combat_targets(
                     status: reads.status_kind(enemy),
                     previous_status: reads
                         .previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
+                    relative_position: [reads.pos_x(enemy) - own_x, reads.pos_y(enemy) - own_y],
+                    grounded: reads.situation_kind(enemy) == kirby_assist_core::native_states::situation::GROUND,
+                    // Victim-side last-attacker evidence corroborates HIT, but is not
+                    // an exact collision recipient. Core also requires a fresh trip.
+                    hit_confirmed: trip_hit && own_entry >= 0 && game::work_int(enemy,
+                        kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID) == own_entry,
                 });
             }
         }

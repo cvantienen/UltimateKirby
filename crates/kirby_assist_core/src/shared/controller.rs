@@ -126,8 +126,8 @@ pub mod action_owner {
         (output, acknowledged)
     }
     /// A native tech opportunity may displace launch DI for a Guard press.
-    /// Without launch DI, preparation, press and release keep both sticks neutral.
-    /// Final DI displaces non-press phases; only an urgent Guard edge interrupts it.
+    /// Owned preparation/release phases stay neutral so Guard handoff cannot roll.
+    /// Final DI displaces nonurgent presses; additive releases do not interrupt it.
     pub fn safety_output_with_deadline(
         tech: crate::tech_input::TechOutput,
         mash: Option<[f32; 2]>,
@@ -139,7 +139,7 @@ pub mod action_owner {
         Option<crate::tech_input::TechOutput>,
     ) {
         let tech = (mash.is_none()
-            && (di.is_none() || urgent && tech.press)
+            && (di.is_none() || tech.owns_guard && !tech.press || urgent && tech.press)
             && (tech.press || tech.owns_guard))
             .then_some(tech);
         let output = crate::gameplay::ControllerOutput {

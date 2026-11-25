@@ -215,6 +215,7 @@ pub(super) unsafe fn observe(
     let situation = reads.situation_kind(own);
     if !(policy::ready(status, situation)
         || status == kirby_assist_core::native_states::status::SPECIAL_LW)
+        || kirby_assist_core::native_states::fighter_sequence_interrupted(kind, status)
         || reads.capture_link(own)
     {
         return None;

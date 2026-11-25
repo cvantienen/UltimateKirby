@@ -78,6 +78,8 @@ pub struct Spacing {
     pending_frames: u8,
     delivered_tick: Option<i64>,
     pending_airborne: bool,
+    pending_side: f32,
+    pending_attack: AttackConfig,
     pending_output: Output,
     retreat_side: Option<f32>,
 }
@@ -177,7 +179,6 @@ impl Spacing {
                 ..Output::default() };
             return self.output;
         };
-        let in_range = true; // Admission is determined by the move's projected active window.
         let mut out = Output {
             controller: ControllerOutput {
                 owned: crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS,
@@ -195,13 +196,13 @@ impl Spacing {
         };
         let dx = enemy.position[0] - c.position[0];
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
-        let aim = self.pending_output.controller.stick.unwrap_or([0.; 2])[0];
-        if self.pending && aim * side < 0. {
-            self.pending = false;
-        }
         if self.pending {
             if self.pending_target != Some(enemy.id)
                 || airborne != self.pending_airborne
+                || self.pending_side != side
+                || self.pending_attack != selected_attack
+                || !attack_valid(selected_attack, airborne)
+                || !facing_matches(selected_attack.attack, airborne, c.facing, side)
                 || is_attack(c.status)
                 || !predicts_hit(selected_attack, c, enemy, side)
             {
@@ -233,8 +234,7 @@ impl Spacing {
             } else {
                 config.ground
             };
-            if in_range
-                && !self.pending
+            if !self.pending
                 && !c.stopped
                 && ready
                 && !is_attack(c.status)
@@ -242,14 +242,14 @@ impl Spacing {
                 && (airborne || attack.attack != Attack::Forward || safe_walk(c) > 0.)
                 && predicts_hit(attack, c, enemy, side)
             {
-                // Fair/Bair are relative to native facing. Never substitute the
-                // opposite aerial while trying to turn an airborne fighter.
-                let facing_ok = match attack.attack {
-                    Attack::Forward if airborne => c.facing * side > 0.,
-                    Attack::Back => c.facing * side < 0.,
-                    _ => true,
-                };
-                if facing_ok && (airborne || c.facing * side > 0.) {
+                if !airborne && c.facing * side < 0. {
+                    // Turn with a sub-dash input and wait for native facing before A.
+                    if config.ground_speed > 0. && safe_walk(c) > 0.
+                        && c.safe_ground[usize::from(side > 0.)]
+                    {
+                        out.controller.stick = Some([side * safe_walk(c).min(0.6), 0.]);
+                    }
+                } else if facing_matches(attack.attack, airborne, c.facing, side) {
                     out.attack = true;
                     let direction = match attack.attack {
                         Attack::Neutral => [0.; 2],
@@ -276,6 +276,8 @@ impl Spacing {
                     }
                     self.pending_target = Some(enemy.id);
                     self.pending_airborne = airborne;
+                    self.pending_side = side;
+                    self.pending_attack = attack;
                     self.pending_output = out;
                 }
             }
@@ -348,6 +350,28 @@ fn valid_target(e: &Opponent) -> bool {
         .iter()
         .chain(e.velocity.iter())
         .all(|v| v.is_finite())
+}
+
+/// Locomotion states with ordinary attack transitions, independent of cancel windows.
+pub fn attack_ready(s: i32, situation: i32, cancel_enabled: bool) -> bool {
+    match situation {
+        situation::GROUND => cancel_enabled || matches!(s,
+            status::WAIT | status::WALK | status::WALK_BRAKE | status::TURN
+                | status::SQUAT..=status::SQUAT_RV),
+        situation::AIR => cancel_enabled || matches!(s,
+            status::JUMP | status::JUMP_AERIAL | status::FALL | status::FALL_AERIAL),
+        _ => false,
+    }
+}
+
+fn facing_matches(attack: Attack, airborne: bool, facing: f32, side: f32) -> bool {
+    if !airborne || attack == Attack::Forward {
+        facing * side > 0.
+    } else if attack == Attack::Back {
+        facing * side < 0.
+    } else {
+        true
+    }
 }
 
 fn is_attack(s: i32) -> bool {
@@ -670,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn auto_spacing_waits_for_ground_facing_without_approaching_to_turn() {
+    fn auto_spacing_turns_before_ground_attack_and_waits_for_native_facing() {
         for attack in [Attack::Neutral, Attack::Forward, Attack::Up, Attack::Down] {
             for side in [-1., 1.] {
                 let mut s = Spacing::default();
@@ -680,7 +704,11 @@ mod tests {
                 let turn = s.sample(1, true, cfg, c, enemy(side * 18., 0.));
                 assert!(!turn.attack);
                 assert_eq!(turn.controller.requested, 0);
-                assert_eq!(turn.controller.stick, None);
+                assert_eq!(turn.controller.stick, Some([side * 0.6, 0.]));
+                let blocked = Spacing::default().sample(1, true, cfg,
+                    GameplayContext { safe_ground: [false; 2], ..c }, enemy(side * 18., 0.));
+                assert_eq!(blocked.controller.stick, None);
+                assert!(!blocked.attack);
                 let out = s.sample(2, true, cfg, GameplayContext { facing: side, ..c }, enemy(side * 18., 0.));
                 let direction = match attack {
                     Attack::Neutral => [0.; 2],
@@ -721,6 +749,73 @@ mod tests {
             assert!(!out.attack);
             assert_eq!(out.controller.stick, Some([-side, 0.]));
         }
+    }
+
+    #[test]
+    fn auto_spacing_lucina_attacks_from_braking_turning_and_double_jump_fall() {
+        let mut tuning = crate::fighter_tuning::Tuning::default();
+        tuning.set("auto_spacing_ground_move", "2").unwrap();
+        tuning.set("auto_spacing_aerial_move", "2").unwrap();
+        let cfg = tuning.auto_spacing(crate::fighter_kinds::LUCINA);
+        for (situation, statuses) in [
+            (situation::GROUND, &[status::WALK_BRAKE, status::TURN, status::SQUAT][..]),
+            (situation::AIR, &[status::FALL_AERIAL][..]),
+        ] {
+            for &status in statuses {
+                let ready = attack_ready(status, situation, false);
+                let c = GameplayContext {
+                    status, situation, can_act: ready, can_air_attack: ready, ..context()
+                };
+                let out = Spacing::default().sample(1, true, cfg, c, enemy(18., 0.));
+                assert!(out.attack, "status {status}");
+                assert_eq!(out.controller.requested, MAPPER_A);
+            }
+        }
+        for (situation, status) in [
+            (situation::GROUND, status::DASH),
+            (situation::GROUND, status::LANDING_ATTACK_AIR),
+            (situation::AIR, status::FALL_SPECIAL),
+        ] {
+            assert!(!attack_ready(status, situation, false));
+        }
+        assert!(attack_ready(status::LANDING_ATTACK_AIR, situation::GROUND, true));
+    }
+
+    #[test]
+    fn auto_spacing_pending_attack_rechecks_facing_side_and_configuration() {
+        for aerial in [false, true] {
+            let c = GameplayContext {
+                situation: if aerial { situation::AIR } else { situation::GROUND },
+                status: if aerial { status::FALL } else { status::WAIT },
+                ..context()
+            };
+            let mut s = Spacing::default();
+            assert!(s.sample(1, true, config(), c, enemy(18., 0.)).attack);
+            s.mapped(1);
+            let out = s.sample(3, true, config(), GameplayContext { facing: -1., ..c }, enemy(18., 0.));
+            assert!(!out.attack);
+            assert_eq!(out.controller.requested, 0);
+
+            let mut s = Spacing::default();
+            assert!(s.sample(1, true, config(), c, enemy(18., 0.)).attack);
+            s.mapped(1);
+            let mut changed = config();
+            if aerial { changed.aerial.attack = Attack::Disabled; }
+            else { changed.ground.attack = Attack::Disabled; }
+            let out = s.sample(3, true, changed, c, enemy(18., 0.));
+            assert!(!out.attack);
+            assert_eq!(out.controller.requested, 0);
+        }
+        let mut cfg = config();
+        cfg.aerial.attack = Attack::Up;
+        let c = GameplayContext { situation: situation::AIR, status: status::FALL, ..context() };
+        let mut s = Spacing::default();
+        assert!(s.sample(1, true, cfg, c, enemy(10., 0.)).attack);
+        s.mapped(1);
+        // A new side needs a new delivery rather than inheriting the old retry.
+        let out = s.sample(2, true, cfg, c, enemy(-10., 0.));
+        assert!(out.attack);
+        assert_eq!(s.pending_side, -1.);
     }
 
     #[test]

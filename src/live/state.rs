@@ -602,12 +602,16 @@ impl State {
             let menu_fighter_kind = self.menu_fighter_kind;
             let menu_battle_active = self.menu_battle_active;
             let menu_intro_object = self.menu_intro_object;
+            // Physical mapper selection is discovery, not session ownership.
+            // Keep it so a fresh human callback can establish the new session.
+            let mapping_index = self.mapping_index;
             *self = Self::new();
             self.session = session;
             self.settings_menu = settings_menu;
             self.menu_fighter_kind = menu_fighter_kind;
             self.menu_battle_active = menu_battle_active;
             self.menu_intro_object = menu_intro_object;
+            self.mapping_index = mapping_index;
         }
         self.session.ticket()
     }

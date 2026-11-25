@@ -30,6 +30,19 @@ pub(super) fn mapper_candidate(index: i32) -> Option<u32> {
         })
         .map(|(id, _)| id)
 }
+/// Validate callback-discovered ownership after the wrapper has selected a
+/// connected physical controller. Missing ownership must leave discovery open.
+/// # Safety
+/// Native objects referenced by a cached route must be valid for read-only validation.
+pub(super) unsafe fn admit_selected_route(index: i32) -> bool {
+    if !mapper_candidate(index).is_some_and(|id| observations::valid_local_route(id, index)) {
+        suspend_selected_route(index);
+        return false;
+    }
+    LOCAL_PARTICIPANT.store(true, Ordering::Release);
+    true
+}
+
 /// Reset the given state, preserving the session and observation sequence while clearing all other fields.
 /// Ends menu state, replaces all runtime policy fields with defaults,
 /// and advances the observation sequence while retaining the session.
@@ -70,6 +83,17 @@ pub(super) fn mapper_output_current(
 /// Atomically revokes local participation, clears projectile tracking,
 /// and resets state only when local runtime state was active.
 pub(super) fn suspend_participation() {
+    suspend_route(None);
+}
+
+/// Revoke assistance while retaining only a connected, physically selected
+/// mapper slot for the next human fighter callback to discover.
+/// This slot alone never authorizes participation or reuses a fighter route.
+pub(super) fn suspend_selected_route(index: i32) {
+    suspend_route((0..8).contains(&index).then_some(index));
+}
+
+fn suspend_route(selected_index: Option<i32>) {
     let was_active = LOCAL_PARTICIPANT.swap(false, Ordering::AcqRel);
     if let Ok(mut state) = STATE.lock() {
         if was_active || state.associated_object.is_some() || state.menu_battle_active {
@@ -85,6 +109,7 @@ pub(super) fn suspend_participation() {
                 crate::logging::clear_snapshot();
             }
         }
+        state.mapping_index = selected_index;
     }
 }
 /// Enable or disable the runtime, resetting state and clearing relevant flags as necessary.

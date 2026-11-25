@@ -99,7 +99,7 @@ pub fn predicted_attack(
     // crossing is still best effort, and later contact may occur in the same hit.
     let in_frames = move_data.active.iter().filter_map(|window| {
         let first = ((f32::from(window.first) - frame) / rate).max(0.0);
-        let last = ((f32::from(window.last) - frame) / rate).min(config.horizon());
+        let last = ((f32::from(window.last) + 1.0 - frame) / rate).min(config.horizon());
         root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
             first, last, 12.0, 6.0)
     }).min_by(|a, b| a.total_cmp(b))?;
@@ -213,8 +213,8 @@ pub fn active_remaining(kind: i32, motion: u64, frame: f32, rate: f32) -> Option
     }
     data.active
         .iter()
-        .find(|window| frame >= f32::from(window.first) && frame <= f32::from(window.last))
-        .map(|window| (f32::from(window.last) - frame) / rate)
+        .find(|window| frame >= f32::from(window.first) && frame < f32::from(window.last) + 1.0)
+        .map(|window| (f32::from(window.last) + 1.0 - frame) / rate)
 }
 
 /// Forecast observed geometry even when the catalog lacks an active lifetime.
@@ -373,6 +373,7 @@ pub struct Counter {
     clock: AnimationClock,
     target: Option<(u32, u64)>,
     began: i64,
+    observed_tick: i64,
     last: Option<(u32, u64)>,
     /// Final mapped counter delivery waits for native startup or a short deadline.
     receipt: bool,
@@ -395,6 +396,7 @@ impl Counter {
             clock: AnimationClock::new(),
             target: None,
             began: 0,
+            observed_tick: 0,
             last: None,
             receipt: false,
             release_pending: false,
@@ -453,7 +455,7 @@ impl Counter {
         if (self.receipt || self.release_pending)
             && status == crate::native_states::status::SPECIAL_LW
             && frame.is_finite()
-            && frame >= 1.0
+            && frame >= 0.0
         {
             // A confirmed counter consumes this attack; failed deliveries do not.
             self.attempts = u8::MAX;
@@ -551,6 +553,7 @@ impl Counter {
             if let Some(target) = self.target {
                 self.last = Some(target);
                 self.receipt = true;
+                self.began = self.observed_tick;
                 self.receipt_polls = 0;
                 self.attempts = self.attempts.saturating_add(1).min(u8::MAX - 1);
             }
@@ -568,7 +571,13 @@ impl Counter {
             self.cancel();
             return ControllerOutput::default();
         };
-        if c.stopped {
+        if self.finished(c.animation.status, c.animation.frame) {
+            return ControllerOutput::default();
+        }
+        if !ready(c.animation.status, c.situation)
+            || crate::native_states::fighter_sequence_interrupted(c.kind, c.animation.status)
+            || c.stopped
+        {
             self.cancel();
             return ControllerOutput::default();
         }
@@ -576,9 +585,7 @@ impl Counter {
             self.cancel();
             return ControllerOutput::default();
         };
-        if self.finished(c.animation.status, c.animation.frame) {
-            return ControllerOutput::default();
-        }
+        self.observed_tick = now;
         if self.release_pending {
             return Self::release_output();
         }
@@ -663,6 +670,63 @@ mod tests {
             height: 16.0,
             half_depth: 5.0,
         }
+    }
+
+    #[test]
+    fn delivered_counter_receipt_is_cancelled_before_forced_state_can_reserve_inputs() {
+        use crate::native_states::{status, situation};
+        for invalid in [status::DAMAGE, status::CAPTURE_WAIT, status::REBIRTH] {
+            let mut counter = Counter::new();
+            let mut c = context();
+            assert_eq!(counter.sample(true, Some(config()), c, Some(threat(7))).requested, MAPPER_B);
+            counter.mapped();
+            c.animation.status = invalid;
+            c.animation.frame += 3.0;
+            counter.poll_receipt(1);
+            counter.poll_receipt(2);
+            assert_eq!(counter.sample(true, Some(config()), c, None), ControllerOutput::NONE);
+            assert!(!counter.active());
+        }
+        let mut counter = Counter::new();
+        let mut c = context();
+        counter.sample(true, Some(config()), c, Some(threat(7)));
+        counter.mapped();
+        c.situation = situation::CLIFF;
+        assert_eq!(counter.sample(true, Some(config()), c, None), ControllerOutput::NONE);
+        assert!(!counter.active());
+    }
+
+    #[test]
+    fn native_startup_at_frame_zero_is_acknowledged_even_during_hitstop() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        counter.sample(true, Some(config()), c, Some(threat(7)));
+        counter.mapped();
+        c.animation.status = crate::native_states::status::SPECIAL_LW;
+        c.animation.frame = 0.0;
+        c.stopped = true;
+        assert_eq!(counter.sample(true, Some(config()), c, None), ControllerOutput::NONE);
+        assert!(!counter.active());
+        c = context();
+        assert_eq!(counter.sample(true, Some(config()), c, Some(threat(7))), ControllerOutput::NONE);
+    }
+
+    #[test]
+    fn delayed_mapping_starts_receipt_deadline_at_delivery_not_proposal() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        for _ in 0..5 {
+            assert_eq!(counter.sample(true, Some(config()), c, Some(threat(7))).requested, MAPPER_B);
+            c.animation.frame += 1.0;
+        }
+        counter.mapped();
+        counter.poll_receipt(1);
+        counter.poll_receipt(2);
+        assert_eq!(counter.sample(true, Some(config()), c, None), ControllerOutput::NONE);
+        assert!(counter.awaiting_receipt());
+        c.animation.frame += 1.0;
+        assert_eq!(counter.sample(true, Some(config()), c, None).owned, SEQUENCE_BUTTONS);
+        assert!(!counter.awaiting_receipt());
     }
 
     #[test]
@@ -1629,7 +1693,9 @@ mod tests {
             .unwrap();
         let window = data.active.last().unwrap();
         let end = f32::from(window.last);
-        assert_eq!(active_remaining(kind, motion, end - 1., 2.), Some(0.5));
+        assert_eq!(active_remaining(kind, motion, end - 1., 2.), Some(1.0));
+        assert_eq!(active_remaining(kind, motion, end, 1.), Some(1.0));
+        assert_eq!(active_remaining(kind, motion, end + 0.5, 1.), Some(0.5));
         assert_eq!(active_remaining(kind, motion, end + 1., 1.), None);
         assert_eq!(active_remaining(kind, motion, end, 0.), None);
         assert_eq!(active_remaining(kind, motion, f32::NAN, 1.), None);
