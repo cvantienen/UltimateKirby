@@ -84,10 +84,7 @@ pub(super) unsafe fn observe_defense(
     let status = reads.status_kind(own);
     let situation = reads.situation_kind(own);
     let stopped = reads.is_stop(own);
-    let allowed = allowed
-        && !reads.capture_link(own)
-        && !kirby_assist_core::action_owner::native_grab_active(status)
-        && !native::fighter_sequence_interrupted(kind, status);
+    let allowed = defense::native_allowed(kind, status, situation, reads.capture_link(own), allowed);
     let guarding = matches!(status, native::GUARD_ON | native::GUARD | native::GUARD_DAMAGE);
     let context = defense::Context {
         object: own_id,
@@ -151,7 +148,7 @@ pub(super) unsafe fn observe_defense(
         let source_velocity = if source_stopped { [0.0; 2] } else {
             [reads.speed_x(source), reads.speed_y(source)]
         };
-        let remaining = if source_stopped || stopped { 0.0 } else if projectile { horizon } else {
+        let remaining = if stopped { 0.0 } else if source_stopped || projectile { horizon } else {
             // Known active windows cap a forecast; unknown moves use only their
             // already-active geometry, never a catalog's future startup hitbox.
             policy::active_remaining(reads.fighter_kind(source), reads.motion_kind(source),
@@ -299,8 +296,7 @@ pub(super) unsafe fn observe(
         } else {
             [reads.speed_x(enemy), reads.speed_y(enemy)]
         };
-        let admissible =
-            !stopped && enemy_motion != 0 && enemy_frame.is_finite() && enemy_frame >= 0.;
+        let admissible = enemy_motion != 0 && enemy_frame.is_finite() && enemy_frame >= 0.;
         let remaining = policy::active_remaining(
             reads.fighter_kind(enemy),
             enemy_motion,
@@ -314,7 +310,7 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             geometry_config,
-            policy::contact_horizon(remaining, stopped),
+            policy::forecast_horizon(config, remaining),
             &mut geometry_budget,
             &mut exhausted,
             !policy::melee_status(enemy_status),
@@ -326,6 +322,15 @@ pub(super) unsafe fn observe(
             status: enemy_status,
             frame: enemy_frame,
             in_frames,
+        }).or_else(|| {
+            // Catalog startup is an estimate; active world geometry takes priority.
+            if (0..8).any(|slot| game::attack_active(enemy, slot, false)) {
+                return None;
+            }
+            policy::predicted_attack(geometry_config, origin, own_velocity,
+                [reads.pos_x(enemy), reads.pos_y(enemy), game::pos_z(enemy)], velocity,
+                reads.fighter_kind(enemy), id, enemy_motion, enemy_status, enemy_frame,
+                reads.motion_rate(enemy))
         });
         if let Some(threat) = attack {
             if threat.in_frames < soonest || !admissible && threat.in_frames == soonest {
@@ -334,13 +339,8 @@ pub(super) unsafe fn observe(
             }
         }
     }
-    // Projectile counters require owner proximity. The cached team_owner_id
-    // declaration does not establish current ownership across reflection or
-    // transfer, so projectile contact may veto but never admit a counter.
+    // Counter admission depends on incoming hostile geometry, not owner distance.
     for source in super::attack_sources::projectiles().into_iter().flatten() {
-        if exhausted {
-            break;
-        }
         if !matches!(
             source.id >> 28,
             kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
@@ -373,18 +373,21 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             geometry_config,
-            if stopped { 0. } else { config.horizon() },
+            config.horizon(),
             &mut geometry_budget,
             &mut exhausted,
             false,
             air,
         ) {
-            if contact <= soonest {
+            let motion = reads.motion_kind(projectile);
+            let frame = reads.motion_frame(projectile);
+            if contact <= soonest && motion != 0 && frame.is_finite() && frame >= 0. {
                 soonest = contact;
-                best = None;
+                best = Some(Threat { id: source.id, motion,
+                    status: reads.status_kind(projectile), frame, in_frames: contact });
             }
         }
     }
-    // A truncated scan cannot establish which attack will arrive first.
-    Some((config, context, best.filter(|_| !exhausted)))
+    // An unreadable unrelated source must not veto a known incoming contact.
+    Some((config, context, best))
 }

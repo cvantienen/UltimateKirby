@@ -338,6 +338,9 @@ fn held_defense_projectiles_use_geometry_and_situation_without_owner_admission()
         assert_eq!(hit.in_frames, 4.0);
         SOURCES.with(|s| s.borrow_mut()[0].stopped = true);
         assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
+        own.velocity[0] = 1.;
+        assert!(defense_scan(&mut own, 4.0, 0.0).1.is_some());
+        own.velocity[0] = 0.;
         SOURCES.with(|s| {
             let mut s = s.borrow_mut();
             s[0].stopped = false;

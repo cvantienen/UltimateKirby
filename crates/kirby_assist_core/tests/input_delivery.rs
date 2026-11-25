@@ -282,6 +282,39 @@ fn held_air_defense_delivers_neutral_guard_once_then_releases_owned_inputs() {
     }
 }
 
+#[test]
+fn held_defense_neutral_takeover_blocks_all_physical_actions_in_both_layouts() {
+    const MAPPED_CSTICK_BUTTON: u32 = 0x80;
+    use kirby_assist_core::{defense_response::{Defense, Context, Contact},
+        action_owner::{exclusive_output, Owner}, native_states::situation};
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        for where_ in [situation::GROUND, situation::AIR] {
+            for stick in [[-1., -1.], [1., 1.], [0., -1.], [0., 0.]] {
+                let c = Context { object: 1, situation: where_, allowed: true,
+                    guard_ready: true, air_dodge_ready: true, ..Default::default() };
+                let output = Defense::new().sample(0, true, c,
+                    Some(Contact { source: 2, in_frames: 0., projectile: false }), 4., 0.);
+                let selected = exclusive_output(Some(Owner::HeldDefense), true, output);
+                let held = layout.policy_buttons(GAMEPLAY_BUTTONS | MAPPER_RIGHT_STICK_DIRECTIONS);
+                let raw = ManualOverlay::default().apply_reaction_controls(
+                    ButtonTrace { held, previous: held, pressed: held, ..Default::default() },
+                    stick, TurboOutput { stick: selected.stick, ..Default::default() },
+                    0, selected.requested, selected.owned, true);
+                assert_eq!(raw.stick, [0.; 2]);
+                assert_eq!(raw.buttons.held & GAMEPLAY_BUTTONS, MAPPER_ZR);
+                let mapped = mapped_literal_buttons(mapped_automatic_actions(
+                    MAPPED_ATTACK_HOLD_BITS | MAPPED_SPECIAL | MAPPED_JUMP | MAPPED_JUMP_MINI
+                        | MAPPED_CATCH | MAPPED_CSTICK_BUTTON | MAPPED_GUARD_HOLD,
+                    selected.requested), selected.requested);
+                let mapped = mapped_sequence_cstick(mapped, [0.; 2]);
+                assert_eq!(mapped & (MAPPED_ATTACK_HOLD_BITS | MAPPED_SPECIAL | MAPPED_JUMP
+                    | MAPPED_JUMP_MINI | MAPPED_CATCH | MAPPED_CSTICK_BUTTON), 0);
+                assert_ne!(mapped & MAPPED_GUARD, 0);
+            }
+        }
+    }
+}
+
 fn tape(actions: &str) -> InputTimeline {
     let catalog = Catalog::parse(&format!(
         "[bowser.roll.test]\nstart_delay=0\nactions={actions}\n"
@@ -817,4 +850,10 @@ fn a_recent_but_previous_update_packet_cannot_replay_a_dash_grab_or_special() {
         assert!(!input_update_current(Some(10), 9));
         assert!(!input_update_current(Some(i64::MAX), i64::MIN));
     }
+}
+
+#[test]
+fn guard_release_clears_hold_history_without_losing_attack_or_jump() {
+    let buttons = MAPPED_GUARD | MAPPED_GUARD_HOLD | MAPPED_ATTACK_HOLD_BITS | MAPPED_JUMP;
+    assert_eq!(mapped_guard_release(buttons), MAPPED_ATTACK_HOLD_BITS | MAPPED_JUMP);
 }

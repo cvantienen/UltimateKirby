@@ -42,7 +42,7 @@ fn down_cstick_with_neutral_left_stick_aims_without_changing_attack_edges() {
                 ..context(1.0)
             },
         );
-        assert_eq!(out.stick, Some([-facing * 0.8, -1.0]));
+        assert_eq!(out.stick, Some([-facing * 0.6, -0.65]));
         assert_eq!(out.requested, 0);
         let mapped = ManualOverlay::default().apply_controls(
             physical,
@@ -67,7 +67,7 @@ fn down_cstick_with_neutral_left_stick_aims_without_changing_attack_edges() {
                 ..context(2.0)
             },
         );
-        assert_eq!(facing_correct.stick, Some([0.0, -1.0]));
+        assert_eq!(facing_correct.stick, Some([0.0, -0.65]));
         assert_eq!(
             p.sample(
                 true,
@@ -274,7 +274,7 @@ fn dtilt_keeps_angle_in_hitstop_and_preserves_physical_tilt_stick() {
                     ..context(8.0)
                 },
             );
-            assert_eq!(out.stick, Some([-facing * 0.8, -1.0]));
+            assert_eq!(out.stick, Some([-facing * 0.6, -0.65]));
             let mapped = overlay.apply_controls(
                 ButtonTrace {
                     held: buttons,
@@ -445,7 +445,7 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
             assert_eq!(out.requested, 0, "never synthesize Attack");
             assert_eq!(out.owned & MAPPER_A, 0, "never suppress physical Attack");
             if buttons != 0 {
-                assert_eq!(out.stick, Some([expected_x, -1.0]));
+                assert_eq!(out.stick, Some([expected_x * 0.75, -0.65]));
             }
             let raw = ButtonTrace {
                 held: buttons,
@@ -468,7 +468,7 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
             assert_eq!(mapped.buttons.held & MAPPER_A, raw.held & MAPPER_A);
             assert_eq!(mapped.buttons.pressed & MAPPER_A, raw.pressed & MAPPER_A);
             assert_eq!(mapped.buttons.released & MAPPER_A, raw.released & MAPPER_A);
-            assert_eq!(mapped.stick, [expected_x, -1.0]);
+            assert_eq!(mapped.stick, [expected_x * 0.75, -0.65]);
             if expected_x != 0.0 {
                 let horizontal = if expected_x > 0.0 { 1 << 21 } else { 1 << 23 };
                 assert_ne!(
@@ -494,7 +494,7 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
         );
         assert_eq!(
             out.stick,
-            Some([0.0, -1.0]),
+            Some([0.0, -0.65]),
             "no reversal when already facing the target"
         );
         assert!(p
@@ -590,12 +590,12 @@ fn raw_down_cstick_first_poll_from_standing_and_crouch_needs_no_digital_alias() 
                 Some(-facing),
                 c,
             );
-            assert_eq!(out.stick, Some([-facing * 0.8, -1.0]));
+            assert_eq!(out.stick, Some([-facing * 0.6, -0.65]));
             assert_eq!(out.requested, 0);
             assert_eq!(out.owned, 0);
             assert_eq!(
                 Posture::aimed_c_stick(0, right, out.stick),
-                Some([-facing * 0.8, -1.0])
+                Some([-facing * 0.6, -1.0])
             );
             let mapped = ManualOverlay::default().apply_controls(
                 ButtonTrace::default(),

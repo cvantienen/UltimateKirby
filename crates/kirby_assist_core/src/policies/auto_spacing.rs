@@ -147,10 +147,14 @@ impl Spacing {
         &mut self,
         tick: i64,
         held: bool,
-        config: Config,
+        mut config: Config,
         c: GameplayContext,
         target: Option<Opponent>,
     ) -> Output {
+        let selected_attack = if c.situation == situation::AIR { config.aerial } else { config.ground };
+        config.minimum_distance = if selected_attack.reach.is_finite() {
+            if selected_attack.reach > 0. { selected_attack.reach * 0.75 } else { 15. }
+        } else { 0. };
         if !held || !valid_context(config, c) {
             self.reset();
             return Output::default();
@@ -163,18 +167,18 @@ impl Spacing {
         let Some(enemy) = target.filter(valid_target) else {
             self.pending = false;
             self.pending_frames = 0;
-            self.output = Output { walk_cap, movement_caps: Some(caps), ..Output::default() };
+            self.output = Output { walk_cap, movement_caps: Some(caps),
+                controller: if !airborne && matches!(c.status,
+                    status::DASH | status::TURN_DASH | status::RUN | status::TURN_RUN
+                        | status::RUN_BRAKE | status::TURN_RUN_BRAKE) {
+                    ControllerOutput { stick: Some([0.; 2]),
+                        owned: crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS,
+                        ..ControllerOutput::NONE }
+                } else { ControllerOutput::NONE },
+                ..Output::default() };
             return self.output;
         };
-        let in_range = (enemy.position[0] - c.position[0]).abs() <= config.engagement_range;
-        if !in_range {
-            self.pending = false;
-            self.pending_frames = 0;
-            if airborne {
-                self.output = Output { movement_caps: Some(caps), ..Output::default() };
-                return self.output;
-            }
-        }
+        let in_range = true; // Admission is determined by the move's projected active window.
         // Ground approach is independent of attack engagement; jumps stay human-owned.
         let mut out = Output {
             controller: ControllerOutput {
@@ -207,6 +211,7 @@ impl Spacing {
             if self.pending_target != Some(enemy.id)
                 || airborne != self.pending_airborne
                 || is_attack(c.status)
+                || !predicts_hit(selected_attack, c, enemy, side)
             {
                 self.pending = false;
             } else if new_tick && !c.stopped {
@@ -218,7 +223,8 @@ impl Spacing {
         }
         {
             let distance = dx.abs();
-            let retreat = is_attack(c.status) || distance <= config.minimum_distance;
+            let projected = distance + (enemy.velocity[0] - c.velocity[0]) * side * 3.;
+            let retreat = is_attack(c.status) || projected.min(distance) <= config.minimum_distance;
             let floor_safe = airborne || c.safe_ground[usize::from(side < 0.)];
             if retreat && floor_safe {
                 out.controller.stick =
@@ -295,6 +301,17 @@ impl Spacing {
                 out.attack = true;
             }
             out.controller.stick = self.pending_output.controller.stick;
+        }
+        if !airborne && matches!(c.status,
+            status::DASH | status::TURN_DASH | status::RUN | status::TURN_RUN
+                | status::RUN_BRAKE | status::TURN_RUN_BRAKE)
+        {
+            // Neutral input brakes existing dash/run momentum before walking resumes.
+            out.controller.stick = Some([0.; 2]);
+            out.controller.requested = 0;
+            out.right_stick = [0.; 2];
+            out.attack = false;
+            self.pending = false;
         }
         self.output = out;
         out
@@ -465,6 +482,28 @@ mod tests {
         })
     }
     #[test]
+    fn auto_spacing_brakes_existing_dash_with_or_without_target() {
+        for state in [status::DASH, status::TURN_DASH, status::RUN, status::TURN_RUN,
+            status::RUN_BRAKE, status::TURN_RUN_BRAKE] {
+            for target in [None, enemy(40., -8.)] {
+                let out = Spacing::default().sample(1, true, config(),
+                    GameplayContext { status: state, ..context() }, target);
+                assert_eq!(out.controller.stick, Some([0.; 2]));
+                assert!(!out.attack);
+            }
+        }
+    }
+
+    #[test]
+    fn auto_spacing_uses_move_reach_and_retreats_before_incoming_crosses_it() {
+        let cfg = Config { minimum_distance: 999., engagement_range: 0., ..config() };
+        let mut spacing = Spacing::default();
+        let out = spacing.sample(1, true, cfg, context(), enemy(24., -4.));
+        assert_eq!(out.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
+        assert!(Spacing::default().sample(2, true, cfg, context(), enemy(20., 0.)).attack);
+    }
+
+    #[test]
     fn auto_spacing_adaptive_caps_taper_only_in_final_ten_units_on_both_sides() {
         for maximum in [0.6, 1.] {
             for side in [-1., 1.] {
@@ -594,7 +633,7 @@ mod tests {
         s.mapped(1);
         let outside = s.sample(2, true, cfg, context(), enemy(20.01, -10.));
         assert_eq!(outside.controller.requested, 0);
-        assert_eq!(outside.controller.stick, Some([outside.movement_caps.unwrap()[1], 0.]));
+        assert_eq!(outside.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
         assert!(!outside.attack);
         assert!(s.sample(3, true, cfg, context(), enemy(20., 0.)).attack);
         let missing = s.sample(4, true, cfg, context(), None);
@@ -704,7 +743,8 @@ mod tests {
         let mut cfg = config();
         cfg.ground.commitment = 12.;
         let mut s = Spacing::default();
-        assert!(!s.sample(1, true, cfg, context(), enemy(24., -0.4)).attack);
+        assert!(s.sample(1, true, cfg, context(), enemy(24., -0.4)).attack);
+        s.reset();
         assert!(
             s.sample(2, true, config(), context(), enemy(20., -1.))
                 .attack
@@ -778,7 +818,7 @@ mod tests {
                 s.mapped(tick);
             }
         }
-        assert_eq!(s.output.controller.stick, Some([0.; 2]));
+        assert_eq!(s.output.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
         assert_eq!(
             s.sample(25, false, config(), c, enemy(13., 0.)),
             Output::default()

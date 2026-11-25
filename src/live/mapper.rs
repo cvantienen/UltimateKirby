@@ -78,6 +78,7 @@ struct MapperOutputAdjustments {
     posture_attack: Option<bool>,
     spacing_attack: Option<(bool, [f32; 2], [f32; 2])>,
     spacing_walk_cap: Option<f32>,
+    release_guard: bool,
     /// Optional tech-specific native output adjustment.
     tech_output: Option<TechOutput>,
 }
@@ -221,6 +222,9 @@ unsafe fn apply_mapper_output_adjustments(
         (*mapped).left_y = kirby_assist_core::native_input::mapped_stick_axis(left[1]);
         (*mapped).right_x = kirby_assist_core::native_input::mapped_stick_axis(right[0]);
         (*mapped).right_y = kirby_assist_core::native_input::mapped_stick_axis(right[1]);
+    }
+    if adjustments.release_guard {
+        (*mapped).buttons = kirby_assist_core::native_input::mapped_guard_release((*mapped).buttons);
     }
     if let Some(cap) = adjustments.spacing_walk_cap {
         (*mapped).left_x = kirby_assist_core::auto_spacing::mapped_walk_axis((*mapped).left_x, cap);
@@ -994,7 +998,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         ),
         committed_intent(
             Owner::Counter,
-            state.settings_menu.as_ref().is_some_and(|m| m.counter_held()),
+            state.counter_output.owned != 0 || state.counter.active(),
         ),
         committed_intent(
             Owner::HeldDefense,
@@ -1322,6 +1326,9 @@ fn manual_ledge_walk(
                 | settings.grab_button)
             != 0
             || physical_right_stick.iter().any(|value| value.abs() > 0.2);
+        if manual_attack {
+            return None;
+        }
         Some(match (state.ledge_walk_motion, spot) {
             (Some((position, velocity)), Some(spot)) if !manual_attack => {
                 kirby_assist_core::manual_controls::stop_walk_at_ledge(
@@ -2222,6 +2229,7 @@ fn compose_native_request(
         | mask_if(
             winner != Some(Owner::Spacing) && (owned_direction_flick || walk_cap_flick)
                 || handoff_situation == kirby_assist_core::native_states::situation::GROUND
+                    && !exclusive_sequence
                     && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()),
             LEFT_STICK_SIDE_FLICKS,
         );
@@ -2356,7 +2364,14 @@ fn plan_stick_overlay(
         ..
     } = *request;
     let adjustments = &mut prep.adjustments;
-    if arbitration.situation == kirby_assist_core::native_states::situation::GROUND {
+    adjustments.release_guard = fresh && manual_scope
+        && !arbitration.tech_takeover && !arbitration.tech_press
+        && canonical_requested & kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS == 0
+        && !physical_held(config, manual.buttons, kirby_assist_core::native_input::MAPPER_ZR)
+        && !physical_held(config, manual.buttons, kirby_assist_core::native_input::MAPPER_R);
+    if arbitration.situation == kirby_assist_core::native_states::situation::GROUND
+        && !exclusive_sequence
+    {
         adjustments.spacing_walk_cap = samples.spacing_walk_cap;
     }
     if fresh && manual_scope && matches!(winner, Some(Owner::Counter | Owner::HeldDefense)) {
@@ -2376,6 +2391,15 @@ fn plan_stick_overlay(
     }
     if fresh && manual_scope && (sequence_walking || matches!(winner, Some(Owner::Posture | Owner::Spacing))) {
         adjustments.left_stick = selected.stick.or(manual_walk_stick);
+    }
+    if fresh && manual_scope && winner == Some(Owner::Posture)
+        && samples.posture.tilt_aiming
+        && kirby_assist_core::posture::Posture::down_tilt_intent(
+            gate.policy_buttons, frame.physical_stick, frame.physical_right_stick)
+    {
+        // Preserve the physical C-stick mapping; only its main-stick preparation
+        // must stay below smash strength, including first-poll A + Down.
+        adjustments.left_stick = selected.stick.map(|s| [s[0].clamp(-0.6, 0.6), -0.65]);
     }
     if fresh
         && manual_scope

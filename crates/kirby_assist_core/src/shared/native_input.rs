@@ -482,6 +482,11 @@ pub fn mapped_spacing_input(
     (mapped_spacing_attack(buttons, attack, false), left, [0.; 2])
 }
 
+/// Clear stale shield history only after the caller verifies no guard request remains.
+pub fn mapped_guard_release(buttons: u32) -> u32 {
+    buttons & !(MAPPED_GUARD | MAPPED_GUARD_HOLD)
+}
+
 /// Final literal controller actions, after raw-source/history filtering. The
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.

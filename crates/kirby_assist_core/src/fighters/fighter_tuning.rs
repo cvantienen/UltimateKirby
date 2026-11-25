@@ -634,6 +634,7 @@ impl Tuning {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
             COUNTER_DEFAULT..=COUNTER_HALF_DEPTH => crate::auto_counter::supports(kind),
             PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
+            AUTO_SPACING_MINIMUM_DISTANCE | AUTO_SPACING_ENGAGEMENT_RANGE => false,
             CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
             TILT_TURN_DOWN..=TILT_TURN_UP => matches!(
                 kind,

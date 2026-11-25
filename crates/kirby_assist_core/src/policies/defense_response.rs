@@ -27,6 +27,13 @@ pub struct Contact {
     pub projectile: bool,
 }
 
+pub fn native_allowed(kind: i32, status: i32, situation: i32, captured: bool, allowed: bool) -> bool {
+    allowed && !captured
+        && matches!(situation, crate::native_states::situation::GROUND | crate::native_states::situation::AIR)
+        && !crate::action_owner::native_grab_active(status)
+        && !crate::native_states::fighter_sequence_interrupted(kind, status)
+}
+
 /// Shared bounded lookahead for the native scan and held policy.
 pub fn defense_horizon(lead_frames: f32, input_delay: f32) -> Option<f32> {
     if !(0.0..=30.0).contains(&lead_frames) || !(0.0..=120.0).contains(&input_delay) {
@@ -56,12 +63,14 @@ pub fn scaled_body(
 pub struct Defense {
     object: Option<u32>,
     pending_since: Option<i64>,
+    delivered: bool,
     air_used: bool,
     unavailable_seen: bool,
 }
 impl Defense {
     pub const fn new() -> Self {
-        Self { object: None, pending_since: None, air_used: false, unavailable_seen: false }
+        Self { object: None, pending_since: None, delivered: false,
+            air_used: false, unavailable_seen: false }
     }
 
     pub fn reset(&mut self) {
@@ -75,9 +84,8 @@ impl Defense {
     /// Call only after the selected air-Guard packet actually reaches the mapper.
     /// The mapper must clear its cached requested bits after acknowledging it.
     pub fn mapped_air_dodge(&mut self) {
-        if self.pending_since.take().is_some() {
-            self.air_used = true;
-            self.unavailable_seen = false;
+        if self.pending_since.is_some() {
+            self.delivered = true;
         }
     }
 
@@ -110,6 +118,7 @@ impl Defense {
         });
         if c.situation == GROUND {
             self.pending_since = None;
+            self.delivered = false;
             self.air_used = false;
             self.unavailable_seen = false;
             if imminent && c.guard_ready {
@@ -119,12 +128,17 @@ impl Defense {
         }
         if c.air_dodging {
             self.pending_since = None;
+            self.delivered = false;
             self.air_used = true;
             self.unavailable_seen = true;
             return output;
         }
         if !c.air_dodge_ready {
             self.pending_since = None;
+            if self.delivered {
+                self.air_used = true;
+            }
+            self.delivered = false;
             if self.air_used {
                 self.unavailable_seen = true;
             }
@@ -136,17 +150,28 @@ impl Defense {
         }
         if !imminent {
             self.pending_since = None;
+            self.delivered = false;
             return output;
         }
         if c.stopped || self.air_used {
             return output;
         }
-        // A missing mapper receipt cannot hold Guard forever or continually retry.
+        if self.delivered {
+            let start = self.pending_since.unwrap_or(tick);
+            let wait = 2 + input_delay.ceil() as i64;
+            if tick >= start && tick.saturating_sub(start) < wait {
+                return output;
+            }
+            // Delivery is not native acceptance. Release between attempts, then
+            // retry a still-incoming hit without latching the air dodge as used.
+            self.pending_since = None;
+            self.delivered = false;
+            return output;
+        }
         let start = *self.pending_since.get_or_insert(tick);
         let budget = 8 + input_delay.ceil() as i64;
         if tick < start || tick.saturating_sub(start) > budget {
             self.pending_since = None;
-            self.air_used = true;
             return output;
         }
         output.requested = crate::native_input::MAPPER_ZR;
@@ -190,7 +215,7 @@ mod held_defense_tests {
         assert_eq!(defense.sample(0, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
         assert!(defense.air_pending());
         defense.mapped_air_dodge();
-        assert!(!defense.air_pending());
+        assert!(defense.air_pending());
         assert_eq!(defense.sample(1, true, c, hit(0.0), 4.0, 1.0).requested, 0);
         assert_eq!(defense.sample(2, true, Context { air_dodging: true, ..c }, hit(0.0), 4.0, 1.0).requested, 0);
         assert_eq!(defense.sample(3, true, Context { air_dodge_ready: false, ..c }, hit(0.0), 4.0, 1.0).requested, 0);
@@ -203,7 +228,7 @@ mod held_defense_tests {
         let c = context(AIR);
         assert_eq!(defense.sample(0, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
         assert_eq!(defense.sample(10, true, c, hit(0.0), 4.0, 1.0).requested, 0);
-        assert_eq!(defense.sample(11, true, c, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(11, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
         defense.sample(12, false, c, hit(0.0), 4.0, 1.0);
         defense.mapped_air_dodge(); // A stale receipt cannot arm the new hold.
         assert_eq!(defense.sample(13, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
@@ -211,6 +236,46 @@ mod held_defense_tests {
         assert_eq!(defense.sample(14, true, stopped, hit(0.0), 4.0, 1.0).requested, 0);
         assert_eq!(defense.sample(15, true, c, None, 4.0, 1.0).requested, 0);
         assert!(!defense.air_pending());
+    }
+
+    #[test]
+    fn rejected_mapped_dodge_releases_and_retries_until_native_acceptance() {
+        let mut defense = Defense::new();
+        let c = context(AIR);
+        for start in [0, 4, 8] {
+            assert_eq!(defense.sample(start, true, c, hit(0.), 4., 1.).requested, MAPPER_ZR);
+            defense.mapped_air_dodge();
+            for tick in start + 1..=start + 3 {
+                assert_eq!(defense.sample(tick, true, c, hit(0.), 4., 1.).requested, 0);
+            }
+        }
+        assert_eq!(defense.sample(12, true, c, hit(0.), 4., 1.).requested, MAPPER_ZR);
+        defense.mapped_air_dodge();
+        assert_eq!(defense.sample(13, true, Context { air_dodging: true, ..c }, hit(0.), 4., 1.).requested, 0);
+        assert_eq!(defense.sample(14, true, Context { air_dodge_ready: false, ..c }, hit(0.), 4., 1.).requested, 0);
+        assert_eq!(defense.sample(15, true, c, hit(0.), 4., 1.).requested, MAPPER_ZR);
+    }
+
+    #[test]
+    fn movement_and_attack_states_have_no_extra_defense_lockouts() {
+        use crate::native_states::{status, situation};
+        for (where_, states) in [
+            (GROUND, &[status::WAIT, status::WALK, status::DASH, status::TURN_DASH,
+                status::RUN, status::TURN_RUN, status::RUN_BRAKE, status::TURN_RUN_BRAKE,
+                status::JUMP_SQUAT, status::SQUAT, status::SQUAT_WAIT, status::LANDING,
+                status::LANDING_LIGHT, status::GUARD_OFF, status::ATTACK][..]),
+            (AIR, &[status::JUMP, status::JUMP_AERIAL, status::FALL, status::FALL_AERIAL,
+                status::ATTACK_AIR, status::ESCAPE_AIR, status::ESCAPE_AIR_SLIDE][..])
+        ] {
+            for &state in states {
+                assert!(native_allowed(crate::fighter_kinds::KIRBY, state, where_, false, true), "{state}");
+            }
+        }
+        for state in [status::DAMAGE, status::CAPTURE_PULLED, status::DEAD] {
+            assert!(!native_allowed(crate::fighter_kinds::KIRBY, state, GROUND, false, true));
+        }
+        assert!(!native_allowed(crate::fighter_kinds::KIRBY, status::WAIT, situation::CLIFF, false, true));
+        assert!(!native_allowed(crate::fighter_kinds::KIRBY, status::WAIT, GROUND, true, true));
     }
 
     #[test]

@@ -140,8 +140,8 @@ fn fresh_profiles_use_requested_physical_defaults_in_both_layouts() {
                 },
             ),
             (MAPPER_X, 0),
-            (4, 0),
-            (TURBO_TRIGGER, TURBO_TRIGGER),
+            (4, TURBO_TRIGGER),
+            (TURBO_TRIGGER, 0),
             (MAPPER_Y, 0),
             (MAPPER_R, 0),
             (MAPPER_ZR, 0),
@@ -988,7 +988,7 @@ fn unassigned_dpad_passes_to_game_without_changing_the_open_lightweight_menu() {
         light_input(&mut m, &p, 0, ControlLayout::Default);
         assert_eq!(
             light_input(&mut m, &p, button, ControlLayout::Default) & button,
-            0
+            if button == 4 { button } else { 0 }
         );
         assert_eq!(m.row, row);
         assert_eq!(m.choices, choices);

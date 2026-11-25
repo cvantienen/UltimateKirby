@@ -61,8 +61,8 @@ pub struct Threat {
     pub in_frames: f32,
 }
 
-/// Legacy root-space startup approximation, not contact evidence.
-/// The native counter adapter deliberately does not use this estimate.
+/// Best-effort catalog startup estimate when no live hitbox exists yet.
+/// Root positions cannot establish the exact reach of a future disjoint.
 pub fn predicted_attack(
     config: Config,
     origin: [f32; 3],
@@ -107,7 +107,6 @@ pub fn predicted_attack(
         .filter_map(|window| {
             let until = (window.first as f32 - frame) / rate;
             (frame <= window.last as f32
-                && frame + config.startup * rate <= window.last as f32
                 && until <= config.horizon())
             .then_some(until.max(0.0))
         })
@@ -200,6 +199,12 @@ pub fn active_remaining(kind: i32, motion: u64, frame: f32, rate: f32) -> Option
         .iter()
         .find(|window| frame >= f32::from(window.first) && frame <= f32::from(window.last))
         .map(|window| (f32::from(window.last) - frame) / rate)
+}
+
+/// Forecast observed geometry even when the catalog lacks an active lifetime.
+pub fn forecast_horizon(config: Config, remaining: Option<f32>) -> f32 {
+    remaining.filter(|n| n.is_finite() && *n >= 0.)
+        .unwrap_or(config.horizon()).min(config.horizon())
 }
 
 /// Fighter-owned normal attacks establish a melee source without unverified
@@ -328,15 +333,10 @@ pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> boo
 }
 
 pub fn ready(status: i32, situation: i32) -> bool {
-    match situation {
-        crate::native_states::situation::GROUND => matches!(status,
-            crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT
-            | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT
-            | crate::native_states::status::GUARD_OFF
-            | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT),
-        crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
-        _ => false,
-    }
+    matches!(situation, crate::native_states::situation::GROUND | crate::native_states::situation::AIR)
+        && !crate::native_states::sequence_interrupted(status)
+        && !crate::action_owner::native_grab_active(status)
+        && status != crate::native_states::status::SPECIAL_LW
 }
 
 #[derive(Clone, Copy)]
@@ -348,8 +348,8 @@ pub struct Context {
     pub animation: AnimationSample,
 }
 
-/// At most two mapped pulses per attacker motion when the first fails to
-/// start counter; unacknowledged mapper deliveries may retry while threatened.
+/// Retry with a clean release while contact remains projected and native
+/// down-special readiness permits it; acknowledge native startup before retrying.
 pub struct Counter {
     clock: AnimationClock,
     target: Option<(u32, u64)>,
@@ -436,8 +436,8 @@ impl Counter {
             && frame.is_finite()
             && frame >= 1.0
         {
-            // Do not counter the same lingering attack again after native startup.
-            self.attempts = 2;
+            // A confirmed counter consumes this attack; failed deliveries do not.
+            self.attempts = u8::MAX;
             self.cancel();
             return true;
         }
@@ -533,7 +533,7 @@ impl Counter {
                 self.last = Some(target);
                 self.receipt = true;
                 self.receipt_polls = 0;
-                self.attempts = self.attempts.saturating_add(1);
+                self.attempts = self.attempts.saturating_add(1).min(u8::MAX - 1);
             }
         }
     }
@@ -569,7 +569,6 @@ impl Counter {
             }
             if self.receipt_polls >= 2
                 && now.saturating_sub(self.began) >= config.input_delay.ceil() as i64 + 2
-                && self.attempts < 2
             {
                 // The mapped pulse did not start the special. Release B before
                 // another attempt against the still-observable attack.
@@ -602,7 +601,7 @@ impl Counter {
         if self.target.is_none() {
             if !ready(c.animation.status, c.situation)
                 || !c.can_special
-                || (self.last == Some(key) && self.attempts >= 2)
+                || (self.last == Some(key) && self.attempts == u8::MAX)
                 || threat.in_frames > config.horizon()
             {
                 return ControllerOutput::default();
@@ -648,6 +647,26 @@ mod tests {
     }
 
     #[test]
+    fn failed_counter_deliveries_keep_retrying_same_projected_threat() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        for attempt in 0..4 {
+            let hit = threat(7);
+            assert_eq!(counter.sample(true, Some(config()), c, Some(hit)).requested, MAPPER_B);
+            counter.mapped();
+            for tick in 0..2 {
+                counter.poll_receipt(attempt * 3 + tick);
+            }
+            for _ in 0..3 {
+                c.animation.frame += 1.;
+                counter.sample(true, Some(config()), c, Some(hit));
+            }
+            assert!(counter.release_pending);
+            counter.mapped_release();
+        }
+    }
+
+    #[test]
     fn live_contact_requires_geometry_and_known_lifetime_for_prediction() {
         let hit = crate::autopilot_guard::Hitbox {
             start: [0., 8., 0.], end: [0., 8., 0.], radius: 1., velocity: [0.; 2],
@@ -671,6 +690,10 @@ mod tests {
             contact_horizon(Some(7.), false), None), Some(4.));
         assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
             contact_horizon(Some(7.), true), None), None);
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
+            forecast_horizon(config(), None), None), Some(4.));
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
+            forecast_horizon(config(), Some(3.)), None), None);
     }
 
     #[test]
@@ -855,7 +878,7 @@ mod tests {
             crate::native_states::status::GUARD_OFF,
             crate::native_states::situation::GROUND
         ));
-        assert!(!ready(
+        assert!(ready(
             crate::native_states::status::GUARD,
             crate::native_states::situation::GROUND
         ));
@@ -1094,7 +1117,7 @@ mod tests {
             19.0,
             1.0,
         )
-        .is_none());
+        .is_some());
     }
 
     #[test]
@@ -1178,8 +1201,10 @@ mod tests {
         }
         assert!(Config::for_fighter(crate::fighter_kinds::LUCINA, Tuning::default()).is_some());
         assert!(Config::for_fighter(crate::fighter_kinds::KIRBY, Tuning::default()).is_none());
-        assert!(!can_request(status::GUARD, situation::GROUND, true));
-        assert!(!can_request(status::ATTACK, situation::GROUND, true));
+        assert!(can_request(status::GUARD, situation::GROUND, true));
+        assert!(can_request(status::ATTACK, situation::GROUND, true));
+        assert!(!can_request(status::DAMAGE, situation::GROUND, true));
+        assert!(!can_request(status::CAPTURE_PULLED, situation::AIR, true));
     }
 
     #[test]
@@ -1440,7 +1465,7 @@ mod tests {
         c.animation.frame = 1.;
         assert_eq!(counter.sample(true, Some(config), c, None).owned, 0);
         assert!(!counter.active());
-        assert_eq!(counter.attempts, 2);
+        assert_eq!(counter.attempts, u8::MAX);
     }
 
     #[test]
@@ -1458,7 +1483,7 @@ mod tests {
             counter.poll_receipt(tick);
         }
         assert!(!counter.active());
-        assert_eq!(
+        assert_ne!(
             counter
                 .sample(true, Some(config()), c, Some(threat(7)))
                 .requested,
@@ -1471,7 +1496,7 @@ mod tests {
             0
         );
         counter.cancel();
-        assert_eq!(
+        assert_ne!(
             counter
                 .sample(true, Some(config()), c, Some(threat(7)))
                 .requested,
