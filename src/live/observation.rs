@@ -91,6 +91,7 @@ struct ObservationPolicySnapshot {
     automatic_suspended: bool,
     /// Whether this fighter has an enabled melee counter.
     counter_enabled: bool,
+    held_defense_enabled: bool,
     /// Whether a trip follow-up is queued.
     trip_queued: bool,
     /// Whether grab dodge is enabled.
@@ -371,6 +372,7 @@ fn snapshot_observation_policy(
                     .is_none_or(|(_, observed_tick)| observed_tick != state.raw_tick),
                 counter_enabled: menu
                     .is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
+                held_defense_enabled: menu.is_some_and(|menu| menu.auto_defense_held()),
                 oos_enabled: grabs_enabled,
                 oos_target: if automatic_suspended {
                     None
@@ -466,6 +468,8 @@ unsafe fn refresh_observation_roster(
         flags.scope.acquire && (policy.rules_on || policy.oos_enabled) || flags.scope.follow;
     let requested = discover_roster
         || needs.observe_spacing
+        || policy.held_defense_enabled
+        || policy.counter_enabled
         || needs.preview_start
         || policy.roster_missing
             && (policy.rules_on || defense || policy.posture_modes.1 || policy.counter_enabled);
@@ -477,6 +481,7 @@ unsafe fn refresh_observation_roster(
         || policy.posture_modes.1
         || policy.posture_modes.0
         || defense && flags.scope.acquire
+        || policy.held_defense_enabled
         || policy.counter_enabled;
     if !requested || !active_consumer {
         return;
@@ -662,6 +667,7 @@ struct NativeObservationBasics {
     motion_rate: f32,
     /// Explicit queue compensation for file sequence playback.
     sequence_input_delay: f32,
+    shield_stun_frames: Option<i32>,
     /// Whether damage-stop state is active.
     damage_stop: bool,
 }
@@ -677,6 +683,7 @@ impl NativeObservationBasics {
             motion_frame: self.motion_frame,
             motion_rate: self.motion_rate,
             sequence_input_delay: self.sequence_input_delay,
+            shield_stun_frames: self.shield_stun_frames,
             ..GameplayContext::default()
         }
     }
@@ -697,6 +704,12 @@ unsafe fn observe_native_basics(
         sequence_input_delay: f32::from(config.sequence_input_delay_frames),
         ..NativeObservationBasics::default()
     };
+    if basics.status == kirby_assist_core::native_states::GUARD_DAMAGE {
+        basics.shield_stun_frames = Some(game::work_int(
+            object,
+            kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_GUARD_DAMAGE_WORK_INT_STIFF_FRAME,
+        ));
+    }
     basics.damage_stop = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED
         && (config.auto_sdi || config.auto_di.enabled)
         && (kirby_assist_core::native_states::status::DAMAGE
@@ -1053,6 +1066,11 @@ struct Collected {
     reflect_observation: Option<ReflectObservation>,
     /// Optional configured melee counter.
     counter_observation: Option<CounterObservation>,
+    held_defense_observation: Option<(
+        kirby_assist_core::defense_response::Context,
+        Option<kirby_assist_core::defense_response::Contact>,
+        f32,
+    )>,
     counter_attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
     spacing_observation: Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)>,
     #[cfg(feature = "diagnostic-logging")]
@@ -1085,6 +1103,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     let Pass {
         reads,
         object,
+        object_id,
         own,
         tech_obs: TechObservation { clatter, .. },
         policy:
@@ -1104,10 +1123,29 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     // Read native data outside STATE's mutex to avoid re-entrant deadlocks.
     // One bounded roster pass, only while custom rules are enabled. Follow the
     // locked target through recovery without a second scan or stale position.
-    let rule_observation = collect_rule_observation(p);
+    let mut rule_observation = collect_rule_observation(p);
     let simple_readiness = collect_simple_readiness(p, rule_observation);
     let oos_readiness = collect_oos_readiness(p, rule_observation);
-    let ledge = collect_ledge(p);
+    let mut ledge = collect_ledge(p);
+    let shield_threat = ledge.guard_threat
+        || !ledge.guard_ready
+            && !own.stopped
+            && matches!(own.status, kirby_assist_core::native_states::GUARD_ON
+                | kirby_assist_core::native_states::GUARD
+                | kirby_assist_core::native_states::GUARD_DAMAGE)
+            && (rule_observation.is_some() || ledge.observation.is_some())
+            && observations::incoming_fighter_attack(
+                reads, object, object_id,
+                [reads.pos_x(object), reads.pos_y(object)],
+                [reads.speed_x(object), reads.speed_y(object)],
+                p.policy.analysis_settings.shield(),
+            );
+    if let Some((context, _, _)) = rule_observation.as_mut() {
+        context.shield_threat = shield_threat;
+    }
+    if let Some((context, _, _, _)) = ledge.observation.as_mut() {
+        context.shield_threat = shield_threat;
+    }
     let combat = collect_combat(p);
     let posture = collect_posture(p);
     let manual_context = ManualContext {
@@ -1159,6 +1197,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         oos_follow,
         reflect_observation,
         counter_observation,
+        held_defense_observation: collect_held_defense(p),
         counter_attacker_poses: if p.policy.counter_enabled {
             counter::attacker_poses(p.reads, p.object, p.object_id)
         } else { [None; 16] },
@@ -2132,6 +2171,26 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
     )
 }
 
+unsafe fn collect_held_defense(p: &Pass) -> Option<(
+    kirby_assist_core::defense_response::Context,
+    Option<kirby_assist_core::defense_response::Contact>,
+    f32,
+)> {
+    let (tuning, allowed) = {
+        let state = STATE.lock().ok()?;
+        let menu = state.settings_menu.as_ref()?;
+        if !menu.auto_defense_held() { return None; }
+        (menu.fighter_tuning(p.fighter_kind),
+            !p.tech_obs.clatter && state.action_owner.allows(Owner::HeldDefense))
+    };
+    let lead = tuning.get(kirby_assist_core::fighter_tuning::AUTO_DEFENSE_LEAD_FRAMES);
+    let (context, contact) = counter::observe_defense(
+        p.reads, p.object, p.object_id, p.fighter_kind, tuning, lead,
+        f32::from(p.config.sequence_input_delay_frames), allowed,
+    );
+    Some((context, contact, lead))
+}
+
 unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
     let (configured, allowed) = STATE.lock().ok().map_or((None, false), |s| {
         (
@@ -2142,7 +2201,7 @@ unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
                     config.input_delay = f32::from(p.config.sequence_input_delay_frames);
                     config
                 }),
-            !p.policy.automatic_suspended
+            s.settings_menu.as_ref().is_some_and(|m| m.counter_held())
                 && !p.tech_obs.clatter
                 && s.action_owner.allows(Owner::Counter),
         )
@@ -2270,6 +2329,15 @@ fn publish_observation(
     sample_spacing(state, p, c, tick);
     sample_reflect(state, p, c);
     sample_counter(state, p, c);
+    let defense_held = state.settings_menu.as_ref().is_some_and(|m| m.auto_defense_held())
+        && state.action_owner.allows(Owner::HeldDefense) && !p.tech_obs.clatter;
+    state.held_defense_output = if let Some((context, contact, lead)) = c.held_defense_observation {
+        state.held_defense.sample(tick, defense_held, context, contact, lead,
+            f32::from(p.config.sequence_input_delay_frames))
+    } else {
+        state.held_defense.reset();
+        ControllerOutput::default()
+    };
     state.mash_stick = if policy_tick.is_none() {
         None
     } else {
@@ -3610,18 +3678,9 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
     for pose in c.counter_attacker_poses.into_iter().flatten() {
         state.counter.observe_attacker_pose(pose);
     }
-    let allowed = (!state.ledge_active
-        || state.action_owner.current_owner() == Some(Owner::Counter))
+    let allowed = state.settings_menu.as_ref().is_some_and(|m| m.counter_held())
         && state.action_owner.allows(Owner::Counter)
-        && !p.tech_obs.clatter
-        && state.oos_output.owned == 0
-        && !state.oos.grab_delivery_pending()
-        && state.roll_read_output.owned == 0
-        && state.spot_output.owned == 0
-        && state.trip_output.owned == 0
-        && state.fair_output.owned == 0
-        && state.trump_output.owned == 0
-        && state.reflect_output.owned == 0;
+        && !p.tech_obs.clatter;
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
         state.counter.sample(allowed, Some(config), context, threat)
     } else {

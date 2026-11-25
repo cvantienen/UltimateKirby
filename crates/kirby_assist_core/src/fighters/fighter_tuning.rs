@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 79;
+    pub const COUNT: usize = 83;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -124,6 +124,10 @@ mod schema {
         "auto_spacing_ground_speed",
         "auto_spacing_maximum_drift",
         "auto_spacing_minimum_drift",
+        "auto_spacing_ground_braking",
+        "auto_spacing_air_braking",
+        "auto_spacing_braking_distance",
+        "auto_defense_lead_frames",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -204,9 +208,13 @@ mod schema {
         "Auto DI (experimental)",
         "Auto SDI (experimental)",
         "Spacing: attack engagement range",
-        "Spacing: ground strength (0 = fastest walk)",
+        "Spacing: ground walk fraction (0-1)",
         "Spacing: maximum approach drift",
         "Spacing: minimum approach strength",
+        "Spacing: Ground Braking",
+        "Spacing: Air Braking",
+        "Spacing: braking activation distance",
+        "Auto Defense lead (frames)",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -272,13 +280,13 @@ mod schema {
         "Estimated body height above root for active melee hitbox prediction.",
         "Estimated body half-depth for active melee hitbox prediction.",
         "Minimum root-to-root spacing while the assigned Auto-Spacing & Attack button is held. Universal input assistance, never a toggle.",
-        "0 disabled; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts require C-stick set to Tilt Attack. Lucina defaults to 2; others to 0.",
+        "0 disabled (default for every fighter); 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts use directional tilt inputs, never move or status edits.",
         "Estimated frames before the configured ground attack becomes active; does not change native startup.",
         "Estimated active duration of the configured ground attack; never changes native hitboxes.",
         "Tunable ground reach estimate, not an exact hitbox or hit guarantee.",
         "Tunable ground root-height tolerance, not an exact hitbox or hit guarantee.",
         "Estimated total ground attack commitment in frames; independent of startup and active duration.",
-        "0 disabled; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Already airborne only; never jumps or consumes manual jump. Lucina defaults to 2; others to 0.",
+        "0 disabled (default for every fighter); 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Already airborne only; never jumps or consumes manual jump.",
         "Estimated frames before the configured aerial becomes active; does not change native startup.",
         "Estimated active duration of the configured aerial; never changes native hitboxes.",
         "Tunable aerial reach estimate, not an exact hitbox or hit guarantee.",
@@ -286,16 +294,24 @@ mod schema {
         "Estimated total aerial commitment in frames; independent of startup and active duration.",
         "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
         "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
-        "Attack only inside this horizontal distance. Outside it, direction stays manual with configured movement limits while held. Independent of minimum retreat spacing; holding blocks other automatic modes.",
-        "0 selects the largest native mapped input below dash entry. 0.01-1 set an explicit horizontal stick cap; 1 allows full dash input. Approach braking still applies within the final 10 units.",
+        "Attack only inside this horizontal distance. Ground approach walks toward the target even outside attack range; aerial direction stays manual outside range. Independent of minimum retreat spacing; holding blocks other automatic modes.",
+        "Fraction of the native fastest safe non-dash walk: 0 stops ground movement including retreat, 1 uses maximum safe walk. Positive settings retreat at maximum safe walk; neither direction dashes.",
         "Maximum approaching aerial stick strength while held. Lucina defaults to 0.6; others to 1. Moving away permits full drift. Attack-selection packets retain their required direction.",
-        "Minimum approaching horizontal strength at the spacing boundary (0-1, default 0.1), capped by the selected maximum. Approach strength tapers linearly across the final 10 units; this does not change native physics.",
+        "Minimum approaching horizontal strength at the spacing boundary (0-1, default 0.1), capped by the selected maximum. Enabled braking smoothly tapers within its activation distance; never changes native physics.",
+        "Smooth approaching ground input near minimum spacing. OFF keeps the configured walk fraction. Never slows retreat.",
+        "Smooth approaching aerial input near minimum spacing. OFF keeps the configured maximum drift. Never slows retreat.",
+        "Root-distance above minimum spacing where enabled braking begins (default 5). Outside this zone movement keeps its normal configured strength. Zero disables tapering.",
+        "Frames ahead of predicted contact to begin Auto Defense (0-30, default 4). Input-only timing, not native move startup.",
     ];
 
     pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
     pub const AUTO_SPACING_GROUND_SPEED: usize = 76;
     pub const AUTO_SPACING_MAXIMUM_DRIFT: usize = 77;
     pub const AUTO_SPACING_MINIMUM_DRIFT: usize = 78;
+    pub const AUTO_SPACING_GROUND_BRAKING: usize = 79;
+    pub const AUTO_SPACING_AIR_BRAKING: usize = 80;
+    pub const AUTO_SPACING_BRAKING_DISTANCE: usize = 81;
+    pub const AUTO_DEFENSE_LEAD_FRAMES: usize = 82;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -521,7 +537,12 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HALF_WIDTH] = 5.;
     d[COUNTER_HEIGHT] = 16.;
     d[COUNTER_HALF_DEPTH] = 5.;
-    d[AUTO_SPACING_MINIMUM_DISTANCE] = 12.;
+    d[AUTO_SPACING_MINIMUM_DISTANCE] = 15.;
+    d[AUTO_SPACING_GROUND_SPEED] = 1.;
+    d[AUTO_SPACING_GROUND_BRAKING] = 1.;
+    d[AUTO_SPACING_AIR_BRAKING] = 1.;
+    d[AUTO_SPACING_BRAKING_DISTANCE] = 5.;
+    d[AUTO_DEFENSE_LEAD_FRAMES] = 4.;
     d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
     d[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
     d[AUTO_SPACING_MINIMUM_DRIFT] = 0.1;
@@ -537,14 +558,6 @@ const DEFAULTS: [f32; COUNT] = {
     d[AUTO_SPACING_AERIAL_COMMITMENT] = 30.;
     d
 };
-
-fn auto_spacing_move_default(kind: i32) -> f32 {
-    if kind == crate::fighter_kinds::LUCINA {
-        2.
-    } else {
-        0.
-    }
-}
 
 /// Optional per-fighter overrides for input-assistance policy values.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -605,6 +618,7 @@ impl Tuning {
                 | REFLECT_MAX_HOLD
                 | COUNTER_STARTUP
                 | COUNTER_MARGIN
+                | AUTO_DEFENSE_LEAD_FRAMES
                 | AUTO_SPACING_GROUND_STARTUP
                 | AUTO_SPACING_GROUND_ACTIVE_FRAMES
                 | AUTO_SPACING_GROUND_COMMITMENT
@@ -637,6 +651,8 @@ impl Tuning {
             || i == COUNTER_DEFAULT
             || i == AUTO_DI_DEFAULT
             || i == AUTO_SDI_DEFAULT
+            || i == AUTO_SPACING_GROUND_BRAKING
+            || i == AUTO_SPACING_AIR_BRAKING
             || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
     }
     /// Resolves which physical C-stick tilts should face the opponent.
@@ -650,7 +666,7 @@ impl Tuning {
     /// Resolves universal hold-mode spacing and independent attack estimates.
     pub fn auto_spacing(self, kind: i32) -> crate::auto_spacing::Config {
         use crate::auto_spacing::{Attack, AttackConfig, Config};
-        let attack = |i, aerial| match self.value(i, auto_spacing_move_default(kind)) {
+        let attack = |i, aerial| match self.get(i) {
             1. => Attack::Neutral,
             2. => Attack::Forward,
             3. => Attack::Up,
@@ -665,6 +681,9 @@ impl Tuning {
             maximum_drift: self.value(AUTO_SPACING_MAXIMUM_DRIFT,
                 if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. }),
             minimum_drift: self.get(AUTO_SPACING_MINIMUM_DRIFT),
+            ground_braking: self.get(AUTO_SPACING_GROUND_BRAKING) == 1.,
+            air_braking: self.get(AUTO_SPACING_AIR_BRAKING) == 1.,
+            braking_distance: self.get(AUTO_SPACING_BRAKING_DISTANCE),
             ground: AttackConfig {
                 attack: attack(AUTO_SPACING_GROUND_MOVE, false),
                 startup: self.get(AUTO_SPACING_GROUND_STARTUP),
@@ -745,9 +764,11 @@ impl Tuning {
         }
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
+            AUTO_DEFENSE_LEAD_FRAMES => (0., 30., 1.),
             AUTO_SPACING_GROUND_SPEED | AUTO_SPACING_MAXIMUM_DRIFT
             | AUTO_SPACING_MINIMUM_DRIFT => (0., 1., 0.01),
             AUTO_SPACING_MINIMUM_DISTANCE
+            | AUTO_SPACING_BRAKING_DISTANCE
             | AUTO_SPACING_ENGAGEMENT_RANGE
             | AUTO_SPACING_GROUND_REACH
             | AUTO_SPACING_AERIAL_REACH => (0., 150., 0.5),
@@ -852,8 +873,6 @@ impl Tuning {
         (values[AUTO_GRAB_CLOSE], values[AUTO_GRAB_FAR]) =
             default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
-        values[AUTO_SPACING_GROUND_MOVE] = auto_spacing_move_default(s.fighter_kind);
-        values[AUTO_SPACING_AERIAL_MOVE] = auto_spacing_move_default(s.fighter_kind);
         values[AUTO_SPACING_MAXIMUM_DRIFT] = if s.fighter_kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. };
         Values(values)
     }
@@ -960,6 +979,10 @@ mod tests {
             ("auto_spacing_ground_speed", "1"),
             ("auto_spacing_maximum_drift", "0.6"),
             ("auto_spacing_minimum_drift", "0.15"),
+            ("auto_spacing_ground_braking", "false"),
+            ("auto_spacing_air_braking", "true"),
+            ("auto_spacing_braking_distance", "3.5"),
+            ("auto_defense_lead_frames", "12"),
             ("auto_spacing_ground_move", "3"),
             ("auto_spacing_ground_startup", "9"),
             ("auto_spacing_ground_active_frames", "2"),
@@ -984,6 +1007,10 @@ mod tests {
         assert_eq!(config.ground_speed, 1.);
         assert_eq!(config.maximum_drift, 0.6);
         assert_eq!(config.minimum_drift, 0.15);
+        assert!(!config.ground_braking);
+        assert!(config.air_braking);
+        assert_eq!(config.braking_distance, 3.5);
+        assert_eq!(loaded.get(AUTO_DEFENSE_LEAD_FRAMES), 12.);
         assert!(matches!(config.ground.attack, Attack::Up));
         assert!(matches!(config.aerial.attack, Attack::Back));
         assert_eq!(
@@ -1030,6 +1057,12 @@ mod tests {
             "auto_spacing_ground_speed=1.01",
             "auto_spacing_maximum_drift=-0.1",
             "auto_spacing_minimum_drift=NaN",
+            "auto_spacing_ground_braking=1",
+            "auto_spacing_air_braking=maybe",
+            "auto_spacing_braking_distance=-1",
+            "auto_spacing_braking_distance=NaN",
+            "auto_defense_lead_frames=-1",
+            "auto_defense_lead_frames=31",
             "auto_spacing_minimum_distance=12\nauto_spacing_minimum_distance=14",
         ] {
             assert!(
@@ -1038,6 +1071,25 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn auto_spacing_saved_lucina_values_survive_new_defaults() {
+        let catalog = Catalog::parse("[lucina.settings]\nauto_spacing_ground_move=2\nauto_spacing_aerial_move=2\nauto_spacing_minimum_distance=12\nauto_spacing_ground_speed=0\nauto_spacing_maximum_drift=0.45\n").unwrap();
+        let tuning = catalog.tuning[&crate::fighter_kinds::LUCINA];
+        let config = tuning.auto_spacing(crate::fighter_kinds::LUCINA);
+        assert_eq!(config.ground.attack, crate::auto_spacing::Attack::Forward);
+        assert_eq!(config.aerial.attack, crate::auto_spacing::Attack::Forward);
+        assert_eq!(config.minimum_distance, 12.);
+        assert_eq!(config.ground_speed, 0.);
+        assert_eq!(config.maximum_drift, 0.45);
+        assert_eq!(tuning.get(AUTO_DEFENSE_LEAD_FRAMES), 4.);
+        for value in ["0", "30"] {
+            let mut changed = tuning;
+            changed.set("auto_defense_lead_frames", value).unwrap();
+            let source = persist::update_tuning("", crate::fighter_kinds::LUCINA, changed).unwrap();
+            assert_eq!(Catalog::parse(&source).unwrap().tuning[&crate::fighter_kinds::LUCINA], changed);
+        }
+    }
+
     #[test]
     fn auto_spacing_defaults_resolve_by_fighter_and_match_menu() {
         use crate::auto_spacing::Attack;
@@ -1053,20 +1105,17 @@ mod tests {
             });
             assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
             assert_eq!(config.maximum_drift, menu[AUTO_SPACING_MAXIMUM_DRIFT]);
-            assert_eq!(config.ground_speed, 0.);
+            assert_eq!(config.ground_speed, 1.);
+            assert_eq!(config.minimum_distance, 15.);
+            assert_eq!(config.engagement_range, 20.);
+            assert!(config.ground_braking && config.air_braking);
+            assert_eq!(config.braking_distance, 5.);
             assert_eq!(config.minimum_drift, 0.1);
             assert_eq!(config.maximum_drift, if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. });
-            if kind == crate::fighter_kinds::LUCINA {
-                assert!(matches!(config.ground.attack, Attack::Forward));
-                assert!(matches!(config.aerial.attack, Attack::Forward));
-                assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 2.);
-                assert_eq!(menu[AUTO_SPACING_AERIAL_MOVE], 2.);
-            } else {
-                assert!(matches!(config.ground.attack, Attack::Disabled));
-                assert!(matches!(config.aerial.attack, Attack::Disabled));
-                assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 0.);
-                assert_eq!(menu[AUTO_SPACING_AERIAL_MOVE], 0.);
-            }
+            assert!(matches!(config.ground.attack, Attack::Disabled));
+            assert!(matches!(config.aerial.attack, Attack::Disabled));
+            assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 0.);
+            assert_eq!(menu[AUTO_SPACING_AERIAL_MOVE], 0.);
         }
     }
     /// Regression test for `applied_values_change_decisions_and_inputs_only`.

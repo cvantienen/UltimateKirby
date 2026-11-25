@@ -456,6 +456,32 @@ pub fn mapped_spacing_attack(buttons: u32, attack: bool, cstick: bool) -> u32 {
     mapped_attack_hold(clean, attack) | bits_if(attack && cstick, MAPPED_CSTICK_BUTTON)
 }
 
+/// Final spacing packet, applied after movement caps and native mapping.
+/// Directional ground C-stick requests use the existing A + 0.6 tilt-stick
+/// mechanism so a neutral main stick cannot turn them into jabs. Clear C-stick
+/// flags/axes to avoid inheriting the player's Smash/Attack C-stick mapping.
+/// Aerial selection already owns the main stick; neutral attacks stay neutral.
+/// `left` and `right` must be the selected spacing packet, not physical axes.
+pub fn mapped_spacing_input(
+    buttons: u32,
+    attack: bool,
+    left: [f32; 2],
+    right: [f32; 2],
+) -> (u32, [f32; 2], [f32; 2]) {
+    let tilt = attack && right.iter().all(|v| v.is_finite())
+        && right.iter().any(|v| v.abs() > 0.5);
+    let left = if tilt {
+        if right[1].abs() > right[0].abs() {
+            [0., right[1].signum() * 0.6]
+        } else {
+            [right[0].signum() * 0.6, 0.]
+        }
+    } else {
+        left
+    };
+    (mapped_spacing_attack(buttons, attack, false), left, [0.; 2])
+}
+
 /// Final literal controller actions, after raw-source/history filtering. The
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.

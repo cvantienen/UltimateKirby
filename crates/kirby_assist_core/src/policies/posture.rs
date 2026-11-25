@@ -182,7 +182,7 @@ impl Posture {
             // a horizontal left stick with a live tilt-stick attack.
             Some(([0.0, 0.0], [0.0, 1.0]))
         } else if settings.down && right[1] < -0.5 && right[1].abs() > right[0].abs() {
-            Some(([x, 0.0], [x, -1.0]))
+            Some(([x, -1.0], [x, -1.0]))
         } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
             Some(([x, 0.0], [toward, 0.0]))
         } else {
@@ -607,7 +607,7 @@ mod tests {
         };
         assert_eq!(
             Posture::configured_c_stick(down, 0, [0.0; 2], [0.0, -1.0], Some(-1.0), grounded(1.0),),
-            Some(([-0.8, 0.0], [-0.8, -1.0]))
+            Some(([-0.8, -1.0], [-0.8, -1.0]))
         );
     }
 

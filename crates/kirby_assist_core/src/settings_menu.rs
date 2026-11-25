@@ -353,6 +353,14 @@ pub struct MenuSelection {
     trump_sources: u32,
     /// Physical sources assigned to hold-only spacing and attack assistance.
     spacing_sources: u32,
+    spacing_toggle_sources: u32,
+    spacing_toggled: bool,
+    counter_sources: u32,
+    counter_toggle_sources: u32,
+    counter_toggled: bool,
+    defense_sources: u32,
+    defense_toggle_sources: u32,
+    defense_toggled: bool,
     /// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
     /// Runtime binding sources value used by MenuSelection..
@@ -707,9 +715,7 @@ impl MenuSelection {
             && !(row == MenuRow::AutoReflect
                 && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
                     .is_none())
-            && !(row == MenuRow::AutoCounter
-                && crate::auto_counter::Config::for_fighter(self.y_fighter_kind, self.tuning)
-                    .is_none())
+            && row != MenuRow::AutoCounter
     }
     /// Constructs a new value with the type’s initial state.
     pub fn new(presets: &MenuPresets) -> Self {
@@ -1152,17 +1158,17 @@ mod auto_spacing_tests {
             let base = presets.list(slot).options.len();
             let spacing = base + Builtin::AutoSpacing.template_offset();
             let choices = selection.visible_choices(&presets, slot);
-            assert_eq!(choices.last(), Some(&spacing));
-            assert_eq!(selection.choice_end(&presets, slot), spacing + 1);
+            assert!(choices.contains(&spacing));
+            assert_eq!(selection.choice_end(&presets, slot), base + slot.templates());
             assert_eq!(
                 selection.choice(&presets, slot, spacing).unwrap().id,
                 Builtin::AutoSpacing.choice_id()
             );
             selection.choices[slot as usize] = spacing;
-            assert_eq!(selection.cycle_choice(&presets, slot, true), choices[0]);
+            assert_eq!(selection.cycle_choice(&presets, slot, true), spacing + 1);
             selection.quick_menu = true;
             let (position, count) = selection.choice_position(&presets, slot);
-            assert_eq!(position + 1, count);
+            assert_eq!(position + 3, count);
             selection.quick_menu = false;
         }
         let saved = persist::update(
@@ -1198,6 +1204,53 @@ mod auto_spacing_tests {
             menu.menu_hidden = true;
             menu.capture_binding_input(MAPPER_Y, p);
             assert!(menu.auto_spacing_held());
+        }
+    }
+
+    #[test]
+    fn defensive_holds_preempt_committed_bindings_and_release_cleanly() {
+        use crate::action_owner::Owner;
+        let (mut selection, presets) = spacing_selection();
+        selection.choices[PresetSlot::X as usize] = presets.list(PresetSlot::X).options.len()
+            + Builtin::Counter.visible_template_offset().unwrap();
+        selection.choices[PresetSlot::L3 as usize] = presets.list(PresetSlot::L3).options.len()
+            + Builtin::AutoDefense.visible_template_offset().unwrap();
+        selection.block_binding_starts(true);
+        let l3 = PresetSlot::L3.button();
+        selection.capture_binding_input(MAPPER_X | l3 | MAPPER_Y, &presets);
+        assert_eq!(selection.defensive_owner(), Some(Owner::HeldDefense));
+        assert!(!selection.auto_spacing_held());
+        assert_eq!(selection.builtin_consumed & (MAPPER_X | l3), MAPPER_X | l3);
+        selection.capture_binding_input(MAPPER_X, &presets);
+        assert_eq!(selection.defensive_owner(), Some(Owner::Counter));
+        selection.capture_binding_input(0, &presets);
+        assert_eq!(selection.defensive_owner(), None);
+        selection.button_latch &= selection.binding_layout.binding_ownership(selection.binding_physical);
+        selection.block_binding_starts(false);
+        selection.capture_binding_input(MAPPER_Y, &presets);
+        assert!(selection.auto_spacing_held());
+    }
+
+    #[test]
+    fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
+        use crate::{fighter_profiles::FighterProfiles, sequence_config::{Catalog, persist, Sequence}};
+        let mut profiles = FighterProfiles::default();
+        profiles.add_sequence_choices(&Catalog::parse("").unwrap()).unwrap();
+        for kind in [crate::fighter_kinds::KIRBY, crate::fighter_kinds::LUCINA] {
+            let presets = profiles.profile(kind).unwrap().menu_options;
+            let selection = MenuSelection::new(&presets);
+            for (slot, expected) in [(PresetSlot::L3, Builtin::AutoDefense),
+                (PresetSlot::DpadDown, Builtin::TurboTeabag)] {
+                assert_eq!(selection.choice(&presets, slot, selection.choices[slot as usize]).unwrap().id,
+                    expected.choice_id());
+            }
+            let saved = persist::update("", kind, PresetSlot::L3, "saved_turbo",
+                Sequence { builtin: Some(Builtin::TurboTeabag), ..Default::default() }, true).unwrap();
+            let catalog = Catalog::parse(&saved).unwrap();
+            let mut selection = selection;
+            selection.load_saved_recipes(&presets, &catalog, kind);
+            assert_eq!(selection.choice(&presets, PresetSlot::L3,
+                selection.choices[PresetSlot::L3 as usize]).unwrap().id, "saved_turbo");
         }
     }
 

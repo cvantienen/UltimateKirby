@@ -34,6 +34,7 @@ struct Actor {
     guard: u32,
     passive_disabled: bool,
     air_escape: bool,
+    guard_enabled: bool,
     floor_enabled: bool,
     active: bool,
     motion: u64,
@@ -60,6 +61,7 @@ impl Actor {
             guard: 0,
             passive_disabled: false,
             air_escape: false,
+            guard_enabled: false,
             floor_enabled: true,
             active: true,
             motion: kirby_assist_core::timing::motion_hash("attack_lw3"),
@@ -174,8 +176,17 @@ mod game_ffi {
         use kirby_assist_core::native_states::transition_terms as t;
         match term {
             t::CONT_ESCAPE_AIR => actor(o).air_escape,
+            t::CONT_GUARD_ON => actor(o).guard_enabled,
             t::PASSIVE | t::PASSIVE_FB => actor(o).floor_enabled,
             _ => false,
+        }
+    }
+    pub unsafe fn param_float(_: *mut Object, key: u64, _: u64) -> f32 {
+        match key {
+            super::native_params::PARAM_AIR_ACCEL_Y => 0.08,
+            super::native_params::PARAM_AIR_SPEED_Y_STABLE => 2.0,
+            super::native_params::PARAM_GROUND_BRAKE => 0.1,
+            _ => panic!("unexpected parameter {key}"),
         }
     }
     pub unsafe fn work_float(o: *mut Object, key: i32) -> f32 {
@@ -228,6 +239,20 @@ static SEQUENCES: OnceLock<Mutex<SequenceLibrary>> = OnceLock::new();
 static MANAGER_SLOT: AtomicUsize = AtomicUsize::new(0);
 mod attack_sources {
     use super::*;
+    pub fn projectiles() -> [Option<kirby_assist_core::projectile_reflect::ProjectileKey>; 32] {
+        let mut result = [None; 32];
+        SOURCES.with(|sources| {
+            for (slot, source) in sources.borrow().iter().filter(|a| matches!(a.id >> 28, 1 | 4)).enumerate().take(32) {
+                result[slot] = Some(kirby_assist_core::projectile_reflect::ProjectileKey {
+                    id: source.id, generation: 1,
+                });
+            }
+        });
+        result
+    }
+    pub fn forget(id: u32) {
+        SOURCES.with(|sources| sources.borrow_mut().retain(|a| a.id != id));
+    }
     pub fn sources() -> [Option<u32>; 32] {
         SOURCES.with(|sources| {
             let sources = sources.borrow();
@@ -243,6 +268,130 @@ mod hitboxes;
 mod observations;
 #[path = "../../../src/live/tech.rs"]
 mod tech;
+#[path = "../../../src/live/counter.rs"]
+mod counter;
+
+static ROSTER_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn defense_scan(own: &mut Actor, lead: f32, delay: f32) -> (
+    kirby_assist_core::defense_response::Context,
+    Option<kirby_assist_core::defense_response::Contact>,
+) {
+    let reads = frame::FrameReads::default();
+    {
+        let _lock = ROSTER_TEST_LOCK.lock().unwrap();
+        let mut roster = [None; 16];
+        SOURCES.with(|sources| {
+            for (slot, source) in sources.borrow().iter().filter(|a| a.id >> 28 == 0).enumerate().take(16) {
+                roster[slot] = Some(source.id);
+            }
+        });
+        STATE.lock().unwrap().ledge_roster = Some((roster, 0));
+        assert_eq!(reads.roster(), Some(roster));
+        STATE.lock().unwrap().ledge_roster = None;
+    }
+    unsafe {
+        counter::observe_defense(&reads, own.object(), 1,
+            kirby_assist_core::fighter_kinds::KIRBY,
+            kirby_assist_core::fighter_tuning::Tuning::default(), lead, delay, true)
+    }
+}
+
+#[test]
+fn held_defense_forecasts_unknown_active_melee_geometry_with_lead_and_delay() {
+    let mut own = Actor::new(1);
+    own.guard_enabled = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.motion = kirby_assist_core::timing::motion_hash("unknown_attack");
+    enemy.position[0] = 200.0;
+    enemy.geometry.x = -188.0; // Actual hitbox at x=12, not the distant root.
+    enemy.geometry.power = 5.0;
+    enemy.velocity[0] = -1.0;
+    assert!(kirby_assist_core::auto_counter::active_remaining(
+        kirby_assist_core::fighter_kinds::KIRBY, enemy.motion, enemy.frame, 1.0).is_none());
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert!(defense_scan(&mut own, 3.0, 0.0).1.is_none());
+    let (context, contact) = defense_scan(&mut own, 3.0, 1.0);
+    let contact = contact.unwrap();
+    assert!(context.guard_ready);
+    assert_eq!(contact.source, 2);
+    assert!(!contact.projectile);
+    assert_eq!(contact.in_frames, 4.0);
+    SOURCES.with(|s| s.borrow_mut()[0].active = false);
+    assert!(defense_scan(&mut own, 30.0, 0.0).1.is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn held_defense_projectiles_use_geometry_and_situation_without_owner_admission() {
+    use kirby_assist_core::native_states::situation;
+    let mut own = Actor::new(1);
+    for id in [0x10000002, 0x40000002] {
+        let mut shot = Box::new(Actor::new(id));
+        shot.geometry.power = 5.0;
+        shot.position[0] = 12.0;
+        shot.velocity[0] = -1.0;
+        SOURCES.with(|s| *s.borrow_mut() = vec![shot]);
+        let hit = defense_scan(&mut own, 4.0, 0.0).1.unwrap();
+        assert_eq!(hit.source, id);
+        assert!(hit.projectile);
+        assert_eq!(hit.in_frames, 4.0);
+        SOURCES.with(|s| s.borrow_mut()[0].stopped = true);
+        assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
+        SOURCES.with(|s| {
+            let mut s = s.borrow_mut();
+            s[0].stopped = false;
+            s[0].geometry.situation = situation::ATTACK_AIR_MASK;
+        });
+        assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
+    }
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn held_defense_respects_native_guard_and_air_escape_readiness() {
+    use kirby_assist_core::{defense_response::Defense, native_input::MAPPER_ZR, native_states::{situation, status}};
+    let mut own = Actor::new(1);
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.geometry.power = 5.0;
+    enemy.geometry.situation = situation::ATTACK_GROUND_MASK | situation::ATTACK_AIR_MASK;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    let mut defense = Defense::new();
+    for (stopped, status, enabled, expected) in [
+        (false, status::WAIT, false, false),
+        (false, status::WAIT, true, true),
+        (true, status::WAIT, true, false),
+        (true, status::GUARD_DAMAGE, false, true),
+    ] {
+        own.stopped = stopped;
+        own.status = status;
+        own.guard_enabled = enabled;
+        let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+        assert!(contact.is_some());
+        assert_eq!(context.guard_ready, expected);
+        assert_eq!(defense.sample(0, true, context, contact, 4.0, 0.0).requested,
+            if expected { MAPPER_ZR } else { 0 });
+    }
+    own.stopped = false;
+    own.status = status::FALL;
+    own.situation = situation::AIR;
+    for enabled in [false, true] {
+        own.air_escape = enabled;
+        let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+        assert!(contact.is_some());
+        assert!(!context.guard_ready);
+        assert_eq!(context.air_dodge_ready, enabled);
+        assert_eq!(defense.sample(1, true, context, contact, 4.0, 0.0).requested,
+            if enabled { MAPPER_ZR } else { 0 });
+    }
+    LINKS.with(|links| links.set(1));
+    let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+    LINKS.with(|links| links.set(0));
+    assert!(!context.allowed);
+    assert!(contact.is_none());
+    assert_eq!(defense.sample(2, true, context, contact, 4.0, 0.0).owned, 0);
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
 
 #[test]
 fn nearby_hitboxes_use_geometry_and_situation_instead_of_root_or_startup() {
@@ -296,6 +445,24 @@ fn distant_roots_do_not_hide_disjoint_fighter_weapon_or_item_hitboxes() {
         });
     }
     SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn harmless_hitboxes_cannot_exhaust_guard_scan_and_latch_shield() {
+    let mut own = Actor::new(1);
+    SOURCES.with(|sources| {
+        *sources.borrow_mut() = (2..20).map(|id| {
+            let mut enemy = Box::new(Actor::new(id));
+            enemy.position = [200., 100., 0.];
+            enemy.motion = 0;
+            enemy.status = kirby_assist_core::native_states::status::WAIT;
+            enemy
+        }).collect();
+    });
+    assert!(!unsafe { observations::incoming_fighter_attack(
+        &frame::FrameReads::default(), own.object(), 1, [0.; 2], [0.; 2],
+        kirby_assist_core::autopilot_guard::Envelope::default(),
+    ) });
 }
 
 #[test]
@@ -513,6 +680,7 @@ fn native_hitstop_forecast_includes_frozen_frames_before_contact() {
 }
 #[test]
 fn real_frame_cache_keeps_sixteen_actor_roster_copies_scoped_to_one_observation() {
+    let _lock = ROSTER_TEST_LOCK.lock().unwrap();
     let roster = std::array::from_fn(|i| Some(i as u32));
     STATE.lock().unwrap().ledge_roster = Some((roster, 1));
     let reads = frame::FrameReads::default();

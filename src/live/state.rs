@@ -150,6 +150,8 @@ pub(super) struct State {
     /// Counter policy and current controller proposal.
     pub(super) counter: kirby_assist_core::auto_counter::Counter,
     pub(super) counter_output: ControllerOutput,
+    pub(super) held_defense: kirby_assist_core::defense_response::Defense,
+    pub(super) held_defense_output: ControllerOutput,
     /// Optional spot-dodge policy and target state.
     pub(super) spot_dodge: Option<kirby_assist_core::spot_dodge::SpotDodge>,
     /// Current spot-dodge controller proposal.
@@ -247,7 +249,8 @@ impl State {
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();
         self.reflect_output = ControllerOutput::default();
-        if !self.counter.awaiting_receipt() {
+        if !self.settings_menu.as_ref().is_some_and(|m| m.counter_held())
+            && !self.counter.awaiting_receipt() {
             self.counter.cancel();
             self.counter_output = ControllerOutput::default();
         }
@@ -273,7 +276,7 @@ impl State {
     }
     /// Cancels pending actions except those owned by the selected priority owner.
     pub(super) fn cancel_non_owner(&mut self, keep: Option<Owner>) {
-        if !matches!(keep, Some(Owner::Safety | Owner::Spacing)) {
+        if !matches!(keep, Some(Owner::Safety | Owner::Spacing | Owner::Counter | Owner::HeldDefense)) {
             if let Some(tech) = self.tech_input.as_mut() {
                 tech.cancel_request();
             }
@@ -282,6 +285,10 @@ impl State {
         if keep != Some(Owner::Reflect) {
             self.reflector.cancel();
             self.reflect_output = ControllerOutput::default();
+        }
+        if keep != Some(Owner::HeldDefense) {
+            self.held_defense.reset();
+            self.held_defense_output = ControllerOutput::default();
         }
         if keep != Some(Owner::Counter) {
             self.counter.cancel();
@@ -387,6 +394,8 @@ impl State {
             reflect_output: ControllerOutput::NONE,
             counter: kirby_assist_core::auto_counter::Counter::new(),
             counter_output: ControllerOutput::NONE,
+            held_defense: kirby_assist_core::defense_response::Defense::new(),
+            held_defense_output: ControllerOutput::NONE,
             settings_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
@@ -513,6 +522,8 @@ impl State {
     /// that differ: menu changes keep reflector/tech edge history, a full
     /// cancellation does not.
     fn clear_tool_proposals(&mut self) {
+        self.held_defense.reset();
+        self.held_defense_output = ControllerOutput::default();
         self.reflect_output = ControllerOutput::default();
         self.counter.cancel();
         self.counter_output = ControllerOutput::default();

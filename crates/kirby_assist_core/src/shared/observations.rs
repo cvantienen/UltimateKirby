@@ -286,6 +286,8 @@ pub mod gameplay {
         pub full_hop_speed: Option<f32>,
         /// The number of frames the controlled fighter is in shield stun, if applicable.
         pub shield_stun_frames: Option<i32>,
+        /// A currently observed incoming attack still requires shield protection.
+        pub shield_threat: bool,
         /// The ID of the attacker causing the shield stun, if applicable.
         pub shield_attacker: Option<u32>,
         /// Native hit infliction during Kirby's current assisted attack.

@@ -833,6 +833,56 @@ fn file_shield_until_block_waits_through_hitstop_and_stun_then_sends_grab() {
 }
 
 #[test]
+fn shield_contact_uses_native_stun_and_buffers_release_followups() {
+    for action in ["up_b:4", "input:r:0:0:4", "jump:4", "down_tilt:4", "side_special:4"] {
+        let mut t = timeline(&format!("shield_until_block:30,{action}"));
+        assert_eq!(sample(&mut t, ctx(0.)).requested, MAPPER_ZR);
+        let hit = GameplayContext {
+            status: crate::native_states::GUARD_DAMAGE,
+            shield_stun_frames: Some(2),
+            ..ctx(1.)
+        };
+        assert_eq!(sample(&mut t, hit).requested, MAPPER_ZR);
+        let ready = GameplayContext { shield_stun_frames: Some(0), ..hit };
+        assert_eq!(sample(&mut t, GameplayContext {
+            shield_threat: true, ..ready
+        }).requested, MAPPER_ZR, "{action}: preserve continuing protection");
+        assert_eq!(sample(&mut t, GameplayContext {
+            stopped: true, ..ready
+        }).requested, MAPPER_ZR, "{action}: never execute in hitstop");
+        let out = sample(&mut t, ready);
+        if matches!(action, "up_b:4" | "input:r:0:0:4" | "jump:4") {
+            assert_ne!(out.requested & !MAPPER_ZR, 0, "{action}: direct OOS");
+            assert_ne!(out.requested & MAPPER_ZR, 0);
+        } else {
+            assert_eq!(out.requested, 0, "{action}: release first");
+            let drop = GameplayContext { status: crate::native_states::GUARD_OFF, ..ctx(0.) };
+            let buffered = sample(&mut t, drop);
+            assert_ne!(buffered.requested & (MAPPER_A | MAPPER_B), 0, "{action}");
+            assert_eq!(buffered.requested & MAPPER_ZR, 0);
+            assert_eq!(sample(&mut t, drop), buffered);
+            let resumed = sample(&mut t, ctx(0.));
+            assert_eq!(resumed.requested, buffered.requested);
+            assert!(!t.finished());
+        }
+    }
+}
+
+#[test]
+fn shield_contact_can_advance_when_guard_return_was_not_observed() {
+    let mut t = timeline("shield_until_block:30,down_tilt:4");
+    sample(&mut t, ctx(0.));
+    sample(&mut t, GameplayContext {
+        status: crate::native_states::GUARD_DAMAGE, stopped: true, ..ctx(1.)
+    });
+    let out = sample(&mut t, ctx(0.));
+    assert_eq!(out.requested, MAPPER_A);
+    assert_eq!(out.stick, Some([0., -0.6]));
+    assert_eq!(sample(&mut t, GameplayContext { held: false, ..ctx(1.) }).requested, 0);
+    assert!(t.finished());
+}
+
+#[test]
 fn blocked_getup_attack_cancels_shield_into_up_b_on_the_first_guard_frame() {
     for action in [
         "up_b:1",

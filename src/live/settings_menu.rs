@@ -424,6 +424,15 @@ impl SettingsMenu {
     pub fn auto_spacing_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::auto_spacing_held)
     }
+    pub fn defensive_owner(&self) -> Option<kirby_assist_core::action_owner::Owner> {
+        self.scoped().and_then(MenuSelection::defensive_owner)
+    }
+    pub fn auto_defense_held(&self) -> bool {
+        self.scoped().is_some_and(MenuSelection::auto_defense_held)
+    }
+    pub fn counter_held(&self) -> bool {
+        self.scoped().is_some_and(MenuSelection::counter_held)
+    }
     /// Copies independent damage-stick preferences for the observed fighter.
     pub fn damage_sticks(&self, kind: i32, defaults: [bool; 2]) -> [bool; 2] {
         self.selections.get(&kind).map_or(defaults, |s| {
@@ -492,7 +501,7 @@ impl SettingsMenu {
     /// Builds an enabled counter from this fighter's saved settings.
     pub fn counter_config(&self, kind: i32) -> Option<kirby_assist_core::auto_counter::Config> {
         let selection = self.for_fighter(kind)?.live()?;
-        if !selection.auto_counter {
+        if !selection.counter_held() {
             return None;
         }
         kirby_assist_core::auto_counter::Config::for_fighter(kind, selection.tuning)

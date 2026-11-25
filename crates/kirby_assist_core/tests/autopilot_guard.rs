@@ -153,6 +153,27 @@ fn guard_tail_bridges_gaps_in_native_frames_and_release_cancels_immediately() {
 }
 
 #[test]
+fn stationary_guard_and_enemy_cannot_renew_an_ended_threat() {
+    use kirby_assist_core::autopilot_guard::{GuardClock, GuardHold};
+    let own = GuardClock {
+        status: kirby_assist_core::native_states::GUARD,
+        motion: 123, frame: 10., rate: 0., stopped: false,
+    };
+    let enemy = Some((7, GuardClock {
+        status: kirby_assist_core::native_states::status::WAIT,
+        motion: 456, rate: 1., ..own
+    }));
+    let mut hold = GuardHold::default();
+    assert!(hold.sample_with_progress(true, true, own, 4., enemy));
+    assert!(hold.sample_with_progress(true, true, own, 4., enemy));
+    assert!(!hold.sample_with_progress(true, false, own, 4., enemy));
+    let stun = GuardClock { status: kirby_assist_core::native_states::GUARD_DAMAGE, ..own };
+    assert!(hold.sample_with_progress(true, false, stun, 4., enemy));
+    assert!(!hold.sample_with_progress(false, true, own, 4., enemy));
+    assert!(!hold.sample_with_progress(true, false, own, 4., enemy));
+}
+
+#[test]
 fn unknown_or_rewound_clocks_do_not_leave_a_shield_latched() {
     use kirby_assist_core::autopilot_guard::{GuardClock, GuardHold};
     let c = GuardClock {

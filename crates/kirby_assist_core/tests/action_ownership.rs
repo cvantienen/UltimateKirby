@@ -27,11 +27,13 @@ fn held_spacing_reserves_modes_even_without_an_attack_packet() {
     assert!(control.allows(Owner::Safety));
     control.release(Owner::Spacing);
     control.set_automatic_suspended(false);
+    assert!(!control.allows(Owner::Counter));
+    control.set_defensive_hold(false, true);
     assert!(control.allows(Owner::Counter));
 }
 
 #[test]
-fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() {
+fn counter_requires_hold_then_preempts_sequences_and_keeps_release_reservation() {
     for owner in [
         Owner::Ledge,
         Owner::RollRead,
@@ -45,8 +47,12 @@ fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() 
             control.select(true, &[intent(owner, true), intent(Owner::Counter, true)]),
             Some(owner)
         );
+        assert_eq!(control.set_defensive_hold(false, true), Some(owner));
+        assert_eq!(control.select(true, &[intent(owner, true), intent(Owner::Counter, true)]),
+            Some(Owner::Counter));
     }
     let mut control = ActionOwnership::new();
+    control.set_defensive_hold(false, true);
     control.select(true, &[intent(Owner::Counter, true)]);
     assert_eq!(
         control.select(
@@ -55,7 +61,7 @@ fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() 
         ),
         Some(Owner::Counter)
     );
-    control.release(Owner::Counter);
+    control.set_defensive_hold(false, false);
     assert_eq!(
         control.select(true, &[intent(Owner::RollRead, true)]),
         Some(Owner::RollRead)
@@ -406,6 +412,7 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         Owner::Fair,
     ] {
         let mut control = ActionOwnership::new();
+        control.set_defensive_hold(false, current == Owner::Counter);
         control.select(true, &[intent(current, true)]);
         for other in [
             Owner::GrabDodge,

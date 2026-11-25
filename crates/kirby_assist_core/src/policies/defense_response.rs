@@ -1,4 +1,4 @@
-//! Event-triggered, file-authored defensive responses. No native calls or scans.
+//! Held universal defense and event-triggered defensive responses. No native calls or scans.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::InputTimeline,
@@ -7,6 +7,238 @@ use crate::{
     sequence_config::Sequence,
     settings::AssistSettings,
 };
+
+/// Native eligibility is read afresh; this policy never changes fighter state.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Context {
+    pub object: u32,
+    pub situation: i32,
+    pub allowed: bool,
+    pub stopped: bool,
+    pub guard_ready: bool,
+    pub air_dodge_ready: bool,
+    pub air_dodging: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Contact {
+    pub source: u32,
+    pub in_frames: f32,
+    pub projectile: bool,
+}
+
+/// Shared bounded lookahead for the native scan and held policy.
+pub fn defense_horizon(lead_frames: f32, input_delay: f32) -> Option<f32> {
+    if !(0.0..=30.0).contains(&lead_frames) || !(0.0..=120.0).contains(&input_delay) {
+        return None;
+    }
+    Some((lead_frames + input_delay).min(40.0))
+}
+
+/// Scale a root-relative body estimate without treating size changes as immunity.
+pub fn scaled_body(
+    mut body: crate::auto_counter::Config,
+    scale: f32,
+) -> Option<crate::auto_counter::Config> {
+    if !(0.01..=10.0).contains(&scale) {
+        return None;
+    }
+    body.half_width *= scale;
+    body.height *= scale;
+    body.half_depth *= scale;
+    [body.half_width, body.height, body.half_depth]
+        .into_iter()
+        .all(|value| value.is_finite() && value > 0.0)
+        .then_some(body)
+}
+
+#[derive(Default)]
+pub struct Defense {
+    object: Option<u32>,
+    pending_since: Option<i64>,
+    air_used: bool,
+    unavailable_seen: bool,
+}
+impl Defense {
+    pub const fn new() -> Self {
+        Self { object: None, pending_since: None, air_used: false, unavailable_seen: false }
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
+    pub fn air_pending(&self) -> bool {
+        self.pending_since.is_some()
+    }
+
+    /// Call only after the selected air-Guard packet actually reaches the mapper.
+    /// The mapper must clear its cached requested bits after acknowledging it.
+    pub fn mapped_air_dodge(&mut self) {
+        if self.pending_since.take().is_some() {
+            self.air_used = true;
+            self.unavailable_seen = false;
+        }
+    }
+
+    pub fn sample(
+        &mut self,
+        tick: i64,
+        held: bool,
+        c: Context,
+        contact: Option<Contact>,
+        lead_frames: f32,
+        input_delay: f32,
+    ) -> ControllerOutput {
+        use crate::native_states::situation::{AIR, GROUND};
+        if !held || !c.allowed || !matches!(c.situation, GROUND | AIR) {
+            self.reset();
+            return ControllerOutput::NONE;
+        }
+        if self.object != Some(c.object) {
+            self.reset();
+            self.object = Some(c.object);
+        }
+        let mut output = ControllerOutput {
+            owned: crate::ledge_trap::SEQUENCE_BUTTONS,
+            stick: Some([0.0; 2]),
+            ..ControllerOutput::NONE
+        };
+        let horizon = defense_horizon(lead_frames, input_delay);
+        let imminent = contact.zip(horizon).is_some_and(|(hit, horizon)| {
+            hit.in_frames.is_finite() && (0.0..=horizon).contains(&hit.in_frames)
+        });
+        if c.situation == GROUND {
+            self.pending_since = None;
+            self.air_used = false;
+            self.unavailable_seen = false;
+            if imminent && c.guard_ready {
+                output.requested = crate::native_input::MAPPER_ZR;
+            }
+            return output;
+        }
+        if c.air_dodging {
+            self.pending_since = None;
+            self.air_used = true;
+            self.unavailable_seen = true;
+            return output;
+        }
+        if !c.air_dodge_ready {
+            self.pending_since = None;
+            if self.air_used {
+                self.unavailable_seen = true;
+            }
+            return output;
+        }
+        if self.unavailable_seen {
+            self.air_used = false;
+            self.unavailable_seen = false;
+        }
+        if !imminent {
+            self.pending_since = None;
+            return output;
+        }
+        if c.stopped || self.air_used {
+            return output;
+        }
+        // A missing mapper receipt cannot hold Guard forever or continually retry.
+        let start = *self.pending_since.get_or_insert(tick);
+        let budget = 8 + input_delay.ceil() as i64;
+        if tick < start || tick.saturating_sub(start) > budget {
+            self.pending_since = None;
+            self.air_used = true;
+            return output;
+        }
+        output.requested = crate::native_input::MAPPER_ZR;
+        output
+    }
+}
+
+#[cfg(test)]
+mod held_defense_tests {
+    use super::*;
+    use crate::{native_input::MAPPER_ZR, native_states::situation::{AIR, GROUND}};
+
+    fn context(situation: i32) -> Context {
+        Context { object: 1, situation, allowed: true, guard_ready: true,
+            air_dodge_ready: true, ..Context::default() }
+    }
+    fn hit(in_frames: f32) -> Option<Contact> {
+        Some(Contact { source: 2, in_frames, projectile: false })
+    }
+
+    #[test]
+    fn ground_reserves_controls_and_releases_at_contact_exit() {
+        let mut defense = Defense::new();
+        let c = context(GROUND);
+        let out = defense.sample(0, true, c, hit(5.0), 4.0, 1.0);
+        assert_eq!(out.requested, MAPPER_ZR);
+        assert_eq!(out.owned, crate::ledge_trap::SEQUENCE_BUTTONS);
+        assert_eq!(out.stick, Some([0.0; 2]));
+        for contact in [hit(5.1), hit(f32::NAN), hit(-1.0), None] {
+            assert_eq!(defense.sample(1, true, c, contact, 4.0, 1.0).requested, 0);
+        }
+        assert_eq!(defense.sample(2, false, c, hit(0.0), 4.0, 1.0), ControllerOutput::NONE);
+        assert_eq!(defense.sample(3, true, Context { allowed: false, ..c }, hit(0.0), 4.0, 1.0), ControllerOutput::NONE);
+        assert_eq!(defense.sample(4, true, Context { guard_ready: false, ..c }, hit(0.0), 4.0, 1.0).requested, 0);
+    }
+
+    #[test]
+    fn air_receipt_stops_repeats_until_native_readiness_returns() {
+        let mut defense = Defense::new();
+        let c = context(AIR);
+        assert_eq!(defense.sample(0, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
+        assert!(defense.air_pending());
+        defense.mapped_air_dodge();
+        assert!(!defense.air_pending());
+        assert_eq!(defense.sample(1, true, c, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(2, true, Context { air_dodging: true, ..c }, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(3, true, Context { air_dodge_ready: false, ..c }, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(4, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
+    }
+
+    #[test]
+    fn pending_delivery_is_bounded_and_release_discards_it() {
+        let mut defense = Defense::new();
+        let c = context(AIR);
+        assert_eq!(defense.sample(0, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
+        assert_eq!(defense.sample(10, true, c, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(11, true, c, hit(0.0), 4.0, 1.0).requested, 0);
+        defense.sample(12, false, c, hit(0.0), 4.0, 1.0);
+        defense.mapped_air_dodge(); // A stale receipt cannot arm the new hold.
+        assert_eq!(defense.sample(13, true, c, hit(0.0), 4.0, 1.0).requested, MAPPER_ZR);
+        let stopped = Context { stopped: true, ..c };
+        assert_eq!(defense.sample(14, true, stopped, hit(0.0), 4.0, 1.0).requested, 0);
+        assert_eq!(defense.sample(15, true, c, None, 4.0, 1.0).requested, 0);
+        assert!(!defense.air_pending());
+    }
+
+    #[test]
+    fn lead_and_delivery_delay_share_bounded_prediction_window() {
+        assert_eq!(defense_horizon(0.0, 0.0), Some(0.0));
+        assert_eq!(defense_horizon(4.0, 3.0), Some(7.0));
+        assert_eq!(defense_horizon(30.0, 120.0), Some(40.0));
+        assert_eq!(defense_horizon(f32::NAN, 0.0), None);
+        assert_eq!(defense_horizon(31.0, 0.0), None);
+        assert_eq!(defense_horizon(4.0, -1.0), None);
+    }
+
+    #[test]
+    fn valid_scaled_bodies_predict_real_contacts_not_root_distance() {
+        let body = crate::auto_counter::Config { startup: 1.0, input_delay: 3.0,
+            margin: 0.0, half_width: 2.0, height: 8.0, half_depth: 2.0 };
+        let attack = crate::autopilot_guard::Hitbox {
+            start: [5.0, 4.0, 0.0], end: [5.0, 4.0, 0.0], radius: 1.0, velocity: [0.0; 2],
+        };
+        assert_eq!(crate::auto_counter::incoming_contact(body, [0.0; 3], [0.0; 2], attack, 4.0, None), None);
+        let large = scaled_body(body, 2.0).unwrap();
+        assert_eq!(crate::auto_counter::incoming_contact(large, [0.0; 3], [0.0; 2], attack, 4.0, None), Some(0.0));
+        let approaching = crate::autopilot_guard::Hitbox { velocity: [-1.0, 0.0], ..attack };
+        assert_eq!(crate::auto_counter::incoming_contact(body, [0.0; 3], [0.0; 2], approaching, 4.0, None), Some(2.0));
+        assert!(scaled_body(body, f32::NAN).is_none());
+        assert!(scaled_body(body, 0.0).is_none());
+    }
+}
 
 /// Runtime Smash data carried by `Response`.
 #[derive(Default)]

@@ -1012,6 +1012,7 @@ mod tests {
             short_hop_speed: None,
             full_hop_speed: None,
             shield_stun_frames: None,
+            shield_threat: false,
             shield_attacker: None,
             hit_confirmed: false,
             safe_ground: [true; 2],

@@ -19,22 +19,19 @@ fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
     m.input(b, p);
 }
 #[test]
-fn l3_defaults_to_selectable_turbo_without_starting_a_recipe() {
+fn l3_defaults_to_defense_and_down_to_turbo_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
     let index = m.choices[PresetSlot::L3 as usize];
-    assert_eq!(
-        m.choice(&p, PresetSlot::L3, index).unwrap().id,
-        Builtin::TurboTeabag.choice_id()
-    );
-    assert_eq!(index, Builtin::TurboTeabag.template_offset());
-    assert!(Builtin::MENU.contains(&Builtin::TurboTeabag));
+    assert_eq!(m.choice(&p, PresetSlot::L3, index).unwrap().id,
+        Builtin::AutoDefense.choice_id());
     m.input(0, &p);
     assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
-    assert_ne!(
-        m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER,
-        0
-    );
+    assert!(m.auto_defense_held());
+    assert_eq!(m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER, 0);
+    m.input(0, &p);
+    assert_ne!(m.input(DPAD_DOWN, &p) & DPAD_DOWN, 0);
+    assert_ne!(m.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER, 0);
     assert!(m.preview_slot.is_none());
 }
 
@@ -89,6 +86,8 @@ fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper(
                     Builtin::TurboTeabag.choice_id(),
                     Builtin::LedgeTrump.choice_id(),
                     Builtin::AutoSpacing.choice_id(),
+                    Builtin::Counter.choice_id(),
+                    Builtin::AutoDefense.choice_id(),
                 ]
             );
             assert!(m.choice(&p, slot, base + slot.templates()).is_none());
@@ -303,7 +302,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 4);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 6);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m
@@ -333,6 +332,7 @@ fn unassigned_dpad_has_no_builtin_mode_or_shortcut_reservation() {
                 | PresetSlot::DpadRight
         )
     }) {
+        m.choices[slot as usize] = p.list(slot).options.len();
         m.input(0, &p);
         assert_eq!(m.input(slot.button(), &p) & slot.button(), 0);
         assert!(m.preview_slot.is_none());

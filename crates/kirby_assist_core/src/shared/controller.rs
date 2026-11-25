@@ -45,6 +45,7 @@ pub mod action_owner {
         Reflect,
         /// Configured melee counter.
         Counter,
+        HeldDefense,
         Spacing,
     }
 
@@ -67,8 +68,10 @@ pub mod action_owner {
         /// Returns the `priority` result.
         fn priority(self) -> u8 {
             match self {
-                Self::Safety => 100,
-                Self::Spacing => 99,
+                Self::Safety => 103,
+                Self::HeldDefense => 102,
+                Self::Counter => 101,
+                Self::Spacing => 100,
                 Self::GrabDodge => 99,
                 Self::OptionRead => 98,
                 Self::Trip => 90,
@@ -81,7 +84,6 @@ pub mod action_owner {
                 Self::Posture => 5,
                 Self::OutOfShield => 92,
                 Self::Reflect => 35,
-                Self::Counter => 36,
             }
         }
         /// Determines whether the `exclusive` condition holds.
@@ -196,6 +198,7 @@ pub mod action_owner {
         ledge_priority: bool,
         /// Runtime automatic suspended value used by ActionOwnership..
         automatic_suspended: bool,
+        held_defense: Option<Owner>,
         /// Runtime manual value used by ActionOwnership..
         manual: crate::manual_controls::ManualTakeover,
         /// Runtime locked manual value used by ActionOwnership..
@@ -208,6 +211,7 @@ pub mod action_owner {
                 locked: None,
                 ledge_priority: false,
                 automatic_suspended: false,
+                held_defense: None,
                 manual: crate::manual_controls::ManualTakeover::new(),
                 locked_manual: None,
             }
@@ -296,8 +300,28 @@ pub mod action_owner {
         pub fn automatic_suspended(&self) -> bool {
             self.automatic_suspended
         }
+        /// Returns the displaced owner so callers can discard its pending packet.
+        pub fn set_defensive_hold(&mut self, defense: bool, counter: bool) -> Option<Owner> {
+            let next = if defense { Some(Owner::HeldDefense) }
+                else if counter { Some(Owner::Counter) } else { None };
+            let previous = self.held_defense;
+            self.held_defense = next;
+            let displaced = self.locked.filter(|owner| *owner != Owner::Safety
+                && (next.is_some() && Some(*owner) != next
+                    || previous.is_some() && Some(*owner) == previous && next != previous));
+            if displaced.is_some() {
+                self.unlock();
+            }
+            displaced
+        }
         /// Scope-independent admission gates shared by every owner.
         fn admissible(&self, owner: Owner) -> bool {
+            if let Some(held) = self.held_defense {
+                return owner == Owner::Safety || owner == held;
+            }
+            if matches!(owner, Owner::HeldDefense | Owner::Counter) {
+                return false;
+            }
             (!self.automatic_suspended || !Self::automatic(owner))
                 && (!self.ledge_priority || Self::ledge_compatible(owner))
         }
@@ -323,6 +347,7 @@ pub mod action_owner {
                 self.unlock();
                 self.ledge_priority = false;
                 self.automatic_suspended = false;
+                self.held_defense = None;
                 return None;
             }
             if self.locked.is_some_and(|owner| {
@@ -349,6 +374,27 @@ pub mod action_owner {
     mod takeover_tests {
         use super::*;
         use crate::{gameplay::ControllerOutput, native_input::GAMEPLAY_BUTTONS};
+
+        #[test]
+        fn held_defense_preempts_and_safety_wins_without_restoring_old_owner() {
+            let mut ownership = ActionOwnership::new();
+            let intent = |owner| Intent { owner, present: true, committed: true };
+            assert_eq!(ownership.select(true, &[intent(Owner::Ledge)]), Some(Owner::Ledge));
+            assert_eq!(ownership.set_defensive_hold(true, true), Some(Owner::Ledge));
+            assert!(!ownership.allows(Owner::Counter));
+            assert!(!ownership.allows(Owner::Spacing));
+            assert_eq!(ownership.select(true, &[intent(Owner::HeldDefense), intent(Owner::Counter)]), Some(Owner::HeldDefense));
+            let neutral = exclusive_output(Some(Owner::HeldDefense), true, ControllerOutput::NONE);
+            assert_eq!(neutral.stick, Some([0.; 2]));
+            assert_eq!(neutral.owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
+            assert_eq!(ownership.select(true, &[intent(Owner::Safety), intent(Owner::HeldDefense)]), Some(Owner::Safety));
+            ownership.release(Owner::Safety);
+            ownership.set_defensive_hold(false, true);
+            assert_eq!(ownership.select(true, &[intent(Owner::Counter)]), Some(Owner::Counter));
+            assert_eq!(ownership.set_defensive_hold(false, false), Some(Owner::Counter));
+            assert_eq!(ownership.select(true, &[]), None);
+            assert_eq!(ownership.select(true, &[intent(Owner::Spacing)]), Some(Owner::Spacing));
+        }
 
         #[test]
         fn detected_ledge_wait_and_queued_reaction_own_neutral_controller() {

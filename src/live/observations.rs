@@ -10,7 +10,9 @@
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi::{self as game};
 /// Maximum number of attack-geometry entries scanned in one frame.
-const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
+const ATTACK_GEOMETRY_SCAN_BUDGET: usize =
+    (kirby_assist_core::battle_objects::FIGHTER_CAPACITY
+        + kirby_assist_core::projectile_reflect::SOURCE_CAPACITY) * 8;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;

@@ -376,6 +376,32 @@ fn counter_native_permission_is_required_in_movement_and_air() {
     }
 }
 #[test]
+fn counter_normal_attacks_do_not_depend_on_unverified_capability_bytes() {
+    use kirby_assist_core::{auto_counter::Counter, native_states::{status, situation}, native_input::MAPPER_B};
+    for direct in [0, 1, 255] {
+        for (height, mask, expected) in [(0., situation::ATTACK_GROUND_MASK, true),
+            (40., situation::ATTACK_GROUND_MASK, false), (0., situation::ATTACK_AIR_MASK, false)] {
+            let mut own = reset();
+            counter_enemy(|e| {
+                e.status = status::ATTACK_S3;
+                e.situation = situation::GROUND;
+                e.motion = kirby_assist_core::timing::motion_hash("attack_s3_s");
+                e.position = [4., height, 0.];
+                e.velocity = [0.; 2];
+                e.geometry.situation = mask;
+                e.geometry.direct = direct;
+            });
+            let (config, context, threat) = unsafe { counter::observe(
+                &frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true,
+            ) }.unwrap();
+            let out = Counter::new().sample(true, Some(config), context, threat);
+            assert_eq!(out.requested == MAPPER_B, expected, "direct={direct}, height={height}, mask={mask}");
+        }
+    }
+}
+
+#[test]
 fn counter_observation_requires_live_geometry_not_a_catalog_window() {
     for scenario in 0..7 {
         let mut own = reset();
@@ -392,7 +418,7 @@ fn counter_observation_requires_live_geometry_not_a_catalog_window() {
             counter::observe(&frame::FrameReads, &mut *own, 1,
                 kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
         }.unwrap();
-        assert_eq!(threat.is_some(), matches!(scenario, 0 | 3), "scenario {scenario}: {threat:?}");
+        assert_eq!(threat.is_some(), scenario == 0, "scenario {scenario}: {threat:?}");
     }
 }
 #[test]
@@ -440,7 +466,7 @@ fn unknown_catalog_timing_keeps_observed_melee_contact() {
     counter_enemy(|e| {
         e.id = 8;
         e.motion = 999;
-        e.position[0] = 8.;
+        e.position[0] = 4.;
     });
     let (_, _, threat) = unsafe {
         counter::observe(&frame::FrameReads, &mut *own, 1,
@@ -538,7 +564,6 @@ fn movement_prediction_reaches_counter_delivery_in_running_and_falling_states() 
         own.position[1] = if mode == 0 { 0.0 } else { 14.0 };
         own.velocity = match mode { 0 => [2.0, 0.0], 2 => [0.0, -8.0], 3 => [-4.0, 0.0], _ => [0.0; 2] };
         counter_enemy(|e| {
-            e.motion = 999;
             e.position[0] = if mode == 0 { 18.0 } else { 0.0 };
             e.velocity = [0.0; 2];
         });

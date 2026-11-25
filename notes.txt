@@ -1,8 +1,0 @@
-the editor menu has weird scrolling on some pages, go through and ensure the editor training menu 
-is woorking propley an no other issues. Also the configured name options we made to be a seclection list 
-of premade terms when naming sequnces isnt there ensure thats working
-then ensure im abel to create custom button configs im unable to create one unless custom config is already there
-Then add this to be pre configured universal options that can be configured to be used across all charichters in the selction menu
-    b reserse - actions = drift:facing:1:2, opponent_input:b:-0.3:0:2, drift:backward:1:4
-also remove the ledge trap option from cusmtom button pre configurations they shouldent be an option it shouod just be 
-the b reverse, short hop, ledge trump, 

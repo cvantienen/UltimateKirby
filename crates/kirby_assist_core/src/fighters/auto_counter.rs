@@ -7,7 +7,7 @@ use crate::{
     timing::{AnimationClock, AnimationSample},
 };
 
-/// Register verified down-special counter adapters here. Settings still opt in per fighter.
+/// Register verified down-special counter adapters here; the physical hold admits requests.
 pub fn supports(kind: i32) -> bool {
     kind == crate::fighter_kinds::LUCINA
 }
@@ -23,7 +23,7 @@ pub struct Config {
 }
 impl Config {
     pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
-        if !supports(kind) || values.0[tuning::COUNTER_DEFAULT].is_none() {
+        if !supports(kind) {
             return None;
         }
         Some(Self {
@@ -200,6 +200,22 @@ pub fn active_remaining(kind: i32, motion: u64, frame: f32, rate: f32) -> Option
         .iter()
         .find(|window| frame >= f32::from(window.first) && frame <= f32::from(window.last))
         .map(|window| (f32::from(window.last) - frame) / rate)
+}
+
+/// Fighter-owned normal attacks establish a melee source without unverified
+/// capability bytes. Specials/articles need separate ownership evidence.
+pub fn melee_status(status: i32) -> bool {
+    (crate::native_states::status::ATTACK..=crate::native_states::status::ATTACK_AIR)
+        .contains(&status)
+}
+
+/// Unknown active lifetimes prove current contact only, not future contact.
+pub fn contact_horizon(remaining: Option<f32>, stopped: bool) -> f32 {
+    if stopped {
+        0.0
+    } else {
+        remaining.filter(|n| n.is_finite() && *n >= 0.0).unwrap_or(0.0)
+    }
 }
 
 /// Check live melee geometry when the counter becomes active, not just while it is starting.
@@ -629,6 +645,32 @@ mod tests {
             height: 16.0,
             half_depth: 5.0,
         }
+    }
+
+    #[test]
+    fn live_contact_requires_geometry_and_known_lifetime_for_prediction() {
+        let hit = crate::autopilot_guard::Hitbox {
+            start: [0., 8., 0.], end: [0., 8., 0.], radius: 1., velocity: [0.; 2],
+        };
+        for status in [crate::native_states::status::ATTACK_S3, crate::native_states::status::ATTACK_AIR] {
+            assert!(melee_status(status));
+            assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], hit,
+                contact_horizon(None, false), None), Some(0.));
+        }
+        let passing = crate::autopilot_guard::Hitbox {
+            start: [0., 25., 0.], end: [0., 25., 0.], velocity: [3., 0.], ..hit
+        };
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], passing,
+            contact_horizon(Some(7.), false), None), None);
+        let approaching = crate::autopilot_guard::Hitbox {
+            start: [10., 8., 0.], end: [10., 8., 0.], velocity: [-1., 0.], ..hit
+        };
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
+            contact_horizon(None, false), None), None);
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
+            contact_horizon(Some(7.), false), None), Some(4.));
+        assert_eq!(incoming_contact(config(), [0.; 3], [0.; 2], approaching,
+            contact_horizon(Some(7.), true), None), None);
     }
 
     #[test]
@@ -1130,8 +1172,12 @@ mod tests {
                 "status {state}"
             );
         }
-        assert!(!can_request(status::FALL, situation::AIR, false));
-        assert!(can_request(status::FALL, situation::AIR, true));
+        for state in [status::JUMP, status::JUMP_AERIAL, status::FALL, status::FALL_AERIAL] {
+            assert!(!can_request(state, situation::AIR, false));
+            assert!(can_request(state, situation::AIR, true));
+        }
+        assert!(Config::for_fighter(crate::fighter_kinds::LUCINA, Tuning::default()).is_some());
+        assert!(Config::for_fighter(crate::fighter_kinds::KIRBY, Tuning::default()).is_none());
         assert!(!can_request(status::GUARD, situation::GROUND, true));
         assert!(!can_request(status::ATTACK, situation::GROUND, true));
     }

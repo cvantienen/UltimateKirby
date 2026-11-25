@@ -9044,17 +9044,26 @@ builtin = auto_spacing
 
 
 [lucina.settings]
+walk_strength = 0.48999986
 tilt_turn_forward = true
 tilt_turn_up = true
 counter_default = true
-counter_startup = 6
-counter_margin = 0
-counter_half_width = 10
-counter_height = 20
+counter_startup = 7
+counter_margin = 3
+counter_half_width = 9
+counter_height = 17
 counter_half_depth = 6
-auto_spacing_minimum_distance = 15
+auto_spacing_minimum_distance = 24
+auto_spacing_ground_move = 1
+auto_spacing_ground_startup = 3
+auto_spacing_ground_active_frames = 4
+auto_spacing_aerial_active_frames = 10
+auto_spacing_aerial_height = 20.5
 auto_di_default = false
 auto_sdi_default = false
+auto_spacing_engagement_range = 15
+auto_spacing_maximum_drift = 0.59000003
+auto_spacing_minimum_drift = 0.12
 
 [luigi.neutral.nair]
 default = false

@@ -101,6 +101,37 @@ fn down_cstick_with_neutral_left_stick_aims_without_changing_attack_edges() {
 }
 
 #[test]
+fn configured_down_cstick_turn_keeps_down_dominant_without_inventing_attack() {
+    use kirby_assist_core::posture::TiltSettings;
+    let settings = TiltSettings { down: true, forward: true, up: true };
+    for facing in [-1.0, 1.0] {
+        let c = ManualContext { facing, ..context(0.) };
+        let mut posture = Posture::default();
+        for target in [-facing, facing] {
+            let (left, right) = Posture::configured_c_stick(
+                settings, 0, [0.; 2], [0., -1.], Some(target), c,
+            ).unwrap();
+            assert!(left[1] < -left[0].abs());
+            assert!(right[1] < -right[0].abs());
+            let out = posture.sample_configured(
+                true, false, true, settings, 0, [0.; 2], [0., -1.], Some(target), c,
+            );
+            assert_eq!(out.stick, Some(left));
+            assert_eq!(out.requested, 0);
+        }
+        assert!(Posture::configured_c_stick(
+            settings, 0, [-facing, 0.], [0.; 2], Some(-facing), c,
+        ).is_none());
+        assert_eq!(Posture::configured_c_stick(
+            settings, 0, [0.; 2], [facing, 0.], Some(facing), c,
+        ).unwrap().1, [facing, 0.]);
+        assert_eq!(posture.sample_configured(
+            false, false, true, settings, 0, [0.; 2], [0., -1.], Some(-facing), c,
+        ).stick, None);
+    }
+}
+
+#[test]
 fn crouch_yields_to_grab_edges_and_restores_neutral_without_a_down_tail() {
     use kirby_assist_core::{
         manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS},
