@@ -148,7 +148,11 @@ impl Catalog {
             self.held = 0;
             self.ticks = 0;
         }
-        if pressed & (A | B | X | Y | DPAD_SIDES | DPAD_UP | DPAD_DOWN) != 0 || repeat {
+        if pressed & (A | B | X | Y | DPAD_SIDES | DPAD_UP | DPAD_DOWN) != 0
+            || repeat
+            || matches!(self.mode, Mode::Name { .. })
+                && pressed & crate::native_input::MAPPER_ZL != 0
+        {
             self.revision = self.revision.wrapping_add(1);
         }
         if pressed & B != 0 {
@@ -731,6 +735,33 @@ mod rename_regressions {
         c.input(A, A, name);
         c
     }
+    #[test]
+    fn rename_picker_switch_invalidates_menu_content_without_editing_recipe() {
+        let p = MenuPresets::EMPTY;
+        let mut m = MenuSelection::new(&p);
+        m.show();
+        m.row = MenuRow::DpadDown;
+        m.choices[PresetSlot::DpadDown as usize] = PresetSlot::BUTTON_CUSTOM_OFFSET;
+        m.catalog_mut().mode = Mode::Name {
+            text: b"Name".to_vec(),
+            cursor: 0,
+            picker: NamePicker::Alphabet,
+        };
+        m.input(0, &p);
+        let recipes = m.recipe_revision;
+        for expected in ["predefined term", "letter"] {
+            let before = m.content_revision;
+            m.input(MAPPER_ZL, &p);
+            assert_ne!(m.content_revision, before);
+            assert_eq!(m.recipe_revision, recipes);
+            assert!(m.recipe_panel(&p).into_lines().join(" ").contains(expected));
+            let after = m.content_revision;
+            m.input(MAPPER_ZL, &p);
+            m.input(0, &p);
+            assert_eq!(m.content_revision, after);
+        }
+    }
+
     /// Returns the `accepted` result.
     fn accepted(c: &mut Catalog) -> String {
         match c.input(Y, Y, "") {

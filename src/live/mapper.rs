@@ -434,9 +434,13 @@ unsafe fn record_mapped_delivery(
         state.counter_output = ControllerOutput::default();
     }
     if state.action_owner.current_owner() == Some(Owner::Counter) {
+        if mapped.buttons & kirby_assist_core::native_input::MAPPED_SPECIAL == 0 {
+            state.counter.mapped_release();
+        }
         let tick = state.raw_tick;
         state.counter.poll_receipt(tick);
         if !state.counter.active() {
+            state.counter_output = ControllerOutput::default();
             state.action_owner.release(Owner::Counter);
         }
     }
@@ -712,7 +716,11 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
             .is_some_and(LedgeTrap::committed_input_pending);
     attack_sources::tracking(
         config.autopilot_shield && ledge_held
-            || !ledge_held && menu.is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
+            || !ledge_held
+                && menu.is_some_and(|m| {
+                    m.reflect_config(kind.unwrap_or(-1)).is_some()
+                        || m.counter_config(kind.unwrap_or(-1)).is_some()
+                }),
     );
     let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
     // Mode buttons may block acquisition, never replace a committed tape.
@@ -839,6 +847,8 @@ struct MapperDiagnostics {
 /// the D-pad bits whose taunts must be filtered from the mapped output.
 #[derive(Default)]
 pub(super) struct MapperPreparation {
+    /// Observation identity captured when this packet was composed.
+    publication: Option<(u64, i64, u32)>,
     /// Original controller contents to restore after native mapping.
     pub(super) restore: Option<ControllerRestore>,
     /// Planned button and stick changes for the mapped result.
@@ -985,7 +995,7 @@ fn committed_intent(owner: Owner, present: bool) -> Intent {
         committed: true,
     }
 }
-/// An intent that yields to every committed owner.
+/// A non-reserving intent; native safety still preempts committed owners.
 fn passive_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -1128,7 +1138,7 @@ fn sample_mapper_posture(
     }
     let posture = manual_context.map_or_else(ControllerOutput::default, |context| {
         let tool = state.posture.get_or_insert_with(Default::default);
-        let up_turn = tool.sample_up_turn(
+        let up_turn = tool.sample_manual_up_turn(
             state.raw_tick,
             manual_scope && fresh && tilt_turn,
             tilt_settings,
@@ -1139,6 +1149,7 @@ fn sample_mapper_posture(
             ),
             policy_buttons,
             physical_stick,
+            physical_right_stick,
             posture_target,
             context,
         );
@@ -2538,6 +2549,9 @@ unsafe fn commit_overlay(
         physical_triggers,
         ..
     } = *frame;
+    prep.publication = state.associated_object.map(|object| {
+        (state.observation_sequence, state.raw_tick, object)
+    });
     let policy_buttons = gate.policy_buttons;
     let PostureSample {
         configured_c_stick,
@@ -2615,7 +2629,18 @@ pub(super) unsafe fn finish_mapper_overlay(
     session_ticket: SessionTicket,
     preparation: MapperPreparation,
 ) {
+    let state_guard = STATE.lock().ok();
+    let current = state_guard.as_ref().is_some_and(|state| {
+        runtime::mapper_output_current(state, index, session_ticket, preparation.publication)
+    });
+    if !current {
+        if let Some(saved) = preparation.restore {
+            saved.restore();
+        }
+        return;
+    }
     let MapperPreparation {
+        publication: _,
         restore,
         adjustments,
         feedback,
@@ -2642,6 +2667,13 @@ pub(super) unsafe fn finish_mapper_overlay(
         };
     if restore.is_some() && !output.is_null() {
         apply_mapper_output_adjustments(output, &adjustments);
+    }
+    if reserved_dpad != 0 && !output.is_null() {
+        let mapped = output.cast::<MappedInputs>();
+        (*mapped).buttons = suppress_reserved_taunts((*mapped).buttons, reserved_dpad);
+    }
+    drop(state_guard);
+    if restore.is_some() && !output.is_null() {
         record_mapped_delivery(
             output,
             index,
@@ -2650,10 +2682,6 @@ pub(super) unsafe fn finish_mapper_overlay(
             #[cfg(feature = "diagnostic-logging")]
             &mut messages,
         );
-    }
-    if reserved_dpad != 0 {
-        let mapped = output.cast::<MappedInputs>();
-        (*mapped).buttons = suppress_reserved_taunts((*mapped).buttons, reserved_dpad);
     }
     #[cfg(feature = "diagnostic-logging")]
     if let (

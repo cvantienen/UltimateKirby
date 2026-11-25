@@ -1006,6 +1006,11 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
         let receipt = Intent::sequence_receipt(owner, 0, true);
         assert_eq!(arbiter.select(true, &[receipt]), Some(owner));
         assert!(!arbiter.allows(Owner::GrabDodge));
+        arbiter.set_automatic_suspended(true);
+        assert!(
+            arbiter.allows(owner),
+            "committed automatic receipt retains its packet until safety preempts"
+        );
         assert_eq!(
             arbiter.select(
                 true,
@@ -1014,13 +1019,9 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
                     Intent::input_sequence(Owner::Safety, SEQUENCE_BUTTONS)
                 ]
             ),
-            Some(owner)
+            Some(Owner::Safety)
         );
-        arbiter.set_automatic_suspended(true);
-        assert!(
-            arbiter.allows(owner),
-            "committed automatic receipt retains its packet"
-        );
+        assert!(!arbiter.allows(owner));
     }
     assert!(!mapped_up_special_delivered(MAPPED_GUARD, 127));
     assert!(!mapped_up_special_delivered(MAPPED_SPECIAL, 0));

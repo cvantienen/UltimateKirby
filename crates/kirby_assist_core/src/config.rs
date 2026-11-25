@@ -516,8 +516,8 @@ pub mod button_bindings {
             Self::TurboTeabag,
             Self::LedgeTrump,
         ];
-        /// Built-in native helpers exposed in the menu, excluding retired helpers.
-        pub const MENU: [Self; 2] = [Self::Normal, Self::LedgeTrump];
+        /// Selectable native helpers; legacy ledge assistance remains loadable only.
+        pub const MENU: [Self; 3] = [Self::Normal, Self::TurboTeabag, Self::LedgeTrump];
         /// Returns the serialized token for the value.
         pub fn token(self) -> &'static str {
             match self {
@@ -554,9 +554,8 @@ pub mod button_bindings {
         }
         /// Builds the default the for.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
-            use crate::fighter_profiles::presets::PresetSlot;
             match slot {
-                PresetSlot::L3 => Self::TurboTeabag,
+                crate::fighter_profiles::presets::PresetSlot::L3 => Self::TurboTeabag,
                 _ => Self::Normal,
             }
         }
@@ -573,8 +572,13 @@ pub mod button_bindings {
         pub fn visible_template_offset(self) -> Option<usize> {
             match self {
                 Self::Normal => Some(0),
-                Self::LedgeTrump => Some(2),
-                Self::LedgeAssist | Self::TurboTeabag => None,
+                Self::TurboTeabag => {
+                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 1)
+                }
+                Self::LedgeTrump => {
+                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 2)
+                }
+                Self::LedgeAssist => None,
             }
         }
     }

@@ -1005,6 +1005,7 @@ mod tests {
             can_dash_attack: true,
             can_down_smash: true,
             input_delay: 0.0,
+            sequence_input_delay: 0.0,
             can_jump: true,
             can_air_attack: true,
             air_physics: None,

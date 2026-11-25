@@ -45,6 +45,7 @@ mod controller;
 mod damage;
 /// Caches copied native facts for one synchronous observation.
 mod frame;
+mod hitboxes;
 /// Adapts Kirby observations to trip and forward-air follow-up policies.
 mod kirby_followups;
 /// Contains pinned native parameter-table and key identifiers.
@@ -375,7 +376,7 @@ unsafe fn install_mapper_if_ready() {
         skyline::install_hook!(map_controls);
         // Read-only bounded projectile IDs for ledge shield; no Lua arguments
         // or native attacks are edited. Tracking runs only for enabled ledge
-        // shield or a configured selected-fighter projectile reflector.
+        // shield or a configured selected-fighter reflector/counter.
         attack_sources::install();
         log!("deferred mapper hook installed; existing Skyline mapper chain preserved");
     }

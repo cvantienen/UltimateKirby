@@ -173,8 +173,17 @@ impl OutOfShield {
             config,
         };
         self.revalidate_grab_wait(&f);
+        // Delivered Up-B owns an input-free receipt, not a new shield tail.
+        // Process native confirmation or cancellation even after shield ends.
+        if self.configured_response && self.response.up_b_delivery_started() {
+            return self.continue_response(&f);
+        }
+        if self.shield_up_b.delivery_started() {
+            return self.run_backup(&f, f.allowed, f.c);
+        }
         if !f.allowed || !f.shielded || !f.context.gameplay {
-            self.guard_hold = 0;
+            self.guard_hold = 0.;
+            self.guard_clock = crate::ledge_trap::NativeAttempt::new();
         } else if f.c.threatened || f.c.status == crate::native_states::GUARD_DAMAGE {
             if self.configured_response
                 && !self.simple.delivery_pending()
@@ -182,12 +191,35 @@ impl OutOfShield {
             {
                 self.cancel_pending();
             }
-            self.guard_hold = 6;
+            self.guard_hold = 6.;
+        }
+        if f.c.stopped || f.context.stopped {
+            self.guard_clock = crate::ledge_trap::NativeAttempt::new();
+        } else if f.allowed && f.shielded && f.context.gameplay {
+            let before = self.guard_clock.elapsed();
+            self.guard_clock.advance_pause(
+                GameplayContext {
+                    status: f.c.status,
+                    motion_kind: f.c.motion,
+                    motion_frame: f.c.frame,
+                    motion_rate: f.c.rate,
+                    stopped: f.c.stopped || f.context.stopped,
+                    ..f.context
+                },
+                f.follow
+                    .or_else(|| nearest_enemy(f.c.position[0], &f.targets, None, |_| true)),
+                u16::MAX,
+            );
+            if self.guard_clock.expired {
+                self.guard_clock = crate::ledge_trap::NativeAttempt::new();
+            } else if !f.c.threatened && f.c.status != crate::native_states::GUARD_DAMAGE {
+                self.guard_hold = (self.guard_hold - (self.guard_clock.elapsed() - before)).max(0.);
+            }
         }
         if f.allowed
             && f.context.gameplay
             && f.shielded
-            && self.guard_hold > 0
+            && self.guard_hold > 0.
             && matches!(
                 f.c.status,
                 crate::native_states::GUARD_ON
@@ -198,9 +230,6 @@ impl OutOfShield {
             && !self.shield_up_b.receipt_pending()
             && !self.configured_response
         {
-            if !f.c.stopped {
-                self.guard_hold -= 1;
-            }
             self.simple.cancel();
             self.shield_up_b.cancel();
             return ControllerOutput {

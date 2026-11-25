@@ -91,7 +91,7 @@ fn ledge_toggle_reserves_auto_modes_through_manual_pauses_but_safety_and_shield_
                 }
             ]
         ),
-        Some(Owner::Ledge)
+        Some(Owner::Safety)
     );
     menu.auto_ledge = false;
     owners.release(Owner::Ledge);

@@ -15,6 +15,7 @@ pub fn supports(kind: i32) -> bool {
 #[derive(Clone, Copy)]
 pub struct Config {
     pub startup: f32,
+    pub input_delay: f32,
     pub margin: f32,
     pub half_width: f32,
     pub height: f32,
@@ -27,14 +28,27 @@ impl Config {
         }
         Some(Self {
             startup: values.get(tuning::COUNTER_STARTUP),
+            input_delay: 0.0,
             margin: values.get(tuning::COUNTER_MARGIN),
             half_width: values.get(tuning::COUNTER_HALF_WIDTH),
             height: values.get(tuning::COUNTER_HEIGHT),
             half_depth: values.get(tuning::COUNTER_HALF_DEPTH),
         })
     }
+    pub fn activation(self) -> f32 {
+        self.startup + self.input_delay
+    }
     pub fn horizon(self) -> f32 {
-        self.startup + self.margin
+        self.activation() + self.margin
+    }
+    fn valid(self) -> bool {
+        (1.0..=30.0).contains(&self.startup)
+            && (0.0..=120.0).contains(&self.input_delay)
+            && (0.0..=10.0).contains(&self.margin)
+            && self.horizon() <= 40.0
+            && [self.half_width, self.height, self.half_depth]
+                .iter()
+                .all(|n| n.is_finite() && *n > 0.0)
     }
 }
 
@@ -47,8 +61,8 @@ pub struct Threat {
     pub in_frames: f32,
 }
 
-/// Predict contact from a verified active window and projected relative movement.
-/// Active native geometry is checked separately by the caller.
+/// Legacy root-space startup approximation, not contact evidence.
+/// The native counter adapter deliberately does not use this estimate.
 pub fn predicted_attack(
     config: Config,
     origin: [f32; 3],
@@ -172,6 +186,22 @@ pub fn attacker_relevant(
             || nearby_attacker(config, origin, own_velocity, enemy_position, enemy_velocity))
 }
 
+/// Estimated lifetime within the current catalog window, never the next hit.
+/// This bounds a live-geometry forecast; it is not native per-slot expiry.
+pub fn active_remaining(kind: i32, motion: u64, frame: f32, rate: f32) -> Option<f32> {
+    if !crate::timing::clock_known(motion, frame, rate) {
+        return None;
+    }
+    let data = crate::fighter_data::fighter(kind)?.move_for_motion(motion)?;
+    if !data.has_damage_data() {
+        return None;
+    }
+    data.active
+        .iter()
+        .find(|window| frame >= f32::from(window.first) && frame <= f32::from(window.last))
+        .map(|window| (f32::from(window.last) - frame) / rate)
+}
+
 /// Check live melee geometry when the counter becomes active, not just while it is starting.
 pub fn active_melee_threat(
     config: Config,
@@ -179,53 +209,42 @@ pub fn active_melee_threat(
     own_velocity: [f32; 2],
     hitbox: crate::autopilot_guard::Hitbox,
 ) -> bool {
-    if !config.startup.is_finite()
-        || !(1.0..=30.0).contains(&config.startup)
-        || !config.margin.is_finite()
-        || !(0.0..=10.0).contains(&config.margin)
-        || !config.half_width.is_finite()
-        || config.half_width <= 0.0
-        || !config.height.is_finite()
-        || config.height <= 0.0
-        || !config.half_depth.is_finite()
-        || config.half_depth <= 0.0
-    {
-        return false;
+    active_melee_contact(config, origin, own_velocity, hitbox, config.horizon())
+        .is_some_and(|contact| contact >= config.activation())
+}
+
+/// Earliest estimated contact with the configured body envelope. The current
+/// active window bounds translation; future pose changes remain unknown.
+pub fn active_melee_contact(
+    config: Config,
+    origin: [f32; 3],
+    own_velocity: [f32; 2],
+    hitbox: crate::autopilot_guard::Hitbox,
+    remaining: f32,
+) -> Option<f32> {
+    if !config.valid() || !remaining.is_finite() || remaining < 0.0 {
+        return None;
     }
-    let mut projected = hitbox;
-    for point in [&mut projected.start, &mut projected.end] {
-        point[0] += hitbox.velocity[0] * config.startup;
-        point[1] += hitbox.velocity[1] * config.startup;
-    }
-    let origin = [
-        origin[0] + own_velocity[0] * config.startup,
-        origin[1] + own_velocity[1] * config.startup,
-        origin[2],
-    ];
-    crate::autopilot_guard::active_hitbox_threat_with(
-        origin,
+    crate::projectile_geometry::swept_capsule_aabb(
+        hitbox,
+        [
+            origin[0] - config.half_width,
+            origin[1],
+            origin[2] - config.half_depth,
+        ],
+        [
+            origin[0] + config.half_width,
+            origin[1] + config.height,
+            origin[2] + config.half_depth,
+        ],
         own_velocity,
-        projected,
-        crate::autopilot_guard::Envelope {
-            half_width: config.half_width,
-            height: config.height,
-            half_depth: config.half_depth,
-            forecast: config.margin,
-            ..Default::default()
-        },
+        remaining.min(config.horizon()),
     )
 }
 
-/// Native transition flags may lag controller readiness in idle, movement and
-/// ordinary air states; the special input is still subject to native acceptance.
+/// Status eligibility never overrides a native down-special lockout.
 pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> bool {
-    ready(status, situation)
-        && (transition_enabled
-            || crate::native_states::moving_down_special_input(status, situation)
-            || situation == crate::native_states::situation::GROUND
-                && status == crate::native_states::status::WAIT
-            || situation == crate::native_states::situation::AIR
-                && crate::native_states::jump_or_fall(status))
+    ready(status, situation) && transition_enabled
 }
 
 pub fn ready(status: i32, situation: i32) -> bool {
@@ -258,13 +277,16 @@ pub struct Counter {
     last: Option<(u32, u64)>,
     /// Final mapped counter delivery waits for native startup or a short deadline.
     receipt: bool,
+    release_pending: bool,
     last_frame: f32,
     last_status: i32,
     last_motion: u64,
     last_object: u32,
     receipt_polls: u8,
+    poll_limit: u8,
     last_poll: Option<i64>,
     attempts: u8,
+    history: [Option<(u32, u64, i32, f32, u8)>; 16],
 }
 impl Counter {
     pub const fn new() -> Self {
@@ -274,13 +296,16 @@ impl Counter {
             began: 0,
             last: None,
             receipt: false,
+            release_pending: false,
             last_frame: 0.0,
             last_status: -1,
             last_motion: 0,
             last_object: 0,
             receipt_polls: 0,
+            poll_limit: 24,
             last_poll: None,
             attempts: 0,
+            history: [None; 16],
         }
     }
     pub fn active(&self) -> bool {
@@ -292,22 +317,37 @@ impl Counter {
     pub fn cancel(&mut self) {
         self.target = None;
         self.receipt = false;
+        self.release_pending = false;
         self.receipt_polls = 0;
         self.last_poll = None;
     }
-    /// Mapper-poll fallback for a frozen native animation during online delivery.
+    /// Raw controller polls are a bounded delivery watchdog, not simulation time.
     pub fn poll_receipt(&mut self, tick: i64) {
-        if self.receipt && self.last_poll != Some(tick) {
+        if self.active() && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
             self.receipt_polls = self.receipt_polls.saturating_add(1);
-            if self.receipt_polls >= 24 {
+            if self.receipt_polls >= self.poll_limit {
+                self.last = self.target;
+                self.attempts = 2;
                 self.cancel();
             }
         }
     }
+    pub fn mapped_release(&mut self) {
+        if self.release_pending {
+            self.cancel();
+        }
+    }
+    fn release_output() -> ControllerOutput {
+        ControllerOutput {
+            owned: SEQUENCE_BUTTONS,
+            stick: Some([0.0; 2]),
+            ..Default::default()
+        }
+    }
     /// A completed special relinquishes ownership before the next mapper poll.
     pub fn finished(&mut self, status: i32, frame: f32) -> bool {
-        if self.receipt
+        if (self.receipt || self.release_pending)
             && status == crate::native_states::status::SPECIAL_LW
             && frame.is_finite()
             && frame >= 1.0
@@ -321,8 +361,44 @@ impl Counter {
     }
     /// Reset the attack key when the observed attacker starts a new animation.
     pub fn observe_attacker(&mut self, threat: Threat) {
-        if self.last_object != threat.id
-            || self.last_motion != threat.motion
+        if self.last_object != threat.id {
+            let previous = (
+                self.last_object,
+                self.last_motion,
+                self.last_status,
+                self.last_frame,
+                self.attempts,
+            );
+            if let Some(slot) = self
+                .history
+                .iter_mut()
+                .find(|entry| entry.is_some_and(|old| old.0 == self.last_object))
+            {
+                *slot = Some(previous);
+            } else if self.last_motion != 0 {
+                if let Some(slot) = self.history.iter_mut().find(|entry| entry.is_none()) {
+                    *slot = Some(previous);
+                }
+            }
+            let old = self.history.iter().flatten().find(|old| old.0 == threat.id);
+            self.attempts = old.map_or_else(
+                || {
+                    if self.history.iter().all(Option::is_some) {
+                        2
+                    } else {
+                        0
+                    }
+                },
+                |old| {
+                    if old.1 == threat.motion && old.2 == threat.status && threat.frame >= old.3 {
+                        old.4
+                    } else {
+                        0
+                    }
+                },
+            );
+            self.last = (self.attempts > 0).then_some((threat.id, threat.motion));
+        } else if self.last_motion != threat.motion
             || self.last_status != threat.status
             || threat.frame < self.last_frame
         {
@@ -335,10 +411,13 @@ impl Counter {
         self.last_frame = threat.frame;
     }
     pub fn mapped(&mut self) {
-        if let Some(target) = self.target {
-            self.last = Some(target);
-            self.receipt = true;
-            self.attempts = self.attempts.saturating_add(1);
+        if !self.receipt && !self.release_pending {
+            if let Some(target) = self.target {
+                self.last = Some(target);
+                self.receipt = true;
+                self.receipt_polls = 0;
+                self.attempts = self.attempts.saturating_add(1);
+            }
         }
     }
     pub fn sample(
@@ -348,39 +427,53 @@ impl Counter {
         c: Context,
         threat: Option<Threat>,
     ) -> ControllerOutput {
-        let Some(config) = config.filter(|_| allowed && supports(c.kind)) else {
+        let Some(config) = config.filter(|config| allowed && supports(c.kind) && config.valid())
+        else {
             self.cancel();
             return ControllerOutput::default();
         };
         if c.stopped {
+            self.cancel();
             return ControllerOutput::default();
         }
         let Some(now) = self.clock.observe(c.animation, false) else {
             self.cancel();
             return ControllerOutput::default();
         };
+        if self.finished(c.animation.status, c.animation.frame) {
+            return ControllerOutput::default();
+        }
+        if self.release_pending {
+            return Self::release_output();
+        }
         if self.receipt {
-            if self.finished(c.animation.status, c.animation.frame) {
-                return ControllerOutput::default();
-            }
             if c.animation.status == crate::native_states::status::SPECIAL_LW {
                 return ControllerOutput::default();
             }
-            if self.receipt_polls >= 2 && now.saturating_sub(self.began) >= 2 && self.attempts < 2 {
+            if self.receipt_polls >= 2
+                && now.saturating_sub(self.began) >= config.input_delay.ceil() as i64 + 2
+                && self.attempts < 2
+            {
                 // The mapped pulse did not start the special. Release B before
                 // another attempt against the still-observable attack.
-                self.target = None;
                 self.receipt = false;
-                self.receipt_polls = 0;
-                return ControllerOutput::default();
+                self.release_pending = true;
+                return Self::release_output();
             } else {
-                if now.saturating_sub(self.began) > 12 {
+                if now.saturating_sub(self.began) > 12 + config.input_delay.ceil() as i64 {
                     self.cancel();
                 }
                 return ControllerOutput::default();
             }
         }
-        let Some(threat) = threat.filter(|t| t.in_frames.is_finite() && t.in_frames >= 0.0) else {
+        let Some(threat) = threat.filter(|t| {
+            t.in_frames.is_finite()
+                && t.in_frames >= 0.0
+                && t.in_frames <= config.horizon()
+                && t.frame.is_finite()
+                && t.frame >= 0.0
+                && t.motion != 0
+        }) else {
             self.cancel();
             return ControllerOutput::default();
         };
@@ -399,6 +492,7 @@ impl Counter {
             }
             self.target = Some(key);
             self.began = now;
+            self.poll_limit = 24 + config.input_delay.ceil() as u8;
         }
         if now.saturating_sub(self.began) > 12
             || !ready(c.animation.status, c.situation)
@@ -428,6 +522,7 @@ mod tests {
     fn config() -> Config {
         Config {
             startup: 5.0,
+            input_delay: 0.0,
             margin: 2.0,
             half_width: 5.0,
             height: 16.0,
@@ -436,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn predicted_contact_requests_counter_on_ground_and_in_air() {
+    fn imminent_contact_requests_best_effort_counter_on_ground_or_in_air() {
         for status in [
             crate::native_states::status::ATTACK_S3,
             crate::native_states::status::ATTACK_AIR,
@@ -481,7 +576,7 @@ mod tests {
                     },
                     Some(threat),
                 );
-                assert_eq!(output.requested & MAPPER_B, MAPPER_B);
+                assert_eq!(output.requested, MAPPER_B);
                 assert_eq!(output.stick, Some([0.0, -1.0]));
             }
         }
@@ -624,6 +719,7 @@ mod tests {
                 .requested,
             0
         );
+        counter.mapped_release();
         context.animation.frame = 4.0;
         assert_ne!(
             counter
@@ -663,7 +759,7 @@ mod tests {
             motion: 9,
             status: crate::native_states::status::ATTACK,
             frame: 3.0,
-            in_frames: 0.0,
+            in_frames: 6.0,
         };
         let mut context = Context {
             kind: crate::fighter_kinds::LUCINA,
@@ -702,6 +798,7 @@ mod tests {
                 .requested,
             0
         );
+        counter.mapped_release();
         context.animation.frame = 4.0;
         assert_ne!(
             counter
@@ -868,7 +965,7 @@ mod tests {
     }
 
     #[test]
-    fn idle_and_ground_movement_can_request_without_lagging_transition_term() {
+    fn movement_requires_native_permission_without_overriding_lockouts() {
         use crate::native_states::{situation, status};
         for state in [
             status::WAIT,
@@ -878,11 +975,16 @@ mod tests {
             status::JUMP_SQUAT,
         ] {
             assert!(
-                can_request(state, situation::GROUND, false),
+                !can_request(state, situation::GROUND, false),
+                "status {state}"
+            );
+            assert!(
+                can_request(state, situation::GROUND, true),
                 "status {state}"
             );
         }
-        assert!(can_request(status::FALL, situation::AIR, false));
+        assert!(!can_request(status::FALL, situation::AIR, false));
+        assert!(can_request(status::FALL, situation::AIR, true));
         assert!(!can_request(status::GUARD, situation::GROUND, true));
         assert!(!can_request(status::ATTACK, situation::GROUND, true));
     }
@@ -912,10 +1014,10 @@ mod tests {
             origin,
             [0.0; 2],
             crate::autopilot_guard::Hitbox {
-                start: [7.0, 8.0, 0.0],
-                end: [7.0, 8.0, 0.0],
+                start: [19.0, 8.0, 0.0],
+                end: [19.0, 8.0, 0.0],
                 radius: 2.0,
-                velocity: [0.0; 2],
+                velocity: [-2.0, 0.0],
             }
         ));
     }
@@ -928,7 +1030,7 @@ mod tests {
             radius: 2.0,
             velocity,
         };
-        assert!(active_melee_threat(
+        assert!(!active_melee_threat(
             config(),
             [0.0; 3],
             [0.0; 2],
@@ -952,7 +1054,7 @@ mod tests {
             [0.0; 2],
             hitbox([20.0, 8.0, 0.0], [-1.0, 0.0]),
         ));
-        assert!(active_melee_threat(
+        assert!(!active_melee_threat(
             config(),
             [0.0; 3],
             [0.0; 2],
@@ -987,7 +1089,7 @@ mod tests {
     }
 
     #[test]
-    fn late_active_hitbox_still_requests_counter() {
+    fn contact_before_activation_still_requests_best_effort_down_b() {
         let threat = Threat {
             id: 7,
             motion: 9,
@@ -1013,6 +1115,200 @@ mod tests {
             },
             Some(threat),
         );
-        assert_ne!(output.requested & MAPPER_B, 0);
+        assert_eq!(output.requested, MAPPER_B);
+        assert_eq!(output.stick, Some([0.0, -1.0]));
+    }
+
+    fn context() -> Context {
+        Context {
+            kind: crate::fighter_kinds::LUCINA,
+            situation: crate::native_states::situation::GROUND,
+            can_special: true,
+            stopped: false,
+            animation: AnimationSample {
+                object: 1,
+                status: crate::native_states::status::WAIT,
+                kind: 1,
+                frame: 1.,
+                auxiliary: 0.,
+            },
+        }
+    }
+    fn threat(id: u32) -> Threat {
+        Threat {
+            id,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.,
+            in_frames: 6.,
+        }
+    }
+
+    #[test]
+    fn duplicate_receipts_require_a_mapped_release_before_the_single_retry() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        counter.mapped();
+        counter.mapped();
+        assert_eq!(counter.attempts, 1);
+        counter.poll_receipt(1);
+        counter.poll_receipt(2);
+        c.animation.frame = 2.;
+        counter.sample(true, Some(config()), c, Some(threat(7)));
+        c.animation.frame = 3.;
+        let release = counter.sample(true, Some(config()), c, Some(threat(7)));
+        assert_eq!(release.requested, 0);
+        assert_eq!(release.owned, SEQUENCE_BUTTONS);
+        c.animation.frame = 4.;
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        counter.mapped_release();
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        counter.mapped();
+        assert_eq!(counter.attempts, 2);
+    }
+
+    #[test]
+    fn configured_delay_defers_retry_and_late_native_start_cancels_release() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        let mut config = config();
+        config.input_delay = 3.;
+        let mut threat = threat(7);
+        threat.in_frames = 9.;
+        counter.sample(true, Some(config), c, Some(threat));
+        counter.mapped();
+        for tick in 1..=4 {
+            counter.poll_receipt(tick);
+            c.animation.frame += 1.;
+            assert_eq!(counter.sample(true, Some(config), c, Some(threat)).owned, 0);
+        }
+        counter.poll_receipt(5);
+        c.animation.frame += 1.;
+        assert_eq!(
+            counter.sample(true, Some(config), c, Some(threat)).owned,
+            SEQUENCE_BUTTONS
+        );
+        c.animation.status = crate::native_states::status::SPECIAL_LW;
+        c.animation.frame = 1.;
+        assert_eq!(counter.sample(true, Some(config), c, None).owned, 0);
+        assert!(!counter.active());
+        assert_eq!(counter.attempts, 2);
+    }
+
+    #[test]
+    fn undelivered_frozen_proposals_expire_and_target_switches_do_not_reset_budget() {
+        let mut counter = Counter::new();
+        let c = context();
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        for tick in 0..24 {
+            counter.poll_receipt(tick);
+            counter.poll_receipt(tick);
+        }
+        assert!(!counter.active());
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(8)))
+                .requested,
+            0
+        );
+        counter.cancel();
+        assert_eq!(
+            counter
+                .sample(true, Some(config()), c, Some(threat(7)))
+                .requested,
+            0
+        );
+        let mut next = threat(7);
+        next.frame = 1.;
+        assert_ne!(
+            counter
+                .sample(true, Some(config()), c, Some(next))
+                .requested,
+            0
+        );
+    }
+
+    #[test]
+    fn missing_invalid_hitstop_and_lost_ownership_cancel_pending_input() {
+        for case in 0..5 {
+            let mut counter = Counter::new();
+            let mut c = context();
+            counter.sample(true, Some(config()), c, Some(threat(7)));
+            let mut t = threat(7);
+            if case == 1 {
+                t.frame = f32::NAN;
+            }
+            if case == 2 {
+                c.stopped = true;
+            }
+            if case == 3 {
+                c.can_special = false;
+            }
+            let out = counter.sample(case != 4, Some(config()), c, (case != 0).then_some(t));
+            assert_eq!(out.requested, 0);
+            assert!(!counter.active(), "case {case}");
+        }
+    }
+
+    #[test]
+    fn active_window_lifetime_is_rate_scaled_and_never_extends_past_deactivation() {
+        let kind = crate::fighter_kinds::MARIO;
+        let motion = crate::timing::motion_hash("attack_air_n");
+        let data = crate::fighter_data::fighter(kind)
+            .unwrap()
+            .move_for_motion(motion)
+            .unwrap();
+        let window = data.active.last().unwrap();
+        let end = f32::from(window.last);
+        assert_eq!(active_remaining(kind, motion, end - 1., 2.), Some(0.5));
+        assert_eq!(active_remaining(kind, motion, end + 1., 1.), None);
+        assert_eq!(active_remaining(kind, motion, end, 0.), None);
+        assert_eq!(active_remaining(kind, motion, f32::NAN, 1.), None);
+    }
+
+    #[test]
+    fn contact_lifetime_delay_and_relative_motion_are_not_double_counted() {
+        let hit = crate::autopilot_guard::Hitbox {
+            start: [19., 8., 0.],
+            end: [19., 8., 0.],
+            radius: 2.,
+            velocity: [-2., 0.],
+        };
+        let contact = active_melee_contact(config(), [0.; 3], [0.; 2], hit, 7.).unwrap();
+        assert!((contact - 6.).abs() < 0.0001);
+        assert!(active_melee_contact(config(), [0.; 3], [0.; 2], hit, 5.).is_none());
+        assert!(active_melee_contact(config(), [0.; 3], [-2., 0.], hit, 7.).is_none());
+        let mut delayed = config();
+        delayed.input_delay = 2.;
+        assert!(!active_melee_threat(delayed, [0.; 3], [0.; 2], hit));
+        delayed.input_delay = f32::NAN;
+        assert!(active_melee_contact(delayed, [0.; 3], [0.; 2], hit, 7.).is_none());
     }
 }

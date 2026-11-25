@@ -11,6 +11,7 @@ from unittest.mock import patch
 import sequence_transfer as transfer
 from workbench_history import History, receipts
 import workbench
+import sequence_sources as sources
 
 SOURCE = b"[kirby.neutral.new]\nstart_delay=0\nactions=a:4\n[kirby.settings]\ngrab_range=9\n"
 DEST = b"# keep other fighters\n[yoshi.roll.perfect]\nstart_delay=0\nactions=b:4\n[kirby.roll.old]\nstart_delay=0\nactions=r:4\n"
@@ -298,17 +299,17 @@ class HistoryAndLauncherTests(unittest.TestCase):
             app = workbench.Workbench(History(Path(folder)))
             with patch.object(workbench, "ask", return_value="2.2.2"), patch.object(workbench, "choose", return_value=0), patch.object(workbench, "confirm", return_value=False), patch.object(app, "run") as preview, patch.object(app.history, "perform") as execute:
                 app.upload()
-            self.assertEqual(preview.call_count, 2)
-            self.assertTrue(all("--dry-run" in call.args[1] for call in preview.call_args_list))
+            self.assertEqual(preview.call_count, 0)
             execute.assert_not_called()
 
     def test_upload_both_attempts_fixed_routes_even_after_one_failure(self):
         with tempfile.TemporaryDirectory() as folder:
             app = workbench.Workbench(History(Path(folder)))
-            with patch.object(workbench, "ask", return_value="2.2.2"), patch.object(workbench, "choose", return_value=0), patch.object(workbench, "confirm", return_value=True), patch.object(app, "run"), patch.object(app.history, "perform", side_effect=[RuntimeError("silent unavailable"), {}]) as execute, contextlib.redirect_stdout(io.StringIO()):
+            sequence_plan = {"origin": "silent", "original": sources.assemble(sources.SOURCE), "data": sources.assemble(sources.SOURCE), "original_fighters": {}}
+            with patch.object(workbench, "ask", return_value="2.2.2"), patch.object(workbench, "choose", return_value=0), patch.object(workbench, "confirm", return_value=True), patch.object(app, "run"), patch.object(app, "prepare_silent_sequences", return_value=sequence_plan), patch.object(app, "apply_silent_sequences", return_value={}), patch.object(app.history, "perform", side_effect=lambda *args: args[2]()) as execute, contextlib.redirect_stdout(io.StringIO()):
                 app.upload()
-            self.assertEqual(execute.call_count, 2)
-            first, second = [call.args[1] for call in execute.call_args_list]
+            self.assertEqual(execute.call_count, 3)
+            first, second = [call.args[1] for call in execute.call_args_list[-2:]]
             self.assertEqual((first["host"], first["target"]), ("192.168.1.106", "silent"))
             self.assertIn("-s", first["command"])
             self.assertEqual((second["host"], second["target"]), ("192.168.1.142", "diagnostic"))

@@ -16,6 +16,70 @@ tick is unchanged. Only copied values and IDs are stored, never native pointers.
 Existing session, identity and routing checks remain. This is a reuse boundary,
 not a promise that individual native reads form an atomic engine snapshot.
 
+## Native observation evidence and limits
+
+The local binding reference is skyline-smash revision
+`d2ca90d9ecffdf9bf58efe6bcf4dd49f62ea1435`, `src/cpp.rs` and
+`src/lua_const.rs`. The narrow declarations are in [game_ffi.rs](../src/game_ffi.rs).
+**This identifies a binding revision, not a verified supported Smash version.**
+No exact executable/version certification was found in these declarations; the
+mapper signature check does not validate other native structures. No hardware
+validation was performed. All native use below inherits that compatibility limit.
+No new offsets, declarations, or native writes were added for this work.
+
+In the table, **direct** means an existing read, not a guarantee of ABI validity;
+**estimate** means policy inference. Costs are query counts/structure, not measured
+Switch timing. Native pointers require a freshly resolved active object, matching
+object ID and synchronous lifetime. Missing/invalid observations are not zero-sized
+hurtboxes or proof that an attack is harmless.
+
+| Observation / actual binding | Meaning, identity and validity | Cost / use / evidence limit |
+|---|---|---|
+| `AttackModule::is_attack`, `attack_data` | Current indexed attack; copy the record immediately. Endpoints are joint-relative; size is the stored native size. Null/inactive/nonfinite records provide no usable geometry. | Eight slots checked per source; at most 16 geometry records per scan. Direct prefix; no per-slot future schedule or generation token. |
+| `ModelModule::joint_global_position_with_offset`, `PostureModule::scale`, `lr`, `pos_x/y/z` | Current joint-offset transform, model scale, facing, world root. Current active object only; no cached native pointer. Nonfinite output is rejected. | One or two transforms per eligible record, one lazy source-scale read. Shared by guard, counter and reflection in [hitboxes.rs](../src/live/hitboxes.rs). The binding names/signatures are verified locally; the boolean transform semantics, radius scaling convention and zero-second-endpoint sentinel are existing assumptions, not newly proven native facts. A capsule ending at local zero remains ambiguous. |
+| `HitModule::get_total_status` (`hit_status`) | Existing aggregate protection query, index 0 used by target selection. Not individual vulnerable-part geometry and not future protection expiry. | Demand-driven direct read. Existing ledge/grab protection gates retained; not used to declare an entire defender immune. Cached binding also declares `get_status(accessor, int, int)`, but part/index meanings are not established locally. |
+| Hurtbox candidates | Cached `HitModule::get_part_size` and `get_center_pos` return `u64`; no verified geometry layout, radii/endpoints, part enumeration or lifetime contract was established. | **Not integrated.** Do not cast these returns to invented hurtbox structures. Configured body envelopes remain estimates, including crouching, aerial and changing poses. |
+| `GroundModule::get_rhombus` | Cached binding returns `*const Vector4f`; the component semantics and shape lifetime are not established here. Collision body is not a vulnerable hurtbox. | **Not integrated.** Cannot justify replacing body envelopes with this pointer. |
+| `MotionModule::motion_kind/frame/rate/end_frame`, `StatusModule::status_kind/prev_status_kind`, `situation_kind` | Current Hash40 motion, fractional animation frame, playback rate, status/situation; previous status is history index 0. Rate converts animation-frame deadlines into game-frame estimates. | Lazy callback-local copies keyed by object ID. Invalid clocks remain unknown; transition/rewind is not a global game clock. No promise of unobserved animation frames. |
+| `WorkModule::is_enable_transition_term`, `CancelModule::is_enable_cancel`, native cancel/normal-hit-frame queries | Current permission vs motion metadata deadline. Status, situation, capture and stop remain separate gates. | Live demand-driven reads, not cached permission. Counter still requires `CONT_SPECIAL_LW`; permission/input delivery does not prove special activation or counter success. |
+| `KineticModule::get_sum_speed_x/y`, native parameters | Current aggregate XY velocity, world units/game frame; `AirPhysics` validates gravity and terminal-speed parameters. | Lazy copied speed, bounded parameter reads. Linear hitbox sweep is an **estimate**, not observed joint velocity, acceleration, homing, rotation or landing. Stopped guard sources and defender have zero forecast movement. |
+| `StopModule::is_stop/is_damage/get_hit_stop_real_frame`, reaction and reserved-damage-speed WorkModule keys | Current stop, victim hitstop countdown and status-scoped reaction/launch values. Reserved launch is pending movement, not movement during freeze. | Lazy/direct reads in existing tech/damage adapters. Animation and stop gates stay separate from controller-poll watchdogs. DI/SDI remain disabled by `AUTO_DAMAGE_STICK_ENABLED = false`. |
+| `GroundModule::ray_check`, passable-ground/cliff queries | World XY origin plus **displacement**, present terrain support; passability is not hurtbox status. | Existing bounded support/tech rays; identical support probes shared within callback. Cached bindings also expose `get_touch_normal` / `ray_check_hit_pos_normal`; contact selectors/output semantics were not validated for new use. No new terrain or normal claims. |
+| `sv_battle_object::is_active/module_accessor/kind`, manager entries/current fighter ID, `TeamModule::team_no`, `LinkModule::is_link` | Current object vs player-entry identity; categories distinguish fighter/weapon/item. Capture slots 0/2 are distinct from partner links. | Revalidate ID/team before source reads; callback-local roster of up to 16 fighters. No accessor survives callbacks. Transformations/respawn must continue through existing identity/session fences. |
+| Native `ATTACK` observer and `Sources` | Bounded weapon/item ID plus software generation advanced by observed ATTACK commands, not a native allocation-generation ID. | 32 remembered sources, current active/team checks; absent unobserved sources cannot be enumerated. Reuse without an observed ATTACK remains a gap. `TeamModule::team_owner_id` exists in cached bindings, but owner-ID meaning during reflection/transfer is not proven here and no owner-chain inference was added. |
+| `AttackModule::is_infliction`, damage attacker-entry key, shield status | Fresh hit-mask result and existing entry attribution; shieldstun alone does not identify an attack slot or attacker. | Demand-driven direct reads. Conflicting entry directions yield unknown. No verified collision-record layout or counter-success signal was added; native down-special startup is not a successful counter. |
+| Controller prefix, `MappedInputs`, `ControlModule::check_button_on`, button history | Physical held/previous/edge bits, mapped packet and game-consumed buttons are different stages. History describes polls, not simulation progress. | Existing copied controller data and receipt/ownership checks. Prefix provenance is Training Modpack `077a8e43b11d1f61ce57169156fb82e92e784c79`; compile-time offsets do not certify the executable. No new command-buffer memory reads. |
+| Local `Ultimate_stats.json` via `fighter_data` | Catalog active windows/damage presence tied to fighter and mapped motion. | Parsed once; lookup only when needed. **Estimate:** current-window remaining time, not native per-slot expiry, reach, future pose or guaranteed collision. Unknown timing never admits counter; a geometrically earlier unknown-timing attacker blocks a later candidate. |
+
+### Consumer decisions
+
+- Ledge shielding and out-of-shield threat detection share the bounded active
+  geometry scan. Fighter/weapon/item geometry is checked **before** root-based
+  startup/recovery limits, so disjoints are not culled by distant owners.
+- Projectile defense also checks active geometry independently of owner-root
+  distance. A truncated scan withholds selection rather than claiming the first
+  projectile was found. Current team/capability/situation and tracked-generation
+  checks remain in place. Non-nominal defender scale still withholds reflection.
+- Counter retains current active-window bounds and native readiness. Unknown
+  timing can veto an earlier contact but cannot create an affirmative counter.
+  Non-nominal defender scale now withholds rather than using nominal body bounds.
+- All three adapters share copied geometry conversion and finite-output rejection.
+  They keep their distinct threat/admission rules and bounded budgets. Guard can
+  conservatively warn on budget exhaustion; counter/reflect cannot claim timing.
+- Ledge positioning, sequence range settings, roll following and grab approach
+  retain root displacement for navigation/configured acquisition. Existing grab
+  and protection estimates are **not** upgraded to proven body contact: no safe
+  hurtbox/catch geometry was established. Tech retains its terrain/support probes,
+  not attack geometry. No live DI/SDI path was activated for testing.
+
+Host regressions execute production adapters with native stubs for distant roots,
+relative/frozen movement, unknown timing among multiple opponents, scale rejection,
+transformed capsules, invalid depth, situation/team filters, lifecycle generations
+and bounded scans. Stubs prove adapter behavior, **not** the native transform,
+endpoint sentinel, capability offsets or executable compatibility. Pose-aware
+hurtboxes, actual ownership transfer, future attack rotation/expiry and native
+success attribution remain unverified; do not claim those are solved.
+
 ## Coverage
 
 - All fighters' ledge responses, grab movement and recovery coverage.
@@ -58,8 +122,9 @@ battle-presence checks still run as before. These optimizations do not disable
 or measure the shared ImGui host's own frame/GPU work or Deluxe's renderer.
 
 Ledge shield geometry reads an opponent's scale only when an active hitbox needs
-a geometry test, once per opponent in that pass. Near-hitbox early returns, native
-attack checks and detection ranges are unchanged. The shared ATTACK observer
+a geometry test, once per opponent in that pass. Active-hitbox geometry is no
+longer rejected by owner-root scan ranges; startup/recovery warnings retain those
+limits. The shared ATTACK observer
 tracks bounded projectile sources for ledge shielding and projectile reflection.
 D-pad sequence bindings remain fixed numeric checks over six button slots,
 with recipes resolved on selection/edit changes rather than every button poll.
@@ -126,8 +191,11 @@ overlay; see [rules and actual live-wiring tests](ACTION_OWNERSHIP.md). This doe
 not add timing offsets or replace native readiness checks. No Switch plugin
 was built as part of the host-only verification.
 
-The portable library suite is checked with the current expectations; the earlier
-historical failure count no longer describes this source. Host checks do not
+For this observation change, 70 focused host tests passed (native observation,
+reflection adapter, guard, shared observations, counter and capsule geometry).
+The broader `projectile_reflect` and `projectile_reflect_rearm` integration suites
+have seven failures that also reproduce on an isolated unchanged HEAD; they were
+not changed here. This is not a clean full-suite certification. Host checks do not
 establish on-console acceptance, exact collision geometry or online outcomes.
 
 Six button identities are checked per input sample. Inactive bindings add no opponent scans, rays or separate policy timelines. Only a pressed input sequence runs its existing timeline. Hold/Toggle mode processing and mode override fields are removed; legacy saved mode sections are excluded at startup without rewriting the source file.

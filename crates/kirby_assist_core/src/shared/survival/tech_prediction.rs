@@ -289,6 +289,7 @@ pub fn tech_probes_with_body(
         .iter()
         .all(|v| v.is_finite())
         || !(1.0..=20.0).contains(&horizon)
+        || !body.plausible()
     {
         return probes;
     }
@@ -406,6 +407,9 @@ pub fn first_contact_with_body(
     body: Body,
     mut collides: impl FnMut(CollisionRay) -> bool,
 ) -> Option<f32> {
+    if !body.plausible() {
+        return None;
+    }
     let full = tech_probes_with_body(x, y, vx, vy, horizon, body);
     let mut earliest: Option<f32> = None;
     let curved_floor = [x, y, vx, vy, horizon, vx * horizon, vy * horizon]

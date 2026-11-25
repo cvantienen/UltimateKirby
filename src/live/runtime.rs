@@ -48,6 +48,24 @@ fn reset_state(state: &mut State) {
     state.session = session;
     state.observation_sequence = sequence;
 }
+
+/// Validates the packet again after native mapping, before any output mutation.
+pub(super) fn mapper_output_current(
+    state: &State,
+    index: i32,
+    ticket: SessionTicket,
+    publication: Option<(u64, i64, u32)>,
+) -> bool {
+    publication.is_some_and(|(sequence, tick, object)| {
+        feature_activity_allowed()
+            && state.session.accepts(ticket)
+            && state.mapping_index == Some(index)
+            && state.observation_sequence == sequence
+            && state.raw_tick == tick
+            && state.associated_object == Some(object)
+            && state.observed_object == Some(object)
+    })
+}
 /// Suspend local participation in the runtime, clearing any active state and resetting relevant flags.
 /// Atomically revokes local participation, clears projectile tracking,
 /// and resets state only when local runtime state was active.

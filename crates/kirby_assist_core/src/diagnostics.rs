@@ -943,7 +943,7 @@ pub mod modes {
                 assert!(recorder.sample(snapshot(), ms).is_none());
             }
             let mut count = 1;
-            for ms in 250..=1250 {
+            for ms in 250u64..=1250 {
                 let s = Snapshot {
                     requested: if ms.is_multiple_of(2) { MAPPER_A } else { 0 },
                     ..snapshot()

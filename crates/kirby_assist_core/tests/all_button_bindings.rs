@@ -242,23 +242,25 @@ fn builtins_cannot_be_configured_as_conditioned_or_timed_attack_recipes() {
 #[test]
 fn builtins_can_be_selected_and_saved_as_default_from_editor() {
     let p = presets("");
-    let mut m = MenuSelection::new(&p);
-    m.show_quick();
-    m.button_menu = true;
-    m.row = MenuRow::R3Sequence;
-    m.choices[PresetSlot::R3 as usize] =
-        p.list(PresetSlot::R3).options.len() + Builtin::LedgeAssist.template_offset();
-    m.input(0, &p);
-    m.input(MENU_STICK_CLICK, &p);
-    assert!(m.recipe_editing);
-    m.input(0, &p);
-    m.input(MAPPER_Y, &p);
-    assert!(m.save_requested && m.default_requested);
-    assert!(m
-        .recipe_panel(&p)
-        .header
-        .iter()
-        .any(|s| s.contains("Ledge assist")));
+    for builtin in Builtin::MENU {
+        let mut m = MenuSelection::new(&p);
+        m.show_quick();
+        m.button_menu = true;
+        m.row = MenuRow::R3Sequence;
+        m.choices[PresetSlot::R3 as usize] =
+            p.list(PresetSlot::R3).options.len() + builtin.visible_template_offset().unwrap();
+        m.input(0, &p);
+        m.input(MENU_STICK_CLICK, &p);
+        assert!(m.recipe_editing);
+        m.input(0, &p);
+        m.input(MAPPER_Y, &p);
+        assert!(m.save_requested && m.default_requested);
+        assert!(m
+            .recipe_panel(&p)
+            .header
+            .iter()
+            .any(|s| s == builtin.label()));
+    }
 }
 
 #[test]

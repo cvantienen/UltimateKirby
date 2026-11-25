@@ -292,6 +292,9 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind24TeamModule__team_no_implEPNS_26BattleObjectModuleAccessorE"]
     /// Reads the object's native team identifier.
     pub fn team(module_accessor: *mut Object) -> u64;
+    // Read-only binding verified in skyline-smash d2ca90d/src/cpp.rs.
+    #[link_name = "\u{1}_ZN3app8lua_bind30TeamModule__team_owner_id_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn team_owner_id(module_accessor: *mut Object) -> u64;
     #[link_name = "\u{1}_ZN3app8lua_bind32HitModule__get_total_status_implEPNS_26BattleObjectModuleAccessorEi"]
     /// Reads one native hit-status value by index.
     pub fn hit_status(module_accessor: *mut Object, hit_status_index: i32) -> u64;

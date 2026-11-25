@@ -578,6 +578,13 @@ pub(super) fn recover() -> Result<(), String> {
 fn recover_paths(path: &Path, temp: &Path) -> Result<(), String> {
     let rollback = recovery_path(path);
     if !exists(&rollback)? {
+        if exists(temp)? {
+            // A crash before the rollback rename leaves only our temporary.
+            // Discard it only after proving the canonical file remains usable.
+            validate_file(path)?;
+            fs::remove_file(temp)
+                .map_err(|e| format!("Cannot remove interrupted save temporary file: {e}"))?;
+        }
         return Ok(());
     }
     if exists(path)? {
@@ -1005,6 +1012,35 @@ mod tests {
         assert!(!rollback.exists());
     }
     #[test]
+    fn orphan_temporary_recovery_preserves_valid_live_file_and_allows_next_save() {
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        fs::write(&path, SOURCE).unwrap();
+        fs::write(&temp, "partial draft").unwrap();
+        recover_paths(&path, &temp).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), SOURCE);
+        assert!(!temp.exists());
+        assert!(write_recipe_paths(&job(), &path, &temp, &backup).unwrap().1);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
+    }
+
+    #[test]
+    fn orphan_temporary_is_retained_when_live_file_is_missing_or_invalid() {
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        fs::write(&temp, "partial draft").unwrap();
+        assert!(recover_paths(&path, &temp).is_err());
+        assert_eq!(fs::read_to_string(&temp).unwrap(), "partial draft");
+        fs::write(&path, "invalid external edit").unwrap();
+        assert!(recover_paths(&path, &temp).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "invalid external edit");
+        assert_eq!(fs::read_to_string(&temp).unwrap(), "partial draft");
+    }
+
+    #[test]
     /// Verifies invalid live content prevents recovery from overwriting retained originals.
     fn recovery_does_not_overwrite_an_invalid_live_file_or_discard_its_original() {
         let directory = Directory::new();
@@ -1097,8 +1133,8 @@ mod tests {
         assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
     #[test]
-    /// Verifies invalid catalogs and pre-existing temporary files block replacement.
-    fn invalid_file_or_existing_temp_never_overwrites_live_file() {
+    /// Invalid catalogs stay untouched; verified orphan recovery permits a fresh save.
+    fn invalid_file_is_preserved_and_orphan_temp_allows_a_verified_save() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
         let temp = directory.0.join("temp");
@@ -1110,10 +1146,10 @@ mod tests {
         assert!(!temp.exists());
         fs::write(&path, SOURCE).unwrap();
         fs::write(&temp, "leftover").unwrap();
-        assert!(write_paths(&job(), &path, &temp, &backup).is_err());
-        assert_eq!(fs::read_to_string(&path).unwrap(), SOURCE);
-        assert_eq!(fs::read_to_string(&temp).unwrap(), "leftover");
-        assert!(!backup.exists());
+        write_paths(&job(), &path, &temp, &backup).unwrap();
+        validate_file(&path).unwrap();
+        assert!(!temp.exists());
+        assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
     #[test]
     /// Verifies backup creation failure leaves the live file and cleans owned temporary data.

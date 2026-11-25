@@ -143,36 +143,29 @@ spatial_timeout = 60
 actions = shield:255
 
 [lucina.drop.down_tilt_shield]
-default = true
+default = false
 name = Down tilt > shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = down_tilt:1, wait:30, shield:255
 
-[lucina.drop.drop_nair]
-default = false
-name = Hop nair (near)
-start_delay = 0
-timeout = 3600
-spatial_timeout = 60
-actions = short_hop_nair:4
 
 [lucina.drop.forward_air]
 default = false
-name = Hop fair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = face:opponent, short_hop_fair:1
+actions = opponent_input:a+x:1:0:4
+name = Hop fair (near)
 
 [lucina.drop.short_hop_dair]
-default = false
-name = Hop dair (near)
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = short_hop_dair:1
+actions = facing_input:a+x:0:-1:4, drift:opponent:1:5
+name = Hop dair (near)
 
 [lucina.drop.down_smash]
 default = false
@@ -243,9 +236,9 @@ default = false
 
 [lucina.settings]
 counter_default = true
-counter_startup = 7
-counter_margin = 5
-counter_half_width = 11
-counter_height = 16
-counter_half_depth = 5
+counter_startup = 6
+counter_margin = 10
+counter_half_width = 10
+counter_height = 20
+counter_half_depth = 6
 

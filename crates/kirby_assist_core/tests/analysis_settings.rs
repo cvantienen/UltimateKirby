@@ -246,7 +246,8 @@ fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     m.tuning_row = AUTO_GRAB_FAR;
     let panel = m.recipe_panel(&p);
     assert!(panel.focus.unwrap() < panel.body.len());
-    assert!(panel.body.iter().any(|s| s.contains("approach range")));
+    assert!(!panel.body.iter().any(|s| s.contains("approach range")));
+    assert!(panel.body[panel.focus.unwrap()].contains("Walking stick"));
     m.tuning_row = usize::MAX;
     let panel = m.recipe_panel(&p);
     assert!(

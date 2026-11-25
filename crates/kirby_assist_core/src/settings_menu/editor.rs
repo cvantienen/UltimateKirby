@@ -1341,11 +1341,9 @@ mod tests {
         tap(&mut m, &p, MAPPER_A);
         assert!(m.recipe_panel(&p).header.join(" ").contains("COPY RECIPE"));
         let e = m.editor.as_ref().unwrap();
-        assert_eq!(e.copy_sources.len(), 1);
+        assert_eq!(e.copy_sources.len(), 1 + PresetSlot::BUTTONS.len());
         assert_eq!(e.copy_sources[0].name, "Nice down smash");
-        for _ in 0..5 {
-            tap(&mut m, &p, DPAD_RIGHT);
-        }
+        assert!(e.copy_sources[1..].iter().all(|s| s.name == "B-reverse"));
         tap(&mut m, &p, MAPPER_A);
         let e = m.editor.as_ref().unwrap();
         let target = e.compiled((0, 0)).unwrap();

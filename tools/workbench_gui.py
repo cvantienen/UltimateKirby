@@ -168,17 +168,24 @@ class Controller:
         if kind not in {'silent', 'diagnostic', 'silent-staged', 'diagnostic-staged'}:
             raise ValueError('Unknown sequence endpoint')
         name = kind.split('-')[0]
-        return transfer.Endpoint(name, transfer.STAGED if kind.endswith('-staged') else transfer.ACTIVE, self.app.port(name))
+        return transfer.Endpoint(name, transfer.STAGED if kind.endswith('-staged') else transfer.ACTIVE,
+                                 self.app.port(name), self.app.host(name))
 
     def perform(self, data):
         action = data['action']
         if action in {'ship', 'upload'} and data.get('ready') is not True:
-            raise ValueError('Close Smash and open FTP, then check the ready box')
+            raise ValueError('Close Smash and open FTP on the Silent Switch and selected targets, then check the ready box')
         for key in ('silent_port', 'diagnostic_port'):
             port = int(data.get(key, self.app.preferences.get(key, 5000)))
             if not 1 <= port <= 65535:
                 raise ValueError('FTP port must be 1..65535')
             self.app.preferences[key] = port
+        for key in ('silent_host', 'diagnostic_host'):
+            if key in data:
+                self.app.preferences[key] = str(data[key]).strip()
+        # Validate both configured addresses and reject accidental duplicate routes.
+        self.app.host('silent')
+        self.app.host('diagnostic')
         cache = str(data.get('cargo_home', self.app.preferences.get('cargo_home', '/private/tmp/kirby-assist-build-cargo'))).strip()
         self.app.preferences['cargo_home'] = cache
         self.app.save_preferences()
@@ -187,21 +194,41 @@ class Controller:
             target = data.get('target', 'all')
             if target not in {'all', 'silent', 'diagnostic'}:
                 raise ValueError('Choose Both, Silent or Diagnostic')
-            targets = [t for t in TARGETS if target == 'all' or t[1] == target]
+            targets = [t for t in self.app.targets() if target == 'all' or t[1] == target]
             self.app.preferences['gui_target'] = target
             self.app.save_preferences()
+            sequences_synced = False
+            sync_plan = None
+            if action in {'ship', 'upload'}:
+                sync_plan = self.app.prepare_silent_sequences()
+                if action == 'ship' or data.get('sequences_confirmed') is True:
+                    data['sequences_confirmed'] = True
             if action in {'ship', 'build'}:
-                self.app.history.perform('set-version', {'version': release}, lambda: set_version(ROOT / 'Cargo.toml', release))
-                self.app.build_release(target, cache)
+                if sync_plan and sync_plan.get('original') != sources.assemble(sources.SOURCE):
+                    sync_plan = self.app.prepare_silent_sequences()
+                with self.app.stage_silent_sequences(sync_plan) if sync_plan else contextlib.nullcontext():
+                    self.app.history.perform('set-version', {'version': release}, lambda: set_version(ROOT / 'Cargo.toml', release))
+                    self.app.build_release(target, cache)
                 if version() != release:
                     raise RuntimeError('Source version changed during build; upload cancelled')
             if action in {'ship', 'upload', 'verify'}:
-                # Validate every selected payload before writing to any Switch.
-                for host, name in targets:
-                    self.app.run('upload-preview', helper('upload_switch.py', host, '-v', release,
-                        '-s' if name == 'silent' else '-d', '--port', self.app.port(name), '--dry-run'),
-                        {'version': release, 'target': name, 'host': host})
-                if not self.app.upload_release(release, targets, verify=action == 'verify'):
+                # Validate every selected payload against the authoritative Silent snapshot.
+                if sync_plan and sync_plan.get('original') != sources.assemble(sources.SOURCE):
+                    sync_plan = self.app.prepare_silent_sequences()
+                with self.app.stage_silent_sequences(sync_plan) if sync_plan else contextlib.nullcontext():
+                    for host, name in targets:
+                        self.app.run('upload-preview', helper('upload_switch.py', host, '-v', release,
+                            '-s' if name == 'silent' else '-d', '--port', self.app.port(name),
+                            '--replace-sequences', '--allow-diagnostic-on-silent-ip', '--dry-run'),
+                            {'version': release, 'target': name, 'host': host})
+                if action in {'ship', 'upload'} and data.get('ready') is True:
+                    if not data.get('sequences_confirmed'):
+                        raise ValueError('Confirm synchronizing Silent sequences and replacing active files')
+                    self.app.history.perform('silent-sequence-sync',
+                        {'source': sync_plan['origin'], 'destination': str(sources.SOURCE)},
+                        lambda: self.app.apply_silent_sequences(sync_plan))
+                    sequences_synced = True
+                if not self.app.upload_release(release, targets, verify=action == 'verify', sequences_synced=sequences_synced, sequence_plan=sync_plan):
                     raise RuntimeError('Some Switches failed; inspect individual upload results')
             return {'version': release, 'targets': [name for _, name in targets]}
         if action == 'validate':
@@ -356,7 +383,9 @@ def launch(app):
                'breakdown_endpoint': app.preferences.get('gui_breakdown_endpoint', 'silent'),
                'breakdown_file': app.preferences.get('gui_breakdown_file', str(DEFAULT_FILE)),
                'breakdown_destination': app.preferences.get('gui_breakdown_destination', str(sources.SOURCE)),
-               'silent_port': app.port('silent'), 'diagnostic_port': app.port('diagnostic'), 'helpers': list(HELPERS)}
+               'silent_port': app.port('silent'), 'diagnostic_port': app.port('diagnostic'),
+               'silent_host': app.host('silent'), 'diagnostic_host': app.host('diagnostic'),
+               'helpers': list(HELPERS)}
     html = html.replace('__INITIAL__', json.dumps(initial).replace('<', '\\u003c'))
 
     class Handler(BaseHTTPRequestHandler):

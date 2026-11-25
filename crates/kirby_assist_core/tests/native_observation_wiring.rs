@@ -16,6 +16,7 @@ mod native_params {
 thread_local! {
     static LINKS:std::cell::Cell<u32>=const{std::cell::Cell::new(0)};
     static LINK_READS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};
+    static INVALIDATE_GEOMETRY_ON_SCALE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static SOURCES: std::cell::RefCell<Vec<Box<Actor>>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 #[repr(C)]
@@ -107,7 +108,10 @@ mod game_ffi {
     pub unsafe fn team(o: *mut Object) -> u64 {
         u64::from(actor(o).id != 1)
     }
-    pub unsafe fn scale(_: *mut Object) -> f32 {
+    pub unsafe fn scale(o: *mut Object) -> f32 {
+        if super::INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.get()) {
+            (*o.cast::<super::Actor>()).geometry.size = 0.;
+        }
         1.
     }
     pub unsafe fn motion_kind(o: *mut Object) -> u64 {
@@ -231,6 +235,8 @@ mod attack_sources {
 }
 #[path = "../../../src/live/frame.rs"]
 mod frame;
+#[path = "../../../src/live/hitboxes.rs"]
+mod hitboxes;
 #[path = "../../../src/live/observations.rs"]
 mod observations;
 #[path = "../../../src/live/tech.rs"]
@@ -270,6 +276,71 @@ fn nearby_hitboxes_use_geometry_and_situation_instead_of_root_or_startup() {
         }
     }
     SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn distant_roots_do_not_hide_disjoint_fighter_weapon_or_item_hitboxes() {
+    let mut own = Actor::new(1);
+    for id in [2, 0x10000002, 0x40000002] {
+        let mut enemy = Box::new(Actor::new(id));
+        enemy.position[0] = 200.;
+        enemy.geometry.x = -200.;
+        SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+        assert!(unsafe {
+            observations::incoming_fighter_attack(
+                &frame::FrameReads::default(), own.object(), 1, [0.; 2], [0.; 2],
+                kirby_assist_core::autopilot_guard::Envelope::default(),
+            )
+        });
+    }
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn unavailable_active_geometry_preserves_conservative_guard_warning() {
+    let mut own = Actor::new(1);
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.geometry.x = f32::NAN;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert!(unsafe {
+        observations::incoming_fighter_attack(
+            &frame::FrameReads::default(), own.object(), 1, [0.; 2], [0.; 2],
+            kirby_assist_core::autopilot_guard::Envelope::default(),
+        )
+    });
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn stopped_defender_does_not_project_reserved_kinetic_speed() {
+    let mut own = Actor::new(1);
+    own.stopped = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.position[0] = 50.;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert!(!unsafe {
+        observations::incoming_fighter_attack(
+            &frame::FrameReads::default(), own.object(), 1, [0.; 2], [8., 0.],
+            kirby_assist_core::autopilot_guard::Envelope::default(),
+        )
+    });
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn attack_geometry_is_copied_before_the_next_native_call() {
+    let mut own = Actor::new(1);
+    SOURCES.with(|s| *s.borrow_mut() = vec![Box::new(Actor::new(2))]);
+    INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.set(true));
+    let threat = unsafe {
+        observations::incoming_fighter_attack(
+            &frame::FrameReads::default(), own.object(), 1, [0.; 2], [0.; 2],
+            kirby_assist_core::autopilot_guard::Envelope::default(),
+        )
+    };
+    INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.set(false));
+    SOURCES.with(|s| s.borrow_mut().clear());
+    assert!(threat);
 }
 
 #[test]

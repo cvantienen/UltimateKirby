@@ -235,7 +235,8 @@ def backup_installed(ftp: ftplib.FTP, plan, backup: PurePosixPath) -> None:
 def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
                  user: str = "anonymous", password: str = "", dry_run: bool = False,
                  verify_only: bool = False, version: str | None = None,
-                 variant: str | None = None, replace_sequences: bool = False) -> None:
+                 variant: str | None = None, replace_sequences: bool = False,
+                 allow_diagnostic_on_silent_ip: bool = False) -> None:
     root_path = PurePosixPath(ftp_root(root))
     payloads = upload_payloads(source, replace_sequences=replace_sequences)
     verify_selection(payloads, version, variant)
@@ -254,7 +255,7 @@ def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
         print("Dry run: no FTP connection or remote changes.", flush=True)
         return
     binary = next(data for remote, data in payloads if remote == PLUGIN)
-    if (not verify_only and host.endswith(".106")
+    if (not verify_only and host.endswith(".106") and not allow_diagnostic_on_silent_ip
             and all(marker in binary for marker in LOG_MARKERS)):
         try:
             answer = input("Are you sure you want to upload diagnostic? Type yes to continue [default: no]: ")
@@ -324,6 +325,7 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--user", default="anonymous", help="FTP login (default: anonymous)")
     parser.add_argument("--password-env", help="Read FTP password from this environment variable")
     parser.add_argument("--replace-sequences", action="store_true", help="back up and replace active sequences.txt instead of staging an inactive copy")
+    parser.add_argument("--allow-diagnostic-on-silent-ip", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--smash-closed", action="store_true", help="confirm Smash is fully closed; required for active sequence replacement")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="Check files and print paths without connecting")
@@ -346,7 +348,8 @@ def main() -> None:
                      password=os.environ[options.password_env] if options.password_env else "",
                      dry_run=options.dry_run, verify_only=options.verify_only,
                      version=options.version, variant=options.variant,
-                     replace_sequences=options.replace_sequences)
+                     replace_sequences=options.replace_sequences,
+                     allow_diagnostic_on_silent_ip=options.allow_diagnostic_on_silent_ip)
     except (OSError, RuntimeError) as error:
         raise SystemExit(str(error)) from error
 

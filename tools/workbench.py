@@ -41,6 +41,7 @@ import fcntl
 import ftplib
 import json
 import os
+import ipaddress
 from pathlib import Path
 import shlex
 import sys
@@ -135,6 +136,106 @@ class Workbench:
             raise ValueError("FTP port must be 1..65535")
         return port
 
+    def host(self, target):
+        saved = self.preferences.get(target + "_host")
+        host = str(saved or next(host for host, name in TARGETS if name == target))
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError as error:
+            raise ValueError(f"{target.title()} address must be a valid IP address") from error
+        if address.version != 4:
+            raise ValueError("Switch addresses must be IPv4")
+        if target == "silent" and host == self.host("diagnostic"):
+            raise ValueError("Silent and Diagnostic Switch addresses must be different")
+        return host
+
+    def targets(self):
+        return tuple((self.host(name), name) for name in ("silent", "diagnostic"))
+
+    def prepare_silent_sequences(self):
+        """Download and validate Silent's active file without mutating repository files."""
+        endpoint = transfer.Endpoint("silent", transfer.ACTIVE, self.port("silent"), self.host("silent"))
+        downloaded = transfer.read(endpoint)
+        if downloaded is None:
+            raise RuntimeError("Silent active sequences.txt is missing; repository was not changed")
+        current = sources.assemble(sources.SOURCE)
+        restored = sources.restore_comments(current, downloaded)
+        transfer.validate_sequences(restored)
+        plan = sources.plan_breakdown(sources.SOURCE, restored)
+        plan["origin"] = endpoint.label()
+        plan["original"] = current
+        plan["original_files"] = {str(path): path.read_bytes() for path in [sources.SOURCE, *sources.SOURCE.parent.joinpath('fighters').glob('*.txt')] if path.is_file()}
+        plan["original_fighters"] = {str(path): data for path, data in ((Path(name), value) for name, value in plan["original_files"].items()) if path != sources.SOURCE}
+        return {key: value for key, value in plan.items() if key != "original_files"}
+
+    def rollback_silent_sequences(self, plan):
+        """Restore split sources and assembled output after an unsuccessful deployment."""
+        current = sources.assemble(sources.SOURCE)
+        if current == plan["original"]:
+            return
+        rollback = Path(tempfile.mkdtemp(
+            prefix="silent-sync-rollback-", dir=self.history.directory))
+        sources.replace_sources(sources.SOURCE, plan["original"], rollback, expected=current)
+        for filename, data in plan.get("original_fighters", {}).items():
+            path = Path(filename)
+            if path.exists() and path.is_file():
+                sources.write_generated(data, path)
+        for path in sources.SOURCE.parent.joinpath('fighters').glob('*.txt'):
+            if str(path) not in plan.get("original_fighters", {}):
+                path.unlink()
+        sources.write_generated(plan["original"])
+
+    @contextmanager
+    def stage_silent_sequences(self, plan):
+        """Temporarily expose a reviewed Silent snapshot to build/upload preflight."""
+        current = sources.assemble(sources.SOURCE)
+        if current != plan["original"]:
+            raise RuntimeError("Repository sequence sources changed after Silent preview; nothing overwritten")
+        if not plan.get("data"):
+            plan["data"] = current
+        generated = sources.GENERATED
+        previous_generated = generated.read_bytes() if generated.exists() else None
+        scratch = Path(tempfile.mkdtemp(prefix="silent-sequence-stage-", dir=self.history.directory))
+        sources.replace_sources(sources.SOURCE, plan["data"], scratch / "before")
+        try:
+            sources.write_generated(plan["data"])
+            yield
+        finally:
+            sources.replace_sources(sources.SOURCE, plan["original"], scratch / "restore")
+            for filename, data in plan.get("original_fighters", {}).items():
+                path = Path(filename)
+                if path.exists():
+                    sources.write_generated(data, path)
+            for path in sources.SOURCE.parent.joinpath('fighters').glob('*.txt'):
+                if str(path) not in plan.get("original_fighters", {}):
+                    path.unlink()
+            if previous_generated is None:
+                generated.unlink(missing_ok=True)
+            else:
+                sources.write_generated(previous_generated)
+
+    def apply_silent_sequences(self, plan):
+        """Apply a reviewed Silent snapshot to split sources and assembled deployment file."""
+        current = sources.assemble(sources.SOURCE)
+        if current != plan["original"]:
+            raise RuntimeError("Repository sequence sources changed after Silent preview; nothing overwritten")
+        if current == plan["data"]:
+            return {"unchanged": True, "source": plan["origin"], "destination": str(sources.SOURCE)}
+        backup_root = self.history.directory / "source-breakdowns"
+        backup_root.mkdir(parents=True, exist_ok=True)
+        backup = Path(tempfile.mkdtemp(
+            prefix=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S-"), dir=backup_root))
+        sources.replace_sources(sources.SOURCE, plan["data"], backup, expected=current)
+        try:
+            sources.write_generated(plan["data"])
+        except BaseException:
+            rollback = Path(tempfile.mkdtemp(prefix="silent-sync-rollback-", dir=backup_root))
+            sources.replace_sources(sources.SOURCE, current, rollback)
+            raise
+        print(f"Synchronized Silent active sequences into {plan['fighters']} fighter sources; backup: {backup}")
+        return {"source": plan["origin"], "destination": str(sources.SOURCE), "backup": str(backup),
+                "fighters": plan["fighters"], "sections": plan["sections"], "bytes": plan["bytes"]}
+
     def run(self, action, argv, details=None):
         details = {**(details or {}), "command": argv}
         print("\nCommand:", shlex.join(argv))
@@ -190,38 +291,62 @@ class Workbench:
         selected = choose("Target", ["Both saved Switches", "Silent only", "Diagnostic only"])
         if selected is None:
             return
-        targets = list(TARGETS) if selected == 0 else [(host, name) for host, name in TARGETS if name == ("silent" if selected == 1 else "diagnostic")]
-        # Use the existing source/variant validator for each target, before any write.
-        for host, name in targets:
-            self.run("upload-preview", helper("upload_switch.py", host, "-v", release,
-                     "-s" if name == "silent" else "-d", "--port", self.port(name), "--dry-run"),
-                     {"version": release, "target": name, "host": host})
-        if not verify and not confirm("The listed selected files will be backed up/replaced. Active sequences.txt is preserved.\nConfirm Smash is CLOSED on every selected Switch and FTP is open.", "UPLOAD"):
-            return
+        routes = self.targets()
+        targets = list(routes) if selected == 0 else [(host, name) for host, name in routes if name == ("silent" if selected == 1 else "diagnostic")]
+        if not verify and not confirm("Silent active sequences.txt becomes the repository source of truth. Close Smash and open FTP on Silent and the selected Switches; selected active files will be replaced after verified backups.", "UPLOAD"):
+            return False
         return self.upload_release(release, targets, verify=verify)
 
-    def upload_release(self, release, targets, *, verify=False):
+    def upload_release(self, release, targets, *, verify=False, sequences_synced=False, sequence_plan=None):
         """Fixed route uploads, per-target history and independent failure handling."""
         upload_switch.release_version(release)
-        if not targets or any(target not in TARGETS for target in targets):
+        if not targets or any(target not in self.targets() for target in targets):
             raise ValueError("Only the saved Switch/variant routes may be used")
+        if not verify and not sequences_synced:
+            sequence_plan = self.prepare_silent_sequences()
+            with self.stage_silent_sequences(sequence_plan):
+                for host, name in targets:
+                    preview = helper("upload_switch.py", host, "-v", release,
+                                     "-s" if name == "silent" else "-d", "--port", self.port(name),
+                                     "--replace-sequences", "--allow-diagnostic-on-silent-ip", "--dry-run")
+                    self.run("upload-preview", preview, {"version": release, "target": name, "host": host})
+            self.history.perform("silent-sequence-sync", {"source": sequence_plan["origin"], "destination": str(sources.SOURCE)}, lambda: self.apply_silent_sequences(sequence_plan))
+            sequences_synced = True
         failures = []
+        uploaded = []
         for host, name in targets:
-            argv = helper("upload_switch.py", host, "-v", release, "-s" if name == "silent" else "-d", "--port", self.port(name))
+            argv = helper("upload_switch.py", host, "-v", release, "-s" if name == "silent" else "-d", "--port", self.port(name), "--replace-sequences", "--allow-diagnostic-on-silent-ip")
             if verify:
                 argv.append("--verify-only")
+            else:
+                argv.append("--smash-closed")
             details = {"version": release, "target": name, "host": host, "command": argv}
             def operation(argv=argv, details=details, name=name):
                 # Keep local payload snapshots; actual uploaded hashes are read
                 # separately from the original helper's output, never guessed.
                 details["artifacts"] = [{"remote": "/" + str(path), **self.history.archive(data)}
-                    for path, data in upload_switch.upload_payloads(upload_switch.selected_source(release, name))]
+                    for path, data in upload_switch.upload_payloads(upload_switch.selected_source(release, name), replace_sequences=True)]
                 return self.execute(argv)
             try:
                 self.history.perform("verify" if verify else "upload", details, operation)
+                if not verify:
+                    uploaded.append(name)
+                    if name == "silent" and sequence_plan:
+                        sequence_plan["silent_uploaded"] = True
             except (OSError, RuntimeError) as error:
                 failures.append(name)
                 print(f"{name}: {error}")
+                if not verify and name == "silent" and sequence_plan:
+                    try:
+                        self.rollback_silent_sequences(sequence_plan)
+                        sequences_synced = False
+                    except (OSError, RuntimeError) as rollback_error:
+                        print(f"Repository rollback failed after Silent upload failure: {rollback_error}")
+        if failures and not verify and sequences_synced and sequence_plan and not sequence_plan.get("silent_uploaded"):
+            try:
+                self.rollback_silent_sequences(sequence_plan)
+            except (OSError, RuntimeError) as error:
+                print(f"Repository rollback failed after upload failure: {error}")
         print("Finished." if not failures else "Failed/unconfirmed targets: " + ", ".join(failures))
         return not failures
 
@@ -237,7 +362,8 @@ class Workbench:
         file = choose("Which sequence file?", ["ACTIVE sequences.txt (in-game saves)", "STAGED sequences.upload.txt (not active)"])
         if file is None:
             return None
-        return transfer.Endpoint(name, transfer.ACTIVE if file == 0 else transfer.STAGED, self.port(name))
+        return transfer.Endpoint(name, transfer.ACTIVE if file == 0 else transfer.STAGED,
+                                 self.port(name), self.host(name))
 
     def sequences(self):
         source = self.endpoint("Transfer FROM")
@@ -281,6 +407,9 @@ class Workbench:
         if data is None:
             raise RuntimeError(f"No sequence file to break down at {endpoint.label()}")
         transfer.validate_sequences(data)
+        if source.resolve() == sources.SOURCE.resolve():
+            data = sources.restore_comments(sources.assemble(source), data)
+            transfer.validate_sequences(data)
         plan = sources.plan_breakdown(source, data)
         plan["origin"] = endpoint.label()
         return plan
@@ -416,10 +545,19 @@ class Workbench:
         if self.preferences["cargo_home"] == "-":
             self.preferences["cargo_home"] = ""
         for name in ("silent", "diagnostic"):
+            configured_host = ask(f"{name.title()} Switch IPv4", self.host(name))
+            try:
+                if ipaddress.ip_address(configured_host).version != 4:
+                    raise ValueError
+            except ValueError as error:
+                raise ValueError("Switch addresses must be valid IPv4 addresses") from error
+            self.preferences[name + "_host"] = configured_host
             port = int(ask(f"{name} FTP port", self.port(name)))
             if not 1 <= port <= 65535:
                 raise ValueError("Port must be 1..65535")
             self.preferences[name + "_port"] = port
+        if self.host("silent") == self.host("diagnostic"):
+            raise ValueError("Silent and Diagnostic Switch addresses must be different")
         self.save_preferences()
 
     def build_then_upload(self):

@@ -209,13 +209,9 @@ impl MenuSelection {
                     }
                 }
             }
-            self.choices[slot as usize] = selected.unwrap_or_else(|| {
-                if slot.is_button() {
-                    slot.default_index(options.len())
-                } else {
-                    first.unwrap_or(options.len())
-                }
-            });
+            self.choices[slot as usize] = selected
+                .or(first)
+                .unwrap_or_else(|| slot.default_index(options.len()));
         }
         if !records.drafts.is_empty() {
             self.catalog = Some(Box::new(records));
@@ -321,10 +317,10 @@ impl MenuSelection {
             return c.sequence.mode.is_none().then_some(Source::Saved(c));
         }
         if slot.is_button() {
-            if index == options.len() + 1 {
+            if index == options.len() + PresetSlot::BUTTON_CUSTOM_OFFSET {
                 return Some(Source::Custom);
             }
-            if index == options.len() + 2 {
+            if index == options.len() + PresetSlot::B_REVERSE_OFFSET {
                 return Some(Source::BReverse);
             }
             let template = Builtin::MENU.into_iter().find(|builtin| {
@@ -615,7 +611,12 @@ impl MenuSelection {
     fn complete_deletion(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         let key = (slot as usize, index);
         // A Custom saved at its template index becomes reusable after deletion.
-        let custom_index = presets.list(slot).options.len() + usize::from(slot.is_button());
+        let custom_index = presets.list(slot).options.len()
+            + if slot.is_button() {
+                PresetSlot::BUTTON_CUSTOM_OFFSET
+            } else {
+                PresetSlot::CUSTOM_OFFSET
+            };
         if index == custom_index {
             self.catalog_mut().drafts.remove(&key);
             if let Some(editor) = self.editor.as_mut() {
@@ -631,7 +632,12 @@ impl MenuSelection {
                 .find(|i| *i > index)
                 .or_else(|| visible.last().copied())
                 .unwrap_or_else(|| {
-                    presets.list(slot).options.len() + if slot.is_button() { 2 } else { 0 }
+                    presets.list(slot).options.len()
+                        + if slot.is_button() {
+                            PresetSlot::B_REVERSE_OFFSET
+                        } else {
+                            PresetSlot::CUSTOM_OFFSET
+                        }
                 });
         }
         self.bump_recipes();

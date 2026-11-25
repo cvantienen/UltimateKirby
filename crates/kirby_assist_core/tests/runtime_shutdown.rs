@@ -1,7 +1,7 @@
 //! Execute the production teardown and route validator with local native stubs.
 //! No Switch calls, hooks, SD/network access or synthetic controller injection.
 #![allow(dead_code, unexpected_cfgs)]
-use kirby_assist_core::session::MatchSession;
+use kirby_assist_core::session::{MatchSession, SessionTicket};
 use std::time::{Duration, Instant};
 const SESSION_OBSERVATION_GAP: Duration = Duration::from_millis(250);
 use std::sync::{
@@ -32,6 +32,8 @@ struct State {
     observation_sequence: u64,
     settings_menu: Option<Menu>,
     associated_object: Option<u32>,
+    observed_object: Option<u32>,
+    raw_tick: i64,
     menu_battle_active: bool,
     mapping_index: Option<i32>,
     human_routes: [Option<(u32, Instant)>; 8],
@@ -51,6 +53,8 @@ impl State {
             observation_sequence: 0,
             settings_menu: None,
             associated_object: None,
+            observed_object: None,
+            raw_tick: 0,
             menu_battle_active: false,
             mapping_index: None,
             human_routes: [None; 8],
@@ -163,6 +167,56 @@ fn lost_participation_suspends_everything_once_without_changing_the_master_prefe
         "idle spectator polls do not repeat cleanup"
     );
     assert_eq!(MENU_ENDS.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn post_map_fence_rejects_cancelled_replaced_or_newer_packets() {
+    let _guard = SERIAL.lock().unwrap();
+    let ticket = seed();
+    let mut state = STATE.lock().unwrap();
+    state.observed_object = Some(7);
+    state.raw_tick = 12;
+    let packet = Some((90, 12, 7));
+    assert!(runtime::mapper_output_current(&state, 0, ticket, packet));
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, None));
+    assert!(!runtime::mapper_output_current(&state, 1, ticket, packet));
+    state.observation_sequence += 1;
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    state.observation_sequence = 90;
+    state.raw_tick += 1;
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    state.raw_tick = 12;
+    state.associated_object = Some(8);
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    state.associated_object = Some(7);
+    state.observed_object = Some(8);
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    state.observed_object = Some(7);
+    LOCAL_PARTICIPANT.store(false, Ordering::Release);
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    LOCAL_PARTICIPANT.store(true, Ordering::Release);
+    RUNTIME_ENABLED.store(false, Ordering::Release);
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+    RUNTIME_ENABLED.store(true, Ordering::Release);
+    state.session.update(false);
+    state.session.update(true);
+    assert!(!runtime::mapper_output_current(&state, 0, ticket, packet));
+}
+
+#[test]
+fn post_map_wiring_checks_before_mutations_and_restores_rejected_packets() {
+    let source = include_str!("../../../src/live/mapper.rs");
+    let finish = source.split("pub(super) unsafe fn finish_mapper_overlay(").nth(1).unwrap();
+    let fence = finish.find("runtime::mapper_output_current").unwrap();
+    let rejection = finish.find("if !current {").unwrap();
+    let restore = finish[rejection..].find("saved.restore();").unwrap() + rejection;
+    let exit = finish[rejection..].find("return;").unwrap() + rejection;
+    let apply = finish.find("apply_mapper_output_adjustments(output").unwrap();
+    let taunts = finish.find("suppress_reserved_taunts").unwrap();
+    let unlock = finish.find("drop(state_guard);").unwrap();
+    assert!(fence < rejection && rejection < restore && restore < exit && exit < apply);
+    assert!(apply < unlock && taunts < unlock);
+    assert!(finish[unlock..].contains("saved.restore();"));
 }
 
 #[test]

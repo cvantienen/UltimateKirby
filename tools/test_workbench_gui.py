@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import workbench
+import sequence_sources as sources
 import workbench_gui as gui
 from workbench_history import History
 
@@ -38,28 +39,56 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(manifest.read_bytes(), saved)
 
     def test_build_failure_prevents_upload_and_does_not_fall_back_to_old_release(self):
-        with patch.object(gui, 'set_version', return_value={}), patch.object(self.app, 'build_release', side_effect=RuntimeError('build failed')), patch.object(self.app, 'upload_release') as upload:
+        with patch.object(gui, 'set_version', return_value={}), patch.object(self.app, 'prepare_silent_sequences', return_value={'original': sources.assemble(sources.SOURCE), 'data': sources.assemble(sources.SOURCE)}), patch.object(self.app, 'build_release', side_effect=RuntimeError('build failed')), patch.object(self.app, 'upload_release') as upload:
             with self.assertRaisesRegex(RuntimeError, 'build failed'):
                 self.gui.perform({'action': 'ship', 'version': '2.2.5', 'target': 'all', 'ready': True})
             upload.assert_not_called()
 
     def test_one_click_ship_builds_requested_target_then_previews_fixed_routes(self):
         events = []
-        with patch.object(gui, 'set_version', side_effect=lambda *a: events.append('version')), patch.object(gui, 'version', return_value='2.2.5'), patch.object(self.app, 'build_release', side_effect=lambda *a: events.append(('build', a))), patch.object(self.app, 'run', side_effect=lambda *a: events.append(('preview', a))), patch.object(self.app, 'upload_release', return_value=True) as upload:
-            self.gui.perform({'action': 'ship', 'version': '2.2.5', 'target': 'all', 'ready': True, 'cargo_home': '/tmp/cache'})
-        self.assertEqual(events[0], 'version')
-        self.assertEqual(events[1], ('build', ('all', '/tmp/cache')))
+        plan = {'original': sources.assemble(sources.SOURCE), 'data': sources.assemble(sources.SOURCE), 'origin': 'silent'}
+        with patch.object(gui, 'set_version', side_effect=lambda *a: events.append('version')), patch.object(gui, 'version', return_value='2.2.5'), patch.object(self.app, 'prepare_silent_sequences', side_effect=lambda: (events.append('sync') or dict(plan))),  patch.object(self.app.history, 'perform', side_effect=lambda action, details, operation: operation()), patch.object(self.app, 'build_release', side_effect=lambda *a: events.append(('build', a))), patch.object(self.app, 'run', side_effect=lambda *a: events.append(('preview', a))), patch.object(self.app, 'upload_release', return_value=True) as upload, patch.object(self.app, 'apply_silent_sequences', side_effect=lambda *a: events.append('apply')):
+            self.gui.perform({'action': 'ship', 'version': '2.2.5', 'target': 'all', 'ready': True, 'sequences_confirmed': True, 'silent_host': '192.168.1.106', 'diagnostic_host': '192.168.1.142', 'cargo_home': '/tmp/cache'})
+        self.assertIn('version', events)
+        self.assertIn(('build', ('all', '/tmp/cache')), events)
+        self.assertIn('apply', events)
         previews = [e[1][1] for e in events if isinstance(e, tuple) and e[0] == 'preview']
         self.assertEqual(len(previews), 2)
         self.assertTrue(all('--dry-run' in p for p in previews))
-        upload.assert_called_once_with('2.2.5', list(workbench.TARGETS), verify=False)
+        self.assertTrue(all('--replace-sequences' in p for p in previews))
+        upload.assert_called_once_with('2.2.5', list(workbench.TARGETS), verify=False, sequences_synced=True, sequence_plan=plan)
+
+    def test_ship_synchronizes_silent_before_build_and_uses_configured_targets(self):
+        events = []
+        plan = {'original': sources.assemble(sources.SOURCE), 'data': sources.assemble(sources.SOURCE), 'origin': 'silent'}
+        with (patch.object(gui, 'set_version', return_value={}),
+              patch.object(gui, 'version', return_value='2.2.5'),
+              patch.object(self.app, 'prepare_silent_sequences', side_effect=lambda: (events.append('sync') or dict(plan))),
+              patch.object(self.app.history, 'perform', side_effect=lambda action, details, operation: events.append(action) or operation()),
+              patch.object(self.app, 'build_release', side_effect=lambda *args: events.append('build')),
+              patch.object(self.app, 'run', side_effect=lambda *args: events.append('preview')),
+              patch.object(self.app, 'upload_release', return_value=True) as upload,
+              patch.object(self.app, 'apply_silent_sequences', side_effect=lambda *args: events.append('apply'))):
+            self.gui.perform({'action': 'ship', 'version': '2.2.5', 'target': 'all', 'ready': True,
+                              'silent_host': '10.0.0.10', 'diagnostic_host': '10.0.0.11'})
+        self.assertIn('sync', events)
+        self.assertIn('build', events)
+        self.assertEqual(upload.call_args.args[1], [('10.0.0.10', 'silent'), ('10.0.0.11', 'diagnostic')])
+        self.assertTrue(upload.call_args.kwargs['verify'] is False)
+        self.assertTrue(upload.call_args.kwargs['sequences_synced'])
+        self.assertIn('apply', events)
+
+    def test_configured_switch_ips_must_be_distinct_ipv4_addresses(self):
+        for values in ({'silent_host': 'bad-ip'}, {'silent_host': '10.0.0.2', 'diagnostic_host': '10.0.0.2'}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                self.gui.perform({'action': 'validate', **values})
 
     def test_upload_requires_ready_and_source_version_change_blocks_ship(self):
         with patch.object(self.app, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'Close Smash'):
                 self.gui.perform({'action': 'upload', 'version': '2.2.5'})
             run.assert_not_called()
-        with patch.object(gui, 'set_version', return_value={}), patch.object(gui, 'version', return_value='9.9.9'), patch.object(self.app, 'build_release'), patch.object(self.app, 'upload_release') as upload:
+        with patch.object(gui, 'set_version', return_value={}), patch.object(gui, 'version', return_value='9.9.9'), patch.object(self.app, 'prepare_silent_sequences', return_value={'original': sources.assemble(sources.SOURCE), 'data': sources.assemble(sources.SOURCE), 'origin': 'silent'}), patch.object(self.app, 'run'), patch.object(self.app, 'build_release'), patch.object(self.app, 'upload_release') as upload, patch.object(self.app, 'apply_silent_sequences'): 
             with self.assertRaisesRegex(RuntimeError, 'changed during build'):
                 self.gui.perform({'action': 'ship', 'version': '2.2.5', 'ready': True})
             upload.assert_not_called()

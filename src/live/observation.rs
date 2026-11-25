@@ -2062,7 +2062,11 @@ unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
         (
             s.settings_menu
                 .as_ref()
-                .and_then(|menu| menu.counter_config(p.fighter_kind)),
+                .and_then(|menu| menu.counter_config(p.fighter_kind))
+                .map(|mut config| {
+                    config.input_delay = f32::from(p.config.sequence_input_delay_frames);
+                    config
+                }),
             !p.policy.automatic_suspended
                 && !p.tech_obs.clatter
                 && s.action_owner.allows(Owner::Counter),
@@ -3542,7 +3546,7 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
         state.counter.sample(allowed, Some(config), context, threat)
     } else {
-        if !state.counter.awaiting_receipt() {
+        if !allowed || !state.counter.awaiting_receipt() {
             state.counter.cancel();
         }
         ControllerOutput::default()
