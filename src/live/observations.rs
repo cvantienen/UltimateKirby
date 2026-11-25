@@ -363,6 +363,54 @@ pub(super) unsafe fn posture_opponent(
     nearest.map(|(_, offset)| offset)
 }
 
+pub(super) unsafe fn spacing_opponent(
+    reads: &super::frame::FrameReads,
+    own: *mut game::Object,
+    own_id: u32,
+) -> Option<Opponent> {
+    let roster = reads.roster()?;
+    let position = [reads.pos_x(own), reads.pos_y(own)];
+    let team = reads.team(own);
+    let mut nearest: Option<(f32, Opponent)> = None;
+    for id in roster.into_iter().flatten() {
+        if id == own_id
+            || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
+            continue;
+        }
+        let enemy = game::module_accessor(id);
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
+            continue;
+        }
+        let status = reads.status_kind(enemy);
+        let situation = reads.situation_kind(enemy);
+        if !matches!(situation, kirby_assist_core::native_states::situation::GROUND | kirby_assist_core::native_states::situation::AIR)
+            || !kirby_assist_core::reaction_rules::automatic_target_available(status)
+            || kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(enemy), status)
+            || reads.capture_link(enemy)
+        {
+            continue;
+        }
+        let target = Opponent {
+            id, status, situation,
+            position: [reads.pos_x(enemy), reads.pos_y(enemy)],
+            velocity: [reads.speed_x(enemy), reads.speed_y(enemy)],
+            vulnerable: game::hit_status(enemy, 0) == 0,
+            air_physics: (situation == kirby_assist_core::native_states::situation::AIR)
+                .then(|| native_air_physics(enemy)).flatten(),
+            ..Default::default()
+        };
+        let distance = kirby_assist_core::battle_objects::distance_squared(position, target.position);
+        if distance.is_finite() && target.velocity.iter().all(|v| v.is_finite())
+            && nearest.is_none_or(|(old, _)| distance < old)
+        {
+            nearest = Some((distance, target));
+        }
+    }
+    nearest.map(|(_, target)| target)
+}
+
 /// Builds the bounded target snapshot used by combat policies.
 /// # Safety
 /// Native fighter IDs must be revalidated by this function before each accessor read.

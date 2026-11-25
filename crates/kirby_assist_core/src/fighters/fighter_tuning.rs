@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 60;
+    pub const COUNT: usize = 73;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -105,6 +105,19 @@ mod schema {
         "counter_half_width",
         "counter_height",
         "counter_half_depth",
+        "auto_spacing_minimum_distance",
+        "auto_spacing_ground_move",
+        "auto_spacing_ground_startup",
+        "auto_spacing_ground_active_frames",
+        "auto_spacing_ground_reach",
+        "auto_spacing_ground_height",
+        "auto_spacing_ground_commitment",
+        "auto_spacing_aerial_move",
+        "auto_spacing_aerial_startup",
+        "auto_spacing_aerial_active_frames",
+        "auto_spacing_aerial_reach",
+        "auto_spacing_aerial_height",
+        "auto_spacing_aerial_commitment",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -169,6 +182,19 @@ mod schema {
         "Counter: body half-width",
         "Counter: body height",
         "Counter: body half-depth",
+        "Auto-spacing: minimum distance",
+        "Spacing ground move (0-5)",
+        "Spacing ground: startup frames",
+        "Spacing ground: active frames",
+        "Spacing ground: reach estimate",
+        "Spacing ground: height tolerance",
+        "Spacing ground: commitment frames",
+        "Spacing aerial move (0-5)",
+        "Spacing aerial: startup frames",
+        "Spacing aerial: active frames",
+        "Spacing aerial: reach estimate",
+        "Spacing aerial: height tolerance",
+        "Spacing aerial: commitment frames",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -233,8 +259,47 @@ mod schema {
         "Estimated horizontal body half-width for active melee hitbox prediction.",
         "Estimated body height above root for active melee hitbox prediction.",
         "Estimated body half-depth for active melee hitbox prediction.",
+        "Minimum root-to-root spacing while the assigned Auto-Spacing & Attack button is held. Universal input assistance, never a toggle.",
+        "0 disabled; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts require C-stick set to Tilt Attack. Lucina defaults to 2; others to 0.",
+        "Estimated frames before the configured ground attack becomes active; does not change native startup.",
+        "Estimated active duration of the configured ground attack; never changes native hitboxes.",
+        "Tunable ground reach estimate, not an exact hitbox or hit guarantee.",
+        "Tunable ground root-height tolerance, not an exact hitbox or hit guarantee.",
+        "Estimated total ground attack commitment in frames; independent of startup and active duration.",
+        "0 disabled; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Already airborne only; never jumps or consumes manual jump. Lucina defaults to 2; others to 0.",
+        "Estimated frames before the configured aerial becomes active; does not change native startup.",
+        "Estimated active duration of the configured aerial; never changes native hitboxes.",
+        "Tunable aerial reach estimate, not an exact hitbox or hit guarantee.",
+        "Tunable aerial root-height tolerance, not an exact hitbox or hit guarantee.",
+        "Estimated total aerial commitment in frames; independent of startup and active duration.",
     ];
 
+    /// Minimum hold-mode spacing distance.
+    pub const AUTO_SPACING_MINIMUM_DISTANCE: usize = 60;
+    /// Ground move selector: disabled, jab, forward/up/down tilt, invalid back.
+    pub const AUTO_SPACING_GROUND_MOVE: usize = 61;
+    /// Ground startup estimate.
+    pub const AUTO_SPACING_GROUND_STARTUP: usize = 62;
+    /// Ground active duration estimate.
+    pub const AUTO_SPACING_GROUND_ACTIVE_FRAMES: usize = 63;
+    /// Ground reach estimate.
+    pub const AUTO_SPACING_GROUND_REACH: usize = 64;
+    /// Ground height tolerance.
+    pub const AUTO_SPACING_GROUND_HEIGHT: usize = 65;
+    /// Ground total commitment estimate.
+    pub const AUTO_SPACING_GROUND_COMMITMENT: usize = 66;
+    /// Aerial move selector: disabled, neutral/forward/up/down/back air.
+    pub const AUTO_SPACING_AERIAL_MOVE: usize = 67;
+    /// Aerial startup estimate.
+    pub const AUTO_SPACING_AERIAL_STARTUP: usize = 68;
+    /// Aerial active duration estimate.
+    pub const AUTO_SPACING_AERIAL_ACTIVE_FRAMES: usize = 69;
+    /// Aerial reach estimate.
+    pub const AUTO_SPACING_AERIAL_REACH: usize = 70;
+    /// Aerial height tolerance.
+    pub const AUTO_SPACING_AERIAL_HEIGHT: usize = 71;
+    /// Aerial total commitment estimate.
+    pub const AUTO_SPACING_AERIAL_COMMITMENT: usize = 72;
     /// Stable tuning-array index for tilt turn down.
     pub const TILT_TURN_DOWN: usize = 51;
     /// Stable tuning-array index for tilt turn forward.
@@ -428,8 +493,27 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HALF_WIDTH] = 5.;
     d[COUNTER_HEIGHT] = 16.;
     d[COUNTER_HALF_DEPTH] = 5.;
+    d[AUTO_SPACING_MINIMUM_DISTANCE] = 12.;
+    d[AUTO_SPACING_GROUND_STARTUP] = 8.;
+    d[AUTO_SPACING_GROUND_ACTIVE_FRAMES] = 5.;
+    d[AUTO_SPACING_GROUND_REACH] = 20.;
+    d[AUTO_SPACING_GROUND_HEIGHT] = 9.;
+    d[AUTO_SPACING_GROUND_COMMITMENT] = 33.;
+    d[AUTO_SPACING_AERIAL_STARTUP] = 6.;
+    d[AUTO_SPACING_AERIAL_ACTIVE_FRAMES] = 3.;
+    d[AUTO_SPACING_AERIAL_REACH] = 20.;
+    d[AUTO_SPACING_AERIAL_HEIGHT] = 12.;
+    d[AUTO_SPACING_AERIAL_COMMITMENT] = 30.;
     d
 };
+
+fn auto_spacing_move_default(kind: i32) -> f32 {
+    if kind == crate::fighter_kinds::LUCINA {
+        2.
+    } else {
+        0.
+    }
+}
 
 /// Optional per-fighter overrides for input-assistance policy values.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -490,6 +574,12 @@ impl Tuning {
                 | REFLECT_MAX_HOLD
                 | COUNTER_STARTUP
                 | COUNTER_MARGIN
+                | AUTO_SPACING_GROUND_STARTUP
+                | AUTO_SPACING_GROUND_ACTIVE_FRAMES
+                | AUTO_SPACING_GROUND_COMMITMENT
+                | AUTO_SPACING_AERIAL_STARTUP
+                | AUTO_SPACING_AERIAL_ACTIVE_FRAMES
+                | AUTO_SPACING_AERIAL_COMMITMENT
         )
     }
     /// Menu rows shown for this fighter: reflect rows need a supported reflector,
@@ -522,6 +612,37 @@ impl Tuning {
             down: self.value(TILT_TURN_DOWN, f32::from(tilt_turn_down_default(kind))) == 1.0,
             forward: self.get(TILT_TURN_FORWARD) == 1.0,
             up: self.get(TILT_TURN_UP) == 1.0,
+        }
+    }
+    /// Resolves universal hold-mode spacing and independent attack estimates.
+    pub fn auto_spacing(self, kind: i32) -> crate::auto_spacing::Config {
+        use crate::auto_spacing::{Attack, AttackConfig, Config};
+        let attack = |i, aerial| match self.value(i, auto_spacing_move_default(kind)) {
+            1. => Attack::Neutral,
+            2. => Attack::Forward,
+            3. => Attack::Up,
+            4. => Attack::Down,
+            5. if aerial => Attack::Back,
+            _ => Attack::Disabled,
+        };
+        Config {
+            minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
+            ground: AttackConfig {
+                attack: attack(AUTO_SPACING_GROUND_MOVE, false),
+                startup: self.get(AUTO_SPACING_GROUND_STARTUP),
+                active_frames: self.get(AUTO_SPACING_GROUND_ACTIVE_FRAMES),
+                reach: self.get(AUTO_SPACING_GROUND_REACH),
+                height: self.get(AUTO_SPACING_GROUND_HEIGHT),
+                commitment: self.get(AUTO_SPACING_GROUND_COMMITMENT),
+            },
+            aerial: AttackConfig {
+                attack: attack(AUTO_SPACING_AERIAL_MOVE, true),
+                startup: self.get(AUTO_SPACING_AERIAL_STARTUP),
+                active_frames: self.get(AUTO_SPACING_AERIAL_ACTIVE_FRAMES),
+                reach: self.get(AUTO_SPACING_AERIAL_REACH),
+                height: self.get(AUTO_SPACING_AERIAL_HEIGHT),
+                commitment: self.get(AUTO_SPACING_AERIAL_COMMITMENT),
+            },
         }
     }
     /// Returns the default grab-dodge setting.
@@ -585,6 +706,17 @@ impl Tuning {
             return (0., 1., 1.);
         }
         match i {
+            AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
+            AUTO_SPACING_MINIMUM_DISTANCE
+            | AUTO_SPACING_GROUND_REACH
+            | AUTO_SPACING_AERIAL_REACH => (0., 150., 0.5),
+            AUTO_SPACING_GROUND_HEIGHT | AUTO_SPACING_AERIAL_HEIGHT => (0., 100., 0.5),
+            AUTO_SPACING_GROUND_STARTUP
+            | AUTO_SPACING_GROUND_ACTIVE_FRAMES
+            | AUTO_SPACING_GROUND_COMMITMENT
+            | AUTO_SPACING_AERIAL_STARTUP
+            | AUTO_SPACING_AERIAL_ACTIVE_FRAMES
+            | AUTO_SPACING_AERIAL_COMMITMENT => (1., 300., 1.),
             REFLECT_STARTUP => (6., 30., 1.),
             REFLECT_MARGIN => (0., 8., 1.),
             REFLECT_MAX_HOLD => (6., 120., 1.),
@@ -645,6 +777,9 @@ impl Tuning {
         if !value.is_finite() || !(lo..=hi).contains(&value) {
             return Err(format!("{key}: must be {lo}..{hi}"));
         }
+        if matches!(i, AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE) && value.fract() != 0. {
+            return Err(format!("{key}: expected an integer move selector 0..5"));
+        }
         self.0[i] = Some(value);
         Ok(())
     }
@@ -676,6 +811,8 @@ impl Tuning {
         (values[AUTO_GRAB_CLOSE], values[AUTO_GRAB_FAR]) =
             default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
+        values[AUTO_SPACING_GROUND_MOVE] = auto_spacing_move_default(s.fighter_kind);
+        values[AUTO_SPACING_AERIAL_MOVE] = auto_spacing_move_default(s.fighter_kind);
         Values(values)
     }
     /// Applies saved per-fighter overrides to the runtime assistance settings.
@@ -770,6 +907,110 @@ mod tests {
             );
         }
         assert!(Catalog::parse("[yoshi.settings]\n[yoshi.settings]\n").is_err());
+    }
+    #[test]
+    fn auto_spacing_overrides_roundtrip_independently() {
+        use crate::auto_spacing::Attack;
+        let mut tuning = Tuning::default();
+        for (key, value) in [
+            ("auto_spacing_minimum_distance", "14.5"),
+            ("auto_spacing_ground_move", "3"),
+            ("auto_spacing_ground_startup", "9"),
+            ("auto_spacing_ground_active_frames", "2"),
+            ("auto_spacing_ground_reach", "18.5"),
+            ("auto_spacing_ground_height", "21"),
+            ("auto_spacing_ground_commitment", "40"),
+            ("auto_spacing_aerial_move", "5"),
+            ("auto_spacing_aerial_startup", "7"),
+            ("auto_spacing_aerial_active_frames", "4"),
+            ("auto_spacing_aerial_reach", "22"),
+            ("auto_spacing_aerial_height", "13.5"),
+            ("auto_spacing_aerial_commitment", "31"),
+        ] {
+            tuning.set(key, value).unwrap();
+        }
+        let output = persist::update_tuning(SOURCE, crate::fighter_kinds::YOSHI, tuning).unwrap();
+        let loaded = Catalog::parse(&output).unwrap().tuning[&crate::fighter_kinds::YOSHI];
+        assert_eq!(loaded, tuning);
+        let config = loaded.auto_spacing(crate::fighter_kinds::YOSHI);
+        assert_eq!(config.minimum_distance, 14.5);
+        assert!(matches!(config.ground.attack, Attack::Up));
+        assert!(matches!(config.aerial.attack, Attack::Back));
+        assert_eq!(
+            [
+                config.ground.startup,
+                config.ground.active_frames,
+                config.ground.reach,
+                config.ground.height,
+                config.ground.commitment
+            ],
+            [9., 2., 18.5, 21., 40.]
+        );
+        assert_eq!(
+            [
+                config.aerial.startup,
+                config.aerial.active_frames,
+                config.aerial.reach,
+                config.aerial.height,
+                config.aerial.commitment
+            ],
+            [7., 4., 22., 13.5, 31.]
+        );
+        let mut back = Tuning::default();
+        back.set("auto_spacing_ground_move", "5").unwrap();
+        assert!(matches!(
+            back.auto_spacing(crate::fighter_kinds::LUCINA)
+                .ground
+                .attack,
+            Attack::Disabled
+        ));
+    }
+    #[test]
+    fn auto_spacing_rejects_invalid_fields() {
+        for text in [
+            "auto_spacing_ground_move=1.5",
+            "auto_spacing_aerial_move=6",
+            "auto_spacing_ground_move=-1",
+            "auto_spacing_minimum_distance=NaN",
+            "auto_spacing_ground_startup=0",
+            "auto_spacing_ground_active_frames=301",
+            "auto_spacing_aerial_reach=-1",
+            "auto_spacing_aerial_height=inf",
+            "auto_spacing_aerial_commitment=0",
+            "auto_spacing_minimum_distance=12\nauto_spacing_minimum_distance=14",
+        ] {
+            assert!(
+                Catalog::parse(&format!("[yoshi.settings]\n{text}")).is_err(),
+                "{text}"
+            );
+        }
+    }
+    #[test]
+    fn auto_spacing_defaults_resolve_by_fighter_and_match_menu() {
+        use crate::auto_spacing::Attack;
+        for kind in [
+            crate::fighter_kinds::LUCINA,
+            crate::fighter_kinds::YOSHI,
+            crate::fighter_kinds::KIRBY,
+        ] {
+            let config = Tuning::default().auto_spacing(kind);
+            let menu = Tuning::values(AssistSettings {
+                fighter_kind: kind,
+                ..AssistSettings::default()
+            });
+            assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
+            if kind == crate::fighter_kinds::LUCINA {
+                assert!(matches!(config.ground.attack, Attack::Forward));
+                assert!(matches!(config.aerial.attack, Attack::Forward));
+                assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 2.);
+                assert_eq!(menu[AUTO_SPACING_AERIAL_MOVE], 2.);
+            } else {
+                assert!(matches!(config.ground.attack, Attack::Disabled));
+                assert!(matches!(config.aerial.attack, Attack::Disabled));
+                assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 0.);
+                assert_eq!(menu[AUTO_SPACING_AERIAL_MOVE], 0.);
+            }
+        }
     }
     /// Regression test for `applied_values_change_decisions_and_inputs_only`.
     #[test]

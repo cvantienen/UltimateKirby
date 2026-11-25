@@ -8898,12 +8898,12 @@ name = F SMASH
 default = false
 
 [lucina.attack.shield_nair]
-name = Shield > f Tilt
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = shield_until_block:90, facing_input:x:0:0:1, tap:b:0:0:1:11:60
+name = Shield > f Tilt
 default = false
-actions = shield_until_block:90, opponent_input:a:0.6:0:1
 
 [lucina.attack.shield_grab]
 name = Shield > range-checked grab
@@ -8922,20 +8922,20 @@ name = Shield > Up-B
 default = true
 
 [lucina.attack.shield_up_air]
-name = Shield > Uair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = shield_until_block:90, opponent_input:a+x:0:1:4
+name = Shield > Uair
 default = false
-actions = shield_until_block:90, opponent_input:a+x:0:1:1
 
 [lucina.attack.shield_fair]
-name = Shield > Fair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = shield_until_block:90, opponent_input:a+x:1:0:4
+name = Shield > Fair
 default = false
-actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
 [lucina.drop.shield]
 default = false
@@ -9023,7 +9023,7 @@ timeout = 240
 spatial_timeout = 60
 actions = opponent_input:a:0:0.6:4
 ground_only = true
-reaction = auto_air_dodge:15:24
+reaction = auto_air_dodge:15:30
 name = Air dodge > Up B
 default = false
 
@@ -9038,9 +9038,11 @@ name = Dodged grab > Up B
 default = false
 
 [lucina.settings]
+tilt_turn_forward = true
+tilt_turn_up = true
 counter_default = true
 counter_startup = 6
-counter_margin = 10
+counter_margin = 0
 counter_half_width = 10
 counter_height = 20
 counter_half_depth = 6

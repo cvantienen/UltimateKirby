@@ -33,6 +33,7 @@ mod game_ffi {
         pub facing: f32,
         pub position: [f32; 3],
         pub velocity: [f32; 2],
+        pub gravity: f32,
         pub team: u64,
         pub owner: u64,
         pub scale: f32,
@@ -65,6 +66,7 @@ mod game_ffi {
                 facing: 1.,
                 position: [0.; 3],
                 velocity: [0.; 2],
+                gravity: 0.1,
                 team: 1,
                 owner: u64::MAX,
                 scale: 1.,
@@ -203,6 +205,13 @@ mod frame {
             read();
             (*o).team
         }
+    }
+}
+mod observations {
+    pub unsafe fn native_air_physics(
+        object: *mut super::game_ffi::Object,
+    ) -> Option<kirby_assist_core::gameplay::AirPhysics> {
+        kirby_assist_core::gameplay::AirPhysics::new((*object).gravity, 2.0)
     }
 }
 mod attack_sources {
@@ -460,12 +469,43 @@ fn live_contact_delivers_down_b_without_root_distance_or_catalog_admission() {
 }
 
 #[test]
+fn movement_prediction_reaches_counter_delivery_in_running_and_falling_states() {
+    use kirby_assist_core::{auto_counter::Counter, native_input::MAPPER_B, native_states::{situation, status}};
+    for mode in 0..4 {
+        let mut own = reset();
+        own.status = if mode == 0 { status::RUN } else { status::FALL };
+        own.situation = if mode == 0 { situation::GROUND } else { situation::AIR };
+        own.gravity = 1.0;
+        own.position[1] = if mode == 0 { 0.0 } else { 14.0 };
+        own.velocity = match mode { 0 => [2.0, 0.0], 2 => [0.0, -8.0], 3 => [-4.0, 0.0], _ => [0.0; 2] };
+        counter_enemy(|e| {
+            e.motion = 999;
+            e.position[0] = if mode == 0 { 18.0 } else { 0.0 };
+            e.velocity = [0.0; 2];
+        });
+        let (config, context, threat) = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap();
+        let output = Counter::new().sample(true, Some(config), context, threat);
+        if mode == 3 {
+            assert!(threat.is_none(), "drifting away must not counter");
+            assert_eq!(output.requested, 0);
+        } else {
+            assert!(threat.unwrap().in_frames > 0.0);
+            assert_eq!(output.requested, MAPPER_B, "mode {mode}");
+            assert_eq!(output.stick, Some([0.0, -1.0]));
+        }
+    }
+}
+
+#[test]
 fn projectile_counter_requires_a_current_nearby_enemy_owner() {
     for scenario in 0..7 {
         let mut own = reset();
         counter_enemy(|e| {
             e.attacks = false;
-            e.position[0] = if scenario == 1 { 200.0 } else { 12.0 };
+            e.position[0] = if scenario == 1 { 200.0 } else { 70.0 };
             e.active = scenario != 3;
             if scenario == 4 { e.team = 3; }
         });

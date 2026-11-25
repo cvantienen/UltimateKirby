@@ -135,7 +135,7 @@ pub mod modes {
     use std::fmt::Write;
 
     /// `OWNER_COUNT` is a configuration value used by the Smash runtime.
-    const OWNER_COUNT: usize = 14;
+    const OWNER_COUNT: usize = 15;
     /// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
     /// Sets the lower bound for report interval ms.
@@ -211,6 +211,7 @@ pub mod modes {
         Owner::GrabDodge,
         Owner::Reflect,
         Owner::Counter,
+        Owner::Spacing,
     ];
     /// Tests whether the requested bit is set in the value.
     pub fn bit(owner: Owner) -> u32 {
@@ -222,6 +223,7 @@ pub mod modes {
             Owner::Safety => "Tech / mash / SDI / DI",
             Owner::Reflect => "Projectile reflect / absorb",
             Owner::Counter => "Melee counter",
+            Owner::Spacing => "Held auto-spacing / attack",
             Owner::GrabDodge => "Incoming grab dodge",
             Owner::OptionRead => "Configured dodge follow-up / recovery punish",
             Owner::Ledge => "Ledge trapping",
@@ -238,6 +240,7 @@ pub mod modes {
     /// Describe each tool's prerequisites without guessing a particular failed gate.
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
+            Owner::Spacing => "While held, brakes/retreats and predicts configured attacks; preserves manual jump and yields to native safety. Requires Tilt Attack C-stick mapping.",
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
             Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety and committed input. A full bucket is never discharged automatically.",
             Owner::Counter => "Requests a configured down-special counter against an active direct melee hitbox; yields to ledge, safety and committed input.",

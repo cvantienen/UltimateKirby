@@ -81,6 +81,7 @@ struct ObservationNeeds {
     ground_ledge_timeline: bool,
     /// Whether to observe the ledge-trump helper.
     observe_trump: bool,
+    observe_spacing: bool,
 }
 /// Captures a snapshot of the observation policy for the current state.
 /// Copied policy decisions and thresholds shared with one observation pass.
@@ -217,6 +218,7 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
             .as_ref()
             .is_some_and(LedgeTrap::file_needs_ground),
         observe_trump: trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active),
+        observe_spacing: state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()),
     }
 }
 
@@ -458,10 +460,12 @@ unsafe fn refresh_observation_roster(
     let roll_read =
         flags.scope.acquire && (policy.rules_on || policy.oos_enabled) || flags.scope.follow;
     let requested = discover_roster
+        || needs.observe_spacing
         || needs.preview_start
         || policy.roster_missing
             && (policy.rules_on || defense || policy.posture_modes.1 || policy.counter_enabled);
     let active_consumer = needs.observe_ledge
+        || needs.observe_spacing
         || flags.trip_watch
         || own.damage_stop
         || roll_read
@@ -1044,6 +1048,7 @@ struct Collected {
     reflect_observation: Option<ReflectObservation>,
     /// Optional configured melee counter.
     counter_observation: Option<CounterObservation>,
+    spacing_observation: Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)>,
     #[cfg(feature = "diagnostic-logging")]
     /// Optional native activity flag used only by diagnostic reporting.
     neutral_native_activity: Option<bool>,
@@ -1148,8 +1153,63 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         oos_follow,
         reflect_observation,
         counter_observation,
+        spacing_observation: collect_spacing(p),
         #[cfg(feature = "diagnostic-logging")]
         neutral_native_activity,
+    }
+}
+
+unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)> {
+    use kirby_assist_core::native_states::{situation, status};
+    let held = STATE.lock().ok()?.settings_menu.as_ref()
+        .is_some_and(|menu| menu.auto_spacing_held());
+    if !held {
+        return None;
+    }
+    let reads = p.reads;
+    let object = p.object;
+    let own = p.own;
+    let position = [reads.pos_x(object), reads.pos_y(object)];
+    let velocity = [reads.speed_x(object), reads.speed_y(object)];
+    let controllable = !p.tech_obs.clatter && !reads.capture_link(object)
+        && !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status);
+    let grounded_ready = matches!(own.status, status::WAIT | status::WALK | status::SQUAT_WAIT)
+        || game::cancel_enabled(object);
+    let airborne_ready = matches!(own.status, status::JUMP | status::JUMP_AERIAL | status::FALL)
+        || game::cancel_enabled(object);
+    let context = GameplayContext {
+        held: true,
+        can_control: controllable,
+        can_act: own.situation == situation::GROUND && grounded_ready && !own.stopped,
+        can_air_attack: own.situation == situation::AIR && airborne_ready && !own.stopped,
+        position,
+        velocity,
+        facing: reads.facing(object),
+        ground_brake: reads.ground_brake(object),
+        air_physics: (own.situation == situation::AIR)
+            .then(|| observations::native_air_physics(object)).flatten(),
+        safe_ground: if own.situation == situation::GROUND {
+            reads.ground_support(object, position, velocity[0])
+        } else { [false; 2] },
+        ..own.gameplay_context()
+    };
+    let target = observations::spacing_opponent(reads, object, p.object_id);
+    Some((context, target))
+}
+
+fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
+    let held = state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
+        && state.action_owner.allows(Owner::Spacing);
+    if let Some((context, target)) = c.spacing_observation.filter(|_| held) {
+        let config = state.settings_menu.as_ref()
+            .map_or(Default::default(), |m| m.fighter_tuning(p.fighter_kind))
+            .auto_spacing(p.fighter_kind);
+        state.spacing_output = state.spacing.get_or_insert_with(Default::default)
+            .sample(tick, true, config, context, target);
+    } else {
+        state.spacing = None;
+        state.spacing_output = Default::default();
+        state.action_owner.release(Owner::Spacing);
     }
 }
 
@@ -2192,6 +2252,7 @@ fn publish_observation(
     let policy_tick = sample_tech_and_mash(state, p, tick);
     publish_manual_context(state, p, c);
     sample_ledge(state, p, c, tick, policy_tick, now);
+    sample_spacing(state, p, c, tick);
     sample_reflect(state, p, c);
     sample_counter(state, p, c);
     state.mash_stick = if policy_tick.is_none() {

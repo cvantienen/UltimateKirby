@@ -507,17 +507,25 @@ pub mod button_bindings {
         TurboTeabag,
         /// `LedgeTrump` option in the `Builtin` Smash policy state.
         LedgeTrump,
+        /// Hold-only universal spacing and configured attack assistance.
+        AutoSpacing,
     }
     impl Builtin {
         /// Native helpers retained for loading existing saved configurations.
-        pub const ALL: [Self; 4] = [
+        pub const ALL: [Self; 5] = [
             Self::Normal,
             Self::LedgeAssist,
             Self::TurboTeabag,
             Self::LedgeTrump,
+            Self::AutoSpacing,
         ];
         /// Selectable native helpers; legacy ledge assistance remains loadable only.
-        pub const MENU: [Self; 3] = [Self::Normal, Self::TurboTeabag, Self::LedgeTrump];
+        pub const MENU: [Self; 4] = [
+            Self::Normal,
+            Self::TurboTeabag,
+            Self::LedgeTrump,
+            Self::AutoSpacing,
+        ];
         /// Returns the serialized token for the value.
         pub fn token(self) -> &'static str {
             match self {
@@ -525,6 +533,7 @@ pub mod button_bindings {
                 Self::LedgeAssist => "ledge_assist",
                 Self::TurboTeabag => "turbo_teabag",
                 Self::LedgeTrump => "ledge_trump",
+                Self::AutoSpacing => "auto_spacing",
             }
         }
         /// Returns the display label for the value.
@@ -534,6 +543,7 @@ pub mod button_bindings {
                 Self::LedgeAssist => "Built-in: Ledge assist / walk",
                 Self::TurboTeabag => "Built-in: Turbo t-bag",
                 Self::LedgeTrump => "Built-in: Ledge trump",
+                Self::AutoSpacing => "Built-in: Auto-Spacing & Attack (hold)",
             }
         }
         /// Returns the stable identifier of the selected choice.
@@ -543,6 +553,7 @@ pub mod button_bindings {
                 Self::LedgeAssist => "__builtin_ledge_assist",
                 Self::TurboTeabag => "__builtin_turbo_teabag",
                 Self::LedgeTrump => "__builtin_ledge_trump",
+                Self::AutoSpacing => "__builtin_auto_spacing",
             }
         }
         /// Parses the supplied source into the module’s validated representation.
@@ -566,6 +577,7 @@ pub mod button_bindings {
                 Self::LedgeAssist => 2,
                 Self::TurboTeabag => 3,
                 Self::LedgeTrump => 4,
+                Self::AutoSpacing => 5,
             }
         }
         /// Returns the selected menu index for a visible button built-in.
@@ -577,6 +589,9 @@ pub mod button_bindings {
                 }
                 Self::LedgeTrump => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 2)
+                }
+                Self::AutoSpacing => {
+                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 3)
                 }
                 Self::LedgeAssist => None,
             }

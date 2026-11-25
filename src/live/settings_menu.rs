@@ -415,6 +415,10 @@ impl SettingsMenu {
     pub fn ledge_trump_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::ledge_trump_held)
     }
+    /// Reads hold-only spacing state from the scoped selection.
+    pub fn auto_spacing_held(&self) -> bool {
+        self.scoped().is_some_and(MenuSelection::auto_spacing_held)
+    }
     /// Returns the effective Auto Tech mode with startup fallback.
     pub fn auto_tech(&self, startup_default: bool) -> bool {
         self.current().map_or(startup_default, |s| {

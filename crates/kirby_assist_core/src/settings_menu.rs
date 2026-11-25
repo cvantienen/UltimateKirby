@@ -341,6 +341,8 @@ pub struct MenuSelection {
     turbo_sources: u32,
     /// Runtime trump sources value used by MenuSelection..
     trump_sources: u32,
+    /// Physical sources assigned to hold-only spacing and attack assistance.
+    spacing_sources: u32,
     /// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
     /// Runtime binding sources value used by MenuSelection..
@@ -1081,6 +1083,140 @@ fn cycle(index: usize, count: usize, forward: bool) -> usize {
         (index + 1) % count
     } else {
         (index + count - 1) % count
+    }
+}
+
+#[cfg(test)]
+mod auto_spacing_tests {
+    use super::*;
+    use crate::button_bindings::Builtin;
+
+    fn spacing_selection() -> (MenuSelection, MenuPresets) {
+        let presets = MenuPresets::default();
+        let mut selection = MenuSelection {
+            menu_hidden: true,
+            ..MenuSelection::default()
+        };
+        selection.choices[PresetSlot::Y as usize] = presets.list(PresetSlot::Y).options.len()
+            + Builtin::AutoSpacing.visible_template_offset().unwrap();
+        selection.capture_binding_input(MAPPER_Y, &presets);
+        (selection, presets)
+    }
+
+    #[test]
+    fn auto_spacing_choice_cycles_and_saved_default_reloads_by_identity() {
+        use crate::{
+            fighter_profiles::FighterProfiles,
+            sequence_config::{persist, Catalog, Sequence},
+        };
+        let mut profiles = FighterProfiles::default();
+        profiles
+            .add_sequence_choices(&Catalog::parse("").unwrap())
+            .unwrap();
+        let presets = profiles
+            .profile(crate::fighter_kinds::KIRBY)
+            .unwrap()
+            .menu_options;
+        let mut selection = MenuSelection::new(&presets);
+        for slot in PresetSlot::BUTTONS {
+            let base = presets.list(slot).options.len();
+            let spacing = base + Builtin::AutoSpacing.template_offset();
+            let choices = selection.visible_choices(&presets, slot);
+            assert_eq!(choices.last(), Some(&spacing));
+            assert_eq!(selection.choice_end(&presets, slot), spacing + 1);
+            assert_eq!(
+                selection.choice(&presets, slot, spacing).unwrap().id,
+                Builtin::AutoSpacing.choice_id()
+            );
+            selection.choices[slot as usize] = spacing;
+            assert_eq!(selection.cycle_choice(&presets, slot, true), choices[0]);
+            selection.quick_menu = true;
+            let (position, count) = selection.choice_position(&presets, slot);
+            assert_eq!(position + 1, count);
+            selection.quick_menu = false;
+        }
+        let saved = persist::update(
+            "",
+            crate::fighter_kinds::KIRBY,
+            PresetSlot::Y,
+            "saved_spacing",
+            Sequence {
+                builtin: Some(Builtin::AutoSpacing),
+                ..Sequence::default()
+            },
+            true,
+        )
+        .unwrap();
+        let catalog = Catalog::parse(&saved).unwrap();
+        profiles.add_sequence_choices(&catalog).unwrap();
+        let startup = profiles
+            .profile(crate::fighter_kinds::KIRBY)
+            .unwrap()
+            .menu_options;
+        let mut startup_selection = MenuSelection::new(&startup);
+        selection.load_saved_recipes(&presets, &catalog, crate::fighter_kinds::KIRBY);
+        for (menu, p) in [
+            (&mut startup_selection, &startup),
+            (&mut selection, &presets),
+        ] {
+            assert_eq!(
+                menu.choice(p, PresetSlot::Y, menu.choices[PresetSlot::Y as usize])
+                    .unwrap()
+                    .id,
+                "saved_spacing"
+            );
+            menu.menu_hidden = true;
+            menu.capture_binding_input(MAPPER_Y, p);
+            assert!(menu.auto_spacing_held());
+        }
+    }
+
+    #[test]
+    fn auto_spacing_hold_releases_without_toggling_or_latching() {
+        let (mut selection, presets) = spacing_selection();
+        assert!(selection.auto_spacing_held());
+        assert_ne!(selection.builtin_consumed & MAPPER_Y, 0);
+        selection.process_bindings(&presets, MAPPER_Y, MAPPER_Y, true, 0);
+        assert!(selection.auto_spacing_held());
+        assert_eq!(selection.button_latch & MAPPER_Y, 0);
+        selection.capture_binding_input(0, &presets);
+        assert!(!selection.auto_spacing_held());
+        selection.capture_binding_input(MAPPER_Y, &presets);
+        assert!(selection.auto_spacing_held());
+        selection.capture_binding_input(MAPPER_Y | MAPPER_L, &presets);
+        assert!(!selection.auto_spacing_held());
+    }
+
+    #[test]
+    fn auto_spacing_respects_menu_cancel_and_quarantine() {
+        let (mut selection, presets) = spacing_selection();
+        selection.menu_hidden = false;
+        assert!(!selection.auto_spacing_held());
+        selection.menu_hidden = true;
+        selection.recipe_editing = true;
+        assert!(!selection.auto_spacing_held());
+        selection.recipe_editing = false;
+        selection.tuning_page = true;
+        assert!(!selection.auto_spacing_held());
+        selection.tuning_page = false;
+        selection.cancel_pending = true;
+        assert!(!selection.auto_spacing_held());
+        selection.cancel_pending = false;
+        selection.pad_quarantine = MAPPER_Y;
+        assert!(!selection.auto_spacing_held());
+        selection.pad_quarantine = 0;
+        selection.block_binding_starts(true);
+        selection.capture_binding_input(MAPPER_Y, &presets);
+        assert!(!selection.auto_spacing_held());
+        selection.block_binding_starts(false);
+        assert!(
+            !selection.auto_spacing_held(),
+            "blocked holds stay latched until release"
+        );
+        selection.observe_physical_passthrough(0, ControlLayout::Default);
+        assert!(!selection.auto_spacing_held());
+        selection.capture_binding_input(MAPPER_Y, &presets);
+        assert!(selection.auto_spacing_held());
     }
 }
 

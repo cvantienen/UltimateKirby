@@ -242,6 +242,70 @@ pub fn active_melee_contact(
     )
 }
 
+/// Sweeps each half-frame of the defender's falling path against the translated
+/// live capsule. This estimates current motion, not future attack poses or landings.
+/// Observed fast-fall speed is never slowed to the ordinary terminal speed.
+pub fn incoming_contact(
+    config: Config,
+    mut origin: [f32; 3],
+    mut velocity: [f32; 2],
+    mut hitbox: crate::autopilot_guard::Hitbox,
+    remaining: f32,
+    air: Option<crate::gameplay::AirPhysics>,
+) -> Option<f32> {
+    let Some(air) = air else {
+        return active_melee_contact(config, origin, velocity, hitbox, remaining);
+    };
+    let air = crate::gameplay::AirPhysics::new(air.gravity, air.terminal_speed)?;
+    if !config.valid()
+        || !remaining.is_finite()
+        || remaining < 0.0
+        || !origin.iter().chain(velocity.iter()).all(|v| v.is_finite())
+    {
+        return None;
+    }
+    let horizon = remaining.min(config.horizon());
+    let terminal = air.terminal_speed.max(-velocity[1]);
+    let mut elapsed = 0.0;
+    // Config::valid caps the horizon at 40 frames: at most 80 swept segments.
+    loop {
+        let dt = (horizon - elapsed).min(0.5);
+        let accelerating = dt.min(((velocity[1] + terminal) / air.gravity).max(0.0));
+        let next_y = (velocity[1] - air.gravity * dt).max(-terminal);
+        let displacement_y = velocity[1] * accelerating
+            - 0.5 * air.gravity * accelerating * accelerating
+            - terminal * (dt - accelerating);
+        let segment_velocity = [
+            velocity[0],
+            if dt > 0.0 { displacement_y / dt } else { velocity[1] },
+        ];
+        if let Some(contact) = active_melee_contact(config, origin, segment_velocity, hitbox, dt) {
+            return Some(elapsed + contact);
+        }
+        if elapsed + dt >= horizon {
+            return None;
+        }
+        for axis in 0..2 {
+            origin[axis] += segment_velocity[axis] * dt;
+            hitbox.start[axis] += hitbox.velocity[axis] * dt;
+            hitbox.end[axis] += hitbox.velocity[axis] * dt;
+        }
+        velocity[1] = next_y;
+        elapsed += dt;
+    }
+}
+
+/// Projectiles must have a positively identified nearby owner, independently of
+/// their own contact geometry. Melee disjoints do not use this distance gate.
+pub fn projectile_owner_near(origin: [f32; 3], owner: [f32; 3], half_depth: f32) -> bool {
+    origin.iter().chain(owner.iter()).all(|v| v.is_finite())
+        && half_depth.is_finite()
+        && half_depth > 0.0
+        && (owner[0] - origin[0]).abs() <= 80.0
+        && (owner[1] - origin[1]).abs() <= 40.0
+        && (owner[2] - origin[2]).abs() <= half_depth + 4.0
+}
+
 /// Status eligibility never overrides a native down-special lockout.
 pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> bool {
     ready(status, situation) && transition_enabled
@@ -528,6 +592,51 @@ mod tests {
             height: 16.0,
             half_depth: 5.0,
         }
+    }
+
+    #[test]
+    fn falling_forecast_finds_contact_that_constant_velocity_misses() {
+        let hit = crate::autopilot_guard::Hitbox {
+            start: [0.0, 8.0, 0.0],
+            end: [0.0, 8.0, 0.0],
+            radius: 1.0,
+            velocity: [0.0; 2],
+        };
+        let air = crate::gameplay::AirPhysics::new(1.0, 5.0);
+        assert_eq!(active_melee_contact(config(), [0.0, 20.0, 0.0], [0.0; 2], hit, 7.0), None);
+        let contact = incoming_contact(config(), [0.0, 20.0, 0.0], [0.0; 2], hit, 7.0, air).unwrap();
+        assert!((4.6..4.8).contains(&contact));
+        assert_eq!(incoming_contact(config(), [0.0, 20.0, 0.0], [0.0; 2], hit, 4.0, air), None);
+        assert_eq!(incoming_contact(config(), [0.0, 20.0, 20.0], [0.0; 2], hit, 7.0, air), None);
+        assert_eq!(incoming_contact(config(), [0.0, 20.0, 0.0], [3.0, 0.0], hit, 7.0, air), None);
+    }
+
+    #[test]
+    fn fast_fall_sweeps_between_samples_without_reducing_observed_speed() {
+        let hit = crate::autopilot_guard::Hitbox {
+            start: [0.0; 3], end: [0.0; 3], radius: 0.1, velocity: [0.0; 2],
+        };
+        let body = Config { height: 0.1, ..config() };
+        let air = crate::gameplay::AirPhysics::new(0.1, 2.0);
+        let contact = incoming_contact(body, [0.0, 3.0, 0.0], [0.0, -8.0], hit, 1.0, air).unwrap();
+        assert!((contact - 2.9 / 8.0).abs() < 0.001);
+        // The body crosses this tiny hitbox entirely inside one half-frame.
+        assert!(contact < 0.5);
+    }
+
+    #[test]
+    fn relative_running_and_drift_forecasts_reject_retreat_and_invalid_physics() {
+        let hit = crate::autopilot_guard::Hitbox {
+            start: [20.0, 8.0, 0.0], end: [20.0, 8.0, 0.0],
+            radius: 1.0, velocity: [0.0; 2],
+        };
+        assert_eq!(incoming_contact(config(), [0.0; 3], [0.0; 2], hit, 7.0, None), None);
+        assert_eq!(incoming_contact(config(), [0.0; 3], [2.0, 0.0], hit, 7.0, None), Some(7.0));
+        assert_eq!(incoming_contact(config(), [0.0; 3], [-2.0, 0.0], hit, 7.0, None), None);
+        assert_eq!(incoming_contact(config(), [0.0; 3], [2.0, 0.0], hit, 7.0,
+            Some(crate::gameplay::AirPhysics { gravity: f32::NAN, terminal_speed: 2.0 })), None);
+        assert!(projectile_owner_near([0.0; 3], [70.0, 30.0, 0.0], 5.0));
+        assert!(!projectile_owner_near([0.0; 3], [81.0, 0.0, 0.0], 5.0));
     }
 
     #[test]

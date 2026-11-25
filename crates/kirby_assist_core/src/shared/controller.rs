@@ -45,6 +45,7 @@ pub mod action_owner {
         Reflect,
         /// Configured melee counter.
         Counter,
+        Spacing,
     }
 
     /// Select the base physical escape request for automatic special owners.
@@ -67,6 +68,7 @@ pub mod action_owner {
         fn priority(self) -> u8 {
             match self {
                 Self::Safety => 100,
+                Self::Spacing => 99,
                 Self::GrabDodge => 99,
                 Self::OptionRead => 98,
                 Self::Trip => 90,
@@ -84,7 +86,7 @@ pub mod action_owner {
         }
         /// Determines whether the `exclusive` condition holds.
         pub fn exclusive(self) -> bool {
-            !matches!(self, Self::Defense | Self::Turbo | Self::Posture)
+            !matches!(self, Self::Defense | Self::Turbo | Self::Posture | Self::Spacing)
         }
     }
 
