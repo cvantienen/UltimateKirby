@@ -57,7 +57,10 @@ pub(super) unsafe fn world_geometry(
         start
     };
     let radius = data.size * scale;
-    (start.iter().chain(end.iter()).all(|v| v.is_finite()) && radius.is_finite() && radius > 0.)
+    (start.iter().chain(end.iter()).all(|v| v.is_finite())
+        && radius.is_finite()
+        && radius > 0.
+        && radius <= 100.)
         .then_some(Hitbox {
             start,
             end,

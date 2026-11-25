@@ -108,6 +108,15 @@ mod live {
         );
     }
     #[test]
+    fn invalid_reaction_window_cannot_publish_a_live_damage_trajectory() {
+        let mut o = object();
+        for hitstun in [f32::NAN, f32::INFINITY, 0., -1., 241.] {
+            o.hitstun = hitstun;
+            let (_, trajectory) = unsafe { damage::observe(&frame::FrameReads, &mut o, 1, true, 3, None) };
+            assert!(trajectory.is_none());
+        }
+    }
+    #[test]
     fn new_victims_and_increased_hitstop_cannot_inherit_an_earlier_hits_geometry() {
         let mut o = object();
         let (cache, _) = unsafe { damage::observe(&frame::FrameReads, &mut o, 1, true, 8, None) };

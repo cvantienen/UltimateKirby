@@ -173,10 +173,14 @@ pub enum MenuRow {
     AutoReflect,
     /// Configured fighter counter.
     AutoCounter,
+    /// Experimental launch DI.
+    AutoDi,
+    /// Experimental hitstop SDI.
+    AutoSdi,
 }
 impl MenuRow {
     /// `ALL` is a configuration value used by the Smash runtime.
-    pub const ALL: [Self; 32] = [
+    pub const ALL: [Self; 34] = [
         Self::Neutral,
         Self::Jump,
         Self::Roll,
@@ -209,6 +213,8 @@ impl MenuRow {
         Self::R3Sequence,
         Self::AutoReflect,
         Self::AutoCounter,
+        Self::AutoDi,
+        Self::AutoSdi,
     ];
     /// Returns the selected recipe slot.
     pub fn slot(self) -> Option<PresetSlot> {
@@ -238,6 +244,8 @@ impl MenuRow {
             | Self::OutOfShield
             | Self::AutoReflect
             | Self::AutoCounter
+            | Self::AutoDi
+            | Self::AutoSdi
             | Self::TestLatency
             | Self::ButtonsPage
             | Self::ModesPage
@@ -278,6 +286,8 @@ impl MenuRow {
             Self::OutOfShield => "Automatic grabs",
             Self::AutoReflect => "Auto-reflect",
             Self::AutoCounter => "Auto-counter",
+            Self::AutoDi => "Auto DI (experimental)",
+            Self::AutoSdi => "Auto SDI (experimental)",
             Self::TestLatency => "Test delay label",
             Self::ButtonsPage => "Button recipes",
             Self::ModesPage => "Assist modes",
@@ -547,7 +557,7 @@ impl MenuSelection {
         MenuRow::ModesPage,
     ];
     /// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
-    pub const ASSIST_ROWS: [MenuRow; 19] = [
+    pub const ASSIST_ROWS: [MenuRow; 21] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
         MenuRow::SpotPunish,
@@ -557,6 +567,8 @@ impl MenuSelection {
         MenuRow::AutoCounter,
         MenuRow::AutoLedge,
         MenuRow::AutoTech,
+        MenuRow::AutoDi,
+        MenuRow::AutoSdi,
         MenuRow::AutoMash,
         MenuRow::TiltTurn,
         MenuRow::IdleCrouch,
@@ -741,9 +753,27 @@ impl MenuSelection {
             _ => return None,
         })
     }
+    /// Uses the same persisted preference for both menu rendering and live input.
+    pub fn damage_sticks(&self) -> [bool; 2] {
+        [
+            crate::fighter_tuning::AUTO_DI_DEFAULT,
+            crate::fighter_tuning::AUTO_SDI_DEFAULT,
+        ]
+        .map(|i| self.tuning.0[i].unwrap_or(self.tuning_values[i]) == 1.0)
+    }
     /// Applies the selected adjustment mode to the value.
     fn adjust_mode(&mut self, forward: bool) {
         match self.row {
+            MenuRow::AutoDi | MenuRow::AutoSdi => {
+                let i = if self.row == MenuRow::AutoDi {
+                    crate::fighter_tuning::AUTO_DI_DEFAULT
+                } else {
+                    crate::fighter_tuning::AUTO_SDI_DEFAULT
+                };
+                let enabled = self.tuning.0[i].unwrap_or(self.tuning_values[i]) == 1.0;
+                self.tuning.0[i] = Some(f32::from(!enabled));
+                self.recipes_edited("Unsaved fighter settings — Fighter settings / Y: Save");
+            }
             MenuRow::AutoMash => self.toggle_mash = true,
             MenuRow::TestLatency => {
                 self.test_latency = cycle(self.test_latency as usize, 32, forward) as u8;

@@ -80,7 +80,7 @@ pub(super) unsafe fn observe(
             ),
             gravity: physics.gravity,
             fall_speed: physics.terminal_speed,
-        })
+        }).filter(|t| t.valid())
     });
     (geometry, trajectory)
 }

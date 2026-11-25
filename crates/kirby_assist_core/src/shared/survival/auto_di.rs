@@ -171,8 +171,10 @@ mod trajectory {
         c: Context,
         trajectory: Trajectory,
     ) -> Option<Decision> {
-        // Reuse all launch/config validation and preserve explicit Escape behavior.
-        if settings.mode == Mode::Escape || !trajectory.valid() {
+        if !trajectory.valid() {
+            return None;
+        }
+        if settings.mode == Mode::Escape {
             return super::choose(settings, c);
         }
         if !super::usable(settings, c.launch) {
@@ -464,20 +466,20 @@ impl AutoDi {
         c: Context,
         trajectory: Option<Trajectory>,
     ) -> Option<[f32; 2]> {
-        let fallback = self.sample_exclusive(settings, c);
+        self.sample_exclusive(settings, c);
         if !crate::config::AUTO_DAMAGE_STICK_ENABLED
             || !settings.enabled
             || !c.damage_stop
             || c.remaining > LAUNCH_DI_FRAMES
         {
-            return fallback;
+            return None;
         }
-        if let Some(trajectory) = trajectory.filter(|t| t.valid()) {
-            self.decision = self.cached_trajectory_decision(settings, c, trajectory);
-            self.decision.map(|d| d.stick)
-        } else {
-            fallback
-        }
+        let Some(trajectory) = trajectory.filter(|t| t.valid()) else {
+            *self = Self::default();
+            return None;
+        };
+        self.decision = self.cached_trajectory_decision(settings, c, trajectory);
+        self.decision.map(|d| d.stick)
     }
     /// Updates the toggle state from the current button sample and match state.
     pub fn sample(

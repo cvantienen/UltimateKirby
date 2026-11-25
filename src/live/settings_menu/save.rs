@@ -1175,6 +1175,8 @@ mod tests {
         let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
         tuning.set("walk_strength", "0.28").unwrap();
         tuning.set("grab_range", "14").unwrap();
+        tuning.set("auto_di_default", "false").unwrap();
+        tuning.set("auto_sdi_default", "true").unwrap();
         write_tuning_paths(job.kind, tuning, &path, &temp, &backup).unwrap();
         let saved = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(saved.tuning[&5], tuning);

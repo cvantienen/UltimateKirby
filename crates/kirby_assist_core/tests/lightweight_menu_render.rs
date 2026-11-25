@@ -501,3 +501,42 @@ mod publisher {
         assert!(VIEW.lock().unwrap().is_none());
     }
 }
+
+#[test]
+fn damage_toggles_are_independent_persisted_and_invalidate_cached_rows() {
+    use kirby_assist_core::{fighter_tuning::{AUTO_DI_DEFAULT, AUTO_SDI_DEFAULT}, sequence_config::persist};
+    let profiles = profiles();
+    let p = profiles.profile(15).unwrap();
+    let mut m = MenuSelection::new(&p.menu_options);
+    m.begin_match();
+    input(&mut m, p, 0, false);
+    input(&mut m, p, MENU_STICK_CLICK, false);
+    assert_eq!(m.damage_sticks(), [false; 2]);
+    let before = view::build(p, &m, false, 0).unwrap();
+    for row in [MenuRow::AutoDi, MenuRow::AutoSdi] {
+        assert_eq!(before.values.iter().find(|v| v.row == row).unwrap().enabled, Some(false));
+    }
+    m.row = MenuRow::AutoDi;
+    input(&mut m, p, 0, false);
+    input(&mut m, p, MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT, false);
+    assert_eq!(m.damage_sticks(), [true, false]);
+    assert!(!before.reusable(p, &m, false, 0));
+    let after = view::build(p, &m, false, 0).unwrap();
+    assert_eq!(after.values.iter().find(|v| v.row == MenuRow::AutoDi).unwrap().enabled, Some(true));
+    m.row = MenuRow::AutoSdi;
+    input(&mut m, p, 0, false);
+    input(&mut m, p, MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT, false);
+    assert_eq!(m.damage_sticks(), [true, true]);
+    m.tuning.0[AUTO_DI_DEFAULT] = Some(0.);
+    m.tuning_values[AUTO_DI_DEFAULT] = 1.;
+    assert_eq!(m.damage_sticks(), [false, true], "saved OFF overrides startup ON");
+    let source = "[universal.settings]\nauto_di=true\n[bowser.neutral.keep]\nstart_delay=0\nactions=grab:4\n";
+    let saved = persist::update_tuning(source, 15, m.tuning).unwrap();
+    assert!(saved.contains("[universal.settings]\nauto_di=true"));
+    assert!(saved.contains("[bowser.neutral.keep]\nstart_delay=0\nactions=grab:4"));
+    let parsed = Catalog::parse(&saved).unwrap();
+    let tuning = parsed.tuning.get(&15).unwrap();
+    assert_eq!(tuning.0[AUTO_DI_DEFAULT], Some(0.));
+    assert_eq!(tuning.0[AUTO_SDI_DEFAULT], Some(1.));
+    assert!(Catalog::parse("[bowser.settings]\nauto_di_default=1\n").is_err());
+}

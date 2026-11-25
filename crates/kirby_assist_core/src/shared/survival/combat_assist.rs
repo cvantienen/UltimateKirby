@@ -45,6 +45,12 @@ impl SdiState {
         geometry: Option<([f32; 2], crate::auto_di::BlastZone)>,
         previous: [f32; 2],
     ) -> Option<[f32; 2]> {
+        if !previous.iter().all(|v| v.is_finite())
+            || !geometry.is_some_and(|(p, b)| b.contains(p))
+        {
+            *self = Self::default();
+            return None;
+        }
         let new_hit = is_new_hit(self.last, ctx.object, ctx.remaining);
         if new_hit && stick_engaged(previous) {
             self.sample_exclusive(enabled, ctx)?;
@@ -67,13 +73,14 @@ impl SdiState {
         ctx: SdiContext,
         geometry: Option<([f32; 2], crate::auto_di::BlastZone)>,
     ) -> Option<[f32; 2]> {
+        let Some((position, blast)) = geometry.filter(|(p, b)| b.contains(*p)) else {
+            *self = Self::default();
+            return None;
+        };
         let output = self.sample_exclusive(enabled, ctx)?;
         if output == [0.; 2] {
             return Some(output);
         }
-        let Some((position, blast)) = geometry.filter(|(p, b)| b.contains(*p)) else {
-            return Some(output);
-        };
         // Maximize separation while preserving room for an SDI step. Near an
         // edge, bend inward/upward instead of repeatedly SDIing into death.
         let mut best = [0.; 2];
@@ -82,13 +89,21 @@ impl SdiState {
             let angle = i as f32 * std::f32::consts::FRAC_PI_4;
             let (y, x) = angle.sin_cos();
             let clearance = blast.margin([position[0] + x * 8., position[1] + y * 8.]);
+            if clearance <= 0. {
+                continue;
+            }
             let candidate = x * ctx.outward.signum() + clearance.min(8.) * 0.25;
             if candidate > score {
                 score = candidate;
                 best = [x, y];
             }
         }
-        Some(best)
+        if score.is_finite() {
+            Some(best)
+        } else {
+            *self = Self::default();
+            None
+        }
     }
     /// Updates the toggle state from the current button sample and match state.
     pub fn sample(

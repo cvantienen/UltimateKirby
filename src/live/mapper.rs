@@ -696,6 +696,7 @@ fn run_settings_menu(
             mash_default: config.controls.auto_mash,
             grab_default: config.auto_spot_dodge,
             tech_default: config.controls.auto_tech,
+            damage_defaults: [config.auto_di.enabled, config.auto_sdi],
             training: menu_training_mode,
         });
     if changed {
@@ -1297,9 +1298,12 @@ fn sample_damage_sticks(
     physical_stick: [f32; 2],
     #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
 ) -> DamageStickSample {
+    let defaults = [config.auto_di.enabled, config.auto_sdi];
+    let [di_enabled, sdi_enabled] = state.settings_menu.as_ref().zip(state.fighter_kind)
+        .map_or(defaults, |(menu, kind)| menu.damage_sticks(kind, defaults));
     let sdi_context = state.sdi_context;
     let damage_enabled = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED;
-    let sdi_enabled = damage_enabled && config.auto_sdi && manual_scope && fresh;
+    let sdi_enabled = damage_enabled && sdi_enabled && manual_scope && fresh;
     let di_context = state.di_context;
     let damage_trajectory = state.damage_trajectory;
     let di_stick = di_context.and_then(|context| {
@@ -1308,14 +1312,14 @@ fn sample_damage_sticks(
             .get_or_insert_with(Default::default)
             .sample_exclusive_with_trajectory(
                 kirby_assist_core::auto_di::Settings {
-                    enabled: damage_enabled && config.auto_di.enabled && manual_scope && fresh,
+                    enabled: damage_enabled && di_enabled && manual_scope && fresh,
                     ..config.auto_di
                 },
                 context,
                 damage_trajectory,
             )
     });
-    if !damage_enabled || !config.auto_di.enabled || di_context.is_none() || !manual_scope || !fresh
+    if !damage_enabled || !di_enabled || di_context.is_none() || !manual_scope || !fresh
     {
         state.di = None;
     }
@@ -1344,7 +1348,7 @@ fn sample_damage_sticks(
                 .sample_exclusive_with_previous(
                     sdi_enabled,
                     context,
-                    damage_trajectory.map(|t| (t.position, t.blast)),
+                    damage_trajectory.filter(|t| t.valid()).map(|t| (t.position, t.blast)),
                     previous,
                 )
         })
@@ -2126,6 +2130,7 @@ fn compose_native_request(
         // A moving grab retains raw horizontal input; it is not a file Walk.
         Some(Owner::OutOfShield) => false,
         Some(Owner::OptionRead) => state.spot_dodge.as_ref().is_some_and(|s| s.walking()),
+        Some(Owner::Spacing) => handoff_situation == kirby_assist_core::native_states::situation::GROUND,
         _ => false,
     };
     let exclusive_sequence = selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS

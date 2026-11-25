@@ -361,7 +361,6 @@ fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_man
 }
 
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn exclusive_sdi_hands_the_stick_to_di_without_a_manual_gap_then_releases_on_hitstop_exit() {
     use kirby_assist_core::{
         auto_di::{AutoDi, Context as DiContext, Settings},
@@ -445,7 +444,6 @@ fn exclusive_sdi_hands_the_stick_to_di_without_a_manual_gap_then_releases_on_hit
 }
 
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn exclusive_damage_control_does_not_inherit_a_previous_manual_veto() {
     use kirby_assist_core::{
         auto_di::{AutoDi, Context, Settings},

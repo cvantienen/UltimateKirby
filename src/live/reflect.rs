@@ -113,15 +113,16 @@ pub(super) unsafe fn observe(
             continue;
         }
         let object = game::module_accessor(id);
-        if object.is_null()
-            || game::battle_object_id(object) != id
-            || reads.team(object) == team
-            || reads.is_stop(object)
-        {
+        if object.is_null() || game::battle_object_id(object) != id {
+            exhausted = true;
+            continue;
+        }
+        if reads.team(object) == team || reads.is_stop(object) {
             continue;
         }
         let speed = [reads.speed_x(object), reads.speed_y(object)];
         if !speed.iter().all(|v| v.is_finite()) {
+            exhausted = true;
             continue;
         }
         if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
@@ -162,6 +163,10 @@ pub(super) unsafe fn observe(
             let Some(mask) = super::hitboxes::situation_mask(situation) else {
                 continue;
             };
+            if data.direct > 1 || data.reflectable > 1 || data.absorbable > 1 {
+                exhausted = true;
+                continue;
+            }
             if data.direct != 0
                 || data.reflectable != 1 && data.absorbable != 1
                 || data.situation & mask == 0
@@ -185,11 +190,9 @@ pub(super) unsafe fn observe(
             );
             if let Some(mut threat) = candidate {
                 threat.generation = source.generation;
-                if tracked == Some(source) {
-                    best = Some(threat);
-                    break 'sources;
-                }
-                if best.is_none_or(|old| threat.in_frames < old.in_frames) {
+                if tracked.is_none_or(|key| key == source)
+                    && best.is_none_or(|old| threat.in_frames < old.in_frames)
+                {
                     best = Some(threat);
                 }
             }

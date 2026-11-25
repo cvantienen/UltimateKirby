@@ -99,6 +99,7 @@ struct HitboxScan<'a> {
     envelope: kirby_assist_core::autopilot_guard::Envelope,
     geometry_budget: &'a mut usize,
     own_z: &'a mut Option<f32>,
+    own_scale: &'a mut Option<f32>,
 }
 
 /// # Safety
@@ -126,17 +127,27 @@ unsafe fn object_has_active_hitbox_threat(
             return true;
         }
         let data = data.read();
-        let scale = *scale.get_or_insert_with(|| game::scale(enemy));
         let Some(mask) = super::hitboxes::situation_mask(scan.situation) else {
-            continue;
+            return true;
         };
         if data.situation & mask == 0 {
             continue;
         }
+        let own_scale = *scan.own_scale.get_or_insert_with(|| game::scale(scan.own));
+        // A nominal standing estimate cannot rule out contact for changed scale.
+        if !(0.99..=1.01).contains(&own_scale) {
+            return true;
+        }
+        let scale = *scale.get_or_insert_with(|| game::scale(enemy));
         let Some(hitbox) = super::hitboxes::world_geometry(enemy, data, scale, target_velocity) else {
             return true;
         };
         let z = *scan.own_z.get_or_insert_with(|| game::pos_z(scan.own));
+        if !z.is_finite()
+            || !scan.position.iter().chain(scan.velocity.iter()).all(|v| v.is_finite())
+        {
+            return true;
+        }
         // Early exit if the active hitbox poses a threat.
         if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
             [scan.position[0], scan.position[1], z],
@@ -168,6 +179,7 @@ pub(super) unsafe fn incoming_fighter_attack(
     let velocity = if reads.is_stop(own) { [0.; 2] } else { velocity };
     let mut geometry_budget = ATTACK_GEOMETRY_SCAN_BUDGET;
     let mut own_z = None;
+    let mut own_scale = None;
 
     // Iterate over all potential attack sources.
     for id in roster
@@ -204,6 +216,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                 envelope,
                 geometry_budget: &mut geometry_budget,
                 own_z: &mut own_z,
+                own_scale: &mut own_scale,
             },
         ) {
             return true;
@@ -261,7 +274,7 @@ pub(super) unsafe fn incoming_fighter_attack(
         let motion = reads.motion_kind(enemy);
         let frame = reads.motion_frame(enemy);
         let rate = reads.motion_rate(enemy);
-        // Will a known move become active soon? Predicts a hitbox before it exists.
+        // Catalog startup warning only; no future hitbox shape is observed.
         let imminent = kirby_assist_core::autopilot_guard::referenced_imminent_attack_with(
             kind,
             motion,

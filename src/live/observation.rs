@@ -239,7 +239,12 @@ fn resolve_observation_setup(
             .as_ref()
             .map(|menu| menu.settings(Some(fighter_kind), &config.assist))
             .unwrap_or_else(|| settings_for_fighter(Some(fighter_kind), config.assist));
-        let config = Config { assist, ..config };
+        let mut config = Config { assist, ..config };
+        if let Some(menu) = state.settings_menu.as_ref() {
+            let [di, sdi] = menu.damage_sticks(fighter_kind, [config.auto_di.enabled, config.auto_sdi]);
+            config.auto_di.enabled = di;
+            config.auto_sdi = sdi;
+        }
         let needs = observation_needs(&state, &config);
         (config, state.observation_sequence, needs)
     };
@@ -1048,6 +1053,7 @@ struct Collected {
     reflect_observation: Option<ReflectObservation>,
     /// Optional configured melee counter.
     counter_observation: Option<CounterObservation>,
+    counter_attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
     spacing_observation: Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)>,
     #[cfg(feature = "diagnostic-logging")]
     /// Optional native activity flag used only by diagnostic reporting.
@@ -1153,6 +1159,9 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         oos_follow,
         reflect_observation,
         counter_observation,
+        counter_attacker_poses: if p.policy.counter_enabled {
+            counter::attacker_poses(p.reads, p.object, p.object_id)
+        } else { [None; 16] },
         spacing_observation: collect_spacing(p),
         #[cfg(feature = "diagnostic-logging")]
         neutral_native_activity,
@@ -3592,6 +3601,9 @@ fn publish_ledge_diagnostics(
 }
 
 fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
+    for pose in c.counter_attacker_poses.into_iter().flatten() {
+        state.counter.observe_attacker_pose(pose);
+    }
     let allowed = (!state.ledge_active
         || state.action_owner.current_owner() == Some(Owner::Counter))
         && state.action_owner.allows(Owner::Counter)

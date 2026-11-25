@@ -55,10 +55,15 @@ pub struct Spacing {
     tick: Option<i64>,
     output: Output,
     pending: bool,
-    pending_pose: Option<(i32, u64, f32)>,
     pending_frames: u8,
     delivered_tick: Option<i64>,
+    pending_attack: Attack,
+    pending_airborne: bool,
+    pending_output: Output,
 }
+
+/// Fastest established no-dash analog request, below the digital flick threshold.
+pub const GROUND_WALK_STICK: f32 = 0.49;
 
 impl Spacing {
     pub fn reset(&mut self) {
@@ -68,8 +73,10 @@ impl Spacing {
     /// Only a winning mapper packet starts the acceptance wait.
     pub fn mapped(&mut self, tick: i64) {
         if self.tick == Some(tick) && self.output.attack && self.delivered_tick != Some(tick) {
+            if !self.pending {
+                self.pending_frames = 0;
+            }
             self.pending = true;
-            self.pending_frames = 0;
             self.delivered_tick = Some(tick);
         }
     }
@@ -102,7 +109,6 @@ impl Spacing {
             },
             ..Output::default()
         };
-        let pose = (c.status, c.motion_kind, c.motion_frame);
         let airborne = c.situation == situation::AIR;
         let ready = if airborne {
             c.can_air_attack
@@ -110,16 +116,17 @@ impl Spacing {
             c.can_act
         };
         if self.pending {
-            if !ready || is_attack(c.status) {
+            if airborne != self.pending_airborne
+                || confirms_attack(self.pending_attack, airborne, c.status)
+            {
                 self.pending = false;
-            } else if !c.stopped && self.pending_pose != Some(pose) {
+            } else if !c.stopped {
                 self.pending_frames = self.pending_frames.saturating_add(1);
                 if self.pending_frames >= 24 {
                     self.pending = false;
                 }
             }
         }
-        self.pending_pose = Some(pose);
         if let Some(enemy) = target.filter(valid_target) {
             let dx = enemy.position[0] - c.position[0];
             let side = if dx.abs() > 0.001 {
@@ -132,15 +139,16 @@ impl Spacing {
             let closing = (c.velocity[0] - enemy.velocity[0]) * side;
             let braking = c.ground_brake.filter(|b| b.is_finite() && *b > 0.);
             let stop_distance = if toward > 0. {
-                braking.map_or(f32::INFINITY, |b| toward * toward / (2. * b))
+                braking.map_or(toward * 3., |b| toward * toward / (2. * b))
             } else {
                 0.
             };
-            let retreat = toward > 0.
-                || distance <= config.minimum_distance + 2. + closing.max(0.) * 3. + stop_distance;
+            let retreat =
+                distance <= config.minimum_distance + 2. + closing.max(0.) * 3. + stop_distance;
             let floor_safe = airborne || c.safe_ground[usize::from(side < 0.)];
             if retreat && floor_safe {
-                out.controller.stick = Some([-side, 0.]);
+                out.controller.stick =
+                    Some([-side * if airborne { 1. } else { GROUND_WALK_STICK }, 0.]);
             }
             let attack = if airborne {
                 config.aerial
@@ -150,8 +158,9 @@ impl Spacing {
             if !self.pending
                 && !c.stopped
                 && ready
+                && !is_attack(c.status)
                 && attack_valid(attack, airborne)
-                && predicts_hit(config.minimum_distance, attack, c, enemy, side)
+                && predicts_hit(attack, c, enemy, side)
             {
                 // Fair/Bair are relative to native facing. Never substitute the
                 // opposite aerial while trying to turn an airborne fighter.
@@ -160,11 +169,14 @@ impl Spacing {
                     Attack::Back => c.facing * side < 0.,
                     _ => true,
                 };
-                // Neutral attacks require a neutral left stick on the press;
-                // do not trade an urgent retreat for a jab/neutral-air input.
-                let neutral_ok = attack.attack != Attack::Neutral || !retreat;
-                if facing_ok && neutral_ok && floor_safe {
+                if facing_ok {
                     out.attack = true;
+                    // Ground attacks get a neutral movement packet until native
+                    // startup confirms acceptance; retreat cannot turn the press
+                    // into a dash attack or turn the fighter away first.
+                    if !airborne || attack.attack == Attack::Neutral {
+                        out.controller.stick = Some([0.; 2]);
+                    }
                     match attack.attack {
                         Attack::Neutral => out.controller.requested = MAPPER_A,
                         Attack::Forward | Attack::Back => out.right_stick = [side, 0.],
@@ -172,7 +184,32 @@ impl Spacing {
                         Attack::Down => out.right_stick = [0., -1.],
                         Attack::Disabled => unreachable!(),
                     }
+                    // Deliver the raw attack edge and matching C-stick aliases
+                    // before native mapping, not only a post-map Attack flag.
+                    out.controller.requested |= MAPPER_A;
+                    out.controller.requested |= match out.right_stick {
+                        [x, _] if x > 0. => crate::native_input::MAPPER_RIGHT_STICK_RIGHT,
+                        [x, _] if x < 0. => crate::native_input::MAPPER_RIGHT_STICK_LEFT,
+                        [_, y] if y > 0. => crate::native_input::MAPPER_RIGHT_STICK_UP,
+                        [_, y] if y < 0. => crate::native_input::MAPPER_RIGHT_STICK_DOWN,
+                        _ => 0,
+                    };
+                    self.pending_attack = attack.attack;
+                    self.pending_airborne = airborne;
+                    self.pending_output = out;
                 }
+            }
+        }
+        if self.pending && !c.stopped {
+            // Release between retries to create fresh A/C-stick edges. A mapped
+            // Attack bit is delivery, not proof the configured move started.
+            if self.pending_frames % 2 == 0 {
+                out.controller.requested = self.pending_output.controller.requested;
+                out.right_stick = self.pending_output.right_stick;
+                out.attack = true;
+            }
+            if !airborne || self.pending_attack == Attack::Neutral {
+                out.controller.stick = Some([0.; 2]);
             }
         }
         self.output = out;
@@ -207,6 +244,19 @@ fn is_attack(s: i32) -> bool {
     (status::ATTACK..=status::ATTACK_AIR).contains(&s)
 }
 
+fn confirms_attack(attack: Attack, airborne: bool, s: i32) -> bool {
+    if airborne {
+        return s == status::ATTACK_AIR;
+    }
+    s == match attack {
+        Attack::Neutral => status::ATTACK,
+        Attack::Forward => status::ATTACK_S3,
+        Attack::Up => status::ATTACK_HI3,
+        Attack::Down => status::ATTACK_LW3,
+        Attack::Disabled | Attack::Back => return false,
+    }
+}
+
 fn attack_valid(a: AttackConfig, airborne: bool) -> bool {
     a.attack != Attack::Disabled
         && (airborne || a.attack != Attack::Back)
@@ -219,31 +269,18 @@ fn attack_valid(a: AttackConfig, airborne: bool) -> bool {
         && a.commitment >= a.startup + a.active_frames - 1.
 }
 
-fn predicts_hit(minimum: f32, a: AttackConfig, c: GameplayContext, e: Opponent, side: f32) -> bool {
+fn predicts_hit(a: AttackConfig, c: GameplayContext, e: Opponent, side: f32) -> bool {
     if !e.vulnerable || !c.input_delay.is_finite() || !(0. ..=30.).contains(&c.input_delay) {
         return false;
     }
     let gap = (e.position[0] - c.position[0]) * side;
-    let airborne = c.situation == situation::AIR;
-    // A grounded attack can stop retreat drift. Do not budget that drift as
-    // guaranteed spacing during recovery; inward momentum remains a liability.
-    let own_velocity = if airborne {
-        c.velocity[0] * side
-    } else {
-        (c.velocity[0] * side).max(0.)
-    };
-    let relative = e.velocity[0] * side - own_velocity;
-    let end = c.input_delay + a.commitment;
-    if gap.min(gap + relative * end) < minimum {
-        return false;
-    }
     let first = c.input_delay + a.startup;
     let last = first + a.active_frames - 1.;
     let vx = (e.velocity[0] - c.velocity[0]) * side;
     // Both axes must connect on the same active frame. Native gravity and
     // terminal speed refine aerial height rather than extrapolating a rising
     // jump as a straight line through the entire startup.
-    let Some((lo, hi)) = interval(gap, vx, minimum, a.reach, first, last) else {
+    let Some((lo, hi)) = interval(gap, vx, 0., a.reach, first, last) else {
         return false;
     };
     let height_at = |time| {
@@ -348,21 +385,21 @@ mod tests {
             velocity: [2., 0.],
             ..context()
         };
-        let out = s.sample(1, true, config(), c, enemy(22., 0.));
-        assert_eq!(out.controller.stick, Some([-1., 0.]));
+        let out = s.sample(1, true, Config::default(), c, enemy(22., 0.));
+        assert_eq!(out.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
         assert!(!out.attack);
-        let out = s.sample(2, true, config(), context(), enemy(-8., 0.));
-        assert_eq!(out.controller.stick, Some([1., 0.]));
+        let out = s.sample(2, true, Config::default(), context(), enemy(-8., 0.));
+        assert_eq!(out.controller.stick, Some([GROUND_WALK_STICK, 0.]));
         assert!(!out.attack);
     }
     #[test]
-    fn auto_spacing_predicts_active_window_without_sacrificing_recovery_gap() {
+    fn auto_spacing_attacks_approaches_and_breaches_without_recovery_gap_veto() {
         let mut cfg = config();
         cfg.ground.commitment = 12.;
         let mut s = Spacing::default();
         assert!(s.sample(1, true, cfg, context(), enemy(24., -0.4)).attack);
         assert!(
-            !s.sample(2, true, config(), context(), enemy(20., -1.))
+            s.sample(2, true, config(), context(), enemy(20., -1.))
                 .attack
         );
         assert!(
@@ -370,8 +407,75 @@ mod tests {
                 .attack
         );
         cfg.minimum_distance = 21.;
-        assert!(!s.sample(4, true, cfg, context(), enemy(20., 0.)).attack);
+        let out = s.sample(4, true, cfg, context(), enemy(20., 0.));
+        assert!(out.attack);
+        assert_eq!(out.controller.stick, Some([0.; 2]));
+        assert_ne!(out.controller.requested & MAPPER_A, 0);
     }
+    #[test]
+    fn auto_spacing_outside_range_is_neutral_and_retreat_never_dashes() {
+        let mut s = Spacing::default();
+        for side in [-1., 1.] {
+            let c = GameplayContext {
+                velocity: [side, 0.],
+                ..context()
+            };
+            let out = s.sample(
+                if side < 0. { 1 } else { 2 },
+                true,
+                config(),
+                c,
+                enemy(side * 80., 0.),
+            );
+            assert!(!out.attack);
+            assert_eq!(out.controller.stick, Some([0.; 2]));
+        }
+        let ground = s.sample(3, true, Config::default(), context(), enemy(10., 0.));
+        assert_eq!(ground.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
+        let air = s.sample(
+            4,
+            true,
+            Config::default(),
+            GameplayContext {
+                situation: situation::AIR,
+                status: status::FALL,
+                ..context()
+            },
+            enemy(10., 0.),
+        );
+        assert_eq!(air.controller.stick, Some([-1., 0.]));
+    }
+
+    #[test]
+    fn auto_spacing_retries_until_native_startup_not_readiness_loss() {
+        let mut s = Spacing::default();
+        s.sample(1, true, config(), context(), enemy(13., 0.));
+        s.mapped(1);
+        let c = GameplayContext {
+            status: status::TURN,
+            can_act: false,
+            ..context()
+        };
+        let release = s.sample(2, true, config(), c, enemy(13., 0.));
+        assert!(!release.attack);
+        assert_eq!(release.controller.stick, Some([0.; 2]));
+        let retry = s.sample(3, true, config(), c, enemy(13., 0.));
+        assert!(retry.attack);
+        assert_ne!(retry.controller.requested & MAPPER_A, 0);
+        assert_eq!(retry.controller.stick, Some([0.; 2]));
+        for tick in 4..=25 {
+            let out = s.sample(tick, true, config(), c, enemy(13., 0.));
+            if out.attack {
+                s.mapped(tick);
+            }
+        }
+        assert_eq!(s.output.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
+        assert_eq!(
+            s.sample(25, false, config(), c, enemy(13., 0.)),
+            Output::default()
+        );
+    }
+
     #[test]
     fn auto_spacing_release_is_immediate_even_on_same_tick_and_keeps_jump_manual() {
         let mut s = Spacing::default();
@@ -395,11 +499,16 @@ mod tests {
         assert!(s.sample(1, true, config(), c, enemy(18., 0.)).attack);
         s.mapped(1);
         assert!(!s.sample(2, true, config(), c, enemy(18., 0.)).attack);
+        let retry = s.sample(3, true, config(), c, enemy(18., 0.));
+        assert!(retry.attack);
+        assert_eq!(retry.controller.stick, Some([0.; 2]));
+        s.mapped(3);
         c.status = status::ATTACK_S3;
         c.can_act = false;
-        assert!(!s.sample(3, true, config(), c, enemy(18., 0.)).attack);
+        assert!(!s.sample(4, true, config(), c, enemy(13., 0.)).attack);
+        assert_eq!(s.output.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
         assert!(
-            s.sample(4, true, config(), context(), enemy(18., 0.))
+            s.sample(5, true, config(), context(), enemy(18., 0.))
                 .attack
         );
     }
@@ -514,7 +623,7 @@ mod tests {
             enemy(8., 0.),
         );
         assert_eq!(out.controller.stick, Some([0.; 2]));
-        assert!(!out.attack);
+        assert!(out.attack);
         assert_eq!(
             s.sample(
                 4,

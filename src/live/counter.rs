@@ -1,6 +1,6 @@
 //! Read-only bounded live-hit scan for configured down-special counters.
-//! Melee uses contact geometry, not fighter-root distance. Projectiles additionally
-//! require an explicit nearby enemy owner; late contact is a best-effort input.
+//! Melee uses estimated contact geometry, not fighter-root distance. Projectile
+//! contact can veto, but cannot admit, an owner-dependent counter.
 use crate::game_ffi as game;
 use kirby_assist_core::{
     auto_counter::{self as policy, Config, Context, Threat},
@@ -40,30 +40,58 @@ unsafe fn active_threat(
         }
         let data = data.read();
         let mask = super::hitboxes::situation_mask(situation)?;
-        if data.direct != u8::from(melee)
-            || data.situation & mask == 0
-            || !data.power.is_finite()
-            || data.power <= 0.0
-        {
+        if data.direct > 1 || !data.power.is_finite() {
+            *exhausted = true;
+            continue;
+        }
+        if data.direct != u8::from(melee) || data.situation & mask == 0 || data.power <= 0.0 {
             continue;
         }
         let scale = *scale.get_or_insert_with(|| game::scale(enemy));
-        let Some(hitbox) = super::hitboxes::world_geometry(enemy, data, scale, enemy_velocity) else {
+        let Some(hitbox) = super::hitboxes::world_geometry(enemy, data, scale, enemy_velocity)
+        else {
             *exhausted = true;
             continue;
         };
-        if let Some(contact) = policy::incoming_contact(
-            config,
-            origin,
-            own_velocity,
-            hitbox,
-            remaining,
-            air,
-        ) {
+        if let Some(contact) =
+            policy::incoming_contact(config, origin, own_velocity, hitbox, remaining, air)
+        {
             earliest = Some(earliest.map_or(contact, |old| old.min(contact)));
         }
     }
     earliest
+}
+
+/// Copy opponent motion identities independently of hitboxes and our readiness.
+/// # Safety
+/// Native accessors must remain valid during this observation.
+pub(super) unsafe fn attacker_poses(
+    reads: &super::frame::FrameReads,
+    own: *mut game::Object,
+    own_id: u32,
+) -> [Option<(u32, i32, u64, f32)>; 16] {
+    let mut poses = [None; 16];
+    let team = reads.team(own);
+    for (slot, id) in reads.roster().into_iter().flatten().flatten().enumerate() {
+        if slot >= poses.len() {
+            break;
+        }
+        if id == own_id
+            || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
+            continue;
+        }
+        let enemy = game::module_accessor(id);
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
+            continue;
+        }
+        let pose = (id, reads.status_kind(enemy), reads.motion_kind(enemy), reads.motion_frame(enemy));
+        if pose.2 != 0 && pose.3.is_finite() && pose.3 >= 0. {
+            poses[slot] = Some(pose);
+        }
+    }
+    poses
 }
 
 /// # Safety
@@ -141,24 +169,24 @@ pub(super) unsafe fn observe(
             continue;
         }
         let enemy = game::module_accessor(id);
-        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
+        if enemy.is_null() || game::battle_object_id(enemy) != id {
+            exhausted = true;
             continue;
         }
-        let position = [reads.pos_x(enemy), reads.pos_y(enemy), game::pos_z(enemy)];
-        if !position.iter().all(|v| v.is_finite()) {
+        if reads.team(enemy) == team {
             continue;
         }
         let enemy_motion = reads.motion_kind(enemy);
         let enemy_status = reads.status_kind(enemy);
         let enemy_frame = reads.motion_frame(enemy);
-        let velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        if reads.is_stop(enemy)
-            || enemy_motion == 0
-            || !enemy_frame.is_finite()
-            || enemy_frame < 0.0
-        {
-            continue;
-        }
+        let stopped = reads.is_stop(enemy);
+        let velocity = if stopped {
+            [0.; 2]
+        } else {
+            [reads.speed_x(enemy), reads.speed_y(enemy)]
+        };
+        let admissible =
+            !stopped && enemy_motion != 0 && enemy_frame.is_finite() && enemy_frame >= 0.;
         let remaining = policy::active_remaining(
             reads.fighter_kind(enemy),
             enemy_motion,
@@ -172,7 +200,11 @@ pub(super) unsafe fn observe(
             own_velocity,
             velocity,
             config,
-            remaining.unwrap_or(config.horizon()),
+            if stopped {
+                0.
+            } else {
+                remaining.unwrap_or(config.horizon())
+            },
             &mut geometry_budget,
             &mut exhausted,
             true,
@@ -186,84 +218,60 @@ pub(super) unsafe fn observe(
             in_frames,
         });
         if let Some(threat) = attack {
-            if threat.in_frames < soonest {
+            if threat.in_frames < soonest || !admissible && threat.in_frames == soonest {
                 soonest = threat.in_frames;
-                best = Some(threat);
+                best = admissible.then_some(threat);
             }
         }
     }
+    // Projectile counters require owner proximity. The cached team_owner_id
+    // declaration does not establish current ownership across reflection or
+    // transfer, so projectile contact may veto but never admit a counter.
     for source in super::attack_sources::projectiles().into_iter().flatten() {
-        if exhausted
-            || !matches!(
-                source.id >> 28,
-                kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
-                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
-            )
-            || !game::is_active(source.id)
-        {
-            continue;
+        if exhausted {
+            break;
         }
-        let projectile = game::module_accessor(source.id);
-        if projectile.is_null()
-            || game::battle_object_id(projectile) != source.id
-            || reads.team(projectile) == team
-            || reads.is_stop(projectile)
-        {
-            continue;
-        }
-        let Ok(owner_id) = u32::try_from(game::team_owner_id(projectile)) else {
-            continue;
-        };
-        // Resolve an explicit current owner, never infer one from a team number.
-        if owner_id == own_id
-            || owner_id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
-            || !roster.contains(&Some(owner_id))
-            || !game::is_active(owner_id)
-        {
-            continue;
-        }
-        let owner = game::module_accessor(owner_id);
-        if owner.is_null()
-            || game::battle_object_id(owner) != owner_id
-            || reads.team(owner) != reads.team(projectile)
-            || !policy::projectile_owner_near(
-                origin,
-                [reads.pos_x(owner), reads.pos_y(owner), game::pos_z(owner)],
-                config.half_depth,
-            )
-        {
-            continue;
-        }
-        if !kirby_assist_core::battle_objects::is_projectile(
-            source.id,
-            reads.fighter_kind(projectile),
-            reads.status_kind(projectile),
+        if !matches!(
+            source.id >> 28,
+            kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+                | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
         ) {
             continue;
         }
-        if let Some(in_frames) = active_threat(
+        if !game::is_active(source.id) {
+            super::attack_sources::forget(source.id);
+            continue;
+        }
+        let projectile = game::module_accessor(source.id);
+        if projectile.is_null() || game::battle_object_id(projectile) != source.id {
+            exhausted = true;
+            continue;
+        }
+        if reads.team(projectile) == team {
+            continue;
+        }
+        let stopped = reads.is_stop(projectile);
+        let velocity = if stopped {
+            [0.; 2]
+        } else {
+            [reads.speed_x(projectile), reads.speed_y(projectile)]
+        };
+        if let Some(contact) = active_threat(
             projectile,
             situation,
             origin,
             own_velocity,
-            [reads.speed_x(projectile), reads.speed_y(projectile)],
+            velocity,
             config,
-            config.horizon(),
+            if stopped { 0. } else { config.horizon() },
             &mut geometry_budget,
             &mut exhausted,
             false,
             air,
         ) {
-            if in_frames < soonest {
-                soonest = in_frames;
-                best = Some(Threat {
-                    id: source.id,
-                    // The attack generation distinguishes reused projectile IDs.
-                    motion: u64::from(source.generation) + 1,
-                    status: reads.status_kind(projectile),
-                    frame: reads.motion_frame(projectile),
-                    in_frames,
-                });
+            if contact <= soonest {
+                soonest = contact;
+                best = None;
             }
         }
     }
