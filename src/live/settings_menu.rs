@@ -28,6 +28,7 @@ pub(super) struct MenuInput {
     pub(super) mash_default: bool,
     pub(super) grab_default: bool,
     pub(super) tech_default: bool,
+    pub(super) damage_defaults: [bool; 2],
     pub(super) training: bool,
 }
 
@@ -419,6 +420,15 @@ impl SettingsMenu {
     pub fn auto_spacing_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::auto_spacing_held)
     }
+    /// Copies independent damage-stick preferences for the observed fighter.
+    pub fn damage_sticks(&self, kind: i32, defaults: [bool; 2]) -> [bool; 2] {
+        self.selections.get(&kind).map_or(defaults, |s| {
+            [
+                s.tuning.0[kirby_assist_core::fighter_tuning::AUTO_DI_DEFAULT].map_or(defaults[0], |v| v == 1.0),
+                s.tuning.0[kirby_assist_core::fighter_tuning::AUTO_SDI_DEFAULT].map_or(defaults[1], |v| v == 1.0),
+            ]
+        })
+    }
     /// Returns the effective Auto Tech mode with startup fallback.
     pub fn auto_tech(&self, startup_default: bool) -> bool {
         self.current().map_or(startup_default, |s| {
@@ -638,6 +648,7 @@ impl SettingsMenu {
             mash_default,
             grab_default,
             tech_default,
+            damage_defaults,
             training,
         } = input;
         #[cfg(feature = "diagnostic-logging")]
@@ -659,6 +670,8 @@ impl SettingsMenu {
         self.scope = gameplay;
         let selection = self.selections.get_mut(&kind).unwrap();
         selection.y_fighter_kind = kind;
+        selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_DI_DEFAULT] = f32::from(damage_defaults[0]);
+        selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_SDI_DEFAULT] = f32::from(damage_defaults[1]);
         // Apply after new-profile/reset_inputs, which deliberately disarms L.
         if let Some((buttons, layout)) = self.passthrough_buttons.take() {
             selection.observe_physical_passthrough(buttons, layout);

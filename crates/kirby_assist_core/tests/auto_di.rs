@@ -11,11 +11,11 @@ fn context(remaining: u64) -> Context {
     }
 }
 #[test]
-fn temporary_global_gate_blocks_direct_di_and_sdi_even_when_settings_are_enabled() {
+fn disabled_preferences_block_direct_di_and_sdi() {
     use kirby_assist_core::combat_assist::{SdiContext, SdiState};
-    let settings = Settings::default();
+    let settings = Settings { enabled: false, ..Settings::default() };
     let c = context(3);
-    assert!(choose(settings, c).is_some());
+    assert!(choose(settings, c).is_none());
     let mut di = AutoDi::default();
     assert_eq!(di.sample(settings, c, [0.; 2]), None);
     assert_eq!(di.sample_exclusive(settings, c), None);
@@ -30,8 +30,8 @@ fn temporary_global_gate_blocks_direct_di_and_sdi_even_when_settings_are_enabled
         outward: 1.,
     };
     let mut sdi = SdiState::default();
-    assert_eq!(sdi.sample(true, sdi_context, [0.; 2]), None);
-    assert_eq!(sdi.sample_exclusive(true, sdi_context), None);
+    assert_eq!(sdi.sample(false, sdi_context, [0.; 2]), None);
+    assert_eq!(sdi.sample_exclusive(false, sdi_context), None);
     assert_eq!(
         sdi.sample_exclusive_with_previous(true, sdi_context, None, [1., 0.]),
         None
@@ -129,7 +129,6 @@ fn escape_favors_separation_from_either_attributed_attacker() {
     }
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_keeps_early_frames_di_is_stable_at_release_and_normal_control_returns_afterward() {
     let mut di = AutoDi::default();
     for left in (4..=12).rev() {
@@ -160,7 +159,6 @@ fn sdi_keeps_early_frames_di_is_stable_at_release_and_normal_control_returns_aft
     assert!(di.decision().is_none());
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn manual_stick_held_before_or_during_hit_wins_until_that_hit_ends() {
     let mut di = AutoDi::default();
     assert_eq!(di.sample(Settings::default(), context(8), [1.0, 0.0]), None);
@@ -259,7 +257,6 @@ fn config_supports_disabling_and_mode_selection_and_rejects_invalid_thresholds()
 }
 
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn late_attacker_attribution_can_rearm_the_same_launch_without_extra_game_frames() {
     let mut di = AutoDi::default();
     let c = Context {
@@ -367,7 +364,6 @@ fn sdi_never_falls_back_to_outward_input_in_final_di_frames() {
 }
 
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn a_partially_held_manual_stick_also_overrides_di_and_sdi() {
     use kirby_assist_core::combat_assist::{SdiContext, SdiState};
     let mut di = AutoDi::default();

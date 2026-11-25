@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 73;
+    pub const COUNT: usize = 75;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -118,6 +118,8 @@ mod schema {
         "auto_spacing_aerial_reach",
         "auto_spacing_aerial_height",
         "auto_spacing_aerial_commitment",
+        "auto_di_default",
+        "auto_sdi_default",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -195,6 +197,8 @@ mod schema {
         "Spacing aerial: reach estimate",
         "Spacing aerial: height tolerance",
         "Spacing aerial: commitment frames",
+        "Auto DI (experimental)",
+        "Auto SDI (experimental)",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -272,7 +276,14 @@ mod schema {
         "Tunable aerial reach estimate, not an exact hitbox or hit guarantee.",
         "Tunable aerial root-height tolerance, not an exact hitbox or hit guarantee.",
         "Estimated total aerial commitment in frames; independent of startup and active duration.",
+        "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
+        "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
     ];
+
+    /// Experimental damage-stick preferences, appended for file compatibility.
+    pub const AUTO_DI_DEFAULT: usize = 73;
+    /// Independent experimental SDI preference.
+    pub const AUTO_SDI_DEFAULT: usize = 74;
 
     /// Minimum hold-mode spacing distance.
     pub const AUTO_SPACING_MINIMUM_DISTANCE: usize = 60;
@@ -604,6 +615,8 @@ impl Tuning {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
             || i == COUNTER_DEFAULT
+            || i == AUTO_DI_DEFAULT
+            || i == AUTO_SDI_DEFAULT
             || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
     }
     /// Resolves which physical C-stick tilts should face the opponent.

@@ -78,7 +78,7 @@ impl MenuSelection {
             " [custom]"
         } else if i == 1 {
             " [fighter reference]"
-        } else if i < 14 {
+        } else if i < 14 || matches!(i, fighter_tuning::AUTO_DI_DEFAULT | fighter_tuning::AUTO_SDI_DEFAULT) {
             " [default]"
         } else if Tuning::frames(i) {
             " [policy default]"

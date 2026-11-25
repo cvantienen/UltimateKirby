@@ -26,6 +26,7 @@ struct Actor {
     status: i32,
     situation: i32,
     position: [f32; 3],
+    scale: f32,
     velocity: [f32; 2],
     stopped: bool,
     remaining_stop: u64,
@@ -51,6 +52,7 @@ impl Actor {
             status: kirby_assist_core::native_states::status::WAIT,
             situation: kirby_assist_core::native_states::situation::GROUND,
             position: [0.; 3],
+            scale: 1.,
             velocity: [0.; 2],
             stopped: false,
             remaining_stop: 0,
@@ -112,7 +114,7 @@ mod game_ffi {
         if super::INVALIDATE_GEOMETRY_ON_SCALE.with(|flag| flag.get()) {
             (*o.cast::<super::Actor>()).geometry.size = 0.;
         }
-        1.
+        actor(o).scale
     }
     pub unsafe fn motion_kind(o: *mut Object) -> u64 {
         actor(o).motion
@@ -397,6 +399,30 @@ fn stopped_projectile_keeps_current_geometry_without_projecting_frozen_speed() {
             },
             expected
         );
+    }
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn unknown_defender_bounds_or_unsupported_attack_size_cannot_prove_a_guard_gap() {
+    use kirby_assist_core::autopilot_guard::Envelope;
+    for scenario in 0..5 {
+        let mut own = Actor::new(1);
+        let mut enemy = Box::new(Actor::new(0x10000002));
+        enemy.position[0] = 200.;
+        match scenario {
+            0 => own.scale = 2.,
+            1 => own.scale = 0.5,
+            2 => own.position[2] = f32::NAN,
+            3 => own.position[0] = f32::NAN,
+            _ => enemy.geometry.size = 101.,
+        }
+        SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+        let position = [own.position[0], own.position[1]];
+        assert!(unsafe {
+            observations::incoming_fighter_attack(&frame::FrameReads::default(),
+                own.object(), 1, position, [0.; 2], Envelope::default())
+        }, "scenario {scenario}");
     }
     SOURCES.with(|s| s.borrow_mut().clear());
 }

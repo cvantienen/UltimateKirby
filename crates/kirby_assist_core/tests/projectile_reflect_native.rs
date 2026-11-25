@@ -11,6 +11,8 @@ thread_local! {
     static READS:Cell<usize>=const{Cell::new(0)};
     static GEOMETRY:Cell<usize>=const{Cell::new(0)};
     static JOINTS:Cell<usize>=const{Cell::new(0)};
+    static STALE_ACCESSOR:Cell<u32>=const{Cell::new(u32::MAX)};
+    static MISSING_GEOMETRY:Cell<u32>=const{Cell::new(u32::MAX)};
 }
 fn read() {
     READS.with(|v| v.set(v.get() + 1));
@@ -94,7 +96,8 @@ mod game_ffi {
         })
     }
     pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
-        (*object).id
+        let id = (*object).id;
+        if STALE_ACCESSOR.with(Cell::get) == id { id + 1 } else { id }
     }
     pub unsafe fn work_float(o: *mut Object, key: i32) -> f32 {
         read();
@@ -127,7 +130,11 @@ mod game_ffi {
     }
     pub unsafe fn attack_geometry(o: *mut Object, _: i32, _: bool) -> *const AttackGeometry {
         GEOMETRY.with(|v| v.set(v.get() + 1));
-        &(*o).geometry
+        if MISSING_GEOMETRY.with(Cell::get) == (*o).id {
+            std::ptr::null()
+        } else {
+            &(*o).geometry
+        }
     }
     pub unsafe fn joint_position(
         o: *mut Object,
@@ -245,6 +252,8 @@ fn reset() -> Box<game_ffi::Object> {
     READS.with(|v| v.set(0));
     GEOMETRY.with(|v| v.set(0));
     JOINTS.with(|v| v.set(0));
+    STALE_ACCESSOR.with(|v| v.set(u32::MAX));
+    MISSING_GEOMETRY.with(|v| v.set(u32::MAX));
     Box::new(game_ffi::Object::new(1))
 }
 fn projectile(edit: impl FnOnce(&mut game_ffi::Object)) {
@@ -294,6 +303,40 @@ fn shared_conversion_uses_native_transformed_endpoints_and_rejects_missing_facts
     assert!(unsafe { hitboxes::world_geometry(&mut *own, data, 2., [0.; 2]) }.is_none());
     assert!(unsafe { hitboxes::world_geometry(&mut *own, data, 0., [0.; 2]) }.is_none());
     assert!(hitboxes::situation_mask(-1).is_none());
+}
+
+#[test]
+fn counter_pose_tracking_rearms_same_move_after_recovery_while_own_special_is_locked() {
+    use kirby_assist_core::{auto_counter::Counter, native_states::status};
+    let mut own = reset();
+    counter_enemy(|_| {});
+    let mut policy = Counter::new();
+    let (_, context, threat) = unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true).unwrap()
+    };
+    assert!(threat.is_some());
+    policy.sample(true, Some(counter_config()), context, threat);
+    policy.mapped();
+    policy.finished(status::SPECIAL_LW, 1.);
+    own.ready = false;
+    OBJECTS.with(|objects| { objects.borrow_mut()[0].motion = 1; objects.borrow_mut()[0].status = status::WAIT; });
+    for pose in unsafe { counter::attacker_poses(&frame::FrameReads, &mut *own, 1) }.into_iter().flatten() {
+        policy.observe_attacker_pose(pose);
+    }
+    OBJECTS.with(|objects| {
+        let mut objects = objects.borrow_mut();
+        let enemy = &mut objects[0];
+        enemy.motion = threat.unwrap().motion;
+        enemy.status = threat.unwrap().status;
+        enemy.frame = threat.unwrap().frame;
+    });
+    own.ready = true;
+    let (config, context, next) = unsafe {
+        counter::observe(&frame::FrameReads, &mut *own, 1,
+            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true).unwrap()
+    };
+    assert_ne!(policy.sample(true, Some(config), context, next).requested, 0);
 }
 
 #[test]
@@ -500,7 +543,7 @@ fn movement_prediction_reaches_counter_delivery_in_running_and_falling_states() 
 }
 
 #[test]
-fn projectile_counter_requires_a_current_nearby_enemy_owner() {
+fn projectile_counter_withholds_even_when_team_owner_looks_like_a_nearby_fighter() {
     for scenario in 0..7 {
         let mut own = reset();
         counter_enemy(|e| {
@@ -517,7 +560,7 @@ fn projectile_counter_requires_a_current_nearby_enemy_owner() {
         });
         let (_, _, threat) = unsafe { counter::observe(&frame::FrameReads, &mut *own, 1,
             kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true) }.unwrap();
-        assert_eq!(threat.is_some(), scenario == 0, "scenario {scenario}: {threat:?}");
+        assert!(threat.is_none(), "unverified ownership scenario {scenario}: {threat:?}");
     }
 }
 
@@ -766,6 +809,136 @@ fn an_existing_target_is_not_replaced_by_another_projectile_mid_bucket() {
     }
     .unwrap();
     assert_eq!(threat.unwrap().id, 0x10000002);
+}
+
+#[test]
+fn tracked_projectile_loss_reuse_or_team_transfer_never_selects_another_source() {
+    use kirby_assist_core::projectile_reflect::ProjectileKey;
+    for scenario in 0..5 {
+        let mut own = reset();
+        projectile(|p| match scenario {
+            0 => p.active = false,
+            1 => p.generation += 1,
+            2 => p.team = own.team,
+            3 => p.attacks = false,
+            _ => p.geometry.reflectable = 0,
+        });
+        projectile(|p| p.id += 1);
+        let threat = unsafe {
+            reflect::observe(&frame::FrameReads, &mut *own, 1, 28, Some(config()),
+                Some(ProjectileKey { id: 0x10000002, generation: 1 }), true)
+        }.unwrap().2;
+        assert!(threat.is_none(), "scenario {scenario}: {threat:?}");
+    }
+}
+
+#[test]
+fn tracked_target_does_not_bypass_later_geometry_budget_or_invalid_competitors() {
+    use kirby_assist_core::projectile_reflect::ProjectileKey;
+    for scenario in 0..4 {
+        let mut own = reset();
+        projectile(|_| {});
+        projectile(|p| {
+            p.id += 1;
+            match scenario {
+                0 => p.geometry.x = f32::NAN,
+                1 => p.velocity[0] = f32::NAN,
+                2 => p.geometry.reflectable = 2,
+                _ => {},
+            }
+        });
+        if scenario == 3 { projectile(|p| p.id += 2); }
+        let threat = unsafe {
+            reflect::observe(&frame::FrameReads, &mut *own, 1, 28, Some(config()),
+                Some(ProjectileKey { id: 0x10000002, generation: 1 }), true)
+        }.unwrap().2;
+        assert!(threat.is_none(), "scenario {scenario}: {threat:?}");
+        assert!(GEOMETRY.with(Cell::get) <= 16);
+    }
+}
+
+#[test]
+fn unresolved_projectile_can_veto_an_earlier_or_simultaneous_melee_counter() {
+    for x in [4., 41.] {
+        let mut own = reset();
+        counter_enemy(|_| {});
+        projectile(|p| {
+            p.owner = u64::MAX;
+            p.position[0] = x;
+            p.geometry.power = 10.;
+        });
+        let threat = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap().2;
+        assert_eq!(threat.is_some(), x == 41.);
+    }
+}
+
+#[test]
+fn stopped_or_invalid_clock_contact_vetoes_counter_without_forecasting_frozen_motion() {
+    for scenario in 0..4 {
+        let mut own = reset();
+        counter_enemy(|_| {});
+        counter_enemy(|e| {
+            e.id = 8;
+            e.position[0] = if scenario == 3 { 100. } else { 4. };
+            e.velocity[0] = -100.;
+            match scenario {
+                0 | 3 => e.stopped = true,
+                1 => e.motion = 0,
+                _ => e.frame = f32::NAN,
+            }
+        });
+        let threat = unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap().2;
+        assert_eq!(threat.is_some(), scenario == 3, "scenario {scenario}");
+    }
+}
+
+#[test]
+fn stale_accessors_and_missing_active_records_withhold_competing_specials() {
+    for missing in [false, true] {
+        let mut own = reset();
+        counter_enemy(|_| {});
+        counter_enemy(|e| e.id = 8);
+        if missing { MISSING_GEOMETRY.with(|v| v.set(8)); }
+        else { STALE_ACCESSOR.with(|v| v.set(8)); }
+        assert!(unsafe {
+            counter::observe(&frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
+        }.unwrap().2.is_none());
+
+        let mut own = reset();
+        projectile(|_| {});
+        projectile(|p| p.id += 1);
+        if missing { MISSING_GEOMETRY.with(|v| v.set(0x10000003)); }
+        else { STALE_ACCESSOR.with(|v| v.set(0x10000003)); }
+        assert!(unsafe {
+            reflect::observe(&frame::FrameReads, &mut *own, 1, 28,
+                Some(config()), None, true)
+        }.unwrap().2.is_none());
+    }
+}
+
+#[test]
+fn shared_conversion_refreshes_current_pose_and_rejects_oversized_radius() {
+    let mut own = reset();
+    own.geometry.x = 4.;
+    own.geometry.x2 = 8.;
+    let first = unsafe { hitboxes::world_geometry(&mut *own, own.geometry, 1., [0.; 2]) }.unwrap();
+    own.scale = 0.5;
+    own.facing = -1.;
+    own.position = [2., 3., 4.];
+    let changed = unsafe { hitboxes::world_geometry(&mut *own, own.geometry, 0.5, [0.; 2]) }.unwrap();
+    assert_eq!(first.start, [4., 8., 0.]);
+    assert_eq!(changed.start, [0., 7., 4.]);
+    assert_eq!(changed.end, [-2., 3., 4.]);
+    assert_eq!(changed.radius, 0.5);
+    own.geometry.size = 101.;
+    assert!(unsafe { hitboxes::world_geometry(&mut *own, own.geometry, 1., [0.; 2]) }.is_none());
 }
 
 #[test]

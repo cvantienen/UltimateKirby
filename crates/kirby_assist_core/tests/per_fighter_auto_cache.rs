@@ -122,6 +122,7 @@ fn fighter_change_never_inherits_bowser_actions_and_grab_dodge_cannot_borrow_ano
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: false,
         });
         assert!(menu.for_fighter(kind).is_some());
@@ -211,6 +212,7 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: false,
         });
         assert!(menu.for_fighter(kind).is_some());
@@ -272,6 +274,7 @@ fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_s
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: false,
         });
         assert_eq!(
@@ -307,6 +310,7 @@ fn compact_runtime_idle_has_no_allocations_and_fighter_switches_do_not_retain_ol
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: false,
         });
     };
@@ -346,4 +350,28 @@ fn compact_runtime_idle_has_no_allocations_and_fighter_switches_do_not_retain_ol
     menu.end_match();
     assert!(menu.for_fighter(15).is_none());
     assert!(menu.automatic_rules().is_none());
+}
+
+#[test]
+fn damage_preferences_use_saved_fighter_overrides_and_independent_startup_defaults() {
+    use kirby_assist_core::fighter_tuning::{Tuning, AUTO_DI_DEFAULT, AUTO_SDI_DEFAULT};
+    let _save_guard = live_menu::save_test_guard();
+    prepare_compact_library();
+    let mut tuning = Tuning::default();
+    tuning.0[AUTO_DI_DEFAULT] = Some(0.);
+    tuning.0[AUTO_SDI_DEFAULT] = Some(1.);
+    let previous = SEQUENCES.get().unwrap().lock().unwrap().tuning.insert(15, tuning);
+    let mut menu = live_menu::SettingsMenu::default();
+    for (kind, expected) in [(15, [false, true]), (5, [true, false]), (15, [false, true])] {
+        menu.input(live_menu::MenuInput {
+            available: true, gameplay: true, bindings_blocked: false, safety_jump: false,
+            fighter_kind: Some(kind), buttons: 0, physical: 0, layout: ControlLayout::Default,
+            base: AssistSettings::default(), mash_default: false, grab_default: false,
+            tech_default: false, damage_defaults: [true, false], training: false,
+        });
+        assert_eq!(menu.damage_sticks(kind, [true, false]), expected);
+    }
+    let mut library = SEQUENCES.get().unwrap().lock().unwrap();
+    if let Some(previous) = previous { library.tuning.insert(15, previous); }
+    else { library.tuning.remove(&15); }
 }

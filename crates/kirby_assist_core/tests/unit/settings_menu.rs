@@ -78,6 +78,12 @@ fn diagnostic_only_rows_are_available_only_in_diagnostics() {
     menu.row = MenuRow::AutoTech;
     menu.input(0, presets);
     menu.input(DPAD_DOWN, presets);
+    assert_eq!(menu.row, MenuRow::AutoDi);
+    menu.input(0, presets);
+    menu.input(DPAD_DOWN, presets);
+    assert_eq!(menu.row, MenuRow::AutoSdi);
+    menu.input(0, presets);
+    menu.input(DPAD_DOWN, presets);
     assert_eq!(menu.row, MenuRow::AutoMash);
     assert_eq!(
         menu.row_visible(MenuRow::Performance),
@@ -314,7 +320,7 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     assert!(!menu.ledge_held(MAPPER_Y));
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert_eq!(MenuRow::ALL.len(), 32);
+    assert_eq!(MenuRow::ALL.len(), 34);
 }
 
 #[test]

@@ -351,6 +351,8 @@ pub struct Counter {
     last_poll: Option<i64>,
     attempts: u8,
     history: [Option<(u32, u64, i32, f32, u8)>; 16],
+    attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
+    pose_cursor: usize,
 }
 impl Counter {
     pub const fn new() -> Self {
@@ -370,6 +372,8 @@ impl Counter {
             last_poll: None,
             attempts: 0,
             history: [None; 16],
+            attacker_poses: [None; 16],
+            pose_cursor: 0,
         }
     }
     pub fn active(&self) -> bool {
@@ -423,8 +427,41 @@ impl Counter {
         }
         false
     }
+    /// Observe even non-threatening poses so repeated identical attacks rearm.
+    /// Missing geometry must not itself erase the budget for a lingering attack.
+    pub fn observe_attacker_pose(&mut self, pose: (u32, i32, u64, f32)) {
+        if pose.2 == 0 || !pose.3.is_finite() || pose.3 < 0. {
+            return;
+        }
+        let index = self.attacker_poses.iter().position(|old| old.is_some_and(|old| old.0 == pose.0));
+        if let Some(old) = index.and_then(|i| self.attacker_poses[i]) {
+            if !crate::timing::same_motion_event(old, pose) {
+                if self.last_object == pose.0 {
+                    self.last = None;
+                    self.attempts = 0;
+                    self.last_status = pose.1;
+                    self.last_motion = pose.2;
+                    self.last_frame = pose.3;
+                }
+                for entry in &mut self.history {
+                    if entry.is_some_and(|old| old.0 == pose.0) {
+                        *entry = None;
+                    }
+                }
+            }
+        }
+        let index = index.or_else(|| self.attacker_poses.iter().position(Option::is_none))
+            .unwrap_or_else(|| {
+                let index = self.pose_cursor;
+                self.pose_cursor = (index + 1) % self.attacker_poses.len();
+                index
+            });
+        self.attacker_poses[index] = Some(pose);
+    }
+
     /// Reset the attack key when the observed attacker starts a new animation.
     pub fn observe_attacker(&mut self, threat: Threat) {
+        self.observe_attacker_pose((threat.id, threat.status, threat.motion, threat.frame));
         if self.last_object != threat.id {
             let previous = (
                 self.last_object,
@@ -1251,6 +1288,45 @@ mod tests {
             frame: 3.,
             in_frames: 6.,
         }
+    }
+
+    #[test]
+    fn repeated_identical_counter_threats_rearm_after_non_threatening_poses() {
+        let mut counter = Counter::new();
+        let mut c = context();
+        let mut t = threat(7);
+        counter.sample(true, Some(config()), c, Some(t));
+        counter.mapped();
+        assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 1.));
+        assert_eq!(counter.sample(true, Some(config()), c, Some(t)).requested, 0);
+        for cycle in 0..20 {
+            counter.observe_attacker_pose((7, crate::native_states::status::WAIT, 1, 10.));
+            counter.observe_attacker_pose((7, t.status, t.motion, 0.));
+            // The next threatening sample is not necessarily earlier than the
+            // preceding attack's threatening sample, especially online.
+            t.frame = 3. + cycle as f32;
+            c.animation.frame += 1.;
+            assert_eq!(counter.sample(true, Some(config()), c, Some(t)).requested, MAPPER_B);
+            counter.mapped();
+            assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 1.));
+        }
+    }
+
+    #[test]
+    fn missing_geometry_and_target_switch_do_not_rearm_lingering_attacks() {
+        let mut counter = Counter::new();
+        let c = context();
+        let t = threat(7);
+        counter.sample(true, Some(config()), c, Some(t));
+        counter.mapped();
+        counter.finished(crate::native_states::status::SPECIAL_LW, 1.);
+        counter.observe_attacker_pose((7, t.status, t.motion, 4.));
+        counter.sample(true, Some(config()), c, None);
+        assert_eq!(counter.sample(true, Some(config()), c, Some(Threat { frame: 4., ..t })).requested, 0);
+        counter.sample(true, Some(config()), c, Some(threat(8)));
+        counter.cancel();
+        counter.observe_attacker_pose((7, crate::native_states::status::WAIT, 1, 1.));
+        assert_eq!(counter.sample(true, Some(config()), c, Some(t)).requested, MAPPER_B);
     }
 
     #[test]

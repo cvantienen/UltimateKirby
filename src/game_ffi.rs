@@ -143,10 +143,11 @@ pub struct AttackGeometry {
     pub check_type: u16,
     /// Native attack situation/category mask.
     pub situation: u16,
-    // Full AttackData field offsets verified against
-    // https://github.com/WuBoytH/smash-rs/blob/master/src/app/modules/attack.rs
-    // the pinned SDK describes only the geometry prefix above. Read bytes,
-    // not Rust bools, so an unexpected native value cannot cause bool UB.
+    // Legacy capability offsets cite smash-rs src/app/modules/attack.rs on
+    // unpinned master; no matching cached revision was available for this audit.
+    // The pinned SDK describes only the geometry prefix above. These fields
+    // remain an unverified ABI dependency, not exact-version certification.
+    // Read bytes, not Rust bools, to avoid UB from unexpected boolean values.
     /// Opaque bytes covering native attack capability fields before flags.
     pub capability_padding: [u8; 17],
     /// Native reflectable capability byte.

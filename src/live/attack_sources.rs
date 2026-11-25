@@ -24,8 +24,8 @@ pub(super) fn sources() -> [Option<u32>; SOURCE_CAPACITY] {
     SOURCES.snapshot().map(|key| key.map(|key| key.id))
 }
 
-/// Returns a copied snapshot retaining each attack generation with its ID, so
-/// a reused object can be told apart from earlier attacks by the same object.
+/// Returns copied IDs with software ATTACK observation generations. This is
+/// not an allocation token: unobserved reuse and ownership transfer remain unknown.
 pub(super) fn projectiles() -> [Option<ProjectileKey>; SOURCE_CAPACITY] {
     SOURCES.snapshot()
 }

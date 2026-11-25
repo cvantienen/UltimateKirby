@@ -57,6 +57,7 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: true,
         });
     };

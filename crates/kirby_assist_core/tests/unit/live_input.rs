@@ -21,7 +21,6 @@ fn automatic_damage_sticks_default_off_and_saved_preferences_remain_readable() {
     assert!(saved.auto_sdi);
     assert!(saved.auto_di.enabled);
     assert_eq!(saved.auto_di.mode, crate::auto_di::Mode::Escape);
-    assert!(!crate::config::AUTO_DAMAGE_STICK_ENABLED);
 }
 
 #[test]

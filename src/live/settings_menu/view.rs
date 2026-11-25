@@ -108,6 +108,8 @@ pub(super) struct Snapshot {
     pub(super) recipe_revision: u64,
     /// Effective auto-mash value represented by the rows.
     pub(super) auto_mash: bool,
+    /// Effective DI/SDI choices, including inherited startup defaults.
+    pub(super) damage_sticks: [bool; 2],
     /// Whether this snapshot represents the quick-menu layout.
     pub(super) quick: bool,
     /// Whether this snapshot omits editor-heavy presentation content.
@@ -163,6 +165,7 @@ impl Snapshot {
             && self.content_revision == selection.content_revision
             && self.recipe_revision == selection.recipe_revision
             && self.auto_mash == auto_mash
+            && self.damage_sticks == selection.damage_sticks()
             && self.buttons == selection.button_menu
             && self.modes == selection.modes_menu
             && self.quick == (selection.quick_menu && !selection.tuning_page)
@@ -285,6 +288,8 @@ fn row_value(
         MenuRow::GrabDodge => selection.grab_dodge,
         MenuRow::Performance => selection.performance,
         MenuRow::AutoTech => selection.effective_mode(Mode::AutoTech, selection.auto_tech),
+        MenuRow::AutoDi => selection.damage_sticks()[0],
+        MenuRow::AutoSdi => selection.damage_sticks()[1],
         MenuRow::AutoLedge => selection.ledge_mode(),
         MenuRow::RollRules => selection.roll_rules,
         MenuRow::AutoMash => auto_mash,
@@ -438,6 +443,7 @@ pub(super) fn build(
         content_revision: selection.content_revision,
         recipe_revision: selection.recipe_revision,
         auto_mash,
+        damage_sticks: selection.damage_sticks(),
         quick: selection.quick_menu && !selection.tuning_page,
         lightweight: selection.lightweight,
         buttons: selection.button_menu,

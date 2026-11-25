@@ -141,8 +141,7 @@ fn vertical_survival_uses_room_toward_stage_center_without_attacker_attribution(
     }
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
-fn final_di_is_stable_through_zero_count_then_releases_and_rearms_for_another_hit() {
+fn final_di_refreshes_changed_geometry_and_releases_after_hitstop() {
     let mut di = AutoDi::default();
     let mut t = trajectory([210., 100.]);
     let settings = Settings::default();
@@ -153,11 +152,13 @@ fn final_di_is_stable_through_zero_count_then_releases_and_rearms_for_another_hi
     let first = di
         .sample_exclusive_with_trajectory(settings, context([0., 5.], 3), Some(t))
         .unwrap();
-    t.position = [-210., 100.]; // A refresh cannot rewrite an already committed launch input.
+    t.position = [-210., 100.];
+    let refreshed = di.sample_exclusive_with_trajectory(settings, context([0., 5.], 3), Some(t)).unwrap();
+    assert!(refreshed[0] * first[0] < 0.);
     for remaining in [3, 2, 2, 1, 0, 0] {
         assert_eq!(
             di.sample_exclusive_with_trajectory(settings, context([0., 5.], remaining), Some(t)),
-            Some(first)
+            Some(refreshed)
         );
     }
     assert_eq!(
@@ -190,7 +191,6 @@ fn launch_model_is_finite_mirrored_and_respects_vertical_lsi_exclusion() {
     assert!((predicted_launch([4., 0.], [0., -1.])[0] - 3.68).abs() < 0.00001);
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_uses_full_strength_flicks_every_four_native_frames_and_reuses_duplicate_polls() {
     let mut sdi = SdiState::default();
     for elapsed in 0..17 {
@@ -217,7 +217,6 @@ fn sdi_uses_full_strength_flicks_every_four_native_frames_and_reuses_duplicate_p
     assert_eq!(sdi.sample_exclusive(true, sdi_context(8)), Some([1., 0.]));
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_cannot_skip_its_neutral_rearm_or_replay_a_stale_flick_after_disable() {
     let mut sdi = SdiState::default();
     assert_eq!(sdi.sample_exclusive(true, sdi_context(20)), Some([1., 0.]));
@@ -227,31 +226,29 @@ fn sdi_cannot_skip_its_neutral_rearm_or_replay_a_stale_flick_after_disable() {
     assert_eq!(sdi.sample_exclusive(true, sdi_context(13)), Some([1., 0.]));
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_releases_an_already_held_game_visible_stick_before_the_first_and_next_hit() {
     let mut sdi = SdiState::default();
     for _ in 0..12 {
         assert_eq!(
-            sdi.sample_exclusive_with_previous(true, sdi_context(20), None, [1., 0.]),
+            sdi.sample_exclusive_with_previous(true, sdi_context(20), Some(([0.; 2], bounds())), [1., 0.]),
             Some([0.; 2])
         );
     }
     assert_eq!(
-        sdi.sample_exclusive_with_previous(true, sdi_context(19), None, [0.; 2]),
+        sdi.sample_exclusive_with_previous(true, sdi_context(19), Some(([0.; 2], bounds())), [0.; 2]),
         Some([1., 0.])
     );
     assert_eq!(
-        sdi.sample_exclusive_with_previous(true, sdi_context(22), None, [1., 0.]),
+        sdi.sample_exclusive_with_previous(true, sdi_context(22), Some(([0.; 2], bounds())), [1., 0.]),
         Some([0.; 2]),
         "a new hit must not reuse the preceding held flick"
     );
     assert_eq!(
-        sdi.sample_exclusive_with_previous(true, sdi_context(21), None, [0.; 2]),
+        sdi.sample_exclusive_with_previous(true, sdi_context(21), Some(([0.; 2], bounds())), [0.; 2]),
         Some([1., 0.])
     );
 }
 #[test]
-#[ignore = "DI/SDI runtime temporarily disabled; retain legacy behavior case for restoration"]
 fn sdi_bends_away_from_the_nearest_blast_zone() {
     let mut sdi = SdiState::default();
     let p = [238., 0.];
@@ -431,4 +428,45 @@ fn tech_sweeps_cover_narrow_midflight_platforms_and_respect_surface_eligibility(
         }
     )
     .is_some());
+}
+
+#[test]
+fn live_damage_sticks_abstain_and_reset_when_environment_is_missing_or_invalid() {
+    let mut di = AutoDi::default();
+    let c = context([4., 1.], 3);
+    let settings = Settings::default();
+    assert!(di.sample_exclusive_with_trajectory(settings, c, Some(trajectory([0.; 2]))).is_some());
+    for t in [None, Some(Trajectory { gravity: f32::NAN, ..trajectory([0.; 2]) }), Some(trajectory([300., 0.]))] {
+        assert_eq!(di.sample_exclusive_with_trajectory(settings, c, t), None);
+        assert_eq!(di.decision(), None);
+    }
+    let mut sdi = SdiState::default();
+    let c = sdi_context(20);
+    assert!(sdi.sample_exclusive_with_previous(true, c, Some(([0.; 2], bounds())), [0.; 2]).is_some());
+    for geometry in [None, Some(([300., 0.], bounds())), Some(([f32::NAN, 0.], bounds()))] {
+        assert_eq!(sdi.sample_exclusive_with_previous(true, c, geometry, [1., 0.]), None);
+        assert_eq!(sdi.sample_exclusive_with_geometry(true, c, geometry), None);
+    }
+    let tiny = BlastZone { left: -1., right: 1., top: 1., bottom: -1. };
+    assert_eq!(sdi.sample_exclusive_with_geometry(true, c, Some(([0.; 2], tiny))), None);
+}
+
+#[test]
+fn final_di_yields_only_to_mash_or_an_urgent_actual_tech_press() {
+    use kirby_assist_core::action_owner::safety_output_with_deadline;
+    let di = Some([0.5, -0.5]);
+    for urgent in [false, true] {
+        let prep = TechOutput { press: false, owns_guard: true };
+        let (packet, ack) = safety_output_with_deadline(prep, None, di, None, urgent);
+        assert_eq!(packet.stick, di);
+        assert_eq!(packet.requested, 0);
+        assert_eq!(ack, None);
+        let press = TechOutput { press: true, owns_guard: true };
+        let (packet, ack) = safety_output_with_deadline(press, None, di, None, urgent);
+        assert_eq!(ack, urgent.then_some(press));
+        assert_eq!(packet.stick, if urgent { Some([0.; 2]) } else { di });
+        let (packet, ack) = safety_output_with_deadline(press, Some([1., 0.]), di, None, urgent);
+        assert_eq!(packet.stick, Some([1., 0.]));
+        assert_eq!(ack, None);
+    }
 }

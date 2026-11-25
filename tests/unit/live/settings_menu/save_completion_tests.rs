@@ -264,6 +264,7 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
             mash_default: true,
             grab_default: true,
             tech_default: true,
+            damage_defaults: [false; 2],
             training: true,
         });
     };
