@@ -306,6 +306,72 @@ fn recovery_rolls_preserve_crossing_and_vulnerability_checks() {
 }
 
 #[test]
+fn airborne_reactions_buffer_only_compatible_fresh_tapes_and_cancel_on_new_hit() {
+    use crate::native_states::{situation, status};
+    for (actions, ground_only, accepted) in [
+        ("nair:3", false, true),
+        ("up_b:3", false, true),
+        ("grab:1", false, false),
+        ("nair:3", true, false),
+    ] {
+        let mut seq = sequence("auto_roll:20:12", actions);
+        seq.ground_only = ground_only;
+        let rules = resolved(seq);
+        let mut engine = Engine::default();
+        let c = GameplayContext {
+            status: status::DAMAGE_FALL,
+            situation: situation::AIR,
+            can_air_attack: true,
+            ..context(0.)
+        };
+        let targets = [
+            Some(target(0., 5.)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ];
+        let readiness = simple_readiness(rules.simple_starts(), c, &targets, || false);
+        let out = engine.sample_simple_ready(
+            true,
+            &rules,
+            AssistSettings::default(),
+            c,
+            targets,
+            None,
+            readiness,
+        );
+        assert_eq!(
+            out.requested & (MAPPER_A | MAPPER_B) != 0,
+            accepted,
+            "{actions}, ground_only {ground_only}"
+        );
+        let stunned = GameplayContext {
+            can_air_attack: false,
+            motion_frame: 1.,
+            ..c
+        };
+        assert_eq!(
+            engine
+                .sample_simple_ready(
+                    true,
+                    &rules,
+                    AssistSettings::default(),
+                    stunned,
+                    targets,
+                    Some(target(1., 5.).opponent(situation::GROUND, None)),
+                    [false; 3]
+                )
+                .requested,
+            0
+        );
+    }
+}
+
+#[test]
 fn automatic_recovery_rolls_rearm_without_confusing_getup_attacks() {
     use crate::native_states::status;
     let rules = resolved(sequence("auto_roll:20:12", "jab:1"));

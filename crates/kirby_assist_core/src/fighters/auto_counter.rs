@@ -397,6 +397,39 @@ pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> boo
                     | crate::native_states::status::FALL_AERIAL))
 }
 
+/// `recovery_input` is admitted by the native airborne damage countdown, not a
+/// permission to request specials from arbitrary interrupted states.
+pub fn input_ready(status: i32, situation: i32, recovery_input: bool) -> bool {
+    ready(status, situation)
+        || recovery_input
+            && crate::native_states::airborne_damage_input(status, situation, Some(0.0))
+}
+
+pub fn aim_confirmed(
+    kind: i32,
+    status: i32,
+    motion: u64,
+    enabled: bool,
+    direction: f32,
+) -> ControllerOutput {
+    if !enabled
+        || kind != crate::fighter_kinds::LUCINA
+        || status != crate::native_states::status::SPECIAL_LW
+        || !["special_lw", "special_air_lw"]
+            .into_iter()
+            .any(|name| motion == crate::timing::motion_hash(name))
+        || !direction.is_finite()
+        || direction.abs() < 0.001
+    {
+        return ControllerOutput::NONE;
+    }
+    ControllerOutput {
+        owned: crate::native_input::MAPPER_LEFT_STICK_HORIZONTAL,
+        stick: Some([direction.signum(), 0.]),
+        ..ControllerOutput::NONE
+    }
+}
+
 pub fn ready(status: i32, situation: i32) -> bool {
     matches!(situation, crate::native_states::situation::GROUND | crate::native_states::situation::AIR)
         && !crate::native_states::sequence_interrupted(status)
@@ -445,6 +478,8 @@ pub struct Counter {
     history: [Option<AttackHistory>; 16],
     attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
     pose_cursor: usize,
+    recovery_input: bool,
+    confirmed_target: Option<u32>,
 }
 impl Counter {
     pub const fn new() -> Self {
@@ -468,6 +503,8 @@ impl Counter {
             history: [None; 16],
             attacker_poses: [None; 16],
             pose_cursor: 0,
+            recovery_input: false,
+            confirmed_target: None,
         }
     }
     pub fn active(&self) -> bool {
@@ -482,6 +519,15 @@ impl Counter {
         self.release_pending = false;
         self.receipt_polls = 0;
         self.last_poll = None;
+        self.recovery_input = false;
+        self.confirmed_target = None;
+    }
+    pub fn confirmed_target(&self) -> Option<u32> {
+        self.confirmed_target
+    }
+    pub fn aim_target(&self) -> Option<u32> {
+        self.confirmed_target
+            .or_else(|| self.target.map(|(id, _)| id))
     }
     /// Raw controller polls are a bounded delivery watchdog, not simulation time.
     pub fn poll_receipt(&mut self, tick: i64) {
@@ -516,7 +562,9 @@ impl Counter {
         {
             // A confirmed counter consumes this attack; failed deliveries do not.
             self.attempts = u8::MAX;
+            let target = self.target.map(|(id, _)| id);
             self.cancel();
+            self.confirmed_target = target;
             return true;
         }
         false
@@ -638,13 +686,30 @@ impl Counter {
         if self.finished(c.animation.status, c.animation.frame) {
             return ControllerOutput::default();
         }
-        if !ready(c.animation.status, c.situation)
-            || crate::native_states::fighter_sequence_interrupted(c.kind, c.animation.status)
+        if self.confirmed_target.is_some()
+            && c.animation.status == crate::native_states::status::SPECIAL_LW
+        {
+            return ControllerOutput::NONE;
+        }
+        self.confirmed_target = None;
+        let recovery_input = c.can_special
+            && crate::native_states::airborne_damage_input(
+                c.animation.status,
+                c.situation,
+                Some(0.0),
+            );
+        if !input_ready(c.animation.status, c.situation, recovery_input)
+            || !recovery_input
+                && crate::native_states::fighter_sequence_interrupted(c.kind, c.animation.status)
             || c.stopped
         {
             self.cancel();
             return ControllerOutput::default();
         }
+        if recovery_input && !self.recovery_input {
+            self.cancel();
+        }
+        self.recovery_input = recovery_input;
         let mut animation = c.animation;
         if let Some(threat) = threat.filter(|t| t.frame.is_finite() && t.in_frames.is_finite()) {
             self.threat_progress = if threat.frame > 0.0 {
@@ -697,8 +762,9 @@ impl Counter {
         if self.target.is_some() && self.target != Some(key) {
             self.cancel();
         }
+        self.recovery_input = recovery_input;
         if self.target.is_none() {
-            if !ready(c.animation.status, c.situation)
+            if !input_ready(c.animation.status, c.situation, recovery_input)
                 || !c.can_special
                 || (self.last == Some(key) && self.attempts == u8::MAX)
                 || threat.in_frames > config.horizon()
@@ -710,7 +776,7 @@ impl Counter {
             self.poll_limit = 24 + config.input_delay.ceil() as u8;
         }
         if now.saturating_sub(self.began) > 12
-            || !ready(c.animation.status, c.situation)
+            || !input_ready(c.animation.status, c.situation, recovery_input)
             || !c.can_special
         {
             self.cancel();

@@ -68,7 +68,7 @@ impl MenuSelection {
     fn native_hold_active(&self, sources: u32) -> bool {
         !self.cancel_pending
             && (!self.binding_starts_blocked
-                || sources & self.counter_sources != 0)
+                || sources & (self.counter_sources | self.spacing_sources) != 0)
             && self.menu_hidden
             && !self.recipe_editing
             && !self.managing()
@@ -296,7 +296,7 @@ impl MenuSelection {
             };
             self.button_latch |= layout.binding_ownership(
                 physical & BUTTON_MASK & !continuing_hop
-                    & !self.counter_sources,
+                    & !(self.counter_sources | self.spacing_sources),
             );
         }
         if self.binding_safety_jump {

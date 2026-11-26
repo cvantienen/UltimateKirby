@@ -1,0 +1,46 @@
+# Keep Copilot focused on source, tests, and project configuration.
+# These patterns hide generated, vendored, release, and other bulky data paths.
+
+# Build output and language caches
+**/target/
+**/build/
+**/dist/
+**/node_modules/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.tox/
+**/.venv/
+**/venv/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+
+# Project data, deployment payloads, and prebuilt binaries
+/data/
+/deployment/
+/releases/
+/site/
+/lib/*.a
+*.nro
+
+# Local tools, generated workspaces, and machine-specific files
+/.cargo-home/
+/.venv-docs/
+/.mod-workbench/
+/.sequence-sync-backups/
+/.kilo/
+/.idea/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+/status.log
+
+# Lockfiles are intentionally excluded from agent context; do not modify them
+# unless the task explicitly concerns dependency resolution.
+/Cargo.lock
+/crates/kirby_assist_core/Cargo.lock

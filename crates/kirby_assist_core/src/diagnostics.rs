@@ -193,7 +193,7 @@ pub mod modes {
     /// Describe each tool's prerequisites without guessing a particular failed gate.
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
-            Owner::Spacing => "While held on L3 by default, walks without dashing and requests position-selected configured attacks; reactive retreat engages after approach or detected opponent action changes. Preserves jump and yields to native safety.",
+            Owner::Spacing => "While held on L3 by default, walks without dashing and requests position-selected configured attacks. Preserves jump and yields to native safety.",
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
             Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety and committed input. A full bucket is never discharged automatically.",
             Owner::Counter => "While the configured hold button is pressed (Y by default for supported Lucina), requests a down-special counter only for a detected incoming hitbox/projectile or forecast contact; yields to ledge, safety and committed input.",

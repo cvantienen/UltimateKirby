@@ -458,7 +458,9 @@ unsafe fn record_mapped_delivery(
         }
         let tick = state.raw_tick;
         state.counter.poll_receipt(tick);
-        if !state.counter.active() {
+        if !state.counter.active()
+            && !(state.counter.confirmed_target().is_some() && state.counter_output.owned != 0)
+        {
             state.counter_output = ControllerOutput::default();
             state.action_owner.release(Owner::Counter);
         }

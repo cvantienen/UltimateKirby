@@ -127,7 +127,7 @@ mod schema {
         "auto_spacing_ground_braking",
         "auto_spacing_air_braking",
         "auto_spacing_braking_distance",
-        "auto_spacing_reactive_retreat_distance",
+        "counter_aim_after_activation",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -214,7 +214,7 @@ mod schema {
         "Spacing: ground braking",
         "Spacing: air braking",
         "Spacing: braking distance (game units)",
-        "Auto Space: reactive retreat distance",
+        "Counter: aim after activation",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -279,7 +279,7 @@ mod schema {
         "Estimated horizontal body half-width for active melee hitbox prediction.",
         "Estimated body height above root for active melee hitbox prediction.",
         "Estimated body half-depth for active melee hitbox prediction.",
-        "Normal horizontal root-to-root spacing in game units while spacing is active (default hold L3). Increase to stay farther away; decrease to allow closer attacks. Reactive retreat is conditional and separate: Lucina normal 24, reactive 34.",
+        "Normal horizontal root-to-root spacing in game units while spacing is active (default hold L3). Increase to stay farther away; decrease to allow closer attacks.",
         "0 disabled (default for every fighter); 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts use directional tilt inputs, never move or status edits.",
         "Estimated frames before the configured ground attack becomes active; does not change native startup.",
         "Estimated active duration of the configured ground attack; never changes native hitboxes.",
@@ -301,7 +301,7 @@ mod schema {
         "When enabled, reduce excess grounded movement near normal spacing. Disable to retain the configured approach speed until the boundary.",
         "When enabled, reduce excess aerial movement near normal spacing. Disable to retain aerial approach drift until the boundary.",
         "Distance in game units where enabled movement braking begins before normal spacing. Increase to brake earlier; decrease to brake later.",
-        "Horizontal root-distance target after an approach or observed opponent action change while spacing is held. Retreat stays latched until this distance; idle first observations do not trigger it. Larger values retreat farther, never closer than normal spacing. Lucina example: normal 24, reactive 34 game units.",
+        "Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.",
     ];
 
     pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
@@ -311,7 +311,7 @@ mod schema {
     pub const AUTO_SPACING_GROUND_BRAKING: usize = 79;
     pub const AUTO_SPACING_AIR_BRAKING: usize = 80;
     pub const AUTO_SPACING_BRAKING_DISTANCE: usize = 81;
-    pub const AUTO_SPACING_REACTIVE_RETREAT_DISTANCE: usize = 82;
+    pub const COUNTER_AIM_AFTER_ACTIVATION: usize = 82;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -542,7 +542,6 @@ const DEFAULTS: [f32; COUNT] = {
     d[AUTO_SPACING_GROUND_BRAKING] = 1.;
     d[AUTO_SPACING_AIR_BRAKING] = 1.;
     d[AUTO_SPACING_BRAKING_DISTANCE] = 10.;
-    d[AUTO_SPACING_REACTIVE_RETREAT_DISTANCE] = 15.;
     d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
     d[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
     d[AUTO_SPACING_MINIMUM_DRIFT] = 0.1;
@@ -632,9 +631,9 @@ impl Tuning {
         match i {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
             COUNTER_DEFAULT..=COUNTER_HALF_DEPTH => crate::auto_counter::supports(kind),
+            COUNTER_AIM_AFTER_ACTIVATION => kind == crate::fighter_kinds::LUCINA,
             PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
-            AUTO_SPACING_MINIMUM_DISTANCE | AUTO_SPACING_ENGAGEMENT_RANGE
-            | AUTO_SPACING_REACTIVE_RETREAT_DISTANCE => true,
+            AUTO_SPACING_MINIMUM_DISTANCE | AUTO_SPACING_ENGAGEMENT_RANGE => true,
             CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
             TILT_TURN_DOWN..=TILT_TURN_UP => matches!(
                 kind,
@@ -650,6 +649,7 @@ impl Tuning {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
             || i == COUNTER_DEFAULT
+            || i == COUNTER_AIM_AFTER_ACTIVATION
             || i == AUTO_DI_DEFAULT
             || i == AUTO_SDI_DEFAULT
             || i == AUTO_SPACING_GROUND_BRAKING
@@ -677,8 +677,6 @@ impl Tuning {
         };
         Config {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
-            reactive_retreat_distance: self.value(AUTO_SPACING_REACTIVE_RETREAT_DISTANCE,
-                if kind == crate::fighter_kinds::LUCINA { 34. } else { self.get(AUTO_SPACING_MINIMUM_DISTANCE) }),
             engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
             ground_speed: self.get(AUTO_SPACING_GROUND_SPEED),
             maximum_drift: self.get(AUTO_SPACING_MAXIMUM_DRIFT),
@@ -767,7 +765,6 @@ impl Tuning {
         }
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
-            AUTO_SPACING_REACTIVE_RETREAT_DISTANCE => (0., 150., 0.5),
             AUTO_SPACING_GROUND_SPEED | AUTO_SPACING_MAXIMUM_DRIFT
             | AUTO_SPACING_MINIMUM_DRIFT => (0., 1., 0.01),
             AUTO_SPACING_MINIMUM_DISTANCE
@@ -885,7 +882,6 @@ impl Tuning {
             default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         values[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
-        values[AUTO_SPACING_REACTIVE_RETREAT_DISTANCE] = if s.fighter_kind == crate::fighter_kinds::LUCINA { 34. } else { values[AUTO_SPACING_MINIMUM_DISTANCE] };
         Values(values)
     }
     /// Applies saved per-fighter overrides to the runtime assistance settings.

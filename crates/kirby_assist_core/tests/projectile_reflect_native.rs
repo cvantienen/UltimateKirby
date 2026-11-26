@@ -441,7 +441,10 @@ fn counter_accepts_live_geometry_or_verified_catalog_startup_but_rejects_unknown
     for scenario in 0..9 {
         let mut own = reset();
         counter_enemy(|e| match scenario {
-            1 => e.attacks = false,
+            1 => {
+                e.attacks = false;
+                e.frame = 0.;
+            }
             2 => e.stopped = true,
             3 => e.frame = 100.,
             4 => e.geometry.size = f32::NAN,
@@ -1043,7 +1046,7 @@ fn hostile_projectile_geometry_can_replace_melee_without_owner_identity() {
 }
 
 #[test]
-fn frozen_geometry_remains_observable_but_nearer_invalid_clocks_block_counter_selection() {
+fn frozen_geometry_remains_observable_and_invalid_clocks_do_not_erase_valid_counter_contact() {
     for scenario in 0..4 {
         let mut own = reset();
         counter_enemy(|_| {});
@@ -1073,8 +1076,7 @@ fn frozen_geometry_remains_observable_but_nearer_invalid_clocks_block_counter_se
             threat.map(|t| t.id),
             match scenario {
                 0 => Some(8),
-                3 => Some(7),
-                _ => None,
+                _ => Some(7),
             },
             "scenario {scenario}"
         );

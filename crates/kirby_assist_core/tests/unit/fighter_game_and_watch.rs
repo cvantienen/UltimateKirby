@@ -134,6 +134,88 @@ fn air_jump_and_fall_request_oil_panic_but_guard_does_not() {
 }
 
 #[test]
+fn final_hitstun_recovery_requests_only_fresh_facing_oil_panic() {
+    use crate::native_states::{situation::AIR, status};
+    let shot = Threat {
+        id: 7,
+        generation: 1,
+        in_frames: 4.0,
+        direction: 1.0,
+    };
+    let mut recovery = context(status::DAMAGE_FLY, 1.0);
+    recovery.situation = AIR;
+    for (remaining, expected) in [(10.0, false), (9.0, true), (0.0, true), (f32::NAN, false)] {
+        recovery.can_special =
+            crate::native_states::airborne_damage_input(status::DAMAGE_FLY, AIR, Some(remaining));
+        let output = Reflector::new().sample(true, Some(config()), recovery, Some(shot));
+        assert_eq!(output.requested == MAPPER_B, expected);
+    }
+    recovery.can_special = true;
+    let mut reflector = Reflector::new();
+    assert_eq!(
+        reflector
+            .sample(true, Some(config()), context(status::WAIT, 1.0), Some(shot))
+            .requested,
+        MAPPER_B
+    );
+    reflector.mapped(0);
+    assert_eq!(
+        reflector
+            .sample(true, Some(config()), recovery, Some(shot))
+            .requested,
+        0
+    );
+    assert!(!reflector.active(), "pre-hit attempt must not resume");
+    let fresh = Threat {
+        generation: 2,
+        ..shot
+    };
+    assert_eq!(
+        reflector
+            .sample(true, Some(config()), recovery, Some(fresh))
+            .requested,
+        MAPPER_B
+    );
+    reflector.mapped(1);
+    assert_eq!(
+        reflector
+            .sample(true, Some(config()), recovery, None)
+            .requested,
+        0
+    );
+    assert!(reflector.awaiting_receipt());
+    let mut confirm = context(status::SPECIAL_LW, 1.0);
+    confirm.situation = AIR;
+    reflector.sample(true, Some(config()), confirm, None);
+    assert!(!reflector.active());
+    for mut blocked in [
+        Context {
+            facing: -1.0,
+            ..recovery
+        },
+        Context {
+            stopped: true,
+            ..recovery
+        },
+        Context {
+            animation: AnimationSample {
+                status: status::CAPTURE_WAIT,
+                ..recovery.animation
+            },
+            ..recovery
+        },
+    ] {
+        blocked.can_special = true;
+        assert_eq!(
+            Reflector::new()
+                .sample(true, Some(config()), blocked, Some(fresh))
+                .requested,
+            0
+        );
+    }
+}
+
+#[test]
 fn approaching_projectile_geometry_requests_oil_panic() {
     let projectile = Hitbox {
         start: [28.0, 8.0, 0.0],

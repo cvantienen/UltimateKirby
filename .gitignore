@@ -12,7 +12,22 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
 .DS_Store
+/status.log
+*.log
+.env
+.env.*
+!.env.example
+.idea/
+node_modules/
+/build/
+/dist/
 /.sequence-sync-backups/
 
 /.mod-workbench/

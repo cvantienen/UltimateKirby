@@ -30,7 +30,17 @@ pub(super) unsafe fn observe(
     let active = tracked.is_some();
     let status = reads.status_kind(own);
     let situation = reads.situation_kind(own);
-    if !(policy::movable(status, situation) || active && policy::bucket(status)) {
+    let recovery_input = kirby_assist_core::native_states::airborne_damage_input(
+        status,
+        situation,
+        (situation == kirby_assist_core::native_states::situation::AIR
+            && (kirby_assist_core::native_states::status::DAMAGE_AIR
+                ..=kirby_assist_core::native_states::status::DAMAGE_FALL).contains(&status))
+        .then(|| game::work_float(own,
+            kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME)),
+    );
+    if !(policy::input_ready(status, situation, recovery_input) || active && policy::bucket(status))
+    {
         return None;
     }
     if reads.capture_link(own) {
@@ -49,8 +59,8 @@ pub(super) unsafe fn observe(
     // Shield stays excluded by movable. Ground movement can accept manual
     // Down+B even when CONT_SPECIAL_LW has not yet become enabled.
     let can_special = !stopped
-        && policy::movable(status, situation)
-        && (game::transition_enabled(
+        && policy::input_ready(status, situation, recovery_input)
+        && (recovery_input || game::transition_enabled(
             own,
             kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
         ) || kirby_assist_core::native_states::moving_down_special_input(status, situation)

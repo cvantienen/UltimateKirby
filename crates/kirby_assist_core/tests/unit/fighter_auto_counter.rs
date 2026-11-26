@@ -1141,6 +1141,77 @@ fn contact_before_activation_still_requests_best_effort_down_b() {
     assert_eq!(output.stick, Some([0.0, -1.0]));
 }
 
+#[test]
+fn fresh_counter_can_buffer_from_airborne_damage_but_not_unavailable_or_captured_states() {
+    use crate::native_states::{situation, status};
+    for state in [status::DAMAGE_AIR, status::DAMAGE_FLY, status::DAMAGE_FALL] {
+        let mut counter = Counter::new();
+        let mut c = context();
+        c.situation = situation::AIR;
+        c.animation.status = state;
+        c.can_special = false;
+        assert_eq!(
+            counter.sample(true, Some(config()), c, Some(threat(7))),
+            ControllerOutput::NONE
+        );
+        c.can_special = true;
+        assert_eq!(
+            counter.sample(true, Some(config()), c, None),
+            ControllerOutput::NONE
+        );
+        let out = counter.sample(true, Some(config()), c, Some(threat(7)));
+        assert_eq!(out.requested, MAPPER_B);
+        assert_eq!(out.stick, Some([0., -1.]));
+        c.animation.status = status::CAPTURE_WAIT;
+        assert_eq!(
+            counter.sample(true, Some(config()), c, Some(threat(7))),
+            ControllerOutput::NONE
+        );
+        assert!(!counter.active());
+    }
+}
+
+#[test]
+fn counter_aim_is_opt_in_supported_and_stops_before_retaliation() {
+    use crate::native_states::status;
+    let motion = crate::timing::motion_hash("special_lw");
+    let aim = aim_confirmed(
+        crate::fighter_kinds::LUCINA,
+        status::SPECIAL_LW,
+        motion,
+        true,
+        -12.,
+    );
+    assert_eq!(aim.stick, Some([-1., 0.]));
+    assert_eq!(aim.requested, 0);
+    for (kind, state, animation, enabled) in [
+        (crate::fighter_kinds::LUCINA, status::WAIT, motion, true),
+        (
+            crate::fighter_kinds::LUCINA,
+            status::SPECIAL_LW,
+            motion,
+            false,
+        ),
+        (
+            crate::fighter_kinds::KIRBY,
+            status::SPECIAL_LW,
+            motion,
+            true,
+        ),
+        (
+            crate::fighter_kinds::LUCINA,
+            status::SPECIAL_LW,
+            crate::timing::motion_hash("special_lw_hit"),
+            true,
+        ),
+    ] {
+        assert_eq!(
+            aim_confirmed(kind, state, animation, enabled, 12.),
+            ControllerOutput::NONE
+        );
+    }
+}
+
 fn context() -> Context {
     Context {
         kind: crate::fighter_kinds::LUCINA,

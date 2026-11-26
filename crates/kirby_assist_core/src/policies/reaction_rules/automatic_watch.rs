@@ -71,7 +71,7 @@ pub fn simple_readiness(
 ) -> [bool; 3] {
     let mut result = [false; 3];
     if !c.gameplay
-        || !automatic_start_allowed(c.status, c.situation, c.stopped, false)
+        || !(automatic_start_allowed(c.status, c.situation, c.stopped, false) || airborne_ready(c))
         || starts.iter().all(Option::is_none)
     {
         return result;
@@ -100,7 +100,7 @@ pub fn simple_readiness(
             continue;
         }
         result[event] = if start.up_special {
-            c.can_act
+            c.can_act || airborne_ready(c)
         } else if matches!(
             c.status,
             crate::native_states::GUARD_ON | crate::native_states::GUARD
@@ -152,6 +152,27 @@ fn event(status: i32) -> Option<usize> {
     }
 }
 
+pub fn airborne_sequence(sequence: &Sequence) -> bool {
+    use crate::sequence_config::Action;
+    !sequence.ground_only
+        && sequence.actions().iter().all(|action| match action {
+            Action::Input { buttons, .. }
+            | Action::OpponentInput { buttons, .. }
+            | Action::Controller { buttons, .. }
+            | Action::Tap { buttons, .. } => buttons & crate::native_input::MAPPER_R == 0,
+            Action::Wait(_) | Action::CStick { .. } | Action::Empty => true,
+            _ => false,
+        })
+}
+
+fn airborne_ready(c: GameplayContext) -> bool {
+    c.can_air_attack
+        && !c.stopped
+        && c.situation == crate::native_states::situation::AIR
+        && (crate::native_states::jump_or_fall(c.status)
+            || crate::native_states::airborne_damage_input(c.status, c.situation, Some(0.)))
+}
+
 /// Whether a sequence begins with an immediate upward special input.
 pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
     matches!(sequence.actions().first(),
@@ -174,7 +195,8 @@ impl Engine {
         targets: &[Option<Target>; 8],
         readiness: [bool; 3],
     ) -> Option<(usize, &'a Sequence)> {
-        let ready_now = automatic_start_allowed(c.status, c.situation, c.stopped, false);
+        let ready_now =
+            automatic_start_allowed(c.status, c.situation, c.stopped, false) || airborne_ready(c);
         if !c.gameplay || !ready_now || !readiness.into_iter().any(|ready| ready) {
             return None;
         }
@@ -202,6 +224,9 @@ impl Engine {
             else {
                 continue;
             };
+            if c.situation == crate::native_states::situation::AIR && !airborne_sequence(sequence) {
+                continue;
+            }
             let d = (t.position[0] - c.position[0]).abs();
             let r = sequence.reaction;
             // A controllable moving status can hand its buttons/stick to the
@@ -375,7 +400,7 @@ impl Engine {
         sequence.while_held = false;
         // Grounded is an admission condition, not a reason to release
         // ownership halfway through a special move.
-        if starts_up_b(&sequence) {
+        if starts_up_b(&sequence) && c.situation == crate::native_states::situation::GROUND {
             sequence.ground_only = false;
             self.up_b.arm(c, false);
         } else {
@@ -394,7 +419,11 @@ impl Engine {
         };
         let enemy = t.opponent(situation, None);
         self.target = Some(t.id);
-        self.plan = Some(automatic_plan(sequence, enemy));
+        let mut plan = automatic_plan(sequence, enemy);
+        if airborne_ready(c) {
+            plan.allow_airborne_recovery();
+        }
+        self.plan = Some(plan);
         Some(enemy)
     }
 

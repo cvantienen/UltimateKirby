@@ -34,6 +34,23 @@ pub fn native_allowed(kind: i32, status: i32, situation: i32, captured: bool, al
         && !crate::native_states::fighter_sequence_interrupted(kind, status)
 }
 
+/// Only the verified countdown may relax ordinary damage interruption for a
+/// fresh held defense; native captures and all other forced states stay excluded.
+pub fn native_allowed_input(
+    kind: i32,
+    status: i32,
+    situation: i32,
+    captured: bool,
+    allowed: bool,
+    recovery_input: bool,
+) -> bool {
+    native_allowed(kind, status, situation, captured, allowed)
+        || allowed
+            && !captured
+            && recovery_input
+            && crate::native_states::airborne_damage_input(status, situation, Some(0.0))
+}
+
 /// Shared bounded lookahead for the native scan and held policy.
 pub fn defense_horizon(lead_frames: f32, input_delay: f32) -> Option<f32> {
     if !(0.0..=30.0).contains(&lead_frames) || !(0.0..=120.0).contains(&input_delay) {

@@ -106,6 +106,9 @@ mod game_ffi {
     pub unsafe fn hitstop_remaining(o: *mut Object) -> u64 {
         actor(o).remaining_stop
     }
+    pub unsafe fn facing(_: *mut Object) -> f32 {
+        1.0
+    }
     pub unsafe fn pos_x(o: *mut Object) -> f32 {
         actor(o).position[0]
     }
@@ -224,6 +227,7 @@ mod game_ffi {
         use kirby_assist_core::native_states::work_ids as w;
         match key {
             w::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME => actor(o).reaction,
+            w::FIGHTER_GAMEWATCH_INSTANCE_WORK_ID_FLOAT_SPECIAL_LW_GAUGE => 0.0,
             w::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_X => actor(o).velocity[0],
             w::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_Y => actor(o).velocity[1],
             _ => panic!("unexpected work field {key}"),
@@ -301,6 +305,8 @@ mod observations;
 mod tech;
 #[path = "../../../src/live/counter.rs"]
 mod counter;
+#[path = "../../../src/live/reflect.rs"]
+mod reflect;
 
 static ROSTER_TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -343,6 +349,54 @@ fn counter_scan(own: &mut Actor) -> Option<kirby_assist_core::auto_counter::Thre
                 half_width: 6.0, height: 16.0, half_depth: 4.0,
             }), true).unwrap().2
     }
+}
+
+#[test]
+fn counter_observer_admits_only_final_airborne_hitstun_and_actionable_tumble() {
+    use kirby_assist_core::native_states::{situation, status};
+    let mut own = Actor::new(1);
+    own.situation = situation::AIR;
+    own.special_enabled = false;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.status = status::ATTACK_LW3;
+    enemy.active = false;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    for state in [status::DAMAGE_AIR, status::DAMAGE_FLY, status::DAMAGE_FALL] {
+        own.status = state;
+        for remaining in [9., 1., 0., -1.] {
+            own.reaction = remaining;
+            assert!(
+                counter_scan(&mut own).is_some(),
+                "status {state}, remaining {remaining}"
+            );
+        }
+        for remaining in [10., f32::NAN, f32::INFINITY] {
+            own.reaction = remaining;
+            let reads = source_reads();
+            assert!(unsafe {
+                counter::observe(
+                    &reads,
+                    own.object(),
+                    1,
+                    kirby_assist_core::fighter_kinds::LUCINA,
+                    Some(
+                        kirby_assist_core::auto_counter::Config::for_fighter(
+                            kirby_assist_core::fighter_kinds::LUCINA,
+                            kirby_assist_core::fighter_tuning::Tuning::default(),
+                        )
+                        .unwrap(),
+                    ),
+                    true,
+                )
+            }
+            .is_none());
+        }
+        own.reaction = 0.;
+        own.stopped = true;
+        assert!(counter_scan(&mut own).is_none());
+        own.stopped = false;
+    }
+    SOURCES.with(|s| s.borrow_mut().clear());
 }
 
 #[test]
@@ -496,6 +550,88 @@ fn held_shield_damage_forecasts_unstopped_incoming_projectile() {
     assert_eq!(contact.unwrap().in_frames, 4.0);
     SOURCES.with(|s| s.borrow_mut()[0].stopped = true);
     assert!(defense_scan(&mut own, 4.0, 0.0).1.is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn final_nine_airborne_hitstun_buffers_fresh_bucket_and_held_dodge() {
+    use kirby_assist_core::{
+        defense_response::Defense,
+        native_input::{MAPPER_B, MAPPER_ZR},
+        native_states::{situation, status},
+        projectile_reflect::{Config, Reflector},
+    };
+    let mut own = Actor::new(1);
+    own.kind = kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH;
+    own.situation = situation::AIR;
+    own.status = status::DAMAGE_FLY;
+    let mut shot = Box::new(Actor::new(0x10000002));
+    shot.geometry.power = 5.0;
+    shot.geometry.reflectable = 1;
+    shot.geometry.situation = situation::ATTACK_AIR_MASK;
+    SOURCES.with(|s| *s.borrow_mut() = vec![shot]);
+    let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
+    tuning.set("reflect_default", "true").unwrap();
+    let config = Config::for_fighter(own.kind, tuning).unwrap();
+    let mut defense = Defense::new();
+    for (remaining, expected) in [
+        (10.0, false),
+        (9.0, true),
+        (8.0, true),
+        (0.0, true),
+        (f32::NAN, false),
+    ] {
+        own.reaction = remaining;
+        let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+        assert_eq!(context.allowed, expected);
+        assert_eq!(context.air_dodge_ready, expected);
+        assert_eq!(
+            defense
+                .sample(0, true, context, contact, 4.0, 0.0)
+                .requested,
+            if expected { MAPPER_ZR } else { 0 }
+        );
+        let reads = source_reads();
+        let observed = unsafe {
+            reflect::observe(&reads, own.object(), 1, own.kind, Some(config), None, true)
+        };
+        assert_eq!(observed.is_some(), expected);
+        if let Some((config, context, contact)) = observed {
+            assert!(context.can_special);
+            assert_eq!(
+                Reflector::new()
+                    .sample(true, Some(config), context, contact)
+                    .requested,
+                MAPPER_B
+            );
+        }
+    }
+    own.reaction = 9.0;
+    for (state, where_, stopped, linked) in [
+        (status::DAMAGE_FLY, situation::AIR, true, false),
+        (status::DAMAGE_FLY, situation::AIR, false, true),
+        (status::DAMAGE_FLY, situation::GROUND, false, false),
+        (status::CAPTURE_WAIT, situation::AIR, false, false),
+        (status::DAMAGE_SLEEP_START, situation::AIR, false, false),
+    ] {
+        own.status = state;
+        own.situation = where_;
+        own.stopped = stopped;
+        LINKS.with(|links| links.set(u32::from(linked)));
+        let (context, contact) = defense_scan(&mut own, 4.0, 0.0);
+        assert_eq!(
+            Defense::new()
+                .sample(0, true, context, contact, 4.0, 0.0)
+                .requested,
+            0
+        );
+        let reads = source_reads();
+        let observed = unsafe {
+            reflect::observe(&reads, own.object(), 1, own.kind, Some(config), None, true)
+        };
+        assert!(observed.is_none());
+    }
+    LINKS.with(|links| links.set(0));
     SOURCES.with(|s| s.borrow_mut().clear());
 }
 

@@ -85,6 +85,12 @@ pub fn movable(status: i32, situation: i32) -> bool {
         _ => false,
     }
 }
+/// Fresh recovery input eligibility supplied by the native damage countdown.
+pub fn input_ready(status: i32, situation: i32, recovery_input: bool) -> bool {
+    movable(status, situation)
+        || recovery_input
+            && crate::native_states::airborne_damage_input(status, situation, Some(0.0))
+}
 /// Whether Game & Watch is in an Oil Panic hold/absorb status.
 pub fn bucket(status: i32) -> bool {
     matches!(
@@ -239,6 +245,7 @@ pub struct Reflector {
     receipt_polls: u8,
     /// Last native tick counted toward receipt acknowledgement.
     last_poll: Option<i64>,
+    recovery_input: bool,
     /// Recent projectile generations that must not be retried.
     attempted: [Option<ProjectileKey>; ATTEMPT_MEMORY],
     /// Ring-buffer slot for the next remembered projectile.
@@ -262,6 +269,7 @@ impl Reflector {
             delivery: crate::move_input::DeliveryBudget::new(),
             receipt_polls: 0,
             last_poll: None,
+            recovery_input: false,
             attempted: [None; ATTEMPT_MEMORY],
             next: 0,
         }
@@ -300,6 +308,7 @@ impl Reflector {
         self.delivery = crate::move_input::DeliveryBudget::new();
         self.receipt_polls = 0;
         self.last_poll = None;
+        self.recovery_input = false;
     }
     /// Aborts the active sequence and resets its progress.
     fn abort(&mut self) -> ControllerOutput {
@@ -355,16 +364,23 @@ impl Reflector {
         if c.stopped {
             return Default::default();
         }
+        let status = c.animation.status;
+        let recovery_input = c.can_special
+            && crate::native_states::airborne_damage_input(status, c.situation, Some(0.0));
+        if recovery_input && !self.recovery_input {
+            // A new damage episode must not resume a pre-hit projectile attempt.
+            self.cancel();
+        }
+        self.recovery_input = recovery_input;
         let Some(now) = self.clock.observe(c.animation, false) else {
             return self.abort();
         };
-        let status = c.animation.status;
         let elapsed = now.saturating_sub(self.began) as f32;
         if self.sent {
             if bucket(status) {
                 self.cancel();
                 return Default::default();
-            } else if !movable(status, c.situation)
+            } else if !input_ready(status, c.situation, recovery_input)
                 || elapsed >= MAX_UNCONFIRMED_REFLECT_FRAMES
                 || self.delivery.exhausted()
             {
@@ -418,7 +434,7 @@ impl Reflector {
             self.turning = false;
         }
         if !facing
-            || !movable(status, c.situation)
+            || !input_ready(status, c.situation, recovery_input)
             || !c.can_special
             || elapsed >= MAX_UNSENT_REFLECT_FRAMES
             || self.delivery.exhausted()
@@ -435,7 +451,7 @@ impl Reflector {
     /// Start on an observed incoming shot even if the estimated contact is
     /// sooner than startup; delaying cannot improve a late defense.
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
-        movable(c.animation.status, c.situation)
+        input_ready(c.animation.status, c.situation, c.can_special)
             && c.can_special
             && !self.attempted.contains(&Some(threat.key()))
             && (facing || c.situation == crate::native_states::situation::GROUND)

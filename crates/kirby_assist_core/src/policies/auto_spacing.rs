@@ -30,8 +30,6 @@ pub struct AttackConfig {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     pub minimum_distance: f32,
-    /// Expanded retreat boundary after approach or a newly observed opponent action.
-    pub reactive_retreat_distance: f32,
     /// Catalog identity for position-based alternatives; unknown keeps configured moves only.
     pub fighter_kind: i32,
     pub engagement_range: f32,
@@ -50,7 +48,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             minimum_distance: 15.,
-            reactive_retreat_distance: 15.,
             fighter_kind: -1,
             engagement_range: 20.,
             ground_speed: 0.49,
@@ -89,10 +86,9 @@ pub struct Spacing {
     pending_output: Output,
     retreat_side: Option<f32>,
     ground_retreat: Option<GroundRetreat>,
-    reactive_target: Option<(u32, f32)>,
-    observed_target: Option<Opponent>,
     pending_config: Option<Config>,
     aerial_selection: Option<(i64, [f32; 2])>,
+    recovery_input: bool,
 }
 
 struct GroundRetreat {
@@ -167,29 +163,10 @@ impl Spacing {
     ) -> bool {
         let distance = (enemy.position[0] - c.position[0]).abs();
         let projected = distance + (enemy.velocity[0] - c.velocity[0]) * side * 5.;
-        let changed = self.observed_target.is_some_and(|old| {
-            old.id == enemy.id && (old.status != enemy.status || old.situation != enemy.situation
-                || old.motion.zip(enemy.motion).is_some_and(|(before, after)| {
-                    before.kind != after.kind
-                        || before.frame.is_finite() && after.frame.is_finite()
-                            && after.frame < before.frame
-                }))
-        });
-        self.observed_target = Some(enemy);
-        let boundary = config.reactive_retreat_distance.max(config.minimum_distance);
-        if self.reactive_target.is_some_and(|(id, direction)| {
-            id != enemy.id || direction != side || distance >= boundary
-        }) {
-            self.reactive_target = None;
-        }
-        if distance < boundary && (changed || enemy.velocity[0] * side < -0.01) {
-            self.reactive_target = Some((enemy.id, side));
-        }
-        let reactive = self.reactive_target == Some((enemy.id, side));
         if c.situation == situation::AIR {
             self.ground_retreat = None;
             let boundary = config.minimum_distance;
-            let retreat = reactive || projected.min(distance) <= boundary
+            let retreat = projected.min(distance) <= boundary
                 || self.retreat_side == Some(side) && distance < boundary + 2.;
             self.retreat_side = retreat.then_some(side);
             if retreat && !c.stopped {
@@ -214,7 +191,7 @@ impl Spacing {
                     start_x: c.position[0],
                 });
             }
-            let retreat = reactive || self
+            let retreat = self
                 .ground_retreat
                 .as_ref()
                 .is_some_and(|retreat| retreat.side == side);
@@ -240,10 +217,28 @@ impl Spacing {
         c: GameplayContext,
         target: Option<Opponent>,
     ) -> Output {
+        self.sample_threat(tick, held, config, c, target, false)
+    }
+
+    pub fn sample_threat(
+        &mut self,
+        tick: i64,
+        held: bool,
+        config: Config,
+        c: GameplayContext,
+        target: Option<Opponent>,
+        damaging_startup: bool,
+    ) -> Output {
         if !held || !valid_context(config, c) {
             self.reset();
             return Output::default();
         }
+        let recovery_input = c.can_air_attack
+            && native_states::airborne_damage_input(c.status, c.situation, Some(0.0));
+        if recovery_input && !self.recovery_input {
+            self.reset();
+        }
+        self.recovery_input = recovery_input;
         let new_tick = self.tick != Some(tick);
         self.tick = Some(tick);
         let airborne = c.situation == situation::AIR;
@@ -259,8 +254,6 @@ impl Spacing {
             self.pending_frames = 0;
             self.retreat_side = None;
             self.ground_retreat = None;
-            self.reactive_target = None;
-            self.observed_target = None;
             self.output = Output { walk_cap, movement_caps: Some(caps),
                 ..Output::default() };
             if let Some((_, stick)) = self.aerial_selection {
@@ -309,6 +302,19 @@ impl Spacing {
                     self.pending = false;
                 }
             }
+        }
+        let incoming = incoming_retreat(c, enemy, damaging_startup);
+        if incoming && !is_attack(c.status) && !c.stopped {
+            self.sample_retreat(config, c, enemy, side, caps, &mut out);
+            self.pending = false;
+            self.aerial_selection = None;
+            out.controller.stick = Some(if airborne || c.safe_ground[usize::from(side < 0.)] {
+                [-side * caps[usize::from(side < 0.)], 0.]
+            } else {
+                [0.; 2]
+            });
+            self.output = out;
+            return out;
         }
         {
             let retreat = self.sample_retreat(config, c, enemy, side, caps, &mut out);
@@ -460,13 +466,13 @@ pub fn manual_action(buttons: u32, right_stick: [f32; 2]) -> bool {
 fn valid_context(config: Config, c: GameplayContext) -> bool {
     c.gameplay
         && c.can_control
-        && !native_states::sequence_interrupted(c.status)
+        && (!native_states::sequence_interrupted(c.status)
+            || c.can_air_attack
+                && native_states::airborne_damage_input(c.status, c.situation, Some(0.0)))
         && !crate::action_owner::native_grab_active(c.status)
         && matches!(c.situation, situation::GROUND | situation::AIR)
         && config.minimum_distance.is_finite()
         && config.minimum_distance >= 0.
-        && config.reactive_retreat_distance.is_finite()
-        && config.reactive_retreat_distance >= 0.
         && config.engagement_range.is_finite()
         && config.engagement_range >= 0.
         && config.braking_distance.is_finite()
@@ -479,6 +485,33 @@ fn valid_context(config: Config, c: GameplayContext) -> bool {
             .all(|v| v.is_finite())
         && c.facing.is_finite()
         && c.facing.abs() >= 0.5
+}
+
+pub fn damaging_startup(kind: i32, status: i32, motion: u64, frame: f32) -> bool {
+    if matches!(status, native_states::status::ESCAPE..=native_states::status::ESCAPE_AIR_SLIDE
+        | native_states::status::GUARD_ON..=native_states::status::GUARD_OFF)
+        || !frame.is_finite()
+        || frame < 0.
+    {
+        return false;
+    }
+    crate::fighter_data::fighter(kind)
+        .and_then(|fighter| fighter.move_for_motion(motion))
+        .is_some_and(|data| {
+            data.has_damage_data()
+                && data
+                    .active
+                    .iter()
+                    .any(|window| frame < f32::from(window.first))
+        })
+}
+
+fn incoming_retreat(c: GameplayContext, enemy: Opponent, damaging_startup: bool) -> bool {
+    let dx = enemy.position[0] - c.position[0];
+    let approach = enemy.velocity[0] * dx.signum() < -0.01
+        && !matches!(enemy.status, status::ESCAPE..=status::ESCAPE_AIR_SLIDE
+            | status::GUARD_ON..=status::GUARD_OFF);
+    dx.abs() <= 30. && (damaging_startup || approach)
 }
 
 fn valid_target(e: &Opponent) -> bool {

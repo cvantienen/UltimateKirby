@@ -223,12 +223,12 @@ fn auto_spacing_respects_menu_cancel_and_quarantine() {
     selection.pad_quarantine = 0;
     selection.block_binding_starts(true);
     selection.capture_binding_input(PresetSlot::L3.button(), &presets);
-    assert!(!selection.auto_spacing_held());
-    selection.block_binding_starts(false);
     assert!(
-        !selection.auto_spacing_held(),
-        "blocked holds stay latched until release"
+        selection.auto_spacing_held(),
+        "held spacing stays armed through hitstun"
     );
+    selection.block_binding_starts(false);
+    assert!(selection.auto_spacing_held());
     selection.observe_physical_passthrough(0, ControlLayout::Default);
     assert!(!selection.auto_spacing_held());
     selection.capture_binding_input(PresetSlot::L3.button(), &presets);

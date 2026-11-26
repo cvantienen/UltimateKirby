@@ -406,8 +406,18 @@ pub(super) unsafe fn spacing_opponent(
         }
         let target = Opponent {
             id, status, situation,
+            motion: Some(MotionTiming {
+                kind: reads.motion_kind(enemy),
+                frame: reads.motion_frame(enemy),
+                rate: reads.motion_rate(enemy),
+                remaining: None,
+            }),
             position: [reads.pos_x(enemy), reads.pos_y(enemy)],
-            velocity: [reads.speed_x(enemy), reads.speed_y(enemy)],
+            velocity: if reads.is_stop(enemy) {
+                [0.; 2]
+            } else {
+                [reads.speed_x(enemy), reads.speed_y(enemy)]
+            },
             vulnerable: game::hit_status(enemy, 0) == 0,
             air_physics: (situation == kirby_assist_core::native_states::situation::AIR)
                 .then(|| native_air_physics(enemy)).flatten(),

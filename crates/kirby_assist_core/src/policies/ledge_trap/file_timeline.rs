@@ -65,6 +65,7 @@ pub struct Timeline {
     shield_handoff: bool,
     /// Runtime continuous progress value used by Timeline..
     continuous_progress: bool,
+    airborne_recovery: bool,
     /// Runtime grounded automatic actions value used by Timeline..
     grounded_automatic_actions: bool,
     /// Runtime automatic ground steps value used by Timeline..
@@ -155,6 +156,12 @@ impl Timeline {
             })
         });
     }
+    /// Only a fresh airborne-compatible reaction may buffer through damage recovery.
+    pub fn allow_airborne_recovery(&mut self) {
+        self.airborne_recovery = true;
+        self.grounded_automatic_actions = false;
+        self.automatic_ground_steps = 0;
+    }
     /// Auto react retains delivered holds across a short observation gap. At
     /// a crossed boundary, start the next input now with its full frame budget.
     /// Never burst unseen actions to catch up; ordinary ledge tapes stay strict.
@@ -188,6 +195,7 @@ impl Timeline {
             manual_epoch: 0,
             shield_handoff: false,
             continuous_progress: false,
+            airborne_recovery: false,
             grounded_automatic_actions: false,
             automatic_ground_steps: 0,
             facing_jumps: facing_jumps(actions),
@@ -415,8 +423,15 @@ impl Timeline {
             return Some(self.release("native_grab_handoff"));
         }
         // Damage/capture already ended this tape. Return control now.
-        if crate::native_states::fighter_sequence_interrupted(fighter_kind, ctx.status) {
+        let recovery = self.airborne_recovery
+            && ctx.can_air_attack
+            && crate::native_states::airborne_damage_input(ctx.status, ctx.situation, Some(0.));
+        if crate::native_states::fighter_sequence_interrupted(fighter_kind, ctx.status) && !recovery
+        {
             return Some(self.release("scope_end_or_damage"));
+        }
+        if !crate::native_states::airborne_damage_input(ctx.status, ctx.situation, Some(0.)) {
+            self.airborne_recovery = false;
         }
         if self.done || !ctx.gameplay || !ctx.held {
             return Some(self.finish("scope_end_or_damage"));

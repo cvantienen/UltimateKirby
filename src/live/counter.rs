@@ -86,7 +86,20 @@ pub(super) unsafe fn observe_defense(
     let status = reads.status_kind(own);
     let situation = reads.situation_kind(own);
     let stopped = reads.is_stop(own);
-    let allowed = defense::native_allowed(kind, status, situation, reads.capture_link(own), allowed);
+    let recovery_input = native::airborne_damage_input(
+        status,
+        situation,
+        (situation == native::situation::AIR
+            && (native::status::DAMAGE_AIR..=native::status::DAMAGE_FALL).contains(&status))
+        .then(|| {
+            game::work_float(
+                own,
+                native::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME,
+            )
+        }),
+    );
+    let allowed = defense::native_allowed_input(
+        kind, status, situation, reads.capture_link(own), allowed, recovery_input);
     let guarding = matches!(status, native::GUARD_ON | native::GUARD | native::GUARD_DAMAGE);
     let context = defense::Context {
         object: own_id,
@@ -96,7 +109,7 @@ pub(super) unsafe fn observe_defense(
         guard_ready: allowed && situation == native::situation::GROUND
             && (guarding || !stopped && game::transition_enabled(own, native::transition_terms::CONT_GUARD_ON)),
         air_dodge_ready: allowed && situation == native::situation::AIR
-            && game::transition_enabled(own, native::transition_terms::CONT_ESCAPE_AIR),
+            && (recovery_input || game::transition_enabled(own, native::transition_terms::CONT_ESCAPE_AIR)),
         air_dodging: matches!(status, native::ESCAPE_AIR | native::ESCAPE_AIR_SLIDE),
     };
     let Some(horizon) = defense::defense_horizon(lead_frames, input_delay) else {
@@ -215,9 +228,17 @@ pub(super) unsafe fn observe(
     let config = config.filter(|_| allowed && policy::supports(kind))?;
     let status = reads.status_kind(own);
     let situation = reads.situation_kind(own);
-    if !(policy::ready(status, situation)
+    let recovery_input = kirby_assist_core::native_states::airborne_damage_input(
+        status, situation,
+        (situation == kirby_assist_core::native_states::situation::AIR
+            && (kirby_assist_core::native_states::status::DAMAGE_AIR
+                ..=kirby_assist_core::native_states::status::DAMAGE_FALL).contains(&status))
+        .then(|| game::work_float(own,
+            kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME)));
+    if !(policy::input_ready(status, situation, recovery_input)
         || status == kirby_assist_core::native_states::status::SPECIAL_LW)
-        || kirby_assist_core::native_states::fighter_sequence_interrupted(kind, status)
+        || !recovery_input
+            && kirby_assist_core::native_states::fighter_sequence_interrupted(kind, status)
         || reads.capture_link(own)
     {
         return None;
@@ -225,14 +246,14 @@ pub(super) unsafe fn observe(
     let stopped = reads.is_stop(own);
     let can_special = !stopped
         && status != kirby_assist_core::native_states::status::SPECIAL_LW
-        && policy::can_request(
+        && (recovery_input || policy::can_request(
             status,
             situation,
             game::transition_enabled(
                 own,
                 kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
             ),
-        );
+        ));
     let context = Context {
         kind,
         situation,

@@ -567,6 +567,14 @@ pub fn captured_or_scripted(status: i32) -> bool {
         | status::FINAL)
 }
 
+/// Ordinary airborne damage permits fresh recovery inputs only near its native
+/// countdown end. This does not resume interrupted input tapes or forced states.
+pub fn airborne_damage_input(status: i32, situation: i32, remaining: Option<f32>) -> bool {
+    situation == self::situation::AIR
+        && (status::DAMAGE_AIR..=status::DAMAGE_FALL).contains(&status)
+        && remaining.is_some_and(|frames| frames.is_finite() && frames <= 9.0)
+}
+
 /// Abort existing input tapes on forced states, without disabling native
 /// mash/tech safety. Do not resume an old attack after a stun/capture ends.
 pub fn sequence_interrupted(status: i32) -> bool {

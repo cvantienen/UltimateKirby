@@ -1065,7 +1065,12 @@ struct Collected {
     /// Optional configured melee counter.
     counter_observation: Option<CounterObservation>,
     counter_attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
-    spacing_observation: Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)>,
+    spacing_observation: Option<(
+        GameplayContext,
+        Option<kirby_assist_core::gameplay::Opponent>,
+        bool,
+    )>,
+    counter_aim_direction: Option<f32>,
     #[cfg(feature = "diagnostic-logging")]
     /// Optional native activity flag used only by diagnostic reporting.
     neutral_native_activity: Option<bool>,
@@ -1194,12 +1199,19 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
             counter::attacker_poses(p.reads, p.object, p.object_id)
         } else { [None; 16] },
         spacing_observation: collect_spacing(p),
+        counter_aim_direction: collect_counter_aim(p),
         #[cfg(feature = "diagnostic-logging")]
         neutral_native_activity,
     }
 }
 
-unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)> {
+unsafe fn collect_spacing(
+    p: &Pass,
+) -> Option<(
+    GameplayContext,
+    Option<kirby_assist_core::gameplay::Opponent>,
+    bool,
+)> {
     use kirby_assist_core::native_states::situation;
     let held = STATE.lock().ok()?.settings_menu.as_ref()
         .is_some_and(|menu| menu.auto_spacing_held());
@@ -1211,9 +1223,16 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
     let own = p.own;
     let position = [reads.pos_x(object), reads.pos_y(object)];
     let velocity = [reads.speed_x(object), reads.speed_y(object)];
+    let recovery_input = kirby_assist_core::native_states::airborne_damage_input(
+        own.status, own.situation,
+        (own.situation == situation::AIR
+            && (kirby_assist_core::native_states::status::DAMAGE_AIR
+                ..=kirby_assist_core::native_states::status::DAMAGE_FALL).contains(&own.status))
+        .then(|| game::work_float(object,
+            kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME)));
     let controllable = !p.tech_obs.clatter && !reads.capture_link(object)
-        && !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status);
-    let attack_ready = kirby_assist_core::auto_spacing::attack_ready(
+        && (recovery_input || !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status));
+    let attack_ready = recovery_input || kirby_assist_core::auto_spacing::attack_ready(
         own.status, own.situation, game::cancel_enabled(object));
     let context = GameplayContext {
         held: true,
@@ -1238,17 +1257,40 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
         ..own.gameplay_context()
     };
     let target = observations::spacing_opponent(reads, object, p.object_id);
-    Some((context, target))
+    let damaging_startup = target.is_some_and(|target| {
+        let enemy = game::module_accessor(target.id);
+        !enemy.is_null()
+            && game::is_active(target.id)
+            && game::battle_object_id(enemy) == target.id
+            && (!reads.is_stop(enemy)
+                && target.motion.is_some_and(|motion| {
+                    kirby_assist_core::auto_spacing::damaging_startup(
+                        reads.fighter_kind(enemy),
+                        target.status,
+                        motion.kind,
+                        motion.frame,
+                    )
+                })
+                || (0..8).any(|slot| {
+                    if !game::attack_active(enemy, slot, false) {
+                        return false;
+                    }
+                    let geometry = game::attack_geometry(enemy, slot, false);
+                    !geometry.is_null() && (*geometry).power.is_finite() && (*geometry).power > 0.
+                })
+                || matches!(
+                    target.status,
+                    kirby_assist_core::native_states::status::DASH
+                        | kirby_assist_core::native_states::status::TURN_DASH
+                ) && reads.facing(enemy) * (target.position[0] - position[0]) < 0.)
+    });
+    Some((context, target, damaging_startup))
 }
 
 fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
-    state.held_walk_cap = c.spacing_observation
-        .filter(|(context, _)| context.can_control
-            && context.situation == kirby_assist_core::native_states::situation::GROUND)
-        .map(|(context, _)| context.walk_stick.unwrap_or(0.));
     let held = state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
         && state.action_owner.allows(Owner::Spacing);
-    if let Some((mut context, target)) = c.spacing_observation.filter(|_| held) {
+    if let Some((mut context, target, damaging_startup)) = c.spacing_observation.filter(|_| held) {
         let settings = state.settings_menu.as_ref().map_or_else(
             || settings_for_fighter(Some(p.fighter_kind), p.config.assist),
             |menu| menu.settings(Some(p.fighter_kind), &p.config.assist),
@@ -1261,7 +1303,7 @@ fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
             kirby_assist_core::manual_controls::ledge_walk_stick([1.0, 0.0], settings.walk_strength)[0]);
         context.walk_stick = Some(config.ground_speed);
         state.spacing_output = state.spacing.get_or_insert_with(Default::default)
-            .sample(tick, true, config, context, target);
+            .sample_threat(tick, true, config, context, target, damaging_startup);
     } else {
         state.spacing = None;
         state.spacing_output = Default::default();
@@ -1313,12 +1355,20 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
         backup_height: auto_backup_height,
         ..
     } = limits;
+    let airborne_reaction = rules_on && !p.policy.automatic_suspended && !stopped && !clatter
+        && assessment.situation == kirby_assist_core::native_states::situation::AIR
+        && !reads.capture_link(object)
+        && (kirby_assist_core::native_states::jump_or_fall(assessment.status)
+            || kirby_assist_core::native_states::airborne_damage_input(assessment.status, assessment.situation,
+                Some(game::work_float(object,
+                    kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME))));
     if automatic_scope.acquire && (rules_on || pressure_on)
+        || airborne_reaction
         || rule_target.is_some()
         || oos_target.is_some()
         || dodge_follow.is_some()
     {
-        let (targets, follow) = if !clatter && automatic_scope.observe_targets() {
+        let (targets, follow) = if !clatter && (automatic_scope.observe_targets() || airborne_reaction) {
             observations::rule_targets(
                 reads,
                 object,
@@ -1331,7 +1381,7 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
                             auto_shield_height.max(auto_backup_height),
                         ]),
                     shield_fallback: self_shielded,
-                    watch_events: rules_on && automatic_scope.acquire,
+                    watch_events: rules_on && (automatic_scope.acquire || airborne_reaction),
                     sequence_follow: automatic_sequence_committed,
                 },
             )
@@ -1355,6 +1405,7 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
             GameplayContext {
                 held: true,
                 manual_input_epoch,
+                can_air_attack: airborne_reaction,
                 position,
                 velocity,
                 facing: reads.facing(object),
@@ -2171,6 +2222,46 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
         target,
         allowed,
     )
+}
+
+unsafe fn collect_counter_aim(p: &Pass) -> Option<f32> {
+    let state = STATE.lock().ok()?;
+    let menu = state.settings_menu.as_ref()?;
+    if !menu.counter_held()
+        || p.own.stopped
+        || p.own.status != kirby_assist_core::native_states::status::SPECIAL_LW
+        || p.fighter_kind != kirby_assist_core::fighter_kinds::LUCINA
+        || menu
+            .fighter_tuning(p.fighter_kind)
+            .get(kirby_assist_core::fighter_tuning::COUNTER_AIM_AFTER_ACTIVATION)
+            != 1.
+    {
+        return None;
+    }
+    let mut id = state.counter.aim_target()?;
+    if !game::is_active(id) {
+        return None;
+    }
+    let mut enemy = game::module_accessor(id);
+    if enemy.is_null() || game::battle_object_id(enemy) != id {
+        return None;
+    }
+    if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
+        id = u32::try_from(game::team_owner_id(enemy)).ok()?;
+        if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
+            return None;
+        }
+        enemy = game::module_accessor(id);
+        if enemy.is_null() || game::battle_object_id(enemy) != id {
+            return None;
+        }
+    }
+    if p.reads.team(enemy) == p.reads.team(p.object) {
+        return None;
+    }
+    Some(p.reads.pos_x(enemy) - p.reads.pos_x(p.object))
 }
 
 unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
@@ -3652,7 +3743,23 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
         && state.action_owner.allows(Owner::Counter)
         && !p.tech_obs.clatter;
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
-        state.counter.sample(allowed, Some(config), context, threat)
+        let output = state.counter.sample(allowed, Some(config), context, threat);
+        let aim = c
+            .counter_aim_direction
+            .map_or(ControllerOutput::NONE, |direction| {
+                kirby_assist_core::auto_counter::aim_confirmed(
+                    p.fighter_kind,
+                    context.animation.status,
+                    context.animation.kind,
+                    state.counter.confirmed_target().is_some(),
+                    direction,
+                )
+            });
+        if aim.owned != 0 {
+            aim
+        } else {
+            output
+        }
     } else {
         state.counter.cancel();
         ControllerOutput::default()

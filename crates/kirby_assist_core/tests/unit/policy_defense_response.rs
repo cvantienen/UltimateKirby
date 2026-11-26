@@ -276,6 +276,35 @@ fn movement_and_attack_states_have_no_extra_defense_lockouts() {
 }
 
 #[test]
+fn recovery_admission_does_not_relax_capture_forced_states_or_old_tapes() {
+    use crate::native_states::status;
+    let kind = crate::fighter_kinds::KIRBY;
+    for remaining in [10.0, 9.0, 0.0, f32::NAN] {
+        let recovery =
+            crate::native_states::airborne_damage_input(status::DAMAGE_FLY, AIR, Some(remaining));
+        assert_eq!(
+            native_allowed_input(kind, status::DAMAGE_FLY, AIR, false, true, recovery),
+            remaining.is_finite() && remaining <= 9.0
+        );
+    }
+    for (state, situation, captured, allowed) in [
+        (status::DAMAGE_FLY, AIR, true, true),
+        (status::DAMAGE_FLY, AIR, false, false),
+        (status::DAMAGE_FLY, GROUND, false, true),
+        (status::CAPTURE_WAIT, AIR, false, true),
+        (status::DAMAGE_SLEEP_START, AIR, false, true),
+    ] {
+        assert!(!native_allowed_input(
+            kind, state, situation, captured, allowed, true
+        ));
+    }
+    assert!(!native_allowed(kind, status::DAMAGE_FLY, AIR, false, true));
+    assert!(crate::native_states::sequence_interrupted(
+        status::DAMAGE_FLY
+    ));
+}
+
+#[test]
 fn lead_and_delivery_delay_share_bounded_prediction_window() {
     assert_eq!(defense_horizon(0.0, 0.0), Some(0.0));
     assert_eq!(defense_horizon(4.0, 3.0), Some(7.0));

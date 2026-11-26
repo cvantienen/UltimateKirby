@@ -96,13 +96,7 @@ impl MenuSelection {
     /// One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
         let custom = self.tuning.0[i];
-        let value = custom.unwrap_or_else(|| {
-            if i == fighter_tuning::AUTO_SPACING_REACTIVE_RETREAT_DISTANCE {
-                self.tuning.auto_spacing(self.y_fighter_kind).reactive_retreat_distance
-            } else {
-                self.tuning_values[i]
-            }
-        });
+        let value = custom.unwrap_or(self.tuning_values[i]);
         let shown = if Tuning::is_bool(i) {
             if value == 1.0 {
                 "ON".into()
