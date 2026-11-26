@@ -174,7 +174,7 @@ fn auto_spacing_uses_configured_distance_and_retreats_before_incoming_crosses_it
     let out = spacing.sample(1, true, cfg, context(), enemy(24., -4.));
     assert_eq!(out.controller.stick, Some([-1., 0.]));
     assert!(
-        Spacing::default()
+        !Spacing::default()
             .sample(2, true, cfg, context(), enemy(20., 0.))
             .attack
     );
@@ -852,8 +852,8 @@ fn auto_spacing_attacks_approaches_and_breaches_without_recovery_gap_veto() {
     cfg.ground.commitment = 12.;
     let mut s = Spacing::default();
     let incoming = s.sample(1, true, cfg, context(), enemy(24., -0.4));
-    assert!(incoming.attack);
-    assert_eq!(incoming.controller.stick, Some([0.6, 0.]));
+    assert!(!incoming.attack);
+    assert_eq!(incoming.controller.stick, Some([-1., 0.]));
     s.reset();
     assert!(
         s.sample(2, true, config(), context(), enemy(20., -1.))
@@ -1229,39 +1229,92 @@ fn auto_spacing_retreat_releases_on_target_loss_and_respects_ground_support() {
 }
 
 #[test]
-fn position_selection_keeps_lucina_fair_bair_and_down_tilt() {
-    let cfg = Config {
-        fighter_kind: crate::fighter_kinds::LUCINA,
-        minimum_distance: 24., ground_speed: 0.49,
-        ground_braking: false, minimum_drift: 0.11,
-        ground: AttackConfig { startup: 10., active_frames: 5., reach: 28., height: 10., ..config().ground },
-        aerial: AttackConfig { startup: 5., active_frames: 5., reach: 28., height: 20.5, ..config().aerial },
-        ..config()
-    };
-    let ground = GameplayContext { walk_stick: Some(0.48999986), velocity: [-0.1, 0.], ..context() };
-    let mut s = Spacing::default();
-    assert!(s.sample(1, true, cfg, ground, enemy(25., 0.)).attack);
-    assert_eq!(s.pending_attack.attack, Attack::Down);
-    assert_eq!(s.pending_output.right_stick, [0.2, -1.]);
-    let air = GameplayContext { situation: situation::AIR, status: status::FALL, ..context() };
-    for (y, expected) in [(0., Attack::Forward), (15., Attack::Forward), (-15., Attack::Forward)] {
-        let e = Opponent { position: [8., y], ..enemy(8., 0.).unwrap() };
-        let selected = select_attack(cfg, air, 1.);
-        assert_eq!(selected.attack, expected);
-        if y == 0. { assert_eq!(selected, cfg.aerial); }
+fn manual_attack_selection_yields_then_allows_retreat_after_confirmed_startup() {
+    let aerial = crate::timing::motion_hash("attack_air_f");
+    assert!(manual_action_pending(MAPPER_A, [0.; 2], MAPPER_A, status::FALL, 0, 0.));
+    assert!(manual_action_pending(MAPPER_A, [0.; 2], 0, status::ATTACK_AIR, aerial, 0.));
+    assert!(!manual_action_pending(MAPPER_A, [0.; 2], 0, status::ATTACK_AIR, aerial, 1.));
+    assert!(manual_action_pending(MAPPER_A, [0.; 2], MAPPER_A, status::ATTACK_AIR, aerial, 1.));
+    assert!(!manual_action_pending(0, [1., 0.], 0, status::ATTACK_S3, 0, 1.));
+    assert!(manual_action_pending(crate::native_input::MAPPER_B, [0.; 2], 0,
+        status::ATTACK_S3, 0, 1.));
+    let c = GameplayContext { status: status::ATTACK_AIR, situation: situation::AIR,
+        motion_kind: aerial, motion_frame: 1., can_air_attack: false, ..context() };
+    let out = Spacing::default().sample(1, true, config(), c, enemy(5., 0.));
+    assert!(!out.attack);
+    assert_eq!(out.controller.stick, Some([-1., 0.]));
+}
+
+#[test]
+fn shielding_and_invulnerability_cancel_attack_retries_without_waiting_for_a_new_tick() {
+    for status in [status::GUARD_ON, status::GUARD, status::GUARD_DAMAGE, status::WAIT] {
         let mut spacing = Spacing::default();
-        let out = spacing.sample(1, true, cfg, air, Some(e));
-        assert!(out.attack, "height {y}");
+        let cfg = config();
+        assert!(spacing.sample(1, true, cfg, context(), enemy(18., 0.)).attack);
         spacing.mapped(1);
-        let shifted = Opponent { position: [8., y + y.signum() * 0.1], ..e };
-        spacing.sample(2, true, cfg, air, Some(shifted));
-        assert_eq!(spacing.pending_attack, selected);
+        let protected = Opponent { status, vulnerable: status != status::WAIT,
+            ..enemy(18., 0.).unwrap() };
+        assert!(!spacing.sample(1, true, cfg, context(), Some(protected)).attack);
+        assert!(!spacing.pending);
+        assert!(spacing.sample(2, true, cfg, context(), enemy(18., 0.)).attack);
     }
+    let releasing = Opponent { status: status::GUARD_OFF, ..enemy(18., 0.).unwrap() };
+    assert!(Spacing::default().sample(3, true, config(), context(), Some(releasing)).attack);
+}
+
+#[test]
+fn engagement_gate_and_new_estimates_cancel_pending_attacks() {
+    let mut cfg = config();
+    cfg.ground.reach = 40.;
+    cfg.minimum_distance = 0.;
+    let mut spacing = Spacing::default();
+    assert!(spacing.sample(1, true, cfg, context(), enemy(20., 0.)).attack);
+    spacing.mapped(1);
+    assert!(!spacing.sample(1, true, cfg, context(), enemy(20.01, 0.)).attack);
+    assert!(!spacing.pending);
+    assert!(spacing.sample(2, true, cfg, context(), enemy(18., 0.)).attack);
+    spacing.mapped(2);
+    cfg.ground.reach = 2.;
+    assert!(!spacing.sample(2, true, cfg, context(), enemy(18., 0.)).attack);
+    assert!(!spacing.pending);
+    cfg.engagement_range = 0.;
+    assert!(!spacing.sample(3, true, cfg, context(), enemy(1., 0.)).attack);
+}
+
+#[test]
+fn platform_fall_and_ledge_jump_resume_aerials_only_when_native_ready() {
+    for status in [status::FALL, status::FALL_AERIAL, status::CLIFF_JUMP2, status::CLIFF_JUMP3] {
+        let c = GameplayContext { status, situation: situation::AIR,
+            can_air_attack: false, ..context() };
+        let mut spacing = Spacing::default();
+        assert!(!spacing.sample(1, true, config(), c, enemy(18., 0.)).attack);
+        assert!(spacing.sample(2, true, config(), GameplayContext { can_air_attack: true, ..c },
+            enemy(18., 0.)).attack);
+    }
+}
+
+#[test]
+fn lucina_honors_configured_moves_and_estimates() {
+    let mut cfg = config();
+    cfg.fighter_kind = crate::fighter_kinds::LUCINA;
+    cfg.ground.attack = Attack::Up;
+    let mut spacing = Spacing::default();
+    let out = spacing.sample(1, true, cfg, context(), enemy(18., 0.));
+    assert!(out.attack);
+    assert_eq!(spacing.pending_attack, cfg.ground);
+    assert_eq!(out.controller.stick, Some([0., 0.6]));
+    assert_eq!(out.right_stick, [0.; 2]);
+    let air = GameplayContext { situation: situation::AIR, status: status::FALL, ..context() };
+    cfg.aerial.attack = Attack::Neutral;
+    let out = spacing.sample(2, true, cfg, air, enemy(18., 0.));
+    assert!(out.attack);
+    assert_eq!(spacing.pending_attack, cfg.aerial);
+    assert_eq!(out.controller.stick, Some([0.; 2]));
+    cfg.aerial.attack = Attack::Forward;
     let behind = GameplayContext { facing: -1., ..air };
-    assert_eq!(select_attack(cfg, behind, 1.).attack, Attack::Back);
-    let above = Opponent { position: [8., 8.], ..enemy(8., 0.).unwrap() };
-    assert_eq!(select_attack(cfg, ground, 1.).attack, Attack::Down);
-    assert!(!Spacing::default().sample(1, true, cfg, ground, Some(above)).attack);
+    assert!(!Spacing::default().sample(3, true, cfg, behind, enemy(18., 0.)).attack);
+    cfg.aerial.attack = Attack::Back;
+    assert!(Spacing::default().sample(4, true, cfg, behind, enemy(18., 0.)).attack);
 }
 
 #[test]

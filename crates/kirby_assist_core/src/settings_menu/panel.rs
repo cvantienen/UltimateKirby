@@ -8,6 +8,20 @@ impl MenuSelection {
         if self.mode_rule_list && !self.managing() {
             return self.mode_rules_panel(presets);
         }
+        if !self.lightweight && self.training_tab_focus {
+            return RecipePanel {
+                header: vec![format!(
+                    "{} | {}",
+                    self.row.label(),
+                    Self::TRAINING_CATEGORIES[self.training_category.min(4) as usize]
+                )],
+                body: vec!["Up/Down: return to category settings".into()],
+                footer: vec![
+                    "Left/Right: change category | Down: open category | Minus: close".into(),
+                ],
+                focus: None,
+            };
+        }
         if self.tuning_page {
             return self.tuning_panel();
         }
@@ -55,8 +69,8 @@ impl MenuSelection {
                 header: vec![builtin.label().into()],
                 body: vec![
                     match builtin {
-                        crate::button_bindings::Builtin::AutoSpacing => "Hold this button to space and request configured attacks; release to stop. Manual inputs and safety gates still apply.",
-                        crate::button_bindings::Builtin::AutoSpacingToggle => "Press to enable spacing and configured attacks; press again to stop. Safety gates still apply; this does not extend attack reach.",
+                        crate::button_bindings::Builtin::LModeSwap => "Press to switch L between ledge trap and auto spacing. Hold L to run the selected mode; release to stop. Switching while held cancels the old mode immediately.",
+                        crate::button_bindings::Builtin::AutoSpacing | crate::button_bindings::Builtin::AutoSpacingToggle => "Retired spacing assignment. Use L mode swap, then hold L for spacing.",
                         crate::button_bindings::Builtin::Counter => "Hold to request a counter against a detected threat; release to stop. Lucina only; unavailable or unobserved threats cannot be countered.",
                         crate::button_bindings::Builtin::CounterToggle => "Press to enable threat-based counter requests; press again to stop. Lucina only; no guaranteed counter against every attack.",
                         crate::button_bindings::Builtin::Normal => "Uses this button's normal game action; no standalone assist or recipe runs.",
@@ -118,7 +132,12 @@ impl MenuSelection {
             " [custom]"
         } else if i == 1 {
             " [fighter reference]"
-        } else if i < 14 || matches!(i, fighter_tuning::AUTO_DI_DEFAULT | fighter_tuning::AUTO_SDI_DEFAULT) {
+        } else if i < 14
+            || matches!(
+                i,
+                fighter_tuning::AUTO_DI_DEFAULT | fighter_tuning::AUTO_SDI_DEFAULT
+            )
+        {
             " [default]"
         } else if Tuning::frames(i) {
             " [policy default]"

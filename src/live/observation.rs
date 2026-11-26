@@ -1290,18 +1290,10 @@ unsafe fn collect_spacing(
 fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
     let held = state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
         && state.action_owner.allows(Owner::Spacing);
-    if let Some((mut context, target, damaging_startup)) = c.spacing_observation.filter(|_| held) {
-        let settings = state.settings_menu.as_ref().map_or_else(
-            || settings_for_fighter(Some(p.fighter_kind), p.config.assist),
-            |menu| menu.settings(Some(p.fighter_kind), &p.config.assist),
-        );
-        let mut config = state.settings_menu.as_ref()
+    if let Some((context, target, damaging_startup)) = c.spacing_observation.filter(|_| held) {
+        let config = state.settings_menu.as_ref()
             .map_or(Default::default(), |m| m.fighter_tuning(p.fighter_kind))
             .auto_spacing(p.fighter_kind);
-        // Manual movement is limited only by dash entry, not a gentle-walk setting.
-        config.ground_speed = context.walk_stick.unwrap_or_else(||
-            kirby_assist_core::manual_controls::ledge_walk_stick([1.0, 0.0], settings.walk_strength)[0]);
-        context.walk_stick = Some(config.ground_speed);
         state.spacing_output = state.spacing.get_or_insert_with(Default::default)
             .sample_threat(tick, true, config, context, target, damaging_startup);
     } else {

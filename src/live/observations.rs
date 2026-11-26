@@ -397,8 +397,12 @@ pub(super) unsafe fn spacing_opponent(
         }
         let status = reads.status_kind(enemy);
         let situation = reads.situation_kind(enemy);
-        if !matches!(situation, kirby_assist_core::native_states::situation::GROUND | kirby_assist_core::native_states::situation::AIR)
-            || !kirby_assist_core::reaction_rules::automatic_target_available(status)
+        if !matches!(situation, kirby_assist_core::native_states::situation::GROUND
+            | kirby_assist_core::native_states::situation::AIR
+            | kirby_assist_core::native_states::situation::CLIFF)
+            || (!kirby_assist_core::reaction_rules::automatic_target_available(status)
+                && !matches!(status, kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
+                    ..=kirby_assist_core::native_states::status::CLIFF_JUMP3))
             || kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(enemy), status)
             || reads.capture_link(enemy)
         {

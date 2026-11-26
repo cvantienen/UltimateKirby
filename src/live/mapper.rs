@@ -731,12 +731,14 @@ fn run_settings_menu(
 fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) {
     let OverlayFrame { config, .. } = *frame;
     let menu = state.settings_menu.as_ref();
-    let ledge_held = menu
+    let spacing_held = menu.is_some_and(|m| m.auto_spacing_held());
+    let custom_button = menu.and_then(|m| m.preview_slot()).is_some_and(|slot| slot.is_button());
+    let ledge_held = (!spacing_held || custom_button) && (menu
         .is_some_and(|p| p.sequence_enabled(config.assist.enabled) && p.ledge_held)
         || state
             .ledge
             .as_ref()
-            .is_some_and(LedgeTrap::committed_input_pending);
+            .is_some_and(LedgeTrap::committed_input_pending));
     attack_sources::tracking(
         config.autopilot_shield && ledge_held
             || menu.is_some_and(|m| {
@@ -745,7 +747,6 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
             }),
     );
     let defensive_owner = menu.and_then(|m| m.defensive_owner());
-    let spacing_held = menu.is_some_and(|m| m.auto_spacing_held());
     let ledge_inputs_reserved = defensive_owner.is_some() || ledge_held || spacing_held
         || menu.is_some_and(|m| m.reserves_automatic_modes());
     state.action_owner.set_counter_hold(defensive_owner == Some(Owner::Counter));
@@ -757,13 +758,13 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
         state.counter_output = ControllerOutput::default();
         state.action_owner.release(Owner::Counter);
     }
-    if spacing_held && state.action_owner.current_owner() != Some(Owner::Safety) {
+    if spacing_held && !custom_button && state.action_owner.current_owner() != Some(Owner::Safety) {
         if let Some(owner) = state.action_owner.current_owner().filter(|o| *o != Owner::Spacing) {
             state.action_owner.release(owner);
         }
         state.cancel_non_owner(Some(Owner::Spacing));
     }
-    if !spacing_held {
+    if !spacing_held || custom_button {
         state.spacing = None;
         state.spacing_output = Default::default();
         state.action_owner.release(Owner::Spacing);
@@ -993,7 +994,8 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         committed_intent(Owner::Trip, state.trip_output.owned != 0),
         committed_intent(Owner::Fair, state.fair_output.owned != 0),
         committed_intent(Owner::Trump, state.trump_output.owned != 0),
-        committed_intent(Owner::Spacing, state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())),
+        committed_intent(Owner::Spacing, state.settings_menu.as_ref().is_some_and(|m|
+            m.auto_spacing_held() && !m.preview_slot().is_some_and(|slot| slot.is_button()))),
         Intent {
             owner: Owner::Ledge,
             present: ledge_present,
@@ -1725,8 +1727,11 @@ fn sample_tools(
     } = *gate;
     let (turbo_output, pivot_stick) = sample_turbo_and_pivot(state, frame, gate);
     let turbo_stick = turbo_output.stick;
-    let spacing_manual_action = kirby_assist_core::auto_spacing::manual_action(
-        gate.policy_buttons, frame.physical_right_stick);
+    let spacing_manual_action = state.manual_context.map_or_else(
+        || kirby_assist_core::auto_spacing::manual_action(gate.policy_buttons, frame.physical_right_stick),
+        |c| kirby_assist_core::auto_spacing::manual_action_pending(
+            gate.policy_buttons, frame.physical_right_stick,
+            frame.config.control_layout.policy_buttons(frame.physical.pressed & !MAPPER_L), c.status, c.motion, c.frame));
     let spacing_caps = (fresh && manual_scope && !spacing_manual_action
         && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()))
         .then_some(state.spacing_output.movement_caps).flatten();

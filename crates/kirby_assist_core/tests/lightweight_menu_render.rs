@@ -160,26 +160,45 @@ fn draw(snapshot: &Snapshot, collapse: bool) -> Vec<String> {
     })
 }
 #[test]
-fn actual_lightweight_renderer_emits_only_option_rows_on_both_pages() {
+fn actual_lightweight_renderer_emits_only_option_rows_on_all_three_pages() {
     let profiles = profiles();
     let p = profiles.profile(15).unwrap();
     let mut m = MenuSelection::new(&p.menu_options);
     m.begin_match();
     input(&mut m, p, 0, false);
-    for auxiliary in [false, true] {
-        if auxiliary {
+    for page in 0..3 {
+        if page != 0 {
             input(&mut m, p, 0, false);
             input(&mut m, p, MENU_STICK_CLICK, false);
         }
-        assert!(!m.menu_hidden && m.lightweight && m.quick_menu);
+        assert!(!m.menu_hidden && m.lightweight);
+        assert_eq!(m.button_menu, page == 1);
+        assert_eq!(m.modes_menu, page == 2);
+        assert!(m.quick_menu);
         let snapshot = view::build(p, &m, false, 0).unwrap();
         assert!(snapshot.navigation.is_none());
+        let label = snapshot
+            .lightweight_label
+            .as_ref()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(label.starts_with(match page {
+            0 => "LEDGE TRAP",
+            1 => "BUTTON BINDINGS",
+            _ => "ON/OFF SETTINGS",
+        }));
+        assert!(label.contains("R3: NEXT PAGE"));
         assert!(
             snapshot.header.is_empty() && snapshot.body.is_empty() && snapshot.footer.is_empty()
         );
         let text = draw(&snapshot, false);
         assert!(!text.is_empty());
-        for line in text.iter().filter(|s| s.as_str() != ">") {
+        assert!(text.contains(&label.to_owned()));
+        for line in text
+            .iter()
+            .filter(|s| s.as_str() != ">" && s.as_str() != label)
+        {
             assert!(snapshot
                 .values
                 .iter()
@@ -202,6 +221,57 @@ fn actual_lightweight_renderer_emits_only_option_rows_on_both_pages() {
         );
     }
 }
+#[test]
+fn training_categories_publish_only_their_options_and_restore_after_tab_focus() {
+    let profiles = profiles();
+    let p = profiles.profile(15).unwrap();
+    let mut m = MenuSelection::new(&p.menu_options);
+    input(&mut m, p, 0, true);
+    input(&mut m, p, MAPPER_MINUS, true);
+    for category in 0..5 {
+        m.set_training_category(category);
+        let snapshot = view::build(p, &m, false, 0).unwrap();
+        assert!(snapshot.training_categories_active && !snapshot.training_tab_focus);
+        assert_eq!(snapshot.training_category, category);
+        assert!(snapshot.lightweight_label.is_none());
+        assert!(snapshot
+            .navigation
+            .as_ref()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains(if category == 4 {
+                "FIGHTER SETTINGS"
+            } else {
+                MenuSelection::TRAINING_CATEGORIES[category as usize]
+            }));
+        if category == 4 {
+            assert!(snapshot.values.is_empty());
+            assert!(!snapshot.body.is_empty());
+        } else {
+            assert!(!snapshot.values.is_empty());
+            assert!(snapshot.values.iter().any(|value| value.row == m.row));
+            assert!(snapshot.values.iter().all(|value| {
+                m.display_rows().contains(&value.row) && !MenuSelection::page_link(value.row)
+            }));
+        }
+        input(&mut m, p, 0, true);
+        input(&mut m, p, kirby_assist_core::manual_controls::DPAD_UP, true);
+        let tabs = view::build(p, &m, false, 0).unwrap();
+        assert!(tabs.training_tab_focus && tabs.values.is_empty());
+        assert!(tabs
+            .body
+            .iter()
+            .any(|line| line.to_str().unwrap().contains("category")));
+        input(&mut m, p, 0, true);
+        input(&mut m, p, MAPPER_B, true);
+        let restored = view::build(p, &m, false, 0).unwrap();
+        assert!(!restored.training_tab_focus);
+        assert_eq!(restored.values.len(), snapshot.values.len());
+        assert_eq!(restored.mode, snapshot.mode);
+    }
+}
+
 #[test]
 fn reused_lightweight_state_starts_each_battle_visible_on_ledge_page_with_fresh_content() {
     let profiles = profiles();
@@ -334,7 +404,8 @@ fn row_navigation_reuses_text_but_page_mode_and_content_changes_invalidate_it() 
 }
 
 #[test]
-fn every_configured_fighter_renders_both_lightweight_pages_without_headers_hints_or_stack_errors() {
+fn every_configured_fighter_renders_all_three_lightweight_pages_without_headers_hints_or_stack_errors(
+) {
     let catalog = Catalog::parse(include_str!(
         "../../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
     ))
@@ -352,20 +423,36 @@ fn every_configured_fighter_renders_both_lightweight_pages_without_headers_hints
         m.simplified_reactions = true;
         m.begin_match();
         input(&mut m, p, 0, false);
-        for auxiliary in [false, true] {
-            if auxiliary {
+        for page in 0..3 {
+            if page != 0 {
                 input(&mut m, p, 0, false);
                 input(&mut m, p, MENU_STICK_CLICK, false);
             }
+            assert_eq!(m.button_menu, page == 1);
+            assert_eq!(m.modes_menu, page == 2);
             let snapshot = view::build(p, &m, false, 0).unwrap();
             assert!(snapshot.navigation.is_none());
+            let label = snapshot
+                .lightweight_label
+                .as_ref()
+                .unwrap()
+                .to_str()
+                .unwrap();
+            assert!(label.starts_with(match page {
+                0 => "LEDGE TRAP",
+                1 => "BUTTON BINDINGS",
+                _ => "ON/OFF SETTINGS",
+            }));
+            assert!(label.contains("R3: NEXT PAGE"));
             assert!(
                 snapshot.header.is_empty()
                     && snapshot.body.is_empty()
                     && snapshot.footer.is_empty()
             );
             assert!(m.lightweight && !m.menu_hidden && !m.recipe_editing && !m.managing());
-            for line in draw(&snapshot, false).iter().filter(|s| s.as_str() != ">") {
+            let rendered = draw(&snapshot, false);
+            assert!(rendered.contains(&label.to_owned()));
+            for line in rendered.iter().filter(|s| s.as_str() != ">" && *s != label) {
                 assert!(
                     snapshot
                         .values
@@ -514,20 +601,29 @@ mod publisher {
         {
             let locked = VIEW.lock().unwrap();
             let v = locked.as_ref().unwrap();
-            assert!(v.matches_request(
-                false,
-                REQUESTED_FIGHTER.load(Ordering::Acquire),
-                REQUESTED_REVISION.load(Ordering::Acquire),
-                VIEW_GENERATION.load(Ordering::Acquire),
-            ), "an active Training save must retain its last published card");
+            assert!(
+                v.matches_request(
+                    false,
+                    REQUESTED_FIGHTER.load(Ordering::Acquire),
+                    REQUESTED_REVISION.load(Ordering::Acquire),
+                    VIEW_GENERATION.load(Ordering::Acquire),
+                ),
+                "an active Training save must retain its last published card"
+            );
         }
         input(&mut m, p, 0, false);
         assert!(!publish(p, &m, false));
         {
             let locked = VIEW.lock().unwrap();
-            assert!(!locked.as_ref().unwrap().matches_request(
-                true, p.fighter_kind, REQUESTED_REVISION.load(Ordering::Acquire), 0,
-            ), "save-time retention must not leak Training cards into matches");
+            assert!(
+                !locked.as_ref().unwrap().matches_request(
+                    true,
+                    p.fighter_kind,
+                    REQUESTED_REVISION.load(Ordering::Acquire),
+                    0,
+                ),
+                "save-time retention must not leak Training cards into matches"
+            );
         }
         super::save::BUSY.store(false, Ordering::Release);
         assert!(publish(p, &m, false));
@@ -536,32 +632,63 @@ mod publisher {
 
 #[test]
 fn damage_toggles_are_independent_persisted_and_invalidate_cached_rows() {
-    use kirby_assist_core::{fighter_tuning::{AUTO_DI_DEFAULT, AUTO_SDI_DEFAULT}, sequence_config::persist};
+    use kirby_assist_core::{
+        fighter_tuning::{AUTO_DI_DEFAULT, AUTO_SDI_DEFAULT},
+        sequence_config::persist,
+    };
     let profiles = profiles();
     let p = profiles.profile(15).unwrap();
     let mut m = MenuSelection::new(&p.menu_options);
     m.begin_match();
     input(&mut m, p, 0, false);
     input(&mut m, p, MENU_STICK_CLICK, false);
+    input(&mut m, p, 0, false);
+    input(&mut m, p, MENU_STICK_CLICK, false);
+    assert!(m.modes_menu);
     assert_eq!(m.damage_sticks(), [false; 2]);
     let before = view::build(p, &m, false, 0).unwrap();
     for row in [MenuRow::AutoDi, MenuRow::AutoSdi] {
-        assert_eq!(before.values.iter().find(|v| v.row == row).unwrap().enabled, Some(false));
+        assert_eq!(
+            before.values.iter().find(|v| v.row == row).unwrap().enabled,
+            Some(false)
+        );
     }
     m.row = MenuRow::AutoDi;
     input(&mut m, p, 0, false);
-    input(&mut m, p, MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT, false);
+    input(
+        &mut m,
+        p,
+        MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT,
+        false,
+    );
     assert_eq!(m.damage_sticks(), [true, false]);
     assert!(!before.reusable(p, &m, false, 0));
     let after = view::build(p, &m, false, 0).unwrap();
-    assert_eq!(after.values.iter().find(|v| v.row == MenuRow::AutoDi).unwrap().enabled, Some(true));
+    assert_eq!(
+        after
+            .values
+            .iter()
+            .find(|v| v.row == MenuRow::AutoDi)
+            .unwrap()
+            .enabled,
+        Some(true)
+    );
     m.row = MenuRow::AutoSdi;
     input(&mut m, p, 0, false);
-    input(&mut m, p, MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT, false);
+    input(
+        &mut m,
+        p,
+        MAPPER_L | kirby_assist_core::manual_controls::DPAD_RIGHT,
+        false,
+    );
     assert_eq!(m.damage_sticks(), [true, true]);
     m.tuning.0[AUTO_DI_DEFAULT] = Some(0.);
     m.tuning_values[AUTO_DI_DEFAULT] = 1.;
-    assert_eq!(m.damage_sticks(), [false, true], "saved OFF overrides startup ON");
+    assert_eq!(
+        m.damage_sticks(),
+        [false, true],
+        "saved OFF overrides startup ON"
+    );
     let source = "[universal.settings]\nauto_di=true\n[bowser.neutral.keep]\nstart_delay=0\nactions=grab:4\n";
     let saved = persist::update_tuning(source, 15, m.tuning).unwrap();
     assert!(saved.contains("[universal.settings]\nauto_di=true"));

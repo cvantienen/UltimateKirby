@@ -440,10 +440,11 @@ pub mod button_bindings {
         Counter,
         AutoSpacingToggle,
         CounterToggle,
+        LModeSwap,
     }
     impl Builtin {
         /// Native helpers retained for loading existing saved configurations.
-        pub const ALL: [Self; 8] = [
+        pub const ALL: [Self; 9] = [
             Self::Normal,
             Self::LedgeAssist,
             Self::TurboTeabag,
@@ -452,12 +453,13 @@ pub mod button_bindings {
             Self::Counter,
             Self::AutoSpacingToggle,
             Self::CounterToggle,
+            Self::LModeSwap,
         ];
         /// Selectable native helpers; other saved helpers remain loadable only.
         pub const MENU: [Self; 4] = [
             Self::Normal,
             Self::LedgeTrump,
-            Self::AutoSpacing,
+            Self::LModeSwap,
             Self::Counter,
         ];
         /// Returns the serialized token for the value.
@@ -471,6 +473,7 @@ pub mod button_bindings {
                 Self::Counter => "counter_hold",
                 Self::AutoSpacingToggle => "auto_spacing_toggle",
                 Self::CounterToggle => "counter_toggle",
+                Self::LModeSwap => "l_mode_swap",
             }
         }
         /// Returns the display label for the value.
@@ -484,6 +487,7 @@ pub mod button_bindings {
                 Self::Counter => "Built-in: Auto-counter (hold)",
                 Self::AutoSpacingToggle => "Built-in: Auto-Spacing & Attack (toggle)",
                 Self::CounterToggle => "Built-in: Counter (toggle)",
+                Self::LModeSwap => "Built-in: L mode swap (ledge / spacing)",
             }
         }
         /// Returns the stable identifier of the selected choice.
@@ -497,20 +501,25 @@ pub mod button_bindings {
                 Self::Counter => "__builtin_counter_hold",
                 Self::AutoSpacingToggle => "__builtin_auto_spacing_toggle",
                 Self::CounterToggle => "__builtin_counter_toggle",
+                Self::LModeSwap => "__builtin_l_mode_swap",
             }
         }
         /// Parses the supplied source into the module’s validated representation.
         pub fn parse(value: &str) -> Option<Self> {
             match value {
                 // Retired saved helpers must not reactivate or invalidate the catalog.
-                "short_hop" | "auto_defense_hold" | "auto_defense_toggle" => Some(Self::Normal),
+                "short_hop"
+                | "auto_defense_hold"
+                | "auto_defense_toggle"
+                | "auto_spacing"
+                | "auto_spacing_toggle" => Some(Self::Normal),
                 _ => Self::ALL.into_iter().find(|b| b.token() == value),
             }
         }
         /// Builds the default the for.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             match slot {
-                crate::fighter_profiles::presets::PresetSlot::L3 => Self::AutoSpacing,
+                crate::fighter_profiles::presets::PresetSlot::DpadUp => Self::LModeSwap,
                 _ => Self::Normal,
             }
         }
@@ -525,6 +534,7 @@ pub mod button_bindings {
                 Self::Counter => 6,
                 Self::AutoSpacingToggle => 7,
                 Self::CounterToggle => 8,
+                Self::LModeSwap => 5,
             }
         }
         /// Returns the selected menu index for a visible button built-in.
@@ -534,7 +544,7 @@ pub mod button_bindings {
                 Self::LedgeTrump => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 1)
                 }
-                Self::AutoSpacing => {
+                Self::LModeSwap => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 2)
                 }
                 Self::Counter => {
@@ -542,6 +552,7 @@ pub mod button_bindings {
                 }
                 Self::LedgeAssist
                 | Self::TurboTeabag
+                | Self::AutoSpacing
                 | Self::AutoSpacingToggle
                 | Self::CounterToggle => None,
             }

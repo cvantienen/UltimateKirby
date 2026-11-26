@@ -365,7 +365,7 @@ fn spacing_forward_tilt_never_exceeds_walk_cap_or_falls_back_to_jab() {
 }
 
 #[test]
-fn lucina_spacing_down_tilt_faces_enemy_and_releases_cstick_between_retries() {
+fn lucina_spacing_down_tilt_faces_enemy_and_uses_configured_main_stick_between_retries() {
     use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
         fighter_kinds::LUCINA, native_states::{situation, status}};
     let cfg = Config { fighter_kind: LUCINA, ground: AttackConfig {
@@ -384,10 +384,10 @@ fn lucina_spacing_down_tilt_faces_enemy_and_releases_cstick_between_retries() {
             let out = spacing.sample_threat(tick, true, cfg,
                 GameplayContext { facing: side, ..c }, target, true);
             assert_eq!(out.attack, tick != 2);
-            assert_eq!(out.right_stick, if out.attack { [side * 0.2, -1.] } else { [0.; 2] });
+            assert_eq!(out.right_stick, [0.; 2]);
             let (buttons, left, right) = mapped_spacing_input(MAPPED_JUMP, out.attack,
                 out.controller.stick.unwrap(), out.right_stick);
-            assert_eq!(left, if out.attack { [side * 0.2, -0.6] } else { [0.; 2] });
+            assert_eq!(left, if out.attack { [0., -0.6] } else { [0.; 2] });
             assert_eq!(right, [0.; 2]);
             assert_eq!(buttons, MAPPED_JUMP | if out.attack { MAPPED_ATTACK_HOLD_BITS } else { 0 });
             if out.attack { spacing.mapped(tick); }

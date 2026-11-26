@@ -75,6 +75,12 @@ pub(super) struct Snapshot {
     pub(super) buttons: bool,
     /// Whether mode-choice rows are part of the layout.
     pub(super) modes: bool,
+    /// Whether the Training category strip has focus.
+    pub(super) training_tab_focus: bool,
+    /// Whether the Training categories have replaced the legacy all-rows view.
+    pub(super) training_categories_active: bool,
+    /// Selected Training category index.
+    pub(super) training_category: u8,
     /// Native fighter kind used to build the rows.
     pub(super) fighter: i32,
     /// Currently selected navigation row.
@@ -83,6 +89,8 @@ pub(super) struct Snapshot {
     pub(super) values: Vec<SavedChoice>,
     /// Optional cached navigation heading.
     pub(super) navigation: Option<CString>,
+    /// Compact lightweight page and R3 navigation cue.
+    pub(super) lightweight_label: Option<CString>,
     /// Cached panel header lines.
     pub(super) header: Vec<CString>,
     /// Cached editor or recipe body lines.
@@ -125,6 +133,7 @@ impl Snapshot {
             && self.damage_sticks == selection.damage_sticks()
             && self.buttons == selection.button_menu
             && self.modes == selection.modes_menu
+            && self.lightweight_label.is_some() == selection.lightweight
             && self.quick == (selection.quick_menu && !selection.tuning_page)
             && self.values.iter().any(|v| v.row == selection.row)
     }
@@ -313,7 +322,11 @@ fn navigation_text(
     selection: &MenuSelection,
     values: &[SavedChoice],
 ) -> String {
-    let list = if selection.button_menu {
+    let list = if selection.training_categories_active
+        && selection.training_category < MenuSelection::TRAINING_CATEGORIES.len() as u8
+    {
+        MenuSelection::TRAINING_CATEGORIES[selection.training_category as usize]
+    } else if selection.button_menu {
         "BUTTON CONFIGS"
     } else {
         "LEDGE TRAPS"
@@ -323,7 +336,14 @@ fn navigation_text(
         format!("{name} / ASSIST RULES")
     } else if selection.tuning_page {
         format!("{name} / FIGHTER SETTINGS")
+    } else if selection.training_categories_active && selection.training_tab_focus {
+        format!("{name}   /   {list}   /   CATEGORY")
     } else if selection.quick_menu {
+        format!("{name}   /   {list}")
+    } else if selection.training_categories_active
+        && !selection.recipe_editing
+        && !selection.managing()
+    {
         format!("{name}   /   {list}")
     } else if selection.modes_menu {
         format!("{name}   /   MODES")
@@ -344,7 +364,7 @@ fn navigation_text(
 fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePanel {
     if selection.lightweight {
         RecipePanel::default()
-    } else if selection.tuning_page {
+    } else if selection.tuning_page || selection.training_tab_focus {
         selection.recipe_panel(&profile.menu_options)
     } else if selection.quick_menu {
         let mut header = Vec::new();
@@ -374,12 +394,29 @@ pub(super) fn build(
     generation: u64,
 ) -> Result<Snapshot, &'static str> {
     let values = build_values(profile, selection, auto_mash)?;
-    // Lightweight has no heading, editor body or controls footer at all.
+    // Match pages use the compact label instead of Training's full card.
     let navigation = if selection.lightweight {
         None
     } else {
-        let text = navigation_text(profile, selection, &values);
+        let text = format!("{}   /   L: {}", navigation_text(profile, selection, &values),
+            if selection.l_spacing_selected() { "SPACING" } else { "LEDGE TRAP" });
         Some(text_cache::copy_text(&text)?.ok_or("Invalid menu heading")?)
+    };
+    let lightweight_label = if selection.lightweight {
+        let page = if selection.modes_menu {
+            "ON/OFF SETTINGS"
+        } else if selection.button_menu {
+            "BUTTON BINDINGS"
+        } else {
+            "LEDGE TRAP"
+        };
+        Some(
+            text_cache::copy_text(&format!("{page}  |  L: {}  |  R3: NEXT PAGE",
+                if selection.l_spacing_selected() { "SPACING" } else { "LEDGE TRAP" }))?
+                .ok_or("Invalid lightweight page label")?,
+        )
+    } else {
+        None
     };
     let panel = recipe_panel(profile, selection);
     // Training keeps every original hint and status without text filtering.
@@ -397,10 +434,14 @@ pub(super) fn build(
         lightweight: selection.lightweight,
         buttons: selection.button_menu,
         modes: selection.modes_menu,
+        training_tab_focus: selection.training_tab_focus,
+        training_categories_active: selection.training_categories_active,
+        training_category: selection.training_category,
         fighter: profile.fighter_kind,
         row: selection.row,
         values,
         navigation,
+        lightweight_label,
         header,
         body,
         footer,

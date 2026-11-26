@@ -1,5 +1,5 @@
-//! The match overlay renders option rows only, with no heading or controls footer.
-//! Technical: Provides the compact renderer for in-match option rows.
+//! Compact match overlay for page context and selectable option rows.
+//! Technical: Provides the bounded renderer for in-match lightweight pages.
 //! Plain English: This module draws the smaller menu shown during a match.
 use super::{color, Snapshot};
 use imgui_api::bindings::*;
@@ -61,6 +61,11 @@ pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
         flags as _,
     ) {
         igPushTextWrapPos(max_width - 16.0 * scale);
+        if let Some(label) = &view.lightweight_label {
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.62, 0.80, 0.88, 1.0));
+            igTextUnformatted(label.as_ptr(), std::ptr::null());
+            igPopStyleColor(1);
+        }
         let focus = view
             .values
             .iter()

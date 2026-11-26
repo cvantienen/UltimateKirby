@@ -23,23 +23,23 @@ pub struct AttackConfig {
     pub active_frames: f32,
     pub reach: f32,
     pub height: f32,
-    /// Earliest estimated return to movement, including recovery.
+    /// Retired saved estimate; native readiness controls repetition.
     pub commitment: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     pub minimum_distance: f32,
-    /// Catalog identity for Lucina's down tilt and forward/back aerial pair.
+    /// Retained configuration identity; move selection is fighter-independent.
     pub fighter_kind: i32,
     pub engagement_range: f32,
     /// Direct horizontal stick cap, also bounded by the native non-dash threshold.
     pub ground_speed: f32,
+    /// Retired automatic-approach controls retained for saved configuration compatibility.
     pub maximum_drift: f32,
     pub minimum_drift: f32,
     pub ground_braking: bool,
     pub air_braking: bool,
-    /// Root-distance zone above minimum spacing in which approach tapers.
     pub braking_distance: f32,
     pub ground: AttackConfig,
     pub aerial: AttackConfig,
@@ -288,13 +288,12 @@ impl Spacing {
             // Ground attack admission assumes the retreat input is released.
             attack_context.velocity[0] = 0.;
         }
-        let selected_attack = if self.pending && self.pending_config == Some(config) {
-            self.pending_attack
-        } else {
-            select_attack(config, c, side)
-        };
+        let selected_attack = if airborne { config.aerial } else { config.ground };
+        let engaged = config.engagement_range > 0. && dx.abs() <= config.engagement_range;
         if self.pending {
-            if self.pending_target != Some(enemy.id)
+            if !engaged
+                || self.pending_config != Some(config)
+                || self.pending_target != Some(enemy.id)
                 || airborne != self.pending_airborne
                 || self.pending_side != side
                 || self.pending_attack != selected_attack
@@ -312,7 +311,7 @@ impl Spacing {
                 }
             }
         }
-        let attack_in_range = attack_valid(selected_attack, airborne)
+        let attack_in_range = engaged && attack_valid(selected_attack, airborne)
             && predicts_hit(selected_attack, attack_context, enemy, side);
         let attack_priority = attack_in_range && !is_attack(c.status)
             && (!airborne || facing_matches(selected_attack.attack, true, c.facing, side));
@@ -383,12 +382,6 @@ impl Spacing {
                         // never competing with the attack-selection packet.
                         out.controller.stick = Some(direction);
                         out.controller.requested = MAPPER_A;
-                    } else if config.fighter_kind == crate::fighter_kinds::LUCINA
-                        && attack.attack == Attack::Down
-                    {
-                        out.controller.stick = Some([side * safe_walk(c).min(0.2), 0.]);
-                        out.right_stick = [side * 0.2, -1.];
-                        out.controller.requested = MAPPER_A;
                     } else {
                         // Select tilts directly with A and a sub-dash main stick.
                         // A raw full-strength C-stick can select a smash or flick
@@ -436,53 +429,39 @@ impl Spacing {
     }
 }
 
-fn catalog_attack(config: Config, airborne: bool, attack: Attack) -> Option<AttackConfig> {
-    let name = match (airborne, attack) {
-        (false, Attack::Down) => "Down Tilt",
-        (true, Attack::Back) => "Back Air",
-        (true, Attack::Forward) => "Forward Air",
-        _ => return None,
-    };
-    let data = crate::fighter_data::named_move(config.fighter_kind, name)?;
-    let active = data.active.first()?;
-    let base = if airborne { config.aerial } else { config.ground };
-    let candidate = AttackConfig {
-        attack,
-        startup: f32::from(active.first),
-        active_frames: f32::from(active.last - active.first + 1),
-        // The catalog has no hitbox geometry. Never invent a wider horizontal sweep.
-        reach: base.reach,
-        height: base.height,
-        commitment: f32::from(data.total?),
-    };
-    attack_valid(candidate, airborne).then_some(candidate)
-}
-
-fn select_attack(config: Config, c: GameplayContext, side: f32) -> AttackConfig {
-    let airborne = c.situation == situation::AIR;
-    let base = if airborne { config.aerial } else { config.ground };
-    if !attack_valid(base, airborne) || config.fighter_kind != crate::fighter_kinds::LUCINA {
-        return base;
-    }
-    let attack = if !airborne {
-        Attack::Down
-    } else if c.facing * side > 0. {
-        Attack::Forward
-    } else {
-        Attack::Back
-    };
-    if base.attack == attack {
-        base
-    } else {
-        catalog_attack(config, airborne, attack).unwrap_or(AttackConfig::default())
-    }
-}
-
 /// Manual action selection must not inherit spacing's movement-only axis caps.
 pub fn manual_action(buttons: u32, right_stick: [f32; 2]) -> bool {
     buttons & (MAPPER_A | crate::native_input::MAPPER_B | crate::native_input::MAPPER_R
         | crate::native_input::MAPPER_ZR | crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS) != 0
         || right_stick.iter().any(|v| v.is_finite() && v.abs() > 0.1)
+}
+
+pub fn manual_action_pending(
+    buttons: u32,
+    right_stick: [f32; 2],
+    pressed: u32,
+    status: i32,
+    motion: u64,
+    frame: f32,
+) -> bool {
+    let started = is_attack(status)
+        && frame.is_finite()
+        && frame > 0.
+        && (status != status::ATTACK_AIR
+            || aerial_started(GameplayContext {
+                status,
+                motion_kind: motion,
+                motion_frame: frame,
+                ..Default::default()
+            }));
+    manual_action(buttons, right_stick)
+        && (!started
+            || manual_action(pressed, [0.; 2])
+            || buttons
+                & (crate::native_input::MAPPER_B
+                    | crate::native_input::MAPPER_R
+                    | crate::native_input::MAPPER_ZR)
+                != 0)
 }
 
 fn valid_context(config: Config, c: GameplayContext) -> bool {
@@ -492,15 +471,15 @@ fn valid_context(config: Config, c: GameplayContext) -> bool {
             || c.can_air_attack
                 && native_states::airborne_damage_input(c.status, c.situation, Some(0.0)))
         && !crate::action_owner::native_grab_active(c.status)
+        && (!(status::CLIFF_CATCH_MOVE..=status::CLIFF_JUMP3).contains(&c.status)
+            || c.can_act || c.can_air_attack)
         && matches!(c.situation, situation::GROUND | situation::AIR)
         && config.minimum_distance.is_finite()
         && config.minimum_distance >= 0.
         && config.engagement_range.is_finite()
         && config.engagement_range >= 0.
-        && config.braking_distance.is_finite()
-        && config.braking_distance >= 0.
-        && [config.ground_speed, config.maximum_drift, config.minimum_drift]
-            .iter().all(|v| v.is_finite() && (0. ..=1.).contains(v))
+        && config.ground_speed.is_finite()
+        && (0. ..=1.).contains(&config.ground_speed)
         && c.position
             .iter()
             .chain(c.velocity.iter())
@@ -534,6 +513,10 @@ fn incoming_retreat(c: GameplayContext, enemy: Opponent, damaging_startup: bool)
         && !matches!(enemy.status, status::ESCAPE..=status::ESCAPE_AIR_SLIDE
             | status::GUARD_ON..=status::GUARD_OFF);
     dx.abs() <= 30. && (damaging_startup || approach)
+}
+
+pub fn shielding(s: i32) -> bool {
+    matches!(s, status::GUARD_ON | status::GUARD | status::GUARD_DAMAGE)
 }
 
 fn valid_target(e: &Opponent) -> bool {
@@ -578,17 +561,16 @@ fn is_attack(s: i32) -> bool {
 fn attack_valid(a: AttackConfig, airborne: bool) -> bool {
     a.attack != Attack::Disabled
         && (airborne || a.attack != Attack::Back)
-        && [a.startup, a.active_frames, a.reach, a.height, a.commitment]
+        && [a.startup, a.active_frames, a.reach, a.height]
             .iter()
             .all(|v| v.is_finite() && *v > 0.)
-        && a.startup <= 120.
-        && a.active_frames <= 120.
-        && a.commitment <= 240.
-        && a.commitment >= a.startup + a.active_frames - 1.
+        && a.startup <= 300.
+        && a.active_frames <= 300.
 }
 
 fn predicts_hit(a: AttackConfig, c: GameplayContext, e: Opponent, side: f32) -> bool {
-    if !e.vulnerable || !c.input_delay.is_finite() || !(0. ..=30.).contains(&c.input_delay) {
+    if !e.vulnerable || shielding(e.status)
+        || !c.input_delay.is_finite() || !(0. ..=30.).contains(&c.input_delay) {
         return false;
     }
     let gap = (e.position[0] - c.position[0]) * side;

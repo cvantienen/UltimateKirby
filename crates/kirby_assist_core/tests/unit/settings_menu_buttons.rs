@@ -278,6 +278,112 @@ fn training_only_editor_gate_keeps_compact_choices_and_closes_existing_editor() 
 }
 
 #[test]
+fn training_category_rows_keep_all_existing_training_options() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.show();
+    assert_eq!(m.display_rows(), &MenuRow::ALL);
+
+    for (category, expected) in [
+        (0, MenuRow::Neutral),
+        (1, MenuRow::XSequence),
+        (2, MenuRow::RollRules),
+        (3, MenuRow::AutoReflect),
+        (4, MenuRow::FighterSettings),
+    ] {
+        m.set_training_category(category);
+        assert_eq!(m.display_rows()[0], expected);
+        if category != 4 {
+            assert!(m.row_visible(m.row));
+        }
+    }
+    assert!(MenuSelection::ASSIST_ROWS
+        .iter()
+        .all(|row| MenuRow::ALL.contains(row)));
+}
+
+#[test]
+fn training_tabs_cycle_all_categories_return_and_block_editor_commands() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.input(0, &p);
+    m.input(MAPPER_MINUS, &p);
+    m.input(0, &p);
+    m.input(DPAD_UP, &p);
+    assert!(m.training_categories_active && m.training_tab_focus);
+    assert!(m.display_rows().is_empty());
+    for category in [1, 2, 3, 4, 0] {
+        m.input(0, &p);
+        m.input(DPAD_RIGHT, &p);
+        assert_eq!(m.training_category, category);
+        assert!(m.training_tab_focus);
+        m.input(DPAD_RIGHT, &p);
+        assert_eq!(m.training_category, category, "held input must not repeat");
+        for button in [MENU_STICK_CLICK, MAPPER_X, MAPPER_Y, MENU_L3] {
+            m.input(0, &p);
+            assert_ne!(m.input(button, &p) & button, 0);
+            assert!(m.training_tab_focus);
+            assert!(!m.recipe_editing && !m.managing() && !m.assist_rule_page());
+            assert!(m.preview_slot.is_none());
+            assert!(!m.save_requested && !m.tuning_save_requested);
+        }
+    }
+    m.input(0, &p);
+    m.input(DPAD_LEFT, &p);
+    assert_eq!(m.training_category, 4);
+    m.input(0, &p);
+    m.input(MAPPER_B, &p);
+    assert!(!m.training_tab_focus && m.tuning_page);
+    m.input(0, &p);
+    m.input(DPAD_UP, &p);
+    assert!(m.training_tab_focus, "fighter settings can return to tabs");
+    m.input(0, &p);
+    m.input(DPAD_RIGHT, &p);
+    m.input(0, &p);
+    m.input(DPAD_DOWN, &p);
+    assert!(!m.training_tab_focus && m.row == MenuRow::Neutral);
+    m.input(0, &p);
+    m.input(DPAD_UP, &p);
+    assert!(m.training_tab_focus, "an active category can refocus tabs");
+    m.input(0, &p);
+    m.input(DPAD_DOWN, &p);
+    m.input(DPAD_DOWN | MAPPER_MINUS, &p);
+    assert!(m.menu_hidden);
+    assert_ne!(
+        m.input(DPAD_DOWN, &p) & DPAD_DOWN,
+        0,
+        "tab navigation stays quarantined until release after closing"
+    );
+}
+
+#[test]
+fn training_category_navigation_uses_visible_rows_and_horizontal_value_edits() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.show();
+    m.input(0, &p);
+    m.set_training_category(0);
+    m.input(DPAD_DOWN, &p);
+    assert_eq!(m.row, MenuRow::Jump);
+    m.set_training_category(3);
+    assert_eq!(m.row, MenuRow::AutoLedge, "Kirby has no reflect option");
+    assert!(!m.row_visible(MenuRow::AutoReflect));
+    assert!(!m.row_visible(MenuRow::XSequence));
+    let enabled = m.auto_ledge;
+    m.input(0, &p);
+    m.input(DPAD_RIGHT, &p);
+    assert_eq!(m.auto_ledge, !enabled);
+    m.input(0, &p);
+    m.input(DPAD_DOWN, &p);
+    assert_eq!(m.row, MenuRow::AutoTech);
+    m.set_training_category(2);
+    assert!(!m.row_visible(MenuRow::AutoTech));
+    m.input(0, &p);
+    m.input(MENU_STICK_CLICK, &p);
+    assert!(m.assist_rule_page(), "reaction editing remains accessible");
+}
+
+#[test]
 fn lightweight_has_five_ledge_rows_and_separate_buttons_assists_without_editor_or_preview() {
     let p = configured();
     let mut m = MenuSelection::new(&p);
@@ -293,15 +399,23 @@ fn lightweight_has_five_ledge_rows_and_separate_buttons_assists_without_editor_o
     assert!(m.preview_slot.is_none() && m.editor.is_none());
     m.input_with_editing(0, &p, false);
     m.input_with_editing(MENU_STICK_CLICK, &p, false);
-    assert!(m.button_menu && !m.recipe_editing && m.editor.is_none());
-    assert!(m.row_visible(MenuRow::XSequence) && m.row_visible(MenuRow::AutoTech));
-    assert!(!m.row_visible(MenuRow::Neutral));
+    assert!(m.button_menu && !m.modes_menu && !m.recipe_editing && m.editor.is_none());
+    assert!(m.row_visible(MenuRow::XSequence));
+    assert!(!m.row_visible(MenuRow::AutoTech) && !m.row_visible(MenuRow::Neutral));
+    m.input_with_editing(0, &p, false);
+    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    assert!(m.modes_menu && !m.button_menu);
+    assert!(m.row_visible(MenuRow::AutoTech) && !m.row_visible(MenuRow::XSequence));
+    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    assert!(m.modes_menu, "a held R3 press cannot cycle repeatedly");
     m.row = MenuRow::AutoTech;
     let enabled = m.auto_tech;
     m.input_with_editing(0, &p, false);
     m.input_with_editing(MAPPER_L | DPAD_RIGHT, &p, false);
     assert_eq!(m.auto_tech, !enabled);
     m.input_with_editing(0, &p, false);
+    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    assert!(!m.button_menu && !m.modes_menu && m.row == MenuRow::Neutral);
     m.input_with_editing(MAPPER_Y | MAPPER_A | MAPPER_B, &p, false);
     assert!(!m.save_requested && !m.default_requested && !m.managing());
     m.input_with_editing(0, &p, false);
@@ -582,6 +696,9 @@ fn match_assist_switches_toggle_exactly_one_mode_once_per_press() {
     m.input_with_editing(0, &p, false);
     m.input_with_editing(0, &p, false);
     m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(0, &p, false);
+    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    assert!(m.modes_menu);
     for (index, row) in rows.into_iter().enumerate() {
         assert!(m.row_visible(row));
         m.row = row;
@@ -683,7 +800,7 @@ fn match_optional_fighter_modes_and_diagnostic_controls_update_their_real_values
     let p = configured();
     let mut m = MenuSelection::new(&p);
     m.input_with_editing(0, &p, false);
-    m.open_page(MenuRow::ButtonsPage);
+    m.open_page(MenuRow::ModesPage);
     for (kind, row) in [
         (6, MenuRow::IdleCrouch),
         (6, MenuRow::TiltTurn),

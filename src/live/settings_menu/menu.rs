@@ -492,6 +492,35 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
         card_text(navigation);
     }
     igPopStyleColor(1);
+    if !view.lightweight && view.training_categories_active {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.64, 0.72, 0.81, 1.0));
+        for (index, category) in
+            kirby_assist_core::settings_menu::MenuSelection::TRAINING_CATEGORIES
+                .iter()
+                .enumerate()
+        {
+            if index > 0 {
+                igSameLine(0.0, 7.0 * scale);
+            }
+            let selected = index == view.training_category as usize;
+            igPushStyleColor_Vec4(
+                ImGuiCol_Text as _,
+                if selected {
+                    accent()
+                } else {
+                    color(0.64, 0.72, 0.81, 1.0)
+                },
+            );
+            card_text(&CString::new(*category).expect("static category label"));
+            igPopStyleColor(1);
+        }
+        igPopStyleColor(1);
+        if view.training_tab_focus {
+            card_text(c"Left/Right: change category | B: return to options");
+        } else {
+            card_text(c"Up/Down: options | Up from first option: tabs | Left/Right: change value");
+        }
+    }
     igSeparator();
     if super::save::busy() {
         card_text(c"Saving now; keep Smash open until complete");

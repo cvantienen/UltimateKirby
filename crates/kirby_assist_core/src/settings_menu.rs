@@ -2,7 +2,7 @@
 //!
 //! Minus opens ledge home or closes the current page. Actual Training scenes
 //! permit editing/testing and explicit save requests; other battle scenes use
-//! a two-page selector without editor or persistence controls. Navigation returns
+//! a three-page selector without editor or persistence controls. Navigation returns
 //! a consumed-button mask so menu commands do not leak into gameplay.
 //!
 //! A selection, edit or mode toggle is session state, not an automatic disk
@@ -360,10 +360,9 @@ pub struct MenuSelection {
     turbo_sources: u32,
     /// Runtime trump sources value used by MenuSelection..
     trump_sources: u32,
-    /// Physical sources assigned to hold-only spacing and attack assistance.
-    spacing_sources: u32,
-    spacing_toggle_sources: u32,
-    spacing_toggled: bool,
+    l_swap_sources: u32,
+    /// False selects ledge trap; true selects spacing for the physical L hold.
+    l_spacing_selected: bool,
     counter_sources: u32,
     counter_toggle_sources: u32,
     counter_toggled: bool,
@@ -426,7 +425,7 @@ pub struct MenuSelection {
     pub delete_requested: bool,
     /// Runtime default requested value used by MenuSelection..
     pub default_requested: bool,
-    /// Match-only two-page selector; Training retains the full editor.
+    /// Match-only three-page selector; Training retains the full editor.
     pub lightweight: bool,
     /// Runtime lightweight initialized value used by MenuSelection..
     lightweight_initialized: bool,
@@ -446,6 +445,10 @@ pub struct MenuSelection {
     pub quick_menu: bool,
     /// Third page groups existing non-sequence modes and toggles.
     pub modes_menu: bool,
+    /// Selected Training category: ledge, buttons, reactions, assists, or fighter.
+    pub training_category: u8,
+    /// Category layout is explicitly active; legacy menu routes remain distinct.
+    pub training_categories_active: bool,
     /// Runtime button menu value used by MenuSelection..
     pub button_menu: bool,
     /// Runtime auto ledge value used by MenuSelection..
@@ -460,6 +463,8 @@ pub struct MenuSelection {
     pub tuning_row: usize,
     /// Runtime tuning save requested value used by MenuSelection..
     pub tuning_save_requested: bool,
+    /// Training category tabs have focus instead of the selected page.
+    pub training_tab_focus: bool,
 
     /// Runtime out of shield value used by MenuSelection..
     pub out_of_shield: bool,
@@ -570,6 +575,53 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
+    /// Rows shown in Training's ledge category.
+    pub const TRAINING_LEDGE_ROWS: [MenuRow; 5] = [
+        MenuRow::Neutral,
+        MenuRow::Jump,
+        MenuRow::Roll,
+        MenuRow::Attack,
+        MenuRow::Drop,
+    ];
+    /// Rows shown in Training's button category.
+    pub const TRAINING_BUTTON_ROWS: [MenuRow; 8] = [
+        MenuRow::XSequence,
+        MenuRow::YSequence,
+        MenuRow::DpadUp,
+        MenuRow::DpadDown,
+        MenuRow::DpadLeft,
+        MenuRow::DpadRight,
+        MenuRow::L3Sequence,
+        MenuRow::R3Sequence,
+    ];
+    /// Rows shown in Training's reaction category.
+    pub const REACTION_ROWS: [MenuRow; 6] = [
+        MenuRow::RollRules,
+        MenuRow::ShieldPressure,
+        MenuRow::SpotPunish,
+        MenuRow::OutOfShield,
+        MenuRow::GrabDodge,
+        MenuRow::AutoCounter,
+    ];
+    /// Rows shown in Training's assist-toggle and advanced category.
+    pub const TOGGLE_ROWS: [MenuRow; 11] = [
+        MenuRow::AutoReflect,
+        MenuRow::AutoLedge,
+        MenuRow::AutoTech,
+        MenuRow::AutoDi,
+        MenuRow::AutoSdi,
+        MenuRow::AutoMash,
+        MenuRow::TiltTurn,
+        MenuRow::IdleCrouch,
+        MenuRow::RollRead,
+        MenuRow::Performance,
+        MenuRow::TestLatency,
+    ];
+    /// Category names shown by the Training menu's tab strip.
+    pub const TRAINING_CATEGORIES: [&'static str; 5] =
+        ["LEDGE", "BUTTONS", "REACTIONS", "ASSISTS", "FIGHTER"];
+    /// Numeric settings available on the final Training category.
+    pub const FIGHTER_ROWS: [MenuRow; 1] = [MenuRow::FighterSettings];
     /// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
     pub const ASSIST_ROWS: [MenuRow; 21] = [
         MenuRow::RollRules,
@@ -594,21 +646,6 @@ impl MenuSelection {
         MenuRow::FighterSettings,
         MenuRow::ModesPage,
     ];
-    /// The button recipes followed by the assist rows.
-    const LIGHTWEIGHT_ROWS: [MenuRow; PresetSlot::BUTTONS.len() + Self::ASSIST_ROWS.len()] = {
-        let mut rows = [MenuRow::Neutral; PresetSlot::BUTTONS.len() + Self::ASSIST_ROWS.len()];
-        let mut i = 0;
-        while i < PresetSlot::BUTTONS.len() {
-            rows[i] = Self::BUTTON_ROWS[i];
-            i += 1;
-        }
-        i = 0;
-        while i < Self::ASSIST_ROWS.len() {
-            rows[PresetSlot::BUTTONS.len() + i] = Self::ASSIST_ROWS[i];
-            i += 1;
-        }
-        rows
-    };
     // The fixed ledge modifier owns lightweight navigation. Custom D-pad
     // bindings (including a D-pad assigned to ledge assist) remain gameplay.
     /// Processes navigation input for the lightweight settings view.
@@ -629,13 +666,67 @@ impl MenuSelection {
     }
     /// Builds the rows visible in the current settings page.
     pub fn display_rows(&self) -> &'static [MenuRow] {
-        if self.modes_menu {
-            &Self::ASSIST_ROWS
-        } else if self.lightweight && self.button_menu {
-            &Self::LIGHTWEIGHT_ROWS
-        } else {
+        if self.lightweight {
+            if self.modes_menu {
+                &Self::ASSIST_ROWS
+            } else if self.button_menu {
+                &Self::BUTTON_ROWS
+            } else {
+                &Self::LEDGE_ROWS
+            }
+        } else if self.training_categories_active && self.training_tab_focus {
+            &[]
+        } else if self.training_categories_active && self.training_category == 4 && self.tuning_page
+        {
+            &Self::FIGHTER_ROWS
+        } else if !self.training_categories_active || self.training_category == u8::MAX {
+            if self.modes_menu {
+                &Self::ASSIST_ROWS
+            } else {
+                &MenuRow::ALL
+            }
+        } else if self.tuning_page {
+            &Self::FIGHTER_ROWS
+        } else if self.managing() || self.recipe_editing {
             &MenuRow::ALL
+        } else {
+            match self.training_category {
+                1 => &Self::TRAINING_BUTTON_ROWS,
+                2 => &Self::REACTION_ROWS,
+                3 => &Self::TOGGLE_ROWS,
+                _ => &Self::TRAINING_LEDGE_ROWS,
+            }
         }
+    }
+    /// Selects one of Training's five navigation categories.
+    pub fn set_training_category(&mut self, category: u8) {
+        self.training_categories_active = true;
+        self.training_category = category % Self::TRAINING_CATEGORIES.len() as u8;
+        self.button_menu = self.training_category == 1;
+        self.modes_menu = self.training_category == 2 || self.training_category == 3;
+        self.quick_menu = false;
+        self.recipe_editing = false;
+        self.tuning_page = self.training_category == 4;
+        self.training_tab_focus = false;
+        self.hold.reset();
+        self.row = match self.training_category {
+            1 => MenuRow::XSequence,
+            2 => MenuRow::RollRules,
+            3 => MenuRow::AutoReflect,
+            4 => MenuRow::FighterSettings,
+            _ => MenuRow::Neutral,
+        };
+        if self.tuning_page {
+            self.tuning_row = self.tuning_visible_index(0);
+        } else if let Some(row) = self
+            .display_rows()
+            .iter()
+            .copied()
+            .find(|row| self.row_visible(*row))
+        {
+            self.row = row;
+        }
+        self.changed();
     }
     /// Returns the row range belonging to the requested page.
     fn page_rows(&self) -> &'static [MenuRow] {
@@ -663,7 +754,10 @@ impl MenuSelection {
         self.recipe_editing = self.tuning_page;
         self.modes_menu = row == MenuRow::ModesPage;
         self.button_menu = row == MenuRow::ButtonsPage;
-        self.quick_menu = !self.modes_menu;
+        self.training_category = u8::MAX;
+        self.training_categories_active = false;
+        self.training_tab_focus = false;
+        self.quick_menu = !self.modes_menu || self.lightweight;
         self.row = match row {
             MenuRow::ButtonsPage => MenuRow::XSequence,
             MenuRow::ModesPage => MenuRow::RollRules,
@@ -679,8 +773,11 @@ impl MenuSelection {
     }
     /// Checks whether the row is visible in the current viewport.
     pub fn row_visible(&self, row: MenuRow) -> bool {
-        if self.tuning_page {
+        if self.tuning_page || self.training_tab_focus {
             return false;
+        }
+        if self.training_categories_active && !self.managing() && !self.recipe_editing {
+            return self.display_rows().contains(&row) && self.row_available(row);
         }
         if Self::page_link(row) {
             return !self.lightweight && self.page_link_visible(row);
@@ -701,7 +798,7 @@ impl MenuSelection {
     fn row_on_page(&self, row: MenuRow) -> bool {
         let slot = row.slot();
         if self.lightweight && self.button_menu {
-            slot.is_none_or(|s| s.is_button())
+            slot.is_some_and(|s| s.is_button())
         } else if self.modes_menu {
             slot.is_none()
         } else {
@@ -746,6 +843,7 @@ impl MenuSelection {
             grab_dodge: true,
             out_of_shield: true,
             menu_hidden: true,
+            training_category: u8::MAX,
             ..Self::default()
         }
     }
@@ -982,7 +1080,8 @@ impl MenuSelection {
 
     /// Resets the inputs.
     pub fn reset_inputs(&mut self) {
-        self.spacing_toggled = false;
+        self.l_spacing_selected = false;
+        self.binding_roles_stamp = None;
         self.counter_toggled = false;
         self.restore_mode_choices();
         self.tuning_page = false;
@@ -1059,6 +1158,9 @@ impl MenuSelection {
     }
     /// Builds the requested display representation.
     pub fn show(&mut self) {
+        self.training_category = u8::MAX;
+        self.training_categories_active = false;
+        self.training_tab_focus = false;
         self.tuning_page = false;
         self.menu_hidden = false;
         self.quick_menu = false;
@@ -1071,12 +1173,17 @@ impl MenuSelection {
     /// Builds the display for the available assistance modes.
     pub fn show_modes(&mut self) {
         self.show();
+        self.training_category = u8::MAX;
+        self.training_categories_active = false;
         self.modes_menu = true;
         self.recipe_editing = false;
         self.row = MenuRow::RollRules;
     }
     /// Builds the quick-settings display.
     pub fn show_quick(&mut self) {
+        self.training_category = u8::MAX;
+        self.training_categories_active = false;
+        self.training_tab_focus = false;
         if self.mode_editor_origin.is_some() && !self.mode_rule_list {
             self.recipe_editing = false;
             self.mode_rule_list = true;
@@ -1101,6 +1208,7 @@ impl MenuSelection {
         self.menu_hidden = false;
         self.quick_menu = true;
         self.modes_menu = false;
+        self.training_tab_focus = false;
         self.recipe_editing = false;
         if !Self::QUICK_ROWS.contains(&self.row) {
             self.row = MenuRow::Neutral;
@@ -1110,6 +1218,9 @@ impl MenuSelection {
     /// Resolve the new battle's visibility on its first scene-aware input.
     /// Lightweight starts visible; Training starts hidden.
     pub fn begin_match(&mut self) {
+        self.training_category = u8::MAX;
+        self.training_categories_active = false;
+        self.training_tab_focus = false;
         self.menu_hidden = true;
         self.match_visibility_pending = true;
         self.button_menu = false;

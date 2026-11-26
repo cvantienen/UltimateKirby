@@ -26,7 +26,10 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
         6,
     );
     m.menu_hidden = true;
-    for (slot, mode_index) in [(PresetSlot::Y, 0), (PresetSlot::X, 1)] {
+    m.input(0, &p);
+    m.input(MAPPER_Y, &p);
+    assert!(!m.auto_spacing_held(), "retired saved toggles must not reactivate spacing");
+    for (slot, mode_index) in [(PresetSlot::X, 1)] {
         m.input(0, &p);
         let button = slot.button();
         m.input(button, &p);
@@ -43,25 +46,32 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
     m.menu_hidden = true;
     let slot = PresetSlot::Y;
     m.choices[slot as usize] =
-        p.list(slot).options.len() + Builtin::AutoSpacing.visible_template_offset().unwrap();
+        p.list(slot).options.len() + Builtin::LModeSwap.visible_template_offset().unwrap();
     m.input(0, &p);
     m.input(slot.button(), &p);
+    assert!(!m.auto_spacing_held());
+    m.input(MAPPER_L, &p);
     assert!(m.auto_spacing_held());
     m.input(0, &p);
     assert!(!m.auto_spacing_held());
 }
 
 #[test]
-fn l3_defaults_to_spacing_and_down_passes_through_without_starting_a_recipe() {
+fn l3_defaults_to_normal_and_up_swaps_l_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
     let index = m.choices[PresetSlot::L3 as usize];
     assert_eq!(
         m.choice(&p, PresetSlot::L3, index).unwrap().id,
-        Builtin::AutoSpacing.choice_id()
+        Builtin::Normal.choice_id()
     );
+    m.menu_hidden = true;
     m.input(0, &p);
-    assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
+    assert_eq!(m.input(MENU_L3, &p) & MENU_L3, 0);
+    assert!(!m.auto_spacing_held());
+    m.input(0, &p);
+    assert_ne!(m.input(DPAD_UP, &p) & DPAD_UP, 0);
+    m.input(MAPPER_L, &p);
     assert!(m.auto_spacing_held());
     assert_eq!(
         m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER,
@@ -125,7 +135,7 @@ fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper(
                     "menu_custom",
                     "universal_b_reverse",
                     Builtin::LedgeTrump.choice_id(),
-                    Builtin::AutoSpacing.choice_id(),
+                    Builtin::LModeSwap.choice_id(),
                     Builtin::Counter.choice_id(),
                 ]
             );
@@ -416,7 +426,7 @@ fn yoshi_oos_is_only_an_on_off_mode() {
     assert!(m.out_of_shield);
     assert_eq!(
         p.list(PresetSlot::DpadUp).selected,
-        p.list(PresetSlot::DpadUp).options.len()
+        PresetSlot::DpadUp.default_index(p.list(PresetSlot::DpadUp).options.len())
     );
 }
 
@@ -500,7 +510,7 @@ fn removing_a_reaction_binding_clears_its_toggle_and_restores_normal_x_passthrou
 #[test]
 fn obsolete_defense_builtins_reload_as_normal_and_do_not_consume_the_button() {
     use crate::button_bindings::Builtin;
-    for token in ["auto_defense_hold", "auto_defense_toggle"] {
+    for token in ["auto_defense_hold", "auto_defense_toggle", "auto_spacing", "auto_spacing_toggle"] {
         let text = format!("[kirby.y.retired]\nbuiltin={token}\ndefault=true\n");
         let catalog = Catalog::parse(&text).unwrap();
         assert_eq!(catalog.entries()[0].sequence.builtin, Some(Builtin::Normal));

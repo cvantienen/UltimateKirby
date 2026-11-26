@@ -55,6 +55,10 @@ impl MenuSelection {
         presets: &MenuPresets,
         allow_editing: bool,
     ) -> u32 {
+        if self.rule_binding_stamp != Some(self.recipe_revision) {
+            self.refresh_rule_bindings(presets, buttons);
+            self.rule_binding_stamp = Some(self.recipe_revision);
+        }
         self.capture_binding_input(buttons, presets);
         let native = self.native_buttons(buttons);
         let ledge_input = native & MAPPER_L != 0;
@@ -82,6 +86,9 @@ impl MenuSelection {
         if let Some(mask) = self.lightweight_page_switch(&s) {
             return mask;
         }
+        if let Some(mask) = self.training_category_input(&s) {
+            return mask;
+        }
         if let Some(mask) = self.mode_shortcuts(presets, &s) {
             return mask;
         }
@@ -102,7 +109,7 @@ impl MenuSelection {
             (!s.editing || self.lightweight && !s.light_navigation) && !s.toggled,
             s.quarantined,
         );
-        if s.editing && self.quick_menu {
+        if s.editing && (self.quick_menu || self.lightweight && self.modes_menu) {
             return if self.lightweight {
                 self.lightweight_page_input(presets, &s, bound)
             } else {
@@ -226,6 +233,7 @@ impl MenuSelection {
             return;
         }
         self.restore_mode_choices();
+        self.training_tab_focus = false;
         self.menu_hidden = true;
         self.tuning_page = false;
         self.recipe_editing = false;
@@ -238,7 +246,7 @@ impl MenuSelection {
             self.changed();
         }
     }
-    /// Lightweight R3 switches only between ledge and buttons/assists.
+    /// Lightweight R3 cycles ledge, button bindings, and assist settings.
     /// It never allocates an editor or opens list-management tools.
     fn lightweight_page_switch(&mut self, s: &Sample) -> Option<u32> {
         if !(self.lightweight
@@ -249,10 +257,11 @@ impl MenuSelection {
         {
             return None;
         }
-        self.open_page(if self.button_menu {
-            MenuRow::LedgePage
-        } else {
-            MenuRow::ButtonsPage
+        self.open_page(match (self.button_menu, self.modes_menu) {
+            (true, false) => MenuRow::ModesPage,
+            (false, true) => MenuRow::LedgePage,
+            (false, false) => MenuRow::ButtonsPage,
+            (true, true) => unreachable!("menu pages are mutually exclusive"),
         });
         self.pad_quarantine |= s.buttons & bindings::BUTTON_MASK;
         Some(s.consume(MAPPER_L | (self.pad_quarantine & MAPPER_DPAD_BUTTONS)))
@@ -289,6 +298,9 @@ impl MenuSelection {
     /// A, R3 or a side press on a page link opens that page.
     fn page_shortcuts(&mut self, s: &Sample) -> Option<u32> {
         if !s.editing || s.toggled || self.tuning_page {
+            return None;
+        }
+        if self.training_categories_active && Self::page_link(self.row) {
             return None;
         }
         if Self::page_link(self.row) {
@@ -607,6 +619,70 @@ impl MenuSelection {
         s.consume(MAPPER_L | MAPPER_Y | MAPPER_X | EDITOR_BUTTONS)
     }
 
+    fn training_category_input(&mut self, s: &Sample) -> Option<u32> {
+        if !s.editing
+            || !s.allow_editing
+            || s.toggled
+            || self.lightweight
+            || self.managing()
+            || self.recipe_editing && !self.tuning_page
+            || self.mode_rule_list
+            || self.mode_editor_origin.is_some()
+        {
+            return None;
+        }
+        if self.training_tab_focus {
+            if s.pad_pressed() && s.pad & DPAD_SIDES != 0 {
+                let next = cycle(
+                    self.training_category as usize,
+                    Self::TRAINING_CATEGORIES.len(),
+                    s.pad == DPAD_RIGHT,
+                );
+                self.set_training_category(next as u8);
+                self.training_tab_focus = true;
+            } else if s.pressed & MAPPER_B != 0
+                || s.pad_pressed() && s.pad & (DPAD_UP | DPAD_DOWN) != 0
+            {
+                self.training_tab_focus = false;
+                self.view_changed();
+            }
+            self.pad_quarantine |= s.pad | (s.buttons & (EDITOR_OWNED_BUTTONS | MENU_L3));
+            return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS | MENU_L3));
+        }
+        if !s.pad_pressed() || s.pad != DPAD_UP {
+            return None;
+        }
+        let first = if self.tuning_page {
+            self.tuning_row == self.tuning_visible_index(0)
+        } else {
+            self.display_rows()
+                .iter()
+                .copied()
+                .find(|row| self.row_visible(*row))
+                == Some(self.row)
+        };
+        if !first {
+            return None;
+        }
+        if !self.training_categories_active {
+            let category = if self.tuning_page {
+                4
+            } else if self.button_menu {
+                1
+            } else if self.modes_menu {
+                2
+            } else {
+                0
+            };
+            self.set_training_category(category);
+        }
+        self.training_tab_focus = true;
+        self.pad_quarantine |= s.pad;
+        self.hold.reset();
+        self.changed();
+        Some(s.consume(MAPPER_L))
+    }
+
     /// Full-page controls: R3 editor toggle, direction navigation, test and save.
     fn page_input(&mut self, presets: &MenuPresets, s: &Sample, bound: u32) -> u32 {
         if s.toggled || s.pressed & MENU_STICK_CLICK != 0 {
@@ -709,7 +785,12 @@ impl MenuSelection {
     fn page_direction(&mut self, presets: &MenuPresets, s: &Sample) {
         let vertical = s.pad & (DPAD_UP | DPAD_DOWN) != 0;
         let positive = s.pad & (DPAD_DOWN | DPAD_RIGHT) != 0;
-        if vertical == self.modes_menu {
+        let navigation = if self.training_categories_active {
+            vertical
+        } else {
+            vertical == self.modes_menu
+        };
+        if navigation {
             self.navigate_row(positive);
         } else if let Some(slot) = self.row.slot() {
             self.choices[slot as usize] = self.cycle_choice(presets, slot, positive);

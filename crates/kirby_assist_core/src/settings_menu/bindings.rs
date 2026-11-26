@@ -37,16 +37,16 @@ impl MenuSelection {
     pub fn ledge_trump_held(&self) -> bool {
         self.native_hold_active(self.trump_sources)
     }
-    /// Active while an assigned spacing button is held or toggled on.
+    /// The selected L mode runs only during a physical L hold in gameplay.
     pub fn auto_spacing_held(&self) -> bool {
-        self.defensive_owner().is_none()
-            && self.binding_physical & self.ledge_assist_sources == 0
-            && (self.native_hold_active(self.spacing_sources)
-                || self.toggle_active(self.spacing_toggle_sources, self.spacing_toggled))
+        self.l_spacing_selected && self.native_hold_active(MAPPER_L)
+    }
+    pub fn l_spacing_selected(&self) -> bool {
+        self.l_spacing_selected
     }
     pub fn defensive_owner(&self) -> Option<crate::action_owner::Owner> {
-        if self.native_hold_active(self.counter_sources)
-            || self.toggle_active(self.counter_toggle_sources, self.counter_toggled)
+        if !self.auto_spacing_held() && (self.native_hold_active(self.counter_sources)
+            || self.toggle_active(self.counter_toggle_sources, self.counter_toggled))
         {
             Some(crate::action_owner::Owner::Counter)
         } else {
@@ -68,7 +68,7 @@ impl MenuSelection {
     fn native_hold_active(&self, sources: u32) -> bool {
         !self.cancel_pending
             && (!self.binding_starts_blocked
-                || sources & (self.counter_sources | self.spacing_sources) != 0)
+                || sources & (self.counter_sources | MAPPER_L) != 0)
             && self.menu_hidden
             && !self.recipe_editing
             && !self.managing()
@@ -103,6 +103,7 @@ impl MenuSelection {
         }
         self.toggle_rule_buttons(buttons, pressed, available, quarantined);
         self.toggle_builtin_bindings(available, quarantined);
+        self.refresh_native_bindings(p);
         let sequences = self.start_bound_sequences(p, available, quarantined, exclusive);
         if !available {
             self.binding_ready &= !(physical & BUTTON_MASK);
@@ -113,7 +114,7 @@ impl MenuSelection {
     fn toggle_builtin_bindings(&mut self, available: bool, quarantined: u32) {
         let source = self.binding_physical;
         let source_pressed = self.binding_pressed;
-        let spacing_sources = self.spacing_toggle_sources;
+        let swap_sources = self.l_swap_sources;
         let counter_sources = self.counter_toggle_sources;
         let eligible = available
             && !self.binding_starts_blocked
@@ -127,8 +128,17 @@ impl MenuSelection {
         let clean_toggle_press = |sources: u32| {
             eligible && sources & source_pressed != 0 && sources & source & !quarantined != 0
         };
-        if clean_toggle_press(spacing_sources) {
-            self.spacing_toggled = !self.spacing_toggled;
+        let swap_eligible = available && !self.cancel_pending && self.menu_hidden
+            && !self.recipe_editing && !self.managing() && !self.tuning_page
+            && source & (MAPPER_MINUS | MAPPER_PLUS) == 0
+            && (source & BUTTON_MASK).count_ones() == 1;
+        if swap_eligible && swap_sources & source_pressed & source
+            & !self.binding_layout.physical_buttons(quarantined) != 0 {
+            self.content_changed();
+            self.preview_slot = None;
+            self.held_binding = None;
+            self.l_spacing_selected = !self.l_spacing_selected;
+            self.binding_roles_stamp = None;
         }
         if clean_toggle_press(counter_sources) {
             self.counter_toggled = !self.counter_toggled;
@@ -180,7 +190,7 @@ impl MenuSelection {
         let can_start = available
             && !self.binding_starts_blocked
             && physical & (MAPPER_MINUS | MAPPER_PLUS) == 0
-            && physical & (self.spacing_sources | self.counter_sources) == 0
+            && (self.auto_spacing_held() || physical & self.counter_sources == 0)
             && physical & self.ledge_assist_sources == 0
             && (physical & exclusive).count_ones() == 1;
         let mut bound = 0;
@@ -296,7 +306,7 @@ impl MenuSelection {
             };
             self.button_latch |= layout.binding_ownership(
                 physical & BUTTON_MASK & !continuing_hop
-                    & !(self.counter_sources | self.spacing_sources),
+                    & !self.counter_sources,
             );
         }
         if self.binding_safety_jump {
@@ -324,17 +334,15 @@ impl MenuSelection {
         self.ledge_assist_sources = 0;
         self.turbo_sources = 0;
         self.trump_sources = 0;
-        self.spacing_sources = 0;
-        self.spacing_toggle_sources = 0;
+        self.l_swap_sources = 0;
         self.counter_sources = 0;
         self.counter_toggle_sources = 0;
         self.builtin_consumed = 0;
         self.binding_sources = 0;
         self.single_jump_sources = 0;
-        // Fixed legacy L assistance is not a customizable binding or latch.
-        if layout == ControlLayout::Default {
+        self.builtin_consumed = layout.binding_ownership(MAPPER_L);
+        if !self.l_spacing_selected {
             self.ledge_assist_sources = MAPPER_L;
-            self.builtin_consumed = MAPPER_L;
         }
         for slot in PresetSlot::BUTTONS {
             let button = slot.button();
@@ -349,9 +357,9 @@ impl MenuSelection {
                 Some(Builtin::LedgeAssist) => &mut self.ledge_assist_sources,
                 Some(Builtin::TurboTeabag) => &mut self.turbo_sources,
                 Some(Builtin::LedgeTrump) => &mut self.trump_sources,
-                Some(Builtin::AutoSpacing) => &mut self.spacing_sources,
+                Some(Builtin::AutoSpacing | Builtin::AutoSpacingToggle) => continue,
+                Some(Builtin::LModeSwap) => &mut self.l_swap_sources,
                 Some(Builtin::Counter) => &mut self.counter_sources,
-                Some(Builtin::AutoSpacingToggle) => &mut self.spacing_toggle_sources,
                 Some(Builtin::CounterToggle) => &mut self.counter_toggle_sources,
                 None => {
                     self.binding_sources |= button;
@@ -380,7 +388,10 @@ impl MenuSelection {
             & !(MAPPER_X
                 | MAPPER_L
                 | TURBO_TRIGGER
-                | self.binding_layout.binding_ownership(self.binding_sources));
+                | self.binding_layout.binding_ownership(self.binding_sources | MAPPER_L));
+        if self.binding_layout == ControlLayout::Brother {
+            result |= self.binding_physical & MAPPER_B;
+        }
         result |= buttons & self.rule_button_mask;
         if self.recipe_editing || self.managing() || self.tuning_page {
             return result;
@@ -412,6 +423,9 @@ impl MenuSelection {
             (MAPPER_L, self.ledge_assist_sources, reserved),
             (TURBO_TRIGGER, self.turbo_sources, reserved | latched),
         ] {
+            if dest == MAPPER_L && self.l_spacing_selected {
+                continue;
+            }
             if self.binding_physical & sources & !blocked != 0 {
                 result |= dest;
             }
