@@ -125,7 +125,11 @@ impl MenuSelection {
             } else {
                 "OFF".into()
             }
-        } else if i == 0 || i == 7 {
+        } else if i == 0
+            || i == 7
+            || i == fighter_tuning::AUTO_SPACING_GROUND_RETREAT_STICK
+            || i == fighter_tuning::AUTO_SPACING_AIR_RETREAT_STICK
+        {
             format!("{:.0}%", value * 100.0)
         } else if Tuning::frames(i) {
             format!("{value:.1} frames")

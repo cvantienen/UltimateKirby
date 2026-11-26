@@ -1,0 +1,37 @@
+
+
+go trhough and ensure the daignostic mode emapsses all 
+auto modes and assisted functionalitys and is doing so preopley
+to be able to ensure im able to test and see all functionality for all diagnostic build features and logs are working propley. also ensure all features and automates are handleed aand logged propely to help fux and correct any features and correct issues with preogram.
+
+remove the Lan editor menu feture we added recently from the silet build and have it only on the diagnostic build. Go through ensure full functionality between the lan editor menu and diagnostic build to ensure working fully and optimal in workbench. there should be a switch in the training room editor to activate this, and not just go into training room with it on.  
+
+Also ensure the lan editor is very simple communications and updates when using it. it should essentailly just be sending and http request over local network when edits are made on workbench.py, and save them to the sd card. it should then just relaod saved configureation from fighter from sd card after saving saftly the updated changes. so it should just be simple http request sent over ocal network to switch and recieves updates sequence file on sd and saves and relaods and the only communications between witch and computer are.
+
+Then for the diagnostic version i want to go through and change on how the logs are returned and get rid of the ingame Hud that diaplays the logs and instead saftly send these logs over simple http request on local network to be viewed on the workbench.py. so the worknench.py recives all live log updsated directly adn i can view them live essnetally from the workbench and have nice interfqace to view logs that. held explain what each ones does and how i can use to help fix and correct stuff.  and ensure this is done saftley. 
+
+this is how saves should always work even when ever done directly in training edoitor menu, it should saftly go in and change the configuration in the txt file in sd card, and relaod confiurations after saving. ensure in gmame trraining mdoe editor saves work like this across all saves saftly and they are not getting cached or casuing issues with saving. this is more fool proof save implementation. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

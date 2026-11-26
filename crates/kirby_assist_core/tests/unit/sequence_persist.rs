@@ -455,3 +455,12 @@ fn every_action_variant_and_direction_roundtrips_through_writer_and_parser() {
     );
     assert!(action(Action::Empty).is_err());
 }
+
+#[test]
+fn mode_swap_text_migration_changes_only_legacy_headers() {
+    let source = "# authored\r\n  [kirby.dpad_up.My_Swap] # keep\r\nname = My swap\r\nbuiltin = l_mode_swap\r\ndefault = true\r\n[kirby.dpad_up.taunt]\r\nbuiltin=normal\r\n[bowser.y.keep]\nbuiltin=normal";
+    let expected = source.replace("[kirby.dpad_up.My_Swap]", "[kirby.r3.My_Swap]");
+    let migrated = migrate_mode_swap(source).unwrap();
+    assert_eq!(migrated, expected);
+    assert_eq!(migrate_mode_swap(&migrated).unwrap(), migrated);
+}

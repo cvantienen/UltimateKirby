@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 83;
+    pub const COUNT: usize = 85;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -128,6 +128,8 @@ mod schema {
         "auto_spacing_air_braking",
         "auto_spacing_braking_distance",
         "counter_aim_after_activation",
+        "auto_spacing_ground_retreat_stick",
+        "auto_spacing_air_retreat_stick",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -215,6 +217,8 @@ mod schema {
         "Spacing: air braking",
         "Spacing: braking distance (game units)",
         "Counter: aim after activation",
+        "Spacing: max ground retreat stick %",
+        "Spacing: max air retreat stick %",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -302,6 +306,8 @@ mod schema {
         "Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.",
         "Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.",
         "Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.",
+        "Maximum horizontal stick for automatic ground retreat, 0-100%. Zero requests neutral; 100% allows full stick including native dash. Does not change manual walking, attack selection or native movement speed.",
+        "Maximum horizontal stick for automatic air retreat, 0-100%. Zero requests neutral; 100% allows full horizontal drift. Does not change manual drift, aerial selection or native air speed.",
     ];
 
     pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
@@ -312,6 +318,8 @@ mod schema {
     pub const AUTO_SPACING_AIR_BRAKING: usize = 80;
     pub const AUTO_SPACING_BRAKING_DISTANCE: usize = 81;
     pub const COUNTER_AIM_AFTER_ACTIVATION: usize = 82;
+    pub const AUTO_SPACING_GROUND_RETREAT_STICK: usize = 83;
+    pub const AUTO_SPACING_AIR_RETREAT_STICK: usize = 84;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -539,6 +547,8 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HALF_DEPTH] = 5.;
     d[AUTO_SPACING_MINIMUM_DISTANCE] = 15.;
     d[AUTO_SPACING_GROUND_SPEED] = 0.49;
+    d[AUTO_SPACING_GROUND_RETREAT_STICK] = 1.;
+    d[AUTO_SPACING_AIR_RETREAT_STICK] = 1.;
     d[AUTO_SPACING_GROUND_BRAKING] = 1.;
     d[AUTO_SPACING_AIR_BRAKING] = 1.;
     d[AUTO_SPACING_BRAKING_DISTANCE] = 10.;
@@ -681,6 +691,8 @@ impl Tuning {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
             engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
             ground_speed: self.get(AUTO_SPACING_GROUND_SPEED),
+            ground_retreat_stick: self.get(AUTO_SPACING_GROUND_RETREAT_STICK),
+            air_retreat_stick: self.get(AUTO_SPACING_AIR_RETREAT_STICK),
             maximum_drift: self.get(AUTO_SPACING_MAXIMUM_DRIFT),
             minimum_drift: self.get(AUTO_SPACING_MINIMUM_DRIFT),
             ground_braking: self.get(AUTO_SPACING_GROUND_BRAKING) == 1.,
@@ -767,8 +779,11 @@ impl Tuning {
         }
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
-            AUTO_SPACING_GROUND_SPEED | AUTO_SPACING_MAXIMUM_DRIFT
-            | AUTO_SPACING_MINIMUM_DRIFT => (0., 1., 0.01),
+            AUTO_SPACING_GROUND_SPEED
+            | AUTO_SPACING_MAXIMUM_DRIFT
+            | AUTO_SPACING_MINIMUM_DRIFT
+            | AUTO_SPACING_GROUND_RETREAT_STICK
+            | AUTO_SPACING_AIR_RETREAT_STICK => (0., 1., 0.01),
             AUTO_SPACING_MINIMUM_DISTANCE
             | AUTO_SPACING_BRAKING_DISTANCE
             | AUTO_SPACING_ENGAGEMENT_RANGE

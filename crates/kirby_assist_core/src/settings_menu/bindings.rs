@@ -67,12 +67,14 @@ impl MenuSelection {
     }
     fn native_hold_active(&self, sources: u32) -> bool {
         !self.cancel_pending
-            && (!self.binding_starts_blocked
-                || sources & (self.counter_sources | MAPPER_L) != 0)
-            && self.menu_hidden
+            && (!self.binding_starts_blocked || sources & (self.counter_sources | MAPPER_L) != 0)
+            && (self.menu_hidden || self.lightweight && sources == MAPPER_L)
             && !self.recipe_editing
             && !self.managing()
             && !self.tuning_page
+            && (self.menu_hidden
+                || !self.lightweight_navigation()
+                || self.binding_physical & MAPPER_DPAD_BUTTONS == 0)
             && (self.binding_physical
                 & sources
                 & !self
@@ -128,12 +130,25 @@ impl MenuSelection {
         let clean_toggle_press = |sources: u32| {
             eligible && sources & source_pressed != 0 && sources & source & !quarantined != 0
         };
-        let swap_eligible = available && !self.cancel_pending && self.menu_hidden
-            && !self.recipe_editing && !self.managing() && !self.tuning_page
+        let swap_eligible = available
+            && !self.cancel_pending
+            && (self.menu_hidden || self.lightweight)
+            && (!self.lightweight || !self.lightweight_navigation())
+            && !self.recipe_editing
+            && !self.managing()
+            && !self.tuning_page
             && source & (MAPPER_MINUS | MAPPER_PLUS) == 0
             && (source & BUTTON_MASK).count_ones() == 1;
-        if swap_eligible && swap_sources & source_pressed & source
-            & !self.binding_layout.physical_buttons(quarantined) != 0 {
+        if swap_eligible
+            && swap_sources
+                & source_pressed
+                & source
+                & !self.binding_layout.physical_buttons(quarantined)
+                != 0
+        {
+            self.cancel_pending |= self.preview_slot.is_some()
+                || self.held_binding.is_some()
+                || source & MAPPER_L != 0;
             self.content_changed();
             self.preview_slot = None;
             self.held_binding = None;
@@ -388,7 +403,9 @@ impl MenuSelection {
             & !(MAPPER_X
                 | MAPPER_L
                 | TURBO_TRIGGER
-                | self.binding_layout.binding_ownership(self.binding_sources | MAPPER_L));
+                | self
+                    .binding_layout
+                    .binding_ownership(self.binding_sources | MAPPER_L));
         if self.binding_layout == ControlLayout::Brother {
             result |= self.binding_physical & MAPPER_B;
         }
@@ -399,14 +416,17 @@ impl MenuSelection {
         let reserved = if self.menu_hidden {
             0
         } else {
-            MENU_STICK_CLICK
-                | if !self.lightweight {
-                    MENU_L3 | MAPPER_DPAD_BUTTONS
-                } else if self.lightweight_navigation() {
-                    MAPPER_DPAD_BUTTONS
-                } else {
-                    0
-                }
+            (if !self.lightweight || self.lightweight_navigation() {
+                MENU_STICK_CLICK
+            } else {
+                0
+            }) | if !self.lightweight {
+                MENU_L3 | MAPPER_DPAD_BUTTONS
+            } else if self.lightweight_navigation() {
+                MAPPER_DPAD_BUTTONS
+            } else {
+                0
+            }
         };
         let latched = self
             .binding_layout

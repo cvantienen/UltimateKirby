@@ -907,6 +907,43 @@ pub struct Catalog {
     /// Runtime tuning value used by Catalog..
     pub tuning: std::collections::BTreeMap<i32, crate::fighter_tuning::Tuning>,
 }
+impl Catalog {
+    /// Moves legacy Up mode-swap choices at load time without writing the source file.
+    /// Any occupied R3 slot is reported before changing any entry.
+    pub fn migrate_mode_swap(&mut self) -> Result<(), String> {
+        use crate::button_bindings::Builtin;
+        let legacy = |entry: &Entry| {
+            entry.slot == PresetSlot::DpadUp && entry.sequence.builtin == Some(Builtin::LModeSwap)
+        };
+        let mut conflicts = Vec::new();
+        for entry in self.entries.iter().filter(|entry| legacy(entry)) {
+            for assigned in self.entries.iter().filter(|assigned| {
+                assigned.fighter_kind == entry.fighter_kind && assigned.slot == PresetSlot::R3
+            }) {
+                conflicts.push(format!(
+                    "{}: Up '{}' [{}] -> R3 conflicts with '{}' [{}]",
+                    entry.fighter,
+                    entry.name.as_deref().unwrap_or(&entry.choice),
+                    entry.choice,
+                    assigned.name.as_deref().unwrap_or(&assigned.choice),
+                    assigned.choice
+                ));
+            }
+        }
+        if !conflicts.is_empty() {
+            return Err(format!(
+                "Mode-swap migration needs confirmation; no assignments changed: {}",
+                conflicts.join("; ")
+            ));
+        }
+        for entry in &mut self.entries {
+            if legacy(entry) {
+                entry.slot = PresetSlot::R3;
+            }
+        }
+        Ok(())
+    }
+}
 #[cfg(test)]
 #[path = "../tests/unit/sequence_config.rs"]
 mod tests;

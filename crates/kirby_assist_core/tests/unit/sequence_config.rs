@@ -260,3 +260,36 @@ fn timeline_deployment_validates_and_filters_only_diagnostic_tests() {
     }
     assert!(catalog.clone().for_build(false).len() < catalog.for_build(true).len());
 }
+
+#[test]
+fn mode_swap_migration_preserves_identity_order_and_other_choices() {
+    let source = "[kirby.dpad_up.swap]\nname=My swap\nbuiltin=l_mode_swap\ndefault=true\n[kirby.dpad_up.taunt]\nbuiltin=normal\n[bowser.y.keep]\nbuiltin=normal\n";
+    let mut catalog = Catalog::parse(source).unwrap();
+    let before = catalog.clone();
+    catalog.migrate_mode_swap().unwrap();
+    assert_eq!(catalog.entries()[0].slot, PresetSlot::R3);
+    assert_eq!(catalog.entries()[0].choice, "swap");
+    assert_eq!(catalog.entries()[0].name.as_deref(), Some("My swap"));
+    assert!(catalog.entries()[0].default);
+    assert_eq!(catalog.entries()[0].sequence, before.entries()[0].sequence);
+    assert_eq!(&catalog.entries()[1..], &before.entries()[1..]);
+    let once = catalog.clone();
+    catalog.migrate_mode_swap().unwrap();
+    assert_eq!(catalog, once);
+}
+
+#[test]
+fn mode_swap_migration_reports_named_r3_conflicts_without_partial_changes() {
+    for assignment in ["normal", "l_mode_swap", "turbo_teabag"] {
+        let source = format!("[bowser.dpad_up.swap]\nbuiltin=l_mode_swap\n[kirby.dpad_up.swap]\nname=Old swap\nbuiltin=l_mode_swap\n[kirby.r3.explicit]\nname=My R3\nbuiltin={assignment}\n");
+        let mut catalog = Catalog::parse(&source).unwrap();
+        let before = catalog.clone();
+        let error = catalog.migrate_mode_swap().unwrap_err();
+        assert!(error.contains("kirby"));
+        assert!(error.contains("Old swap"));
+        assert!(error.contains("My R3"));
+        assert!(error.contains("confirmation"));
+        assert_eq!(catalog, before);
+        assert!(persist::migrate_mode_swap(&source).is_err());
+    }
+}

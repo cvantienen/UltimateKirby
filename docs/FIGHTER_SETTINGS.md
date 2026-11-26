@@ -175,7 +175,9 @@ The min/max columns are inclusive; the menu increment does not constrain file de
 | `auto_di_default` | Auto DI (experimental); all fighters | false | true / false; toggle | boolean | startup |
 | `auto_sdi_default` | Auto SDI (experimental); all fighters | false | true / false; toggle | boolean | startup |
 | `auto_spacing_engagement_range` | Spacing: attack engagement range; hidden in Fighter Settings | 20 | 0–150; 0.5 | world units | current |
-| `auto_spacing_ground_speed` | Spacing: ground walk fraction (0-1); all fighters | 0.49 | 0–1; 0.01 | stick fraction | ignored |
+| `auto_spacing_ground_speed` | Spacing: manual ground walk cap; all fighters | 0.49 | 0–1; 0.01 | stick fraction | current; native non-dash limit also applies |
+| `auto_spacing_ground_retreat_stick` | Spacing: max ground retreat stick %; all fighters | 1 (100%) | 0–1; 0.01 (menu: 0–100%; 1%) | stick fraction | automatic retreat only; 100% permits full native stick |
+| `auto_spacing_air_retreat_stick` | Spacing: max air retreat stick %; all fighters | 1 (100%) | 0–1; 0.01 (menu: 0–100%; 1%) | stick fraction | automatic retreat only; aerial selection/manual drift unchanged |
 | `auto_spacing_maximum_drift` | Spacing: maximum approach drift; all fighters | 1 | 0–1; 0.01 | stick fraction | ignored |
 | `auto_spacing_minimum_drift` | Spacing: minimum approach strength; all fighters | 0.1 | 0–1; 0.01 | stick fraction | ignored |
 | `auto_spacing_ground_braking` | Spacing: Ground Braking; all fighters | true | true / false; toggle | boolean | ignored |

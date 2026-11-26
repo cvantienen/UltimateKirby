@@ -1,5 +1,33 @@
 use super::*;
 use crate::sequence_config::{persist, Catalog};
+#[test]
+fn retreat_stick_settings_round_trip_and_display_as_percentages() {
+    let mut tuning = Tuning::default();
+    tuning.set("auto_spacing_ground_retreat_stick", "0.35").unwrap();
+    tuning.set("auto_spacing_air_retreat_stick", "0").unwrap();
+    let saved = persist::update_tuning(SOURCE, crate::fighter_kinds::KIRBY, tuning).unwrap();
+    let catalog = Catalog::parse(&saved).unwrap();
+    let loaded = catalog.tuning[&crate::fighter_kinds::KIRBY];
+    assert_eq!(loaded, tuning);
+    let config = loaded.auto_spacing(crate::fighter_kinds::KIRBY);
+    assert_eq!(config.ground_retreat_stick, 0.35);
+    assert_eq!(config.air_retreat_stick, 0.);
+    assert_eq!(config.ground_speed, 0.49);
+    assert_eq!(Tuning::default().auto_spacing(crate::fighter_kinds::YOSHI).air_retreat_stick, 1.);
+    for key in ["auto_spacing_ground_retreat_stick", "auto_spacing_air_retreat_stick"] {
+        for invalid in ["-0.01", "1.01", "NaN", "inf"] {
+            assert!(Tuning::default().set(key, invalid).is_err());
+        }
+    }
+    let p = crate::fighter_profiles::presets::MenuPresets::default();
+    let mut menu = crate::settings_menu::MenuSelection::new(&p);
+    menu.tuning = loaded;
+    menu.set_training_category(4);
+    let body = menu.recipe_panel(&p).body.join("\n");
+    assert!(body.contains("Spacing: max ground retreat stick %: 35%"), "{body}");
+    assert!(body.contains("Spacing: max air retreat stick %: 0%"), "{body}");
+}
+
 /// Startup-loaded per-fighter tuning overrides.
 const SOURCE: &str = "# keep recipes\n[kirby.neutral.nair]\nstart_delay=0\nactions=nair\n[yoshi.neutral.grab]\nstart_delay=0\nactions=grab:fighter_range\n";
 /// Regression test for `saved_overrides_are_per_fighter_and_preserve_recipes`.

@@ -395,7 +395,10 @@ fn read_updated(
 ) -> Result<(String, String), String> {
     recover_paths(path, temp)?;
     let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
-    let updated = update(&original)?;
+    // A migration conflict must not prevent editing existing assignments.
+    // Recovery and the update still validate the original source independently.
+    let migrated = persist::migrate_mode_swap(&original).unwrap_or_else(|_| original.clone());
+    let updated = update(&migrated)?;
     Ok((original, updated))
 }
 /// Applies tuning persistence and commits only after validating the full file.

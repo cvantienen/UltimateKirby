@@ -519,7 +519,7 @@ pub mod button_bindings {
         /// Builds the default the for.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             match slot {
-                crate::fighter_profiles::presets::PresetSlot::DpadUp => Self::LModeSwap,
+                crate::fighter_profiles::presets::PresetSlot::R3 => Self::LModeSwap,
                 _ => Self::Normal,
             }
         }

@@ -30,19 +30,30 @@ alone is not proof that diagnostic features are enabled; use its feature/build
 configuration. Diagnostics can provide timing/evidence, not guaranteed native
 acceptance, hit confirmation or a measured cure for a hardware crash.
 
-The lightweight menu starts visible on ledge choices at non-Training battle entry. It contains a compact page/control cue and option rows, without Training editor tools. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. The former L+R3 binding is removed. While
+The lightweight menu starts visible on ledge choices at non-Training battle entry. It contains a compact page/mode heading and option rows, without tooltips or control hints; Training retains its editor hints. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. **L + R3** changes lightweight pages; bare **R3** uses its gameplay assignment (the L mode swap by default). While
 visible in Training, **Up/Down** selects a row and **Left/Right** changes its choice.
 Minus always opens the ledge home from hidden and closes from any page.
-Outside Training, Minus opens only the five ledge choices. **R3** switches
+Outside Training, Minus opens only the five ledge choices. **L + R3** switches
 between this list and a separate **Buttons / Assists** list; Minus closes either
 page and next opens ledge choices. Both pages use cached plain text, with up to
 seven rows around the cursor, with position and hidden-row indicators for longer lists. **Hold L + D-pad** to navigate
 or change values; hold Up/Down to scroll rows and Left/Right to cycle saved choices.
 Assist ON/OFF toggles change only once per press. Without L, configured D-pad actions
 work while the menu stays open. Release a navigation direction before using it
-as a gameplay binding. R3 and Minus work without L. The panel fits its text,
+as a gameplay binding. Bare R3 swaps the selected L mode by default; Minus opens/closes without L. The panel fits its text,
 wraps long names and omits the ledge-option counters. There are no editor,
 preview, CRUD or save controls outside Training.
+
+The separate tiny bottom HUD shows only the selected **Ledge / Spacing** mode,
+with colored text on a dark translucent background. It remains visible when L is
+released or the menus are hidden; outside battle or with the runtime disabled it
+clears. Placement is screen-relative near the configured player's damage panel,
+not attached to native damage UI objects; verify alignment in-game, especially
+with alternate HUD layouts, teams or more than four players.
+
+Ground and air automatic-retreat stick caps are editable independently under
+**Fighter settings**, shown as percentages. See [Auto spacing](AUTO_SPACING.md)
+for their input-only meaning and saved keys.
 
 ### Faster Training navigation
 
@@ -80,7 +91,16 @@ then clears so it does not remain across unrelated screens.
 preserved through stocks, then reset to its normal startup setting next match. Minus does not
 change mash. Disabling mash releases its cached input without disabling tech.
 
-Default-layout **L** is fixed walk/ledge assistance, not an editable trigger row.
+Default-layout **L** runs the selected **Ledge / Spacing** mode, not an editable trigger row.
+The default mode-swap button is now **R3**, while D-pad Up defaults to Normal.
+Legacy saved Up `l_mode_swap` entries migrate in memory on load when R3 is
+unoccupied, retaining choice IDs/names/order. Startup never rewrites the file;
+an explicit save applies the equivalent header migration. If an explicit R3
+entry conflicts, existing assignments are preserved until you resolve that
+conflict rather than overwriting the R3 action. Migration is atomic: a conflict
+leaves the catalog's saved slots unchanged, and neither config loading nor normal
+saves are blocked. Resolve the conflicting assignment before expecting the saved
+Up mode-swap entry to move; the new R3 default does not override explicit recipes.
 Other button slots can select a saved recipe or supported built-in role.
 `builtin = normal` is labeled **Short hop**, not passthrough; `__normal_button`
 is its legacy internal ID, not a separate menu choice. Empty helper defaults are

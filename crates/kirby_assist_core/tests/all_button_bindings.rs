@@ -131,14 +131,7 @@ fn fresh_profiles_use_requested_physical_defaults_in_both_layouts() {
     let p = presets("");
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for (source, expected) in [
-            (
-                MAPPER_L,
-                if layout == ControlLayout::Default {
-                    MAPPER_L
-                } else {
-                    0
-                },
-            ),
+            (MAPPER_L, MAPPER_L),
             (MAPPER_X, 0),
             (4, 0),
             (TURBO_TRIGGER, 0),
@@ -967,10 +960,7 @@ fn lightweight_navigation_dpad_requires_release_before_returning_to_its_custom_a
         light_input(&mut m, &p, modifier, layout);
         assert!(m.preview_slot.is_none());
         light_input(&mut m, &p, modifier, layout);
-        assert_eq!(
-            m.ledge_held(layout.policy_buttons(modifier)),
-            layout == ControlLayout::Default
-        );
+        assert_eq!(m.ledge_held(layout.policy_buttons(modifier)), true);
         light_input(&mut m, &p, TURBO_TRIGGER, layout);
         assert!(!m.ledge_held(layout.policy_buttons(TURBO_TRIGGER)));
     }
@@ -992,5 +982,57 @@ fn unassigned_dpad_passes_to_game_without_changing_the_open_lightweight_menu() {
         );
         assert_eq!(m.row, row);
         assert_eq!(m.choices, choices);
+    }
+}
+
+#[test]
+fn r3_default_swaps_visible_lightweight_but_l_r3_only_navigates() {
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let p = presets("");
+        let mut menu = MenuSelection::new(&p);
+        let r3 = PresetSlot::R3.button();
+        let modifier = layout.physical_buttons(MAPPER_L);
+        light_input(&mut menu, &p, 0, layout);
+        let row = menu.row;
+        light_input(&mut menu, &p, r3, layout);
+        assert!(menu.l_spacing_selected());
+        assert_eq!(menu.row, row);
+        assert!(!menu.button_menu && !menu.modes_menu);
+        light_input(&mut menu, &p, r3, layout);
+        assert!(menu.l_spacing_selected(), "held R3 is one edge");
+        light_input(&mut menu, &p, 0, layout);
+        light_input(&mut menu, &p, modifier | r3, layout);
+        assert!(menu.button_menu);
+        assert!(menu.l_spacing_selected(), "page gesture cannot double-swap");
+        light_input(&mut menu, &p, r3, layout);
+        assert!(menu.l_spacing_selected(), "page press remains quarantined");
+        light_input(&mut menu, &p, 0, layout);
+        light_input(&mut menu, &p, r3, layout);
+        assert!(!menu.l_spacing_selected());
+        assert!(menu.button_menu, "bare R3 never changes page");
+        light_input(&mut menu, &p, 0, layout);
+        let before = menu.choices;
+        light_input(&mut menu, &p, PresetSlot::DpadUp.button(), layout);
+        assert_eq!(menu.choices, before);
+        assert!(!menu.l_spacing_selected(), "Up is normal");
+    }
+}
+
+#[test]
+fn lightweight_explicit_r3_recipe_keeps_its_role_and_page_chord_never_starts_it() {
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let p = presets("[bowser.r3.mine]\ndefault=true\nstart_delay=0\nactions=grab:4\n");
+        let mut menu = MenuSelection::new(&p);
+        let r3 = PresetSlot::R3.button();
+        let modifier = layout.physical_buttons(MAPPER_L);
+        light_input(&mut menu, &p, 0, layout);
+        light_input(&mut menu, &p, r3, layout);
+        assert_eq!(menu.preview_slot, Some(PresetSlot::R3));
+        assert!(!menu.l_spacing_selected());
+        light_input(&mut menu, &p, 0, layout);
+        light_input(&mut menu, &p, modifier | r3, layout);
+        assert!(menu.preview_slot.is_none());
+        assert!(menu.button_menu);
+        assert!(!menu.l_spacing_selected());
     }
 }

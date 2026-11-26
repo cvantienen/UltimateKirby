@@ -1,6 +1,52 @@
 //! Explicit-save serialization and surgical catalog edits; never called by execution.
 use super::*;
 
+/// Returns a byte-preserving header migration for an explicit save or text editor.
+/// Conflicts fail atomically; this helper never accesses or writes a file.
+pub fn migrate_mode_swap(source: &str) -> Result<String, String> {
+    let catalog = Catalog::parse(source)?;
+    let legacy: Vec<_> = catalog
+        .entries()
+        .iter()
+        .filter(|entry| {
+            entry.slot == PresetSlot::DpadUp
+                && entry.sequence.builtin == Some(crate::button_bindings::Builtin::LModeSwap)
+        })
+        .map(|entry| (entry.fighter.clone(), entry.choice.clone()))
+        .collect();
+    let mut migrated = catalog;
+    migrated.migrate_mode_swap()?;
+    if legacy.is_empty() {
+        return Ok(source.to_owned());
+    }
+    let mut output = String::with_capacity(source.len());
+    for line in source.split_inclusive('\n') {
+        let header = parser::strip_comment(line);
+        let replacement = header
+            .strip_prefix('[')
+            .and_then(|h| h.strip_suffix(']'))
+            .and_then(|h| {
+                let parts: Vec<_> = h.split('.').collect();
+                (parts.len() == 3
+                    && parse_slot(parts[1]) == Some(PresetSlot::DpadUp)
+                    && legacy.iter().any(|(fighter, choice)| {
+                        *fighter == words_id(parts[0]) && *choice == words_id(parts[2])
+                    }))
+                .then(|| format!("[{}.r3.{}]", parts[0], parts[2]))
+            });
+        if let Some(replacement) = replacement {
+            let start = line.find('[').unwrap();
+            let end = start + header.len();
+            output.push_str(&line[..start]);
+            output.push_str(&replacement);
+            output.push_str(&line[end..]);
+        } else {
+            output.push_str(line);
+        }
+    }
+    Catalog::parse(&output)?.validate(&FighterProfiles::default())?;
+    Ok(output)
+}
 /// Returns the `button_names` result.
 /// Gets the button names result.
 fn button_names(buttons: u32) -> Result<String, String> {

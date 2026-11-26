@@ -666,6 +666,8 @@ impl SettingsMenu {
             crate::performance::health::Trace::new(crate::performance::health::Lane::MenuInput);
         let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
+            #[cfg(feature = "imgui-menu")]
+            menu::clear_battle_hud();
             self.invalidate();
             self.observe_passthrough(physical, layout);
             self.consumed = 0;
@@ -710,6 +712,8 @@ impl SettingsMenu {
                 training,
             },
         );
+        #[cfg(feature = "imgui-menu")]
+        menu::publish_battle_hud(selection);
         self.native_buttons = selection.native_buttons(buttons);
         self.builtin_consumed = selection.builtin_consumed;
         self.rules.refresh(kind, selection, options);
@@ -755,6 +759,8 @@ impl SettingsMenu {
     /// A different native fighter replaces every cached per-fighter view.
     /// Invalidates cross-fighter state and retains only the newly active fighter entry.
     fn switch_fighter(&mut self, kind: i32) {
+        #[cfg(feature = "imgui-menu")]
+        menu::clear_battle_hud();
         #[cfg(feature = "diagnostic-logging")]
         crate::performance::health::event(crate::performance::health::Event::FighterChange);
         #[cfg(feature = "diagnostic-logging")]

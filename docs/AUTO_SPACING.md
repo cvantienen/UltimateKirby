@@ -7,11 +7,15 @@ hitboxes, recovery or animation rate.
 
 ## Activate and tune one feature at a time
 
-Assign its hold or toggle in [Controls](CONTROLS.md). Global enabled, selected
-fighter/controller, valid native control and competing-owner admission still
-apply. Held Defense/Counter displace lower nonsafety ownership; ledge and manual
-input conditions can exclude spacing. Releasing a hold or clearing a toggle
-removes the spacing request, not a native move already accepted.
+Press the **R3 L mode swap** binding to select **Ledge** or **Spacing**, then hold
+**L** to run the selected mode. Release L to stop its input requests. In the
+lightweight menu, **L + R3** changes pages instead of swapping modes, and
+**L + D-pad** navigates without activating that D-pad's custom gameplay binding.
+Training's visible R3 editor controls are unchanged; hide it to use R3 mode swap.
+The small independent bottom HUD shows the selected mode even with L released.
+Global enabled, selected fighter/controller, valid native control and competing-owner
+admission still apply. Releasing the hold removes the spacing request, not a
+native move already accepted.
 
 Schema fallback minimum distance is15 and engagement range20. Ground/aerial move
 selectors default to **0 (disabled)**. Supplied fighters may enable attacks and
@@ -44,6 +48,31 @@ outward drift with a two-unit hysteresis band before releasing. **Hysteresis**
 means the release threshold differs slightly from the start threshold to avoid
 rapid on/off jitter. These are estimated root distances, not hitbox boundaries.
 No automatic inward approach or guaranteed return-to-stance is implied.
+
+### Maximum automatic retreat stick
+
+Training's **Fighter settings** has separate **max ground retreat stick %** and
+**max air retreat stick %** rows. Both accept **0–100%** in 1% steps, defaulting to
+100% to preserve existing full-stick retreat. They affect automatic distance and
+incoming-threat retreats only. Zero requests neutral horizontal stick during a
+retreat; it does not forcibly stop existing momentum. 100% permits full horizontal
+stick, including native ground dashing when eligible. Percentages limit controller
+input, not a guaranteed percentage of native speed.
+
+Saved configuration stores normalized values from `0` to `1`:
+
+```ini
+[lucina.settings]
+auto_spacing_ground_retreat_stick = 0.50
+auto_spacing_air_retreat_stick = 0.75
+```
+
+**Y alone** saves these per-fighter overrides; **X** resets the selected row.
+Manual movement caps, turn inputs and attack-selection directions remain separate.
+Aerial selecting inputs stay intact until native startup confirms, even at a 0%
+retreat cap; afterward retreat uses the configured air cap. Floor safety,
+missing-observation behavior, interruption rules and input-owner arbitration remain
+unchanged.
 
 Legacy speed/drift/braking settings remain stored for compatibility; do not
 assume their old names all change the live caps. In particular maximum/minimum

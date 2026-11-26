@@ -6,7 +6,39 @@ use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfile},
     settings_menu::{MenuRow, MenuSelection, RecipePanel},
 };
-use std::ffi::CString;
+use std::{
+    ffi::{CStr, CString},
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+/// Menu-independent, allocation-free publication of the selected L mode.
+pub(super) struct BattleHud(AtomicU64);
+impl BattleHud {
+    pub(super) const fn new() -> Self {
+        Self(AtomicU64::new(0))
+    }
+
+    pub(super) fn publish(&self, selection: &MenuSelection, player_index: u32) {
+        let mode = if selection.l_spacing_selected() { 2 } else { 1 };
+        self.0
+            .store((u64::from(player_index) << 2) | mode, Ordering::Release);
+    }
+
+    pub(super) fn clear(&self) {
+        self.0.store(0, Ordering::Release);
+    }
+
+    pub(super) fn current(&self) -> Option<(u32, &'static CStr, (f32, f32, f32))> {
+        let state = self.0.load(Ordering::Acquire);
+        let (label, rgb) = match state & 3 {
+            1 => (c"Ledge", (0.45, 0.80, 1.0)),
+            2 => (c"Spacing", (1.0, 0.73, 0.42)),
+            _ => return None,
+        };
+        Some(((state >> 2) as u32, label, rgb))
+    }
+}
+
 #[cfg_attr(test, path = "../../../tests/unit/live/settings_menu/view")]
 mod text_cache {
     //! Explicit owned C-string copies for cached UI. Never reuse a Vec<String>
@@ -91,7 +123,7 @@ pub(super) struct Snapshot {
     pub(super) values: Vec<SavedChoice>,
     /// Optional cached navigation heading.
     pub(super) navigation: Option<CString>,
-    /// Compact lightweight page and R3 navigation cue.
+    /// Compact lightweight page and selected mode without control hints.
     pub(super) lightweight_label: Option<CString>,
     /// Cached category labels; drawing never allocates native strings.
     pub(super) categories: Vec<CString>,
@@ -460,16 +492,14 @@ pub(super) fn build(
         } else {
             "LEDGE TRAP"
         };
+        let mode = if selection.l_spacing_selected() {
+            "SPACING"
+        } else {
+            "LEDGE TRAP"
+        };
         Some(
-            text_cache::copy_text(&format!(
-                "{page}  |  L: {}  |  R3: NEXT PAGE",
-                if selection.l_spacing_selected() {
-                    "SPACING"
-                } else {
-                    "LEDGE TRAP"
-                }
-            ))?
-            .ok_or("Invalid lightweight page label")?,
+            text_cache::copy_text(&format!("{page}  |  L: {mode}"))?
+                .ok_or("Invalid lightweight page label")?,
         )
     } else {
         None

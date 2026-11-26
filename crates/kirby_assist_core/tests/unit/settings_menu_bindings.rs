@@ -57,7 +57,7 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
 }
 
 #[test]
-fn l3_defaults_to_normal_and_up_swaps_l_without_starting_a_recipe() {
+fn l3_and_up_default_to_normal_and_r3_swaps_l_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
     let index = m.choices[PresetSlot::L3 as usize];
@@ -70,7 +70,10 @@ fn l3_defaults_to_normal_and_up_swaps_l_without_starting_a_recipe() {
     assert_eq!(m.input(MENU_L3, &p) & MENU_L3, 0);
     assert!(!m.auto_spacing_held());
     m.input(0, &p);
-    assert_ne!(m.input(DPAD_UP, &p) & DPAD_UP, 0);
+    assert_eq!(m.input(DPAD_UP, &p) & DPAD_UP, 0);
+    assert!(!m.l_spacing_selected());
+    m.input(0, &p);
+    assert_ne!(m.input(MENU_STICK_CLICK, &p) & MENU_STICK_CLICK, 0);
     m.input(MAPPER_L, &p);
     assert!(m.auto_spacing_held());
     assert_eq!(

@@ -81,7 +81,10 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
 /// Returns the loaded configuration or an error if preparation fails.
 /// Validates the profiles and build-filtered catalog, attaches shared
 /// templates, and boxes the live configuration.
-fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
+fn prepare_runtime(config: LiveConfig, mut sequences: Catalog) -> Result<LoadedConfig, String> {
+    // Conflicts preserve the entire catalog; migration must not disable loading.
+    // The reusable migration API reports the named choices for explicit resolution.
+    let _ = sequences.migrate_mode_swap();
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;
     let sequences = sequences.for_build(cfg!(feature = "diagnostic-logging"));

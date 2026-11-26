@@ -35,7 +35,9 @@ controls responses to ledge roll get-ups.
 
 | Input | Action |
 | --- | --- |
-| Hold L | Fixed walk/ledge autopilot using the five saved response choices |
+| Hold L | Run the selected L mode: ledge assistance or auto spacing |
+| R3, lightweight gameplay or hidden Training menu | Default Ledge/Spacing mode swap; saved conflicting R3 assignments are not overwritten automatically |
+| L + R3, lightweight menu | Switch lightweight pages without swapping L mode |
 | D-pad Up/Down, any selector page | Select the previous/next visible row; holding repeats with acceleration |
 | D-pad Left/Right, any selector page | Change the hovered recipe or mode; hold to cycle recipes, but ON/OFF toggles change once per press |
 | ZL/ZR, Training selector or fighter settings | Previous/next grouped category: Ledge, Buttons, Reactions, Assists, Fighter; works without scrolling to the top |
@@ -236,11 +238,16 @@ with no network/service queries, new scene hooks or native gameplay writes.
 
 Outside Training, the lightweight menu starts visible on its ledge page at
 battle entry. Training starts with the full menu hidden; press Minus to open it. It draws option rows
-only, with no character/page heading or control hints. **Minus** hides or shows it
+only, with no control hints. **Minus** hides or shows it
 during the current battle. Outside Training it shows five ledge choices;
-**R3** switches to/from a separate Buttons / Assists page. Up/Down navigates and
-Left/Right changes saved choices/toggles. The text-only selector is top left in
-silent and top right in diagnostic; closing skips menu drawing.
+**L + R3** switches between the Ledge, Buttons and Assists pages. **L + Up/Down**
+navigates and **L + Left/Right** changes saved choices/toggles. Bare R3 uses its
+configured gameplay binding, defaulting to Ledge/Spacing mode swap. Navigation
+suppresses the affected D-pad binding, not unrelated gameplay buttons. The text-only selector is top left in
+silent and top right in diagnostic; closing skips menu drawing. The separate small
+bottom mode indicator remains visible during battle, showing the selected Ledge
+or Spacing mode even when L is released. Its screen-relative placement near the
+configured player's damage panel needs an in-game check for the current HUD layout.
 
 Training retains the full editor: page links, R3 editing, step tools and
 B Add/Duplicate/Rename/Delete/**Save as startup default**. **Y** saves immediately
@@ -290,7 +297,8 @@ helpers, not alternative names for that spacing policy. See
 
 The selector is battle-only; the full editor is Training-only. Arena lobbies,
 character select and title screens have no editor or last-used-fighter view.
-Minus closes/opens the selector; R3 changes the two lightweight match pages.
+Minus closes/opens the selector; L + R3 changes lightweight match pages, while
+bare R3 selects Ledge/Spacing through its default mode-swap binding.
 Plus+Minus master toggle remains available outside battle.
 
 Training Save starts immediately on one short-lived worker. Another Save/Delete

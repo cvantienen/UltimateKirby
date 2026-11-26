@@ -368,7 +368,7 @@ fn training_only_editor_gate_keeps_compact_choices_and_closes_existing_editor() 
     m.row = MenuRow::XSequence;
     m.input_with_editing(0, &p, false);
     let choices = m.choices;
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.quick_menu && !m.recipe_editing && !m.menu_hidden);
     assert_eq!(
         m.choices, choices,
@@ -507,15 +507,15 @@ fn lightweight_has_five_ledge_rows_and_separate_buttons_assists_without_editor_o
     m.input_with_editing(MAPPER_X, &p, false);
     assert!(m.preview_slot.is_none() && m.editor.is_none());
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.button_menu && !m.modes_menu && !m.recipe_editing && m.editor.is_none());
     assert!(m.row_visible(MenuRow::XSequence));
     assert!(!m.row_visible(MenuRow::AutoTech) && !m.row_visible(MenuRow::Neutral));
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.modes_menu && !m.button_menu);
     assert!(m.row_visible(MenuRow::AutoTech) && !m.row_visible(MenuRow::XSequence));
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.modes_menu, "a held R3 press cannot cycle repeatedly");
     m.row = MenuRow::AutoTech;
     let enabled = m.auto_tech;
@@ -523,7 +523,7 @@ fn lightweight_has_five_ledge_rows_and_separate_buttons_assists_without_editor_o
     m.input_with_editing(MAPPER_L | DPAD_RIGHT, &p, false);
     assert_eq!(m.auto_tech, !enabled);
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(!m.button_menu && !m.modes_menu && m.row == MenuRow::Neutral);
     m.input_with_editing(MAPPER_Y | MAPPER_A | MAPPER_B, &p, false);
     assert!(!m.save_requested && !m.default_requested && !m.managing());
@@ -748,7 +748,7 @@ fn match_choice_switches_match_actual_timeline_and_require_fresh_dpad_edges() {
     ] {
         if slot.is_button() {
             m.input_with_editing(0, &p, false);
-            m.input_with_editing(MENU_STICK_CLICK, &p, false);
+            m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
         }
         m.row = row;
         for _ in 0..5 {
@@ -804,9 +804,9 @@ fn match_assist_switches_toggle_exactly_one_mode_once_per_press() {
     let mut m = MenuSelection::new(&p);
     m.input_with_editing(0, &p, false);
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.modes_menu);
     for (index, row) in rows.into_iter().enumerate() {
         assert!(m.row_visible(row));
@@ -963,7 +963,7 @@ fn match_autopilot_stays_active_for_consumed_menu_dpad_but_not_hidden_gameplay_d
     m.input_with_editing(DPAD_DOWN, &p, false);
     assert!(!m.autopilot_held(DPAD_DOWN));
     m.input_with_editing(0, &p, false);
-    m.input_with_editing(MENU_STICK_CLICK, &p, false);
+    m.input_with_editing(MAPPER_L | MENU_STICK_CLICK, &p, false);
     assert!(m.autopilot_held(MENU_STICK_CLICK));
     m.input_with_editing(0, &p, false);
     m.input_with_editing(MAPPER_MINUS, &p, false);

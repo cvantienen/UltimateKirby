@@ -1,6 +1,11 @@
 // Included in the native menu and host tests so both compile this exact publication path.
 // Technical: Publishes menu changes into the runtime settings and sequence state.
 // Plain English: This included source applies what the player selected in the settings menu.
+/// Publishes fixed battle text independently of menu visibility, revisions and save locks.
+pub(super) fn publish_hud(selection: &MenuSelection, player_index: u32) {
+    BATTLE_HUD.publish(selection, player_index);
+}
+
 /// Records that a menu publish could not acquire its required locks.
 fn menu_retry() -> bool {
     #[cfg(feature = "diagnostic-logging")]

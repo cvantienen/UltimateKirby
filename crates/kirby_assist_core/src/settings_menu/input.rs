@@ -249,12 +249,13 @@ impl MenuSelection {
             self.changed();
         }
     }
-    /// Lightweight R3 cycles ledge, button bindings, and assist settings.
+    /// Lightweight L+R3 cycles ledge, button bindings, and assist settings.
     /// It never allocates an editor or opens list-management tools.
     fn lightweight_page_switch(&mut self, s: &Sample) -> Option<u32> {
         if !(self.lightweight
             && s.editing
             && !s.toggled
+            && s.light_navigation
             && s.pressed & MENU_STICK_CLICK != 0
             && s.pad == 0)
         {

@@ -123,7 +123,8 @@ fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
         let selection = MenuSelection::new(&presets);
         for (slot, expected) in [
             (PresetSlot::L3, Builtin::Normal),
-            (PresetSlot::DpadUp, Builtin::LModeSwap),
+            (PresetSlot::DpadUp, Builtin::Normal),
+            (PresetSlot::R3, Builtin::LModeSwap),
             (PresetSlot::DpadDown, Builtin::Normal),
         ] {
             assert_eq!(
@@ -198,9 +199,19 @@ fn auto_spacing_hold_releases_without_toggling_or_latching() {
     assert!(selection.auto_spacing_held());
     selection.input(MAPPER_L | DPAD_UP, &presets);
     assert!(!selection.auto_spacing_held());
-    assert!(selection.ledge_held(MAPPER_L));
+    assert!(
+        !selection.ledge_held(MAPPER_L),
+        "swap cancels the previous owner for this sample"
+    );
     selection.input(MAPPER_L, &presets);
+    selection.input(MAPPER_L, &presets);
+    assert!(selection.ledge_held(MAPPER_L));
     selection.input(MAPPER_L | DPAD_UP, &presets);
+    assert!(
+        !selection.auto_spacing_held(),
+        "held mode transition cancels for one sample"
+    );
+    selection.input(MAPPER_L, &presets);
     assert!(selection.auto_spacing_held());
     assert!(!selection.ledge_held(MAPPER_L));
     selection.reset_inputs();
@@ -223,14 +234,23 @@ fn physical_l_swap_works_in_both_layouts_without_special_or_double_activation() 
         menu.set_binding_input(MAPPER_L, layout);
         menu.input(layout.policy_buttons(MAPPER_L), &presets);
         assert!(menu.auto_spacing_held());
-        assert_eq!(menu.native_buttons(layout.policy_buttons(MAPPER_L)) & (MAPPER_B | MAPPER_L), 0);
+        assert_eq!(
+            menu.native_buttons(layout.policy_buttons(MAPPER_L)) & (MAPPER_B | MAPPER_L),
+            0
+        );
         menu.set_binding_input(MAPPER_L | MAPPER_B, layout);
         menu.input(layout.policy_buttons(MAPPER_L | MAPPER_B), &presets);
-        assert_ne!(menu.native_buttons(layout.policy_buttons(MAPPER_L | MAPPER_B)) & MAPPER_B, 0);
+        assert_ne!(
+            menu.native_buttons(layout.policy_buttons(MAPPER_L | MAPPER_B)) & MAPPER_B,
+            0
+        );
         menu.set_binding_input(MAPPER_L | DPAD_UP, layout);
         menu.input(layout.policy_buttons(MAPPER_L | DPAD_UP), &presets);
         assert!(!menu.auto_spacing_held());
-        assert_eq!(menu.native_buttons(layout.policy_buttons(MAPPER_L)) & MAPPER_L, MAPPER_L);
+        assert_eq!(
+            menu.native_buttons(layout.policy_buttons(MAPPER_L)) & MAPPER_L,
+            MAPPER_L
+        );
     }
 }
 
@@ -238,28 +258,42 @@ fn physical_l_swap_works_in_both_layouts_without_special_or_double_activation() 
 fn spacing_allows_custom_buttons_and_swap_respects_menu_and_press_edges() {
     use crate::{fighter_profiles::FighterProfiles, sequence_config::Catalog};
     let mut profiles = FighterProfiles::default();
-    profiles.add_sequence_choices(&Catalog::parse(
-        "[kirby.y.manual]\nstart_delay=0\ndefault=true\nactions=fair:4\n").unwrap()).unwrap();
-    let presets = profiles.profile(crate::fighter_kinds::KIRBY).unwrap().menu_options;
+    profiles
+        .add_sequence_choices(
+            &Catalog::parse("[kirby.y.manual]\nstart_delay=0\ndefault=true\nactions=fair:4\n")
+                .unwrap(),
+        )
+        .unwrap();
+    let presets = profiles
+        .profile(crate::fighter_kinds::KIRBY)
+        .unwrap()
+        .menu_options;
     let mut menu = MenuSelection::new(&presets);
     menu.menu_hidden = true;
     menu.input(0, &presets);
-    menu.input(DPAD_UP, &presets);
+    menu.input(MENU_STICK_CLICK, &presets);
     assert!(menu.l_spacing_selected());
-    menu.input(DPAD_UP, &presets);
+    menu.input(MENU_STICK_CLICK, &presets);
     assert!(menu.l_spacing_selected());
     menu.input(MAPPER_L, &presets);
     assert!(menu.auto_spacing_held());
     menu.input(MAPPER_L | MAPPER_Y, &presets);
     assert_eq!(menu.preview_slot, Some(PresetSlot::Y));
-    menu.input(MAPPER_L | DPAD_UP, &presets);
+    menu.input(MAPPER_L | MENU_STICK_CLICK, &presets);
     assert!(!menu.l_spacing_selected());
     assert!(menu.preview_slot.is_none());
+    assert!(
+        menu.cancel_pending,
+        "switching while held cancels the previous owner"
+    );
     menu.input(0, &presets);
     menu.input(MAPPER_MINUS, &presets);
     menu.input(0, &presets);
-    menu.input(DPAD_UP, &presets);
-    assert!(!menu.l_spacing_selected(), "visible menu navigation cannot swap L");
+    menu.input(MENU_STICK_CLICK, &presets);
+    assert!(
+        !menu.l_spacing_selected(),
+        "visible menu navigation cannot swap L"
+    );
 }
 
 #[test]

@@ -1,6 +1,58 @@
 use super::*;
 const GROUND_WALK_STICK: f32 = 88. / 127.;
 
+#[test]
+fn retreat_caps_are_independent_and_preserve_attack_selection_and_manual_limits() {
+    for airborne in [false, true] {
+        for cap in [0., 0.25, 1.] {
+            let cfg = Config {
+                ground_retreat_stick: if airborne { 0.7 } else { cap },
+                air_retreat_stick: if airborne { cap } else { 0.8 },
+                ..Config::default()
+            };
+            let c = GameplayContext {
+                situation: if airborne { situation::AIR } else { situation::GROUND },
+                status: if airborne { status::FALL } else { status::WAIT },
+                ..context()
+            };
+            for threat in [false, true] {
+                for side in [-1., 1.] {
+                    let out = Spacing::default().sample_threat(1, true, cfg, c, enemy(side * 5., 0.), threat);
+                    assert_eq!(out.controller.stick, Some([-side * cap, 0.]));
+                    assert!(!out.attack);
+                    assert_eq!(out.movement_caps, Some([if airborne { 1. } else { 0.49 }; 2]));
+                    let axis = crate::native_input::mapped_stick_axis(out.controller.stick.unwrap()[0]);
+                    assert_eq!(axis, crate::native_input::mapped_stick_axis(-side * cap));
+                }
+            }
+        }
+    }
+    let cfg = Config { ground_retreat_stick: 0., air_retreat_stick: 0., ..config() };
+    let ground = Spacing::default().sample(1, true, cfg, context(), enemy(18., 0.));
+    assert!(ground.attack);
+    assert_eq!(ground.controller.stick, Some([0.6, 0.]));
+    let air = GameplayContext { situation: situation::AIR, status: status::FALL, ..context() };
+    let aerial = Spacing::default().sample(1, true, cfg, air, enemy(18., 0.));
+    assert!(aerial.attack);
+    assert_eq!(aerial.controller.stick, Some([1., 0.]));
+}
+
+#[test]
+fn invalid_retreat_caps_are_inert_and_edge_safety_still_wins() {
+    for invalid in [f32::NAN, f32::INFINITY, -0.01, 1.01] {
+        for ground in [true, false] {
+            let cfg = Config {
+                ground_retreat_stick: if ground { invalid } else { 1. },
+                air_retreat_stick: if ground { 1. } else { invalid },
+                ..Config::default()
+            };
+            assert_eq!(Spacing::default().sample(1, true, cfg, context(), enemy(5., 0.)), Output::default());
+        }
+    }
+    let c = GameplayContext { safe_ground: [false; 2], ..context() };
+    assert_eq!(Spacing::default().sample(1, true, Config::default(), c, enemy(5., 0.)).controller.stick, Some([0.; 2]));
+}
+
 fn assert_ground_packet(out: Output, direction: [f32; 2], attack: bool) {
     use crate::native_input::*;
     assert_eq!(out.attack, attack);
@@ -77,6 +129,8 @@ fn config() -> Config {
         engagement_range: 20.,
         fighter_kind: -1,
         ground_speed: 1.,
+        ground_retreat_stick: 1.,
+        air_retreat_stick: 1.,
         maximum_drift: 1.,
         minimum_drift: 0.1,
         ground_braking: true,

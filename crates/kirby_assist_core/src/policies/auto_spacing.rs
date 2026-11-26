@@ -35,6 +35,9 @@ pub struct Config {
     pub engagement_range: f32,
     /// Direct horizontal stick cap, also bounded by the native non-dash threshold.
     pub ground_speed: f32,
+    /// Horizontal automatic-retreat stick caps; attack selection remains uncapped.
+    pub ground_retreat_stick: f32,
+    pub air_retreat_stick: f32,
     /// Retired automatic-approach controls retained for saved configuration compatibility.
     pub maximum_drift: f32,
     pub minimum_drift: f32,
@@ -51,6 +54,8 @@ impl Default for Config {
             fighter_kind: -1,
             engagement_range: 20.,
             ground_speed: 0.49,
+            ground_retreat_stick: 1.,
+            air_retreat_stick: 1.,
             maximum_drift: 1.,
             minimum_drift: 0.1,
             ground_braking: true,
@@ -130,6 +135,15 @@ fn ground_cap(config: Config, c: GameplayContext) -> f32 {
         .unwrap_or(0.49))
 }
 
+fn retreat_stick(config: Config, airborne: bool, side: f32) -> [f32; 2] {
+    let cap = if airborne {
+        config.air_retreat_stick
+    } else {
+        config.ground_retreat_stick
+    };
+    [-side * cap, 0.]
+}
+
 fn movement_caps(config: Config, c: GameplayContext, _target: Option<Opponent>) -> [f32; 2] {
     [if c.situation == situation::AIR { 1. } else { ground_cap(config, c) }; 2]
 }
@@ -170,7 +184,7 @@ impl Spacing {
                 || self.retreat_side == Some(side) && distance < boundary + RETREAT_STEP;
             self.retreat_side = retreat.then_some(side);
             if retreat && !c.stopped {
-                out.controller.stick = Some([-side, 0.]);
+                out.controller.stick = Some(retreat_stick(config, true, side));
             }
             retreat
         } else {
@@ -202,7 +216,7 @@ impl Spacing {
                 self.pending = false;
                 if !c.stopped {
                     out.controller.stick = Some(if c.safe_ground[usize::from(side < 0.)] {
-                        [-side, 0.]
+                        retreat_stick(config, false, side)
                     } else {
                         [0.; 2]
                     });
@@ -339,7 +353,7 @@ impl Spacing {
             out.controller.stick = self.aerial_selection.map(|(_, stick)| stick)
                 .or_else(|| (!c.stopped).then_some(
                     if airborne || c.safe_ground[usize::from(side < 0.)] {
-                        [-side, 0.]
+                        retreat_stick(config, airborne, side)
                     } else {
                         [0.; 2]
                     }));
@@ -480,6 +494,9 @@ fn valid_context(config: Config, c: GameplayContext) -> bool {
         && config.engagement_range >= 0.
         && config.ground_speed.is_finite()
         && (0. ..=1.).contains(&config.ground_speed)
+        && [config.ground_retreat_stick, config.air_retreat_stick]
+            .into_iter()
+            .all(|cap| cap.is_finite() && (0. ..=1.).contains(&cap))
         && c.position
             .iter()
             .chain(c.velocity.iter())

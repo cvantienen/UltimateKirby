@@ -4,6 +4,54 @@
 use super::{color, Snapshot};
 use imgui_api::bindings::*;
 
+/// Best-effort normalized placement by configured controller slot, not a native HUD anchor.
+/// The game may reorder damage panels in teams or layouts with more than four players.
+pub(super) unsafe fn draw_battle_hud(
+    player: u32,
+    label: &'static std::ffi::CStr,
+    rgb: (f32, f32, f32),
+    display: ImVec2_c,
+    scale: f32,
+) {
+    igSetNextWindowPos(
+        ImVec2_c {
+            x: display.x * (0.14 + 0.24 * player.min(3) as f32),
+            y: display.y * 0.92,
+        },
+        ImGuiCond_Always as _,
+        ImVec2_c { x: 0.0, y: 1.0 },
+    );
+    igSetNextWindowSize(ImVec2_c { x: 0.0, y: 0.0 }, ImGuiCond_Always as _);
+    igPushStyleVar_Vec2(
+        ImGuiStyleVar_WindowPadding as _,
+        ImVec2_c {
+            x: 5.0 * scale,
+            y: 3.0 * scale,
+        },
+    );
+    igPushFont(std::ptr::null_mut(), 13.0 * scale);
+    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(rgb.0, rgb.1, rgb.2, 1.0));
+    igPushStyleColor_Vec4(ImGuiCol_WindowBg as _, color(0.025, 0.035, 0.05, 0.72));
+    let flags = ImGuiWindowFlags_NoDecoration
+        | ImGuiWindowFlags_NoScrollbar
+        | ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoSavedSettings
+        | ImGuiWindowFlags_NoInputs
+        | ImGuiWindowFlags_NoFocusOnAppearing
+        | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    if igBegin(
+        c"##battle_l_mode".as_ptr(),
+        std::ptr::null_mut(),
+        flags as _,
+    ) {
+        igTextUnformatted(label.as_ptr(), std::ptr::null());
+    }
+    igEnd();
+    igPopStyleColor(2);
+    igPopStyleVar(1);
+    igPopFont();
+}
+
 /// No tables, measured rows or per-frame string formatting/allocation.
 pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
@@ -87,16 +135,6 @@ pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
                 igTextUnformatted(value.line.as_ptr(), std::ptr::null());
             }
         }
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
-        igTextUnformatted(
-            c"Hold L + D-pad: select / change".as_ptr(),
-            std::ptr::null(),
-        );
-        igTextUnformatted(
-            c"Release L: gameplay | Minus: hide".as_ptr(),
-            std::ptr::null(),
-        );
-        igPopStyleColor(1);
         igPopTextWrapPos();
     }
     igEnd();

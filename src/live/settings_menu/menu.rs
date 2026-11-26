@@ -201,6 +201,19 @@ pub(super) fn observe_local_fighter(now: Instant) {
 // read-only manager checks; menu rendering does not query fighter state.
 /// Tracks whether the renderer should consider the battle menu active.
 static BATTLE_ACTIVE: AtomicBool = AtomicBool::new(false);
+static BATTLE_HUD: view::BattleHud = view::BattleHud::new();
+
+pub(super) fn publish_battle_hud(selection: &MenuSelection) {
+    if let Some(config) = super::super::CONFIG.get() {
+        publish_hud(selection, config.player_index);
+    } else {
+        BATTLE_HUD.clear();
+    }
+}
+
+pub(super) fn clear_battle_hud() {
+    BATTLE_HUD.clear();
+}
 // Visibility must not depend on acquiring the cached-text mutex. A close
 // request can arrive while ImGui is drawing the previous snapshot.
 /// Atomic fast-path visibility state independent of cached view locking.
@@ -219,6 +232,9 @@ static CONTEXT: AtomicPtr<u64> = AtomicPtr::new(std::ptr::null_mut());
 /// Publishes battle visibility and clears session diagnostics on exit.
 pub(super) fn set_battle_active(active: bool) {
     let was_active = BATTLE_ACTIVE.swap(active, Ordering::AcqRel);
+    if !active {
+        clear_battle_hud();
+    }
     #[cfg(feature = "diagnostic-logging")]
     if was_active && !active {
         crate::calibration::clear();
@@ -328,6 +344,9 @@ unsafe extern "C" fn draw() {
     }
     poll_master_switch();
     let active = super::super::feature_activity_allowed();
+    if !active {
+        clear_battle_hud();
+    }
     #[cfg(feature = "diagnostic-logging")]
     let _draw_time = active
         .then(|| crate::performance::health::Trace::new(crate::performance::health::Lane::Draw));
@@ -344,7 +363,10 @@ unsafe extern "C" fn draw() {
     // label across unrelated menus and single-player screens.
     let status = toast.filter(|_| !super::super::MASTER_IN_MATCH.load(Ordering::Acquire) || active);
     let menu_requested = battle_active && MENU_VISIBLE.load(Ordering::Acquire) && active;
-    if status.is_none() && !menu_requested {
+    let hud = (battle_active && active && presence_fresh(now) == Some(true))
+        .then(|| BATTLE_HUD.current())
+        .flatten();
+    if status.is_none() && !menu_requested && hud.is_none() {
         return;
     }
     let Some(display) = display_size() else {
@@ -353,6 +375,9 @@ unsafe extern "C" fn draw() {
     let scale = (display.y / 720.0).clamp(0.65, 3.0);
     if let Some(enabled) = status {
         draw_master_toast(scale, enabled, display);
+    }
+    if let Some((player, label, rgb)) = hud {
+        lightweight::draw_battle_hud(player, label, rgb, display, scale);
     }
     if !menu_requested {
         return;

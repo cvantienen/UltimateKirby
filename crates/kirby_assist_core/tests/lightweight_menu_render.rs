@@ -35,6 +35,7 @@ struct Trace {
     collapse: bool,
     flags: i32,
     width: f32,
+    position: [f32; 2],
 }
 thread_local! {static TRACE:RefCell<Trace>=RefCell::new(Trace::default());}
 fn record(f: impl FnOnce(&mut Trace)) {
@@ -68,7 +69,9 @@ pub mod bindings {
     pub const ImGuiWindowFlags_NoInputs: i32 = 16;
     pub const ImGuiWindowFlags_NoFocusOnAppearing: i32 = 32;
     pub const ImGuiWindowFlags_NoBringToFrontOnFocus: i32 = 64;
-    pub unsafe fn igSetNextWindowPos(_: ImVec2_c, _: i32, _: ImVec2_c) {}
+    pub unsafe fn igSetNextWindowPos(position: ImVec2_c, _: i32, _: ImVec2_c) {
+        record(|t| t.position = [position.x, position.y]);
+    }
     pub unsafe fn igSetNextWindowSize(size: ImVec2_c, _: i32) {
         record(|t| t.width = size.x);
     }
@@ -180,7 +183,7 @@ fn actual_lightweight_renderer_emits_only_option_rows_on_all_three_pages() {
     for page in 0..3 {
         if page != 0 {
             input(&mut m, p, 0, false);
-            input(&mut m, p, MENU_STICK_CLICK, false);
+            input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
         }
         assert!(!m.menu_hidden && m.lightweight);
         assert_eq!(m.button_menu, page == 1);
@@ -199,7 +202,8 @@ fn actual_lightweight_renderer_emits_only_option_rows_on_all_three_pages() {
             1 => "BUTTON BINDINGS",
             _ => "ON/OFF SETTINGS",
         }));
-        assert!(label.contains("R3: NEXT PAGE"));
+        assert!(!label.contains("R3:"));
+        assert!(label.contains("L: LEDGE TRAP"));
         assert!(
             snapshot.header.is_empty() && snapshot.body.is_empty() && snapshot.footer.is_empty()
         );
@@ -238,7 +242,7 @@ fn bounded_option_window_tracks_cursor_without_rebuilding_context() {
     let p = profiles.profile(15).unwrap();
     let mut m = MenuSelection::new(&p.menu_options);
     input(&mut m, p, 0, false);
-    input(&mut m, p, MENU_STICK_CLICK, false);
+    input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
     let mut snapshot = view::build(p, &m, false, 0).unwrap();
     assert!(snapshot.values.len() > 7);
     let context_ptr = snapshot.row_context[0].as_ptr();
@@ -254,7 +258,44 @@ fn bounded_option_window_tracks_cursor_without_rebuilding_context() {
     assert_eq!(snapshot.row_context[0].as_ptr(), context_ptr);
     assert!(text
         .iter()
-        .any(|s| s == "Release L: gameplay | Minus: hide"));
+        .all(|s| !s.contains("Release L:") && !s.contains("Hold L") && !s.contains("Minus:")));
+}
+
+#[test]
+fn independent_battle_hud_draws_only_fixed_mode_text_and_balances_collapsed_windows() {
+    for collapse in [false, true] {
+        TRACE.with(|t| {
+            *t.borrow_mut() = Trace {
+                collapse,
+                ..Default::default()
+            }
+        });
+        unsafe {
+            lightweight::draw_battle_hud(
+                1,
+                c"Spacing",
+                (1.0, 0.73, 0.42),
+                bindings::ImVec2_c { x: 1280., y: 720. },
+                1.,
+            );
+        }
+        TRACE.with(|t| {
+            let t = t.borrow();
+            assert_eq!(
+                t.text,
+                if collapse {
+                    vec![]
+                } else {
+                    vec!["Spacing".to_owned()]
+                }
+            );
+            assert_eq!((t.colors, t.vars, t.fonts, t.wraps), (0, 0, 0, 0));
+            assert_eq!((t.begins, t.ends), (1, 1));
+            assert!((t.position[0] - 1280.0 * 0.38).abs() < 0.01);
+            assert!((t.position[1] - 720.0 * 0.92).abs() < 0.01);
+            assert_ne!(t.flags & bindings::ImGuiWindowFlags_NoInputs, 0);
+        });
+    }
 }
 
 #[test]
@@ -344,7 +385,7 @@ fn reused_lightweight_state_starts_each_battle_visible_on_ledge_page_with_fresh_
     let p = profiles.profile(15).unwrap();
     let mut m = MenuSelection::new(&p.menu_options);
     input(&mut m, p, 0, false);
-    input(&mut m, p, MENU_STICK_CLICK, false);
+    input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
     assert!(m.button_menu);
     let old = view::build(p, &m, false, 0).unwrap();
     input(&mut m, p, 0, false);
@@ -492,7 +533,7 @@ fn every_configured_fighter_renders_all_three_lightweight_pages_without_headers_
         for page in 0..3 {
             if page != 0 {
                 input(&mut m, p, 0, false);
-                input(&mut m, p, MENU_STICK_CLICK, false);
+                input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
             }
             assert_eq!(m.button_menu, page == 1);
             assert_eq!(m.modes_menu, page == 2);
@@ -509,7 +550,8 @@ fn every_configured_fighter_renders_all_three_lightweight_pages_without_headers_
                 1 => "BUTTON BINDINGS",
                 _ => "ON/OFF SETTINGS",
             }));
-            assert!(label.contains("R3: NEXT PAGE"));
+            assert!(!label.contains("R3:"));
+            assert!(label.contains("L: LEDGE TRAP"));
             assert!(
                 snapshot.header.is_empty()
                     && snapshot.body.is_empty()
@@ -585,6 +627,8 @@ mod publisher {
         atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
         Mutex,
     };
+    static TEST: Mutex<()> = Mutex::new(());
+    static BATTLE_HUD: view::BattleHud = view::BattleHud::new();
     static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
     static VIEW_GENERATION: AtomicU64 = AtomicU64::new(0);
     static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
@@ -603,7 +647,45 @@ mod publisher {
     }
     include!("../../../src/live/settings_menu/publish.rs");
     #[test]
+    fn hidden_mode_publication_does_not_wait_for_cached_menu_or_depend_on_l_hold() {
+        let _test = TEST.lock().unwrap();
+        use kirby_assist_core::{button_bindings::Builtin, fighter_profiles::presets::PresetSlot};
+        let profiles = profiles();
+        let p = profiles.profile(15).unwrap();
+        let mut m = MenuSelection::new(&p.menu_options);
+        m.menu_hidden = true;
+        m.choices[PresetSlot::DpadUp as usize] =
+            p.menu_options.list(PresetSlot::DpadUp).options.len()
+                + Builtin::LModeSwap.visible_template_offset().unwrap();
+        m.input(0, &p.menu_options);
+        let lock = VIEW.lock().unwrap();
+        publish_hud(&m, 2);
+        let (_, first, _) = BATTLE_HUD.current().unwrap();
+        assert_eq!(first.to_str().unwrap(), "Ledge");
+        m.input(kirby_assist_core::manual_controls::DPAD_UP, &p.menu_options);
+        assert!(m.l_spacing_selected());
+        publish_hud(&m, 2);
+        let (player, label, _) = BATTLE_HUD.current().unwrap();
+        assert_eq!(player, 2);
+        assert_eq!(label.to_str().unwrap(), "Spacing");
+        m.input(MAPPER_L, &p.menu_options);
+        publish_hud(&m, 2);
+        assert_eq!(BATTLE_HUD.current().unwrap().1.as_ptr(), label.as_ptr());
+        m.input(0, &p.menu_options);
+        publish_hud(&m, 2);
+        assert_eq!(BATTLE_HUD.current().unwrap().1.as_ptr(), label.as_ptr());
+        BATTLE_HUD.clear();
+        assert!(BATTLE_HUD.current().is_none());
+        let next = MenuSelection::new(&p.menu_options);
+        publish_hud(&next, 0);
+        assert_eq!(BATTLE_HUD.current().unwrap().0, 0);
+        assert_eq!(BATTLE_HUD.current().unwrap().1.to_str().unwrap(), "Ledge");
+        BATTLE_HUD.clear();
+        drop(lock);
+    }
+    #[test]
     fn actual_publisher_builds_refreshes_and_retries_without_missing_scope_or_blocking() {
+        let _test = TEST.lock().unwrap();
         let profiles = profiles();
         let p = profiles.profile(15).unwrap();
         let mut m = MenuSelection::new(&p.menu_options);
@@ -630,7 +712,7 @@ mod publisher {
             assert_eq!(v.row, m.row);
         }
         input(&mut m, p, 0, false);
-        input(&mut m, p, MENU_STICK_CLICK, false);
+        input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
         assert!(
             !publish(p, &m, false),
             "content replacement must respect the save gate"
@@ -710,9 +792,9 @@ fn damage_toggles_are_independent_persisted_and_invalidate_cached_rows() {
     let mut m = MenuSelection::new(&p.menu_options);
     m.begin_match();
     input(&mut m, p, 0, false);
-    input(&mut m, p, MENU_STICK_CLICK, false);
+    input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
     input(&mut m, p, 0, false);
-    input(&mut m, p, MENU_STICK_CLICK, false);
+    input(&mut m, p, MAPPER_L | MENU_STICK_CLICK, false);
     assert!(m.modes_menu);
     assert_eq!(m.damage_sticks(), [false; 2]);
     let before = view::build(p, &m, false, 0).unwrap();
