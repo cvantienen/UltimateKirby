@@ -228,6 +228,13 @@ pub struct GuardHold {
     remaining: f32,
 }
 impl GuardHold {
+    pub const fn new() -> Self {
+        Self {
+            previous: None,
+            previous_enemy: None,
+            remaining: 0.,
+        }
+    }
     /// Samples the default four-frame shield tail after an approaching threat.
     pub fn sample(&mut self, eligible: bool, threat: bool, c: GuardClock) -> bool {
         self.sample_with_duration(eligible, threat, c, HOLD_FRAMES)

@@ -221,8 +221,7 @@ pub struct OutOfShield {
     configured_grab_wait: bool,
     /// Runtime configured settling value used by OutOfShield..
     configured_settling: bool,
-    guard_hold: f32,
-    guard_clock: crate::ledge_trap::NativeAttempt,
+    guard_hold: crate::autopilot_guard::GuardHold,
 }
 
 impl OutOfShield {
@@ -241,8 +240,7 @@ impl OutOfShield {
             configured_shielded: false,
             configured_grab_wait: false,
             configured_settling: false,
-            guard_hold: 0.,
-            guard_clock: crate::ledge_trap::NativeAttempt::new(),
+            guard_hold: crate::autopilot_guard::GuardHold::new(),
         }
     }
 
@@ -271,8 +269,7 @@ impl OutOfShield {
         self.configured_shielded = false;
         self.configured_grab_wait = false;
         self.configured_settling = false;
-        self.guard_hold = 0.;
-        self.guard_clock = crate::ledge_trap::NativeAttempt::new();
+        self.guard_hold = crate::autopilot_guard::GuardHold::new();
         self.simple.cancel();
         self.shield_up_b.cancel();
         self.target = None;
@@ -280,8 +277,7 @@ impl OutOfShield {
     /// Ledge/manual takeover releases inputs immediately. Delivered R retains
     /// only its bounded receipt so a competing script cannot turn it into Up-B.
     pub fn suspend_automatic(&mut self) {
-        self.guard_hold = 0.;
-        self.guard_clock = crate::ledge_trap::NativeAttempt::new();
+        self.guard_hold = crate::autopilot_guard::GuardHold::new();
         self.shield_up_b.cancel();
         self.response.suspend();
         if !self.simple.delivery_pending() {

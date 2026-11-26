@@ -193,51 +193,56 @@ impl OutOfShield {
     }
 
     fn sample_guard_tail(&mut self, f: &Sample) -> Option<ControllerOutput> {
-        if !f.allowed || !f.shielded || !f.context.gameplay {
-            self.guard_hold = 0.;
-            self.guard_clock = crate::ledge_trap::NativeAttempt::new();
-        } else if f.c.threatened || f.c.status == crate::native_states::GUARD_DAMAGE {
-            if self.configured_response
-                && !self.simple.delivery_pending()
-                && !self.shield_up_b.receipt_pending()
-            {
-                self.cancel_pending();
-            }
-            self.guard_hold = 6.;
-        }
-        if f.c.stopped || f.context.stopped {
-            self.guard_clock = crate::ledge_trap::NativeAttempt::new();
-        } else if f.allowed && f.shielded && f.context.gameplay {
-            let before = self.guard_clock.elapsed();
-            self.guard_clock.advance_pause(
-                GameplayContext {
-                    status: f.c.status,
-                    motion_kind: f.c.motion,
-                    motion_frame: f.c.frame,
-                    motion_rate: f.c.rate,
-                    stopped: f.c.stopped || f.context.stopped,
-                    ..f.context
-                },
-                f.follow
-                    .or_else(|| nearest_enemy(f.c.position[0], &f.targets, None, |_| true)),
-                u16::MAX,
-            );
-            if self.guard_clock.expired {
-                self.guard_clock = crate::ledge_trap::NativeAttempt::new();
-            } else if !f.c.threatened && f.c.status != crate::native_states::GUARD_DAMAGE {
-                self.guard_hold = (self.guard_hold - (self.guard_clock.elapsed() - before)).max(0.);
-            }
-        }
-        if f.allowed
-            && f.context.gameplay
+        let eligible = f.allowed
             && f.shielded
-            && self.guard_hold > 0.
+            && f.context.gameplay
             && matches!(
                 f.c.status,
                 crate::native_states::GUARD_ON
                     | crate::native_states::GUARD
                     | crate::native_states::GUARD_DAMAGE
-            )
+            );
+        if eligible
+            && (f.c.threatened || f.c.status == crate::native_states::GUARD_DAMAGE)
+            && self.configured_response
+            && !self.simple.delivery_pending()
+            && !self.shield_up_b.receipt_pending()
+        {
+            self.cancel_pending();
+        }
+        let enemy = f
+            .follow
+            .or_else(|| nearest_enemy(f.c.position[0], &f.targets, None, |_| true))
+            .and_then(|e| {
+                e.motion.map(|m| {
+                    (
+                        e.id,
+                        crate::autopilot_guard::GuardClock {
+                            status: e.status,
+                            motion: m.kind,
+                            frame: m.frame,
+                            rate: m.rate,
+                            stopped: false,
+                        },
+                    )
+                })
+            });
+        // A stationary guard cannot time its own tail. Reuse defensive guard's
+        // release on missing opponent progress instead of retaining shield forever.
+        let holding = self.guard_hold.sample_with_progress(
+            eligible,
+            f.c.threatened,
+            crate::autopilot_guard::GuardClock {
+                status: f.c.status,
+                motion: f.c.motion,
+                frame: f.c.frame,
+                rate: f.c.rate,
+                stopped: f.c.stopped || f.context.stopped,
+            },
+            6.,
+            enemy,
+        );
+        if holding
             && !self.simple.delivery_pending()
             && !self.shield_up_b.receipt_pending()
             && !self.configured_response

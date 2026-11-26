@@ -70,9 +70,6 @@ fn scoped_regression_shield_tail_requires_native_progress() {
             MAPPER_ZR
         );
     }
-    for _ in 0..30 {
-        assert_eq!(sample(&mut oos, c, lc, None).requested, MAPPER_ZR);
-    }
     lc.stopped = true;
     assert_eq!(sample(&mut oos, c, lc, enemy(20.)).requested, MAPPER_ZR);
     lc.stopped = false;
@@ -84,6 +81,65 @@ fn scoped_regression_shield_tail_requires_native_progress() {
         );
     }
     assert_eq!(sample(&mut oos, c, lc, enemy(24.)).owned, 0);
+}
+
+#[test]
+fn stationary_shield_releases_when_threat_and_opponent_clock_disappear() {
+    for rate in [0., 1.] {
+        let mut oos = OutOfShield::new();
+        let mut c = Context {
+            object: 1,
+            kind: crate::fighter_kinds::LUCINA,
+            status: crate::native_states::GUARD,
+            motion: 1,
+            frame: 0.,
+            rate,
+            stopped: false,
+            grounded: true,
+            position: [0.; 2],
+            facing: 1.,
+            shield_ready: true,
+            can_grab: true,
+            can_jump: true,
+            can_up_special: true,
+            threatened: true,
+        };
+        let mut lc = GameplayContext {
+            gameplay: true,
+            situation: crate::native_states::situation::GROUND,
+            ..Default::default()
+        };
+        let sample = |oos: &mut OutOfShield, c, lc| {
+            oos.sample_automatic_configured(
+                true,
+                c,
+                lc,
+                [None; 8],
+                None,
+                true,
+                10.,
+                20.,
+                None,
+                AssistSettings::default(),
+                AutomaticConfig::default(),
+            )
+        };
+        for _ in 0..8 {
+            assert_eq!(sample(&mut oos, c, lc).requested, MAPPER_ZR);
+        }
+        c.threatened = false;
+        lc.stopped = true;
+        assert_eq!(sample(&mut oos, c, lc).requested, MAPPER_ZR);
+        lc.stopped = false;
+        for _ in 0..8 {
+            assert_eq!(sample(&mut oos, c, lc).owned, 0);
+        }
+        c.status = crate::native_states::GUARD_DAMAGE;
+        assert_eq!(sample(&mut oos, c, lc).requested, MAPPER_ZR);
+        c.status = crate::native_states::GUARD;
+        let _ = sample(&mut oos, c, lc);
+        assert_eq!(sample(&mut oos, c, lc).owned, 0);
+    }
 }
 
 #[test]
