@@ -1,7 +1,11 @@
 # Maintaining the documentation
 
-All maintained guides live in `docs/`; `index.md` is the homepage. Run the
-following commands from the project root, beside `Cargo.toml` and `mkdocs.yml`.
+The maintained site guides live in `docs/`; `index.md` is the homepage.
+The canonical beginner Rust/API tutorial also lives in
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`. Keep that one detailed tutorial
+and point site readers through [Development](DEVELOPMENT.md), rather than copying
+it into every feature page. Run the following commands from the project root,
+beside `Cargo.toml` and `mkdocs.yml`.
 
 ## Set up Python once
 
@@ -29,7 +33,9 @@ Stop the preview with Ctrl+C.
 .venv-docs/bin/python -m mkdocs build --strict
 ```
 
-The generated HTML goes into `site/`. Warnings such as missing pages or broken
+By default generated HTML goes into `site/`. For an isolated validation run use
+`--site-dir PATH` with a caller-approved output directory instead; do not inspect
+or edit generated site output as source. Warnings such as missing pages or broken
 anchors fail the strict build. Both `site/` and `.venv-docs/` are ignored by Git
 and excluded from source-backup ZIPs. This command builds locally; it does not
 publish a website or change the Switch plugin.
@@ -44,8 +50,11 @@ publish a website or change the Switch plugin.
    those files are not published as documentation assets.
 5. Preview the result and run the strict build.
 
-Record planned work using the [TODO template](TODO.md). State which release a
-behavior applies to, and distinguish host checks from Switch measurements.
+Record planned work using the [maintainer backlog](TODO.md). Preserve historical
+notes and mark source verification separately from device validation. Never turn
+an old success count or a source-level refactor into a fresh hardware claim.
+Distinguish Rust fallback defaults from actual supplied configuration and
+fighter overrides; their values can differ.
 
 Each registered fighter has a page under `docs/fighters/`, linked from the
 [Fighters overview](FIGHTERS.md). Refresh its generated choices/defaults and
@@ -63,7 +72,11 @@ overview rather than putting every fighter in the sidebar.
 
 ## Release documentation
 
-Change `[package].version` in the root `Cargo.toml` for a new release.
+Release changes are a separate, explicitly requested task. A docs-only update
+must not bump versions, append Cargo descriptions, build or upload the plugin,
+or refresh historical release artifacts. Preserve existing uncommitted edits.
+
+When preparing an authorized new release, change `[package].version` in the root `Cargo.toml`.
 Append a small summary of completed changes to `[package].description`; preserve
 all existing text and earlier summaries. Do not replace, reorder or remove old
 entries. Keep the docs aligned with each behavior/tooling change. The builder reads both

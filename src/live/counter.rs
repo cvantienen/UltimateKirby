@@ -1,6 +1,8 @@
 //! Read-only bounded live-hit scans for held defense and configured counters.
 //! Melee uses estimated contact geometry, not fighter-root distance. Projectile
-//! contact admits universal defense, but only vetoes owner-dependent counters.
+//! contact admits universal defense; configured counters also use validated
+//! incoming projectile contact. Counter fighter admission remains separate from
+//! the shared contact solver: universal defense is not Lucina-only.
 use crate::game_ffi as game;
 use kirby_assist_core::{
     auto_counter::{self as policy, Config, Context, Threat},

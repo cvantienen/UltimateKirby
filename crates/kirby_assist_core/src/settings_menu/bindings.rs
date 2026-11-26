@@ -132,19 +132,16 @@ impl MenuSelection {
             && !self.tuning_page
             && source & (MAPPER_MINUS | MAPPER_PLUS | self.ledge_assist_sources) == 0
             && (source & BUTTON_MASK).count_ones() == 1;
-        if eligible && spacing_sources & source_pressed != 0
-            && spacing_sources & source & !quarantined != 0
-        {
+        let clean_toggle_press = |sources: u32| {
+            eligible && sources & source_pressed != 0 && sources & source & !quarantined != 0
+        };
+        if clean_toggle_press(spacing_sources) {
             self.spacing_toggled = !self.spacing_toggled;
         }
-        if eligible && counter_sources & source_pressed != 0
-            && counter_sources & source & !quarantined != 0
-        {
+        if clean_toggle_press(counter_sources) {
             self.counter_toggled = !self.counter_toggled;
         }
-        if eligible && defense_sources & source_pressed != 0
-            && defense_sources & source & !quarantined != 0
-        {
+        if clean_toggle_press(defense_sources) {
             self.defense_toggled = !self.defense_toggled;
         }
     }

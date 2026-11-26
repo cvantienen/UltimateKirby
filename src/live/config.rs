@@ -3,6 +3,14 @@
 //! Technical: Loads and validates startup configuration and the SD-card sequence
 //! catalog before the live hooks are installed.
 //! Plain English: This module reads the user's settings and sequence choices at startup.
+//!
+//! Configuration precedence is whole-source selection: a catalog's
+//! `[universal.settings]` replaces the legacy `config.txt` source, rather than
+//! merging with it. Omitted keys then use `LiveConfig`'s Rust defaults. Missing
+//! recipe files leave an empty catalog, not a compiled ledge-response fallback.
+//! Fighter tuning and match-session controls are applied separately after load.
+//! The worker joins before hooks are installed; text parsing and file recovery
+//! do not belong in a per-frame callback.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     live_input::LiveConfig,
@@ -90,43 +98,5 @@ fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfi
 
 #[cfg(test)]
 /// Host-side startup configuration regression tests.
-mod tests {
-    use super::*;
-    /// Verifies shared templates remain shared and unrelated menus stay unexpanded.
-    #[test]
-    fn startup_keeps_shared_templates_but_never_expands_other_fighter_menus() {
-        let catalog=Catalog::parse("[template.defend]\nstart_delay=0\nactions=shield:4\n[bowser.roll.spin]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4,drift:opponent:1:69\n[lucina.neutral.poke]\nstart_delay=23\nactions=forward_tilt:1\n").unwrap();
-        let (_, profiles, library) = prepare_runtime(LiveConfig::default(), catalog).unwrap();
-        let mut count = 0;
-        for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
-            let Some(profile) = profiles.profile(kind) else {
-                continue;
-            };
-            count += 1;
-            assert!(profile
-                .menu_options
-                .lists
-                .iter()
-                .all(|list| list.options.is_empty()));
-            assert_eq!(profile.menu_options.templates.len(), 1);
-        }
-        assert_eq!(count, 90);
-        assert_eq!(library.fighter_entries(15), 1);
-        assert_eq!(library.fighter_entries(22), 1);
-        assert_eq!(library.for_fighter(5).len(), 0);
-        assert!(std::ptr::eq(
-            profiles
-                .profile(15)
-                .unwrap()
-                .menu_options
-                .templates
-                .as_ptr(),
-            profiles
-                .profile(22)
-                .unwrap()
-                .menu_options
-                .templates
-                .as_ptr()
-        ));
-    }
-}
+#[path = "../../tests/unit/live/config.rs"]
+mod tests;

@@ -4,14 +4,60 @@ One final selector chooses which assist owns automated buttons and sticks before
 the shared input overlay. It uses the existing mapper and observations; it does
 not add a hook, force an animation, cancel native move recovery or change physics.
 
+## Current selector contract
+
+`crates/kirby_assist_core/src/shared/controller.rs` is the implementation;
+`action_owner` is its root compatibility re-export, not a separate
+`action_owner.rs` file. Selection filters present, admissible intents and then
+compares priorities. A committed owner retains its lock while a present committed
+intent still exists. Higher priority alone cannot steal that lock: native safety
+can preempt it, and explicit held-defense/counter activation can displace a
+non-safety owner through `set_defensive_hold`. The caller must discard displaced
+pending output; the selector does not deliver or cancel every policy by itself.
+
+| Owner | Priority | Exclusive committed packet? |
+| --- | ---: | --- |
+| Safety | 103 | Yes |
+| HeldDefense | 102 | No |
+| Counter | 101 | Yes |
+| Spacing | 100 | No |
+| GrabDodge | 99 | Yes |
+| OptionRead | 98 | Yes |
+| RollRead | 97 | Yes |
+| Ledge | 95 | Yes |
+| OutOfShield | 92 | Yes |
+| Trip | 90 | Yes |
+| Fair | 80 | Yes |
+| Trump | 70 | Yes |
+| Reflect | 35 | Yes |
+| Defense | 30 | No |
+| Turbo | 10 | No |
+| Posture | 5 | No |
+
+These values explain new-work arbitration, not the order native actions occur.
+Ledge reservation permits only Ledge/Safety/Defense/Turbo/Posture admission;
+explicit held-defense gating is checked first. Automatic suspension prevents new
+automatic work but does not implicitly cancel a committed tape. Physical input
+continues to update while the policy's automatic admission view is frozen at
+commitment; authored until-manual steps can read the fresh physical epoch.
+
+### Safety phases share one packet
+
+Capture mash wins first. Otherwise a tech-owned preparation/release may hold
+neutral Guard control, and an urgent tech press may displace final launch DI.
+For nonurgent presses, final DI takes precedence; early SDI is the remaining
+fallback. Only the selected tech proposal receives matching mapper acknowledgment
+and may spend its delivery/lockout accounting. This precedence comes from
+`safety_output_with_deadline`, not from merging every safety stick together.
+
 ## Interruption rules
 
 | Situation | Behavior |
 | --- | --- |
-| Held ledge button / ledge mode ON | Suspends all seven Auto react events, automatic grabs, shield backup and grab avoidance immediately, including their opponent searches. They resume fresh checks only after the ledge binding and toggle are both OFF. Explicit recipe previews also suspend automatic responses. |
+| Configured ledge binding / active ledge reservation | Admission and observation scope suppress competing automatic work according to the active binding, reservation and preview gates. The current simplified editor has six automatic events; unshielded AutoGrab is retired. Use the configured role, not an assumed fixed L/X binding. |
 | Acquired ledge visit | Reserves its setup and configured response against competing configured actions. |
 | Ledge response waits, release frames and final input | Remain protected until delivered or cancelled. |
-| Response finishes, even if the attack misses | Releases its reservation so enabled assists can match the opponent's current state. Holding L or leaving ledge mode ON does not block them indefinitely. |
+| Response completes or is cancelled | Its committed reservation can release; enabled tools then recheck current state only if the remaining binding/scope gates admit them. Completion does not override an actively suppressing ledge or defensive binding. |
 | Tech, DI/SDI or mash safety | Retains its safety priority when hit/captured or a native tech is needed. |
 | Native-ready incoming-grab dodge | Sampled ahead of new offense. Cannot interrupt committed roll/OOS/ledge/safety input; native dodge startup releases Down/Guard; the saved spot-dodge Up-B recipe may run at first native-ready recovery, within its range. |
 | Ready Auto react Up-B versus an unmapped automatic grab | Clears an uncommitted grab or a committed grab approach and its cached output before emitting Up-B in the same observation. Already-delivered R, a committed non-approach grab, native grabs, ledge reservations and other committed modes keep their protection. |
@@ -23,7 +69,7 @@ not add a hook, force an animation, cancel native move recovery or change physic
 | Fresh shield/jump during automatic Up-B | All three automatic Up-B owners share manual escape gates. The initial grounded B pulse stays protected; fresh airborne shield may hand back for a manual dodge. |
 | Unconfirmed automatic Up-B with frozen clocks | A 24-distinct-delivery watchdog releases input; repeated observations/receipts do not count. Native startup disables this watchdog and advances to the next authored sequence action. |
 | Passive walking, crouching or shielding | Cannot steal a committed punish; ledge approach defense remains available during preparation. |
-| Other committed sequence | Uses the explicit owner/interruption rules in `action_owner.rs`; unrelated rules do not freely overwrite its inputs. |
+| Other committed sequence | Uses the explicit owner/interruption rules in `shared/controller.rs`; unrelated rules do not freely overwrite its inputs. Explicit held defense/counter and native safety remain exceptions. |
 | Invalid scope, stale observation, disable or cancellation | Releases ownership and cancels losing plans rather than replaying them later. |
 
 The ledge reservation gates all configured action owners, including future ones
@@ -43,6 +89,16 @@ fighter scans, ray queries, logging, network changes or delay estimation.
 
 ## Verification and extensions
 
+The canonical Rust/API tutorial and worked safe extension are in
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`; see the
+[development reading path](DEVELOPMENT.md#beginner-guide-follow-the-code-before-changing-it).
+Private selector regressions now live in
+`crates/kirby_assist_core/tests/unit/controller_action_owner_takeover.rs`, gated
+into the original module. Use a library test filter for those tests, or the
+existing public integration target below. The legacy
+`tools/check_action_ownership.py` still searches `src/live.rs` for moved mapper
+symbols and is not currently a reliable validation command without repair.
+
 ```sh
 cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --test action_ownership
 ```
@@ -53,8 +109,9 @@ performance or prove that a specific input was accepted in-game.
 
 ## Configured automatic sequences
 
-The Auto react editor groups roll, enemy spot/air dodge, automatic unshielded and
-shielded grab, after dodging enemy grab, and shield backup. Grouping configuration
+The simplified Auto react editor groups roll, enemy spot/air dodge, shielded
+grab, after dodging enemy grab, and shield backup across six event slots.
+Unshielded `AutoGrab` is not a current editor event. Grouping configuration
 does not merge their enable switches or owners. Native grab/backup defaults keep
 their existing delivery paths; edited actions commit one shared input timeline.
 A committed edited response cannot be replaced by a competing new reaction.
@@ -62,10 +119,10 @@ Queued R in either grab mode or a configured grab-dodge punish preserves a
 bounded receipt reservation with zero input while settling. It cannot fall
 through to another B/Up step or resume a hidden script after native catch.
 
-Shielded and unshielded grabs use separate target policies: only the unshielded
-path requires enemy shield. A legal shielded front grab wins before the close
-shield backup; rear/ungrabbable/out-of-grab-range targets can use backup only
-inside its own X/Y limits. Existing usable roll/dodge reactions retain priority
+The current automatic grab path is shield-only. A legal shielded front grab
+wins before the close shield backup; rear/ungrabbable/out-of-grab-range targets
+can use backup only inside its own X/Y limits. Do not infer an active unshielded
+grab path from retained helpers, old configuration keys, or historical notes. Existing usable roll/dodge reactions retain priority
 before new grabs. A delivered Grab cannot switch to Special while its receipt
 is unresolved, and a committed backup cannot switch back to Grab midway.
 
@@ -97,9 +154,9 @@ fighter profiles, and saved sequences, then installs the command observer. The
 mapper hook is installed later, after an eligible fighter callback has located
 the supported mapper.
 
-Treat startup data as immutable during battle. Persistent changes go through
-the existing settings-menu save path; per-frame code must only use a copied
-configuration snapshot.
+Treat startup inputs as read-only within one observation. Explicit menu saves
+can replace synchronized catalog/settings values; per-frame code uses a copied
+snapshot and revalidates its fence rather than modifying persistent data itself.
 
 ### 2. The command hook admits one local fighter
 
@@ -142,8 +199,8 @@ Before the native controller mapper runs, `live::mapper::prepare_mapper_overlay`
 copies the physical controller frame. `compose_overlay` samples helpers,
 arbitrates their `action_owner::Owner` intents, and selects one output.
 
-Exclusive owners receive the whole gameplay-button set and a neutral/default
-stick when necessary. This is deliberate: a release frame in an automated
+Committed exclusive owners receive the whole gameplay-button set and a
+neutral/default stick when necessary; passive owners retain partial output. This is deliberate: a release frame in an automated
 sequence still belongs to that sequence, rather than leaking a physical input.
 The original controller data is restored immediately after the native mapper;
 only the mapped result remains.
@@ -246,6 +303,6 @@ trip follow-up is the template for a character-specific *automatic sequence*.
 - Every state machine has explicit cancellation and duplicate-poll behavior.
 - The mode yields to the established ownership/priority system.
 - Button/stick output is expressed only as controller input.
-- Configuration is immutable during battle and keeps serialized schema order.
+- Per-observation configuration is copied/fenced; explicit save updates keep serialized schema order.
 - Core logic has host-testable unit tests, including interruption regressions.
 - Live integration scans only what the mode's active gate requires.

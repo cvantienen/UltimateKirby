@@ -13,12 +13,23 @@ change native moves, hitboxes, physics, or fighter status.
 2. Learn the [controls](CONTROLS.md) and [ledge menu](LEDGE_MENU.md).
    The [shortcuts and turbo controls](TURBO_CONTROLS.md) guide covers the
    additional controller bindings.
-3. Configure saved responses using [sequence files](SEQUENCE_FILES.md) and
-   [fighter settings](FIGHTER_SETTINGS.md).
-4. Browse the current [fighter roster](FIGHTERS.md) and its generated guides.
+3. Follow the [settings and modes walkthrough](SETTINGS_REFERENCE.md) to learn
+   the difference between shared startup settings, fighter overrides, recipes,
+   and temporary match switches. It includes exact keys, bounds, units, examples,
+   save behavior, troubleshooting, and extension checklists.
+4. Configure saved responses using [sequence files](SEQUENCE_FILES.md) and
+   [fighter settings](FIGHTER_SETTINGS.md). Use the
+   [sequence syntax reference](SEQUENCE_SYNTAX_CHEATSHEET.md) and
+   [editor action reference](EDITOR_ACTION_CHEATSHEET.md) while editing.
+5. Browse the current [fighter roster](FIGHTERS.md) and its generated guides.
+   Treat a displayed reference or repository default as distinct from your
+   installed SD file and current match choices.
 
 ### Understand a feature
 
+Use [Auto-Spacing & Attack](AUTO_SPACING.md), [Counter](AUTO_COUNTER.md),
+[Auto Defense](AUTO_DEFENSE.md), and [projectile reflection](PROJECTILE_REFLECT.md)
+for the supported built-in helpers and their fighter-specific limits.
 Start with [assist rules](REACTION_RULES.md) for automatic reactions, or use the
 specific guides for [ledge autopilot](LEDGE_TRAP.md),
 [shield pressure](SHIELD_PRESSURE.md), [out of shield](OUT_OF_SHIELD.md),

@@ -7,8 +7,33 @@ or fighter status.
 
 The [project documentation](docs/index.md) is the maintained guide for setup,
 controls, configuration, features, architecture, development, and releases.
-Start with the [installation guide](docs/INTEGRATION.md) or the
-[architecture walkthrough](docs/ARCHITECTURE.md).
+Start with the [installation guide](docs/INTEGRATION.md), then the detailed
+[settings and modes walkthrough](docs/SETTINGS_REFERENCE.md). It explains shared
+settings, fighter overrides, temporary match switches, exact configuration keys,
+units, saving, and troubleshooting. Use the [fighter settings guide](docs/FIGHTER_SETTINGS.md)
+and [sequence/editor guides](docs/SEQUENCE_FILES.md) for individual values and
+input tapes.
+
+New to Rust? Read [Development](docs/DEVELOPMENT.md) and the
+[core developer guide](crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md) before
+changing a setting or mode in code. They cover crates/modules, data types,
+configuration-to-policy wiring, private unit tests, input ownership, and safe
+extension workflows. The [architecture walkthrough](docs/ARCHITECTURE.md)
+shows how observations become controller requests.
+
+Dedicated guides explain [Auto-Spacing & Attack](docs/AUTO_SPACING.md),
+[Counter](docs/AUTO_COUNTER.md), [Auto Defense](docs/AUTO_DEFENSE.md),
+[projectile reflection](docs/PROJECTILE_REFLECT.md), and the other
+[assist features](docs/index.md#understand-a-feature). Text configuration edits
+and Rust implementation edits are different workflows: the former can be
+loaded after a restart; the latter require a separately built/installed plugin.
+
+## Commands by workflow
+
+Run commands from the repository root. The build/upload examples below are
+manual deployment workflows, not prerequisites for reading or editing docs.
+Do not build or upload while Smash is running; preserve the active SD
+configuration and choose a single plugin variant deliberately.
 
 **Build the optimized Switch plugin (silent):**
 ```sh
@@ -35,15 +60,27 @@ python3 tools/upload_switch.py <SWITCH_IP> -v <VERSION> -d
 cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline
 ```
 
-**Check Rust formatting:**
+**Run the diagnostic-feature host suite:**
 ```sh
-cargo fmt --all -- --check
+cargo test --offline --manifest-path crates/kirby_assist_core/Cargo.toml --all-features --no-fail-fast
 ```
+
+**Check formatting for a touched Rust file:**
+```sh
+rustfmt --check --edition 2021 --config skip_children=true path/to/changed.rs
+```
+
+Existing whole-file formatting differences remain in some sources. Avoid
+rewriting unrelated code solely to make a repository-wide formatting check pass.
+New external unit-test files should be fully formatted.
 
 **Run core lint checks offline:**
 ```sh
-cargo clippy --manifest-path crates/kirby_assist_core/Cargo.toml --all-targets --offline -- -D warnings
+cargo clippy --offline --manifest-path crates/kirby_assist_core/Cargo.toml --all-features --all-targets
 ```
+
+The existing lint baseline has warnings. `-D warnings` is stricter than that
+baseline and is not a claim that all existing warnings are already resolved.
 
 **Build the documentation strictly:**
 ```sh
@@ -60,10 +97,16 @@ cargo clippy --manifest-path crates/kirby_assist_core/Cargo.toml --all-targets -
 git status --short --branch
 ```
 
-**Stage all changes and commit them** (review `git status` first):
+**Stage only reviewed files and commit them** (replace the example paths):
 ```sh
-git add -A && git commit -m "state updates"
+git add path/to/reviewed-file path/to/another-reviewed-file
+git diff --cached --check
+git diff --cached
+git commit -m "Describe the specific change"
 ```
+
+Do not stage unrelated work, generated artifacts, private data or secrets.
+See the [GitHub workflow](docs/GITHUB_WORKFLOW.md) for the complete process.
 
 **Push the current branch to GitHub:**
 ```sh

@@ -138,18 +138,18 @@ pub mod action_owner {
         crate::gameplay::ControllerOutput,
         Option<crate::tech_input::TechOutput>,
     ) {
-        let tech = (mash.is_none()
+        let tech_has_priority = mash.is_none()
             && (di.is_none() || tech.owns_guard && !tech.press || urgent && tech.press)
-            && (tech.press || tech.owns_guard))
-            .then_some(tech);
+            && (tech.press || tech.owns_guard);
+        let selected_tech = tech_has_priority.then_some(tech);
         let output = crate::gameplay::ControllerOutput {
-            requested: if tech.is_some_and(|t| t.press) {
+            requested: if selected_tech.is_some_and(|tech| tech.press) {
                 crate::native_input::MAPPER_ZR
             } else {
                 0
             },
             stick: mash.or_else(|| {
-                if tech.is_some() {
+                if selected_tech.is_some() {
                     Some([0.; 2])
                 } else {
                     di.or(sdi)
@@ -157,7 +157,7 @@ pub mod action_owner {
             }),
             ..Default::default()
         };
-        (output, tech)
+        (output, selected_tech)
     }
 
     /// Represents the intent of an action owner, including whether it is present and committed.
@@ -302,13 +302,25 @@ pub mod action_owner {
         }
         /// Returns the displaced owner so callers can discard its pending packet.
         pub fn set_defensive_hold(&mut self, defense: bool, counter: bool) -> Option<Owner> {
-            let next = if defense { Some(Owner::HeldDefense) }
-                else if counter { Some(Owner::Counter) } else { None };
-            let previous = self.held_defense;
-            self.held_defense = next;
-            let displaced = self.locked.filter(|owner| *owner != Owner::Safety
-                && (next.is_some() && Some(*owner) != next
-                    || previous.is_some() && Some(*owner) == previous && next != previous));
+            let requested_hold = if defense {
+                Some(Owner::HeldDefense)
+            } else if counter {
+                Some(Owner::Counter)
+            } else {
+                None
+            };
+            let previous_hold = self.held_defense;
+            self.held_defense = requested_hold;
+            let displaced = self.locked.filter(|owner| {
+                if *owner == Owner::Safety {
+                    return false;
+                }
+                let preempted_by_hold = requested_hold.is_some() && Some(*owner) != requested_hold;
+                preempted_by_hold
+                    || previous_hold.is_some()
+                        && Some(*owner) == previous_hold
+                        && requested_hold != previous_hold
+            });
             if displaced.is_some() {
                 self.unlock();
             }
@@ -353,72 +365,27 @@ pub mod action_owner {
             if self.locked.is_some_and(|owner| {
                 !intents
                     .iter()
-                    .any(|i| i.owner == owner && i.present && i.committed)
+                    .any(|intent| intent.owner == owner && intent.present && intent.committed)
             }) {
                 self.unlock();
             }
-            let winner = intents
+            let winning_intent = intents
                 .iter()
-                .filter(|i| i.present && self.allows(i.owner))
-                .max_by_key(|i| i.owner.priority());
-            let next = winner.filter(|i| i.committed).map(|i| i.owner);
-            if next != self.locked {
-                self.locked_manual = next.map(|_| self.manual);
+                .filter(|intent| intent.present && self.allows(intent.owner))
+                .max_by_key(|intent| intent.owner.priority());
+            let committed_owner = winning_intent
+                .filter(|intent| intent.committed)
+                .map(|intent| intent.owner);
+            if committed_owner != self.locked {
+                self.locked_manual = committed_owner.map(|_| self.manual);
             }
-            self.locked = next;
-            winner.map(|i| i.owner)
+            self.locked = committed_owner;
+            winning_intent.map(|intent| intent.owner)
         }
     }
 
     #[cfg(test)]
-    mod takeover_tests {
-        use super::*;
-        use crate::{gameplay::ControllerOutput, native_input::GAMEPLAY_BUTTONS};
-
-        #[test]
-        fn held_defense_preempts_and_safety_wins_without_restoring_old_owner() {
-            let mut ownership = ActionOwnership::new();
-            let intent = |owner| Intent { owner, present: true, committed: true };
-            assert_eq!(ownership.select(true, &[intent(Owner::Ledge)]), Some(Owner::Ledge));
-            assert_eq!(ownership.set_defensive_hold(true, true), Some(Owner::Ledge));
-            assert!(!ownership.allows(Owner::Counter));
-            assert!(!ownership.allows(Owner::Spacing));
-            assert_eq!(ownership.select(true, &[intent(Owner::HeldDefense), intent(Owner::Counter)]), Some(Owner::HeldDefense));
-            let neutral = exclusive_output(Some(Owner::HeldDefense), true, ControllerOutput::NONE);
-            assert_eq!(neutral, ControllerOutput::NONE);
-            let shield = ControllerOutput { requested: crate::native_input::MAPPER_ZR,
-                owned: crate::ledge_trap::SEQUENCE_BUTTONS, stick: Some([0.; 2]),
-                ..ControllerOutput::NONE };
-            assert_eq!(exclusive_output(Some(Owner::HeldDefense), true, shield), shield);
-            assert_eq!(ownership.select(true, &[intent(Owner::Safety), intent(Owner::HeldDefense)]), Some(Owner::Safety));
-            ownership.release(Owner::Safety);
-            ownership.set_defensive_hold(false, true);
-            assert_eq!(ownership.select(true, &[intent(Owner::Counter)]), Some(Owner::Counter));
-            assert_eq!(ownership.set_defensive_hold(false, false), Some(Owner::Counter));
-            assert_eq!(ownership.select(true, &[]), None);
-            assert_eq!(ownership.select(true, &[intent(Owner::Spacing)]), Some(Owner::Spacing));
-        }
-
-        #[test]
-        fn detected_ledge_wait_and_queued_reaction_own_neutral_controller() {
-            for owner in [Owner::Ledge, Owner::RollRead] {
-                let mut ownership = ActionOwnership::new();
-                let intent = Intent::sequence_receipt(owner, 0, true);
-                assert_eq!(ownership.select(true, &[intent]), Some(owner));
-                assert_eq!(ownership.current_owner(), Some(owner));
-                let output = exclusive_output(
-                    ownership.current_owner(),
-                    true,
-                    ControllerOutput::default(),
-                );
-                assert_eq!(output.owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
-                assert_eq!(output.stick, Some([0.; 2]));
-                assert_eq!(ownership.select(true, &[intent]), Some(owner));
-                assert_eq!(ownership.select(true, &[]), None);
-                assert_eq!(ownership.current_owner(), None);
-            }
-        }
-    }
+    include!("../../tests/unit/controller_action_owner_takeover.rs");
 }
 pub mod input {
     //! Logical controller input and conservative arbitration.
@@ -634,62 +601,7 @@ pub mod input {
     // Compiled only by cargo test on the host; these assertions are not live
     // Switch logging or gameplay callbacks. Add regressions here for new behavior.
     #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        /// `PLAYER` is a configuration value used by the Smash runtime.
-        const PLAYER: ControllerFrame = ControllerFrame {
-            buttons: ButtonSet::JUMP,
-            left_stick: StickPosition {
-                x: 12_000,
-                y: -4_000,
-            },
-            right_stick: StickPosition {
-                x: -8_000,
-                y: 10_000,
-            },
-            left_trigger: 33,
-            right_trigger: 91,
-        };
-
-        /// Regression test for `buttons_are_added_without_taking_movement`.
-        #[test]
-        fn buttons_are_added_without_taking_movement() {
-            let result = arbitrate(
-                PLAYER,
-                InputRecipe::buttons(ButtonSet::ATTACK),
-                InputPermissions::default(),
-            );
-
-            assert!(result.frame.buttons.contains(ButtonSet::JUMP));
-            assert!(result.frame.buttons.contains(ButtonSet::ATTACK));
-            assert_eq!(result.frame.left_stick, PLAYER.left_stick);
-            assert_eq!(result.frame.right_stick, PLAYER.right_stick);
-            assert_eq!(result.frame.left_trigger, PLAYER.left_trigger);
-            assert_eq!(result.frame.right_trigger, PLAYER.right_trigger);
-        }
-
-        /// Regression test for `stick_request_requires_explicit_permission`.
-        #[test]
-        fn stick_request_requires_explicit_permission() {
-            let recipe =
-                InputRecipe::buttons_with_left_stick(ButtonSet::SHIELD, StickPosition::LEFT);
-
-            let blocked = arbitrate(PLAYER, recipe, InputPermissions::default());
-            assert!(blocked.blocked_left_stick_request);
-            assert_eq!(blocked.frame.left_stick, PLAYER.left_stick);
-
-            let allowed = arbitrate(
-                PLAYER,
-                recipe,
-                InputPermissions {
-                    allow_left_stick_override: true,
-                },
-            );
-            assert!(!allowed.blocked_left_stick_request);
-            assert_eq!(allowed.frame.left_stick, StickPosition::LEFT);
-        }
-    }
+    include!("../../tests/unit/controller_input.rs");
 }
 pub(crate) mod up_b_receipt {
     //! Bounded input-free wait for a direct automatic Up-B startup.
@@ -747,76 +659,5 @@ pub(crate) mod up_b_receipt {
     }
 
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        use crate::native_states::{situation, status};
-
-        /// Regression test for `receipt_preserves_startup_wait_and_cancellation_gates`.
-        #[test]
-        fn receipt_preserves_startup_wait_and_cancellation_gates() {
-            let context = GameplayContext {
-                status: status::WAIT,
-                situation: situation::GROUND,
-                can_act: true,
-                ..Default::default()
-            };
-            let mut receipt = UpBReceipt::new();
-            let mut delivery = DeliveryBudget::new();
-            assert_eq!(
-                evaluate(false, false, false, false, context, &receipt, &delivery),
-                ReceiptAction::Continue
-            );
-            receipt.mapped(0);
-            assert_eq!(
-                evaluate(false, false, false, false, context, &receipt, &delivery),
-                ReceiptAction::Continue
-            );
-            assert_eq!(
-                evaluate(false, false, true, false, context, &receipt, &delivery),
-                ReceiptAction::Wait
-            );
-            assert_eq!(
-                evaluate(false, true, true, false, context, &receipt, &delivery),
-                ReceiptAction::Confirm
-            );
-            assert_eq!(
-                evaluate(false, true, false, false, context, &receipt, &delivery),
-                ReceiptAction::Confirm
-            );
-            assert_eq!(
-                evaluate(true, false, true, false, context, &receipt, &delivery),
-                ReceiptAction::Continue
-            );
-            let stopped = GameplayContext {
-                stopped: true,
-                ..context
-            };
-            assert_eq!(
-                evaluate(false, false, false, false, stopped, &receipt, &delivery),
-                ReceiptAction::Wait
-            );
-            let airborne = GameplayContext {
-                situation: situation::AIR,
-                ..context
-            };
-            assert_eq!(
-                evaluate(false, false, false, false, airborne, &receipt, &delivery),
-                ReceiptAction::Cancel
-            );
-            for tick in 0..24 {
-                delivery.mapped(tick);
-            }
-            assert_eq!(
-                evaluate(false, false, false, false, context, &receipt, &delivery),
-                ReceiptAction::Wait
-            );
-            for tick in 1..24 {
-                receipt.tick(tick);
-            }
-            assert_eq!(
-                evaluate(false, false, false, false, context, &receipt, &delivery),
-                ReceiptAction::Cancel
-            );
-        }
-    }
+    include!("../../tests/unit/controller_up_b_receipt.rs");
 }

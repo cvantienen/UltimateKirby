@@ -22,6 +22,10 @@ pub(super) fn trip_enabled(suspended: bool, enabled: bool, kind: i32) -> bool {
 }
 
 /// Admits trip watching for enabled side/down tilts or a queued follow-up.
+///
+/// Watching means gathering target facts; it does not yet authorize an attack.
+/// The core state machine checks those facts and returns a controller proposal.
+/// Callers must still apply mode, session, and competing-owner admission.
 pub(super) fn trip_watch(enabled: bool, status: i32, queued: bool) -> bool {
     enabled && (matches!(status, status::ATTACK_S3 | status::ATTACK_LW3) || queued)
 }

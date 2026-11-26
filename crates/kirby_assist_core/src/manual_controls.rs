@@ -7,7 +7,10 @@
 //! `TurboState` proposes its movement, then `ManualOverlay::apply_controls`
 //! combines one chosen stick proposal with button ownership. A button mask
 //! names several buttons at once; `owned` includes intentional releases.
-use crate::native_input::{ButtonTrace, MapperButtonOverlay};
+use crate::native_input::{
+    ButtonTrace, MapperButtonOverlay, MAPPER_LEFT_STICK_DOWN, MAPPER_LEFT_STICK_HORIZONTAL,
+    MAPPER_LEFT_STICK_LEFT, MAPPER_LEFT_STICK_RIGHT, MAPPER_LEFT_STICK_UP,
+};
 
 mod assist_handoff {
     //! Release-to-rearm for physical shield suppressed by an automatic punish.
@@ -127,67 +130,7 @@ mod assist_handoff {
         }
     }
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        use crate::native_input::{MAPPER_ZL, MAPPER_ZR};
-        /// Checks whether the required input is currently held.
-        fn held(mask: u32) -> ButtonTrace {
-            ButtonTrace {
-                held: mask,
-                previous: mask,
-                ..Default::default()
-            }
-        }
-        /// Regression test for `old_shield_hold_does_not_return_as_a_roll_or_air_dodge`.
-        #[test]
-        fn old_shield_hold_does_not_return_as_a_roll_or_air_dodge() {
-            let mut h = AssistGuardHandoff::new();
-            let g = MAPPER_ZR | MAPPER_ZL;
-            assert_eq!(h.sample(true, held(g), g, g, 0), g);
-            for _ in 0..8 {
-                assert_eq!(h.sample(false, held(g), g, 0, 0), g);
-            }
-            assert_eq!(h.sample(false, held(MAPPER_ZR), g, 0, 0), MAPPER_ZR);
-            assert_eq!(h.sample(false, ButtonTrace::default(), g, 0, 0), 0);
-            assert_eq!(
-                h.sample(
-                    false,
-                    ButtonTrace {
-                        held: g,
-                        pressed: g,
-                        ..Default::default()
-                    },
-                    g,
-                    0,
-                    0
-                ),
-                0
-            );
-        }
-        /// Regression test for `requested_defense_and_fresh_manual_shield_are_not_suppressed`.
-        #[test]
-        fn requested_defense_and_fresh_manual_shield_are_not_suppressed() {
-            let mut h = AssistGuardHandoff::new();
-            let g = MAPPER_ZR;
-            assert_eq!(h.sample(true, held(g), g, g, g), 0);
-            h.sample(false, ButtonTrace::default(), g, 0, 0);
-            assert_eq!(
-                h.sample(
-                    true,
-                    ButtonTrace {
-                        held: g,
-                        pressed: g,
-                        ..Default::default()
-                    },
-                    g,
-                    g,
-                    0
-                ),
-                0
-            );
-            assert_eq!(h.sample(false, held(g), g, 0, 0), 0);
-        }
-    }
+    include!("../tests/unit/manual_controls_assist_handoff.rs");
 }
 pub use assist_handoff::{AssistGuardHandoff, ManualJumpFence};
 /// `TURBO_TRIGGER` is a configuration value used by the Smash runtime.
@@ -659,12 +602,7 @@ impl ManualOverlay {
         // from all four words, including its history, so no taunt edge leaks.
         let consumed = crate::native_input::physical_button_aliases(extra_consumed);
         let owned_buttons = crate::native_input::physical_button_aliases(owned_buttons);
-        let human = ButtonTrace {
-            held: human.held & !consumed,
-            previous: human.previous & !consumed,
-            pressed: human.pressed & !consumed,
-            released: human.released & !consumed,
-        };
+        let human = remove_consumed(human, consumed);
         // Raw direction bits accompany the normalized stick floats. Without
         // owning those bits, a physically held direction could disagree with
         // the automated stick value during the original mapper's button queries.
@@ -675,17 +613,17 @@ impl ManualOverlay {
             // Analog values remain authoritative. These coarse direction bits
             // keep full crouch input consistent without marking gentle walking
             // as a fully deflected digital stick direction.
-            if x >= 0.5 && consumed & (1 << 21) == 0 {
-                requested |= 1 << 21;
+            if x >= 0.5 && consumed & MAPPER_LEFT_STICK_RIGHT == 0 {
+                requested |= MAPPER_LEFT_STICK_RIGHT;
             }
-            if x <= -0.5 && consumed & (1 << 23) == 0 {
-                requested |= 1 << 23;
+            if x <= -0.5 && consumed & MAPPER_LEFT_STICK_LEFT == 0 {
+                requested |= MAPPER_LEFT_STICK_LEFT;
             }
             if y >= 0.5 {
-                requested |= 1 << 20;
+                requested |= MAPPER_LEFT_STICK_UP;
             }
             if y <= -0.5 {
-                requested |= 1 << 22;
+                requested |= MAPPER_LEFT_STICK_DOWN;
             }
         }
         let clear_autorepeat = owned
@@ -705,7 +643,7 @@ impl ManualOverlay {
                 .is_some_and(|s| s[0].abs() >= 0.95 && s[1].abs() <= 0.3)
             {
                 self.buttons
-                    .rearm_requested(requested & ((1 << 21) | (1 << 23)), human.previous);
+                    .rearm_requested(requested & MAPPER_LEFT_STICK_HORIZONTAL, human.previous);
             }
         }
         ManualFrame {
@@ -776,62 +714,8 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 mod tests;
 
 #[cfg(test)]
-mod takeover_tests {
-    use super::*;
-
-    #[test]
-    fn committed_auto_flick_rearms_against_held_manual_direction() {
-        let right = 1 << 21;
-        let held = ButtonTrace {
-            held: right | crate::native_input::MAPPER_A,
-            previous: right | crate::native_input::MAPPER_A,
-            ..Default::default()
-        };
-        let mut overlay = ManualOverlay::default();
-        let output = TurboOutput {
-            stick: Some([1., 0.]),
-            ..Default::default()
-        };
-        let frame = overlay.apply_reaction_controls(
-            held,
-            [1., 0.],
-            output,
-            0,
-            0,
-            crate::native_input::GAMEPLAY_BUTTONS,
-            true,
-        );
-        assert_eq!(frame.buttons.held & crate::native_input::MAPPER_A, 0);
-        assert_ne!(frame.buttons.pressed & right, 0);
-    }
-
-    #[test]
-    fn committed_reaction_rearms_held_manual_special_without_leaking_attack() {
-        let held = ButtonTrace {
-            held: crate::native_input::MAPPER_A | crate::native_input::MAPPER_B,
-            previous: crate::native_input::MAPPER_A | crate::native_input::MAPPER_B,
-            ..Default::default()
-        };
-        let mut overlay = ManualOverlay::default();
-        let frame = overlay.apply_reaction_controls(
-            held,
-            [0., 0.],
-            TurboOutput {
-                stick: Some([0., -1.]),
-            },
-            0,
-            crate::native_input::MAPPER_B,
-            crate::ledge_trap::SEQUENCE_BUTTONS,
-            true,
-        );
-        assert_eq!(frame.buttons.held & crate::native_input::MAPPER_A, 0);
-        assert_eq!(
-            frame.buttons.pressed & crate::native_input::MAPPER_B,
-            crate::native_input::MAPPER_B
-        );
-        assert_eq!(frame.buttons.previous & crate::native_input::MAPPER_B, 0);
-    }
-}
+#[path = "../tests/unit/manual_controls_takeover.rs"]
+mod takeover_tests;
 
 /// Constant-size physical-input history for explicit sequence handback.
 #[derive(Clone, Copy, Default)]

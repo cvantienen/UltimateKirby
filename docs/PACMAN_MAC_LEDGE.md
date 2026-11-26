@@ -1,41 +1,50 @@
-# Pac-Man and Little Mac
+# Pac-Man and Little Mac: resources and grounded choices
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+Pac-Man uses `pacman` (kind 56); Little Mac uses `littlemac` (52). Both have
+independent profile facts and file choices. Old long-grab/ghost planning windows,
+adaptive aerial rules and release-on-startup handlers are no longer compiled
+recipe behavior.
 
+## Pac-Man resources
 
-Both have their own compiled ledge profile, using the existing five-row menu
-and [unchanged controls](LEDGE_MENU.md). Bold choices below are defaults.
+A Fruit label does not create stored fruit, choose its identity, install a hydrant
+or configure trampoline color. Inspect the neutral-B duration: without stored
+fruit it can start Bonus Fruit charging; a longer hold can cycle rather than
+throw. Projectile emission is not contact, and no unverified fruit/trampoline
+interaction becomes an automatic KO. Author only supported resource checks and
+prepare unsupported setup manually. Capture returns manual pummel/throw control.
 
-| Row | Pac-Man | Little Mac |
-| --- | --- | --- |
-| Neutral | **Nair**, down tilt, forward tilt, ghost f-smash | **Up tilt**, down tilt, forward tilt, armored f-smash, low f-smash, tiny nair |
-| Jump | **Nair**, up-air, forward-air | **Grounded up tilt**, tiny up-air, tiny nair |
-| Roll | Lingering down-smash ghosts, **long grab** | **Down-smash**, grab |
-| Attack | **Shield → nair**, grab / rear nair, shield → trampoline | Tiny nair, grab / rear nair, **shield → up-B** |
-| Drop | **Shield**, down tilt → shield, short-hop bite, low ghosts | **Shield**, down tilt → shield, low sweep, f-tilt poke |
+## Little Mac grounded versus aerial
 
-Pac-Man's nair is active 3–19, forward-smash ghost 16–29, down-smash ghosts
-15–28, and grab 12–33. The roll ghost variant schedules within 15–27, the existing
-scheduler's maximum 13-frame window. This is native coverage, not an extended
-hitbox. Grab returns control on capture. Shield-to-trampoline is a playful
-alternative that hands control back on special startup. Fruit inventory and
-hydrant setups are not automated.
+A Jump-response label is an opponent-event row, not a command to jump. The actual
+actions may remain grounded. Little Mac's qualitative aerial hints are deliberately
+short coverage, not measured detection limits. Selecting an aerial in Auto Space
+requires already-airborne state; it does not spend a jump. KO meter, charge and
+counter behavior need verified native adapters rather than guessed recipe names.
+An offstage script does not recover automatically.
 
-Little Mac's up-tilt window is 4–10, so it offers more timing margin than his
-one-frame nair at frame 2. His default jump response stays grounded; height and
-reach still matter. Down-smash uses front 10–11 or rear 17–18, never the gap.
-Shield-to-up-B uses its frame-3 startup after block evidence. Forward-smash uses
-14–15; the down-angled variant has its own narrower frame-15 timing. Weak aerials
-are labeled jokes and aren't default coverage. KO meter, charge moves and
-counters aren't guessed or automated.
+## Configure, save and expand
 
-Reference facts for both fighters are in the canonical
-[Fighter Data catalog](FIGHTER_DATA.md).
+Read the current generated reference for [Pacman](fighters/pacman.md) and [Littlemac](fighters/littlemac.md). Its tables are repository
+snapshots, not your installed file or unsaved Training draft. Follow
+[the full configuration walkthrough](FIGHTER_CONFIGS.md) to choose/edit the exact
+fighter row, set explicit start delay/actions, save with Y alone and wait for
+success. External file edits require restart; current mode activation is separate
+from saved startup preference. Use [all 83 tuning keys](FIGHTER_SETTINGS.md) for
+valid ranges, units, menu visibility and active/legacy effects.
 
-The shared bounded single-move engine retains native acceptance, paired aerial
-inputs, release-on-smash-startup, cancellation and manual handoff. No background
-scan, combo engine, runtime fighter file, dependency or network code was added.
-Wider active windows can improve tolerance but cannot guarantee contact, especially
-with changing online delay or incorrect spacing. Formatting/static checks and
-regression fixtures are included; no build, Rust tests, upload or Switch gameplay
-measurements were performed for this update.
+New choices should reuse existing input primitives under the exact profile prefix.
+New native behavior requires an explicitly reviewed shared adapter; profile
+registration or extra sliders alone cannot implement it. Keep all assistance
+input-only. [Rust extension contracts](FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain the stable schema, exact-kind validation and focused tests.
+
+## Verify the intended outcome
+
+Check label versus actual action, facing on both sides, grounded/airborne state,
+resource setup, emitted press/release and native acceptance separately. Move-frame
+facts are [canonical reference data](FIGHTER_DATA.md), not timing commands.
+Then [calibrate](FIGHTER_EXECUTION.md) from repeatable positions, including
+hitstop, target loss, interruption and online play. No asset table or host check
+proves contact, safety or optimal timing. This documentation update does not
+build/upload to Switch, alter canonical assets or change executable Rust.

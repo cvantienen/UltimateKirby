@@ -446,68 +446,7 @@ pub mod mapper_hook {
     }
 
     #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        /// Builds the patched instruction fixture used by tests.
-        fn patched(words: &[u32]) -> Vec<u8> {
-            let mut bytes = MAPPING_NEEDLE.to_vec();
-            for (i, word) in words.iter().enumerate() {
-                bytes[i * 4..i * 4 + 4].copy_from_slice(&word.to_le_bytes());
-            }
-            bytes
-        }
-
-        /// Regression test for `recognizes_original_and_all_skyline_entry_layouts`.
-        #[test]
-        fn recognizes_original_and_all_skyline_entry_layouts() {
-            for entry in [
-                MAPPING_NEEDLE.to_vec(),
-                patched(&[TEST_BRANCH_PATCH_WORD]),
-                patched(&[
-                    LOAD_X17_LITERAL_OPCODE,
-                    BRANCH_X17_OPCODE,
-                    TEST_TARGET_LOW_WORD,
-                    TEST_TARGET_HIGH_WORD,
-                ]),
-                patched(&[
-                    NO_OPERATION_OPCODE,
-                    LOAD_X17_LITERAL_OPCODE,
-                    BRANCH_X17_OPCODE,
-                    TEST_TARGET_LOW_WORD,
-                    TEST_TARGET_HIGH_WORD,
-                ]),
-            ] {
-                let mut text = vec![0; 12];
-                text.extend(entry);
-                assert_eq!(mapper_offset(&text), Some(12));
-            }
-        }
-
-        /// Regression test for `rejects_ambiguity_damage_null_target_and_unaligned_matches`.
-        #[test]
-        fn rejects_ambiguity_damage_null_target_and_unaligned_matches() {
-            let mut duplicate = MAPPING_NEEDLE.to_vec();
-            duplicate.extend(patched(&[TEST_BRANCH_PATCH_WORD]));
-            assert_eq!(mapper_offset(&duplicate), None);
-            let mut damaged = patched(&[TEST_BRANCH_PATCH_WORD]);
-            damaged[24] ^= 1;
-            assert_eq!(mapper_offset(&damaged), None);
-            assert_eq!(
-                mapper_offset(&patched(&[
-                    LOAD_X17_LITERAL_OPCODE,
-                    BRANCH_X17_OPCODE,
-                    0,
-                    0,
-                ])),
-                None
-            );
-            let mut unaligned = vec![0];
-            unaligned.extend(MAPPING_NEEDLE);
-            assert_eq!(mapper_offset(&unaligned), None);
-            assert_eq!(mapper_offset(&[]), None);
-        }
-    }
+    include!("../tests/unit/live_input_mapper_hook.rs");
 }
 
 // ---------------------------------------------------------------------------
@@ -533,13 +472,21 @@ const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 // These are Copy values, so each callback can take a stable settings snapshot.
 // Fields named "frames" in the text config count observed mapper updates; their
 // relationship to the simulation clock still depends on the live input cadence.
-/// Runtime Smash data carried by `LiveSettings`.
+/// Copyable shared preferences for the raw mash/tech controller helper.
+///
+/// A callback can copy this small value to keep one stable settings snapshot.
+/// `enabled` is the helper's master permission; each optional tool also has its
+/// own switch. `takeover` permits releases of relevant physical inputs, not
+/// native status changes. `tech_cooldown` is a request limit distinct from the
+/// game's lockout and the scheduler's native contact/readiness checks.
 pub struct LiveSettings {
     /// Stores whether `LiveSettings` is enabled.
     pub enabled: bool,
-    /// Runtime auto mash value used by LiveSettings..
+    /// Enables analog stick cycling only in supported native clatter states.
+    /// False by Rust fallback; independent of the runtime master switch.
     pub auto_mash: bool,
-    /// Runtime auto tech value used by LiveSettings..
+    /// Enables eligible collision-prediction tech scheduling, not forced techs.
+    /// False by Rust fallback; the supplied master file enables it explicitly.
     pub auto_tech: bool,
     /// Enables extra diagnostic messages, not all logging in the plugin.
     pub tech_debug: bool,
@@ -565,8 +512,19 @@ impl Default for LiveSettings {
     }
 }
 
-/// Startup configuration shared with the Switch plugin. Unknown keys and
-/// invalid values reject the configuration instead of silently enabling tools.
+/// Shared startup settings parsed before native hooks are installed.
+///
+/// Each field is a preference or input/prediction limit, not a native move or
+/// physics modification. `Default` is the fallback for omitted keys; it is not
+/// the same as the repository's supplied `sequences.txt` settings.
+///
+/// The native loader uses `[universal.settings]` when present. Otherwise it
+/// reads the legacy `config.txt`, falling back to `Default` if that file is
+/// missing. The two settings sources are not merged. Fighter tuning and
+/// per-match menu switches form separate configuration layers.
+///
+/// See `docs/SETTINGS_REFERENCE.md` for keys, units, bounds and examples. Unknown
+/// keys and invalid values reject parsing rather than installing partial state.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
@@ -720,7 +678,24 @@ fn retired_in(value: Option<f32>, min: f32, max: f32) -> bool {
 }
 
 impl LiveConfig {
-    /// Parses the supplied source into the module’s validated representation.
+    /// Parses shared `key = value` lines into one validated settings snapshot.
+    ///
+    /// This parser expects a section body, not `[fighter.settings]` or recipe
+    /// headers. It starts with Rust fallback defaults, removes `#` comments,
+    /// skips blank lines and replaces fields named by the supplied keys. Shared
+    /// keys are case-sensitive; individual choice values define their own case
+    /// rules. Native catalog parsing separately rejects duplicate universal keys.
+    ///
+    /// ### Errors
+    /// Returns a line-numbered error for unknown keys or malformed values, or a
+    /// bounds error after parsing. Retired keys are accepted only under their
+    /// compatibility rules and do not reactivate removed gameplay behavior.
+    /// `Result` lets the startup loader refuse the whole configuration on failure.
+    ///
+    /// ### Extending
+    /// A new setting needs a field/default, an `apply` key, appropriate
+    /// validation, consumer wiring and focused parser/policy tests. A parsed
+    /// field alone does not create a menu control or a gameplay action.
     pub fn parse(contents: &str) -> Result<Self, String> {
         // Start from Rust defaults, then replace only keys present in the file.
         // `?` propagates Err immediately: no partially parsed config is installed.

@@ -25,8 +25,8 @@ publication cannot make stale work current again.
 
 Relevant implementation:
 
-* `src/live.rs`: `observe_fighter()` actor/controller checks and
-  `map_controls()` routing checks.
+* `src/live/observation.rs`: `observe_fighter()` actor/controller admission.
+* `src/live/mapper.rs` and `src/live.rs`: mapper admission and the hook wrapper.
 * `src/live/state.rs`: stored route IDs and timestamps.
 * `crates/kirby_assist_core/src/runtime.rs`: match epoch and ticket validation.
 * `src/live/runtime.rs`: reset fencing and runtime suspension.
@@ -41,9 +41,11 @@ associated object, mapper, and recent fighter observation.
 
 Before composing controller overlays, the mapper rechecks runtime state,
 controller identity and connection, match ticket, route, and request freshness.
-Runtime disable/suspension clears participation, policy state, pending overlays,
-training handoffs, and diagnostics. Entering Training passthrough cancels active
-policies; saved policy state resumes only when passthrough ends.
+Runtime disable/suspension revokes participation before teardown and clears
+policy state, pending overlays, training handoffs, and diagnostic caches when
+the relevant locks are available. A failed reset lock does not permit re-enabling
+assistance. Entering Training passthrough cancels active policies; after handback,
+normal settings apply to fresh observations, not a replay of the cancelled tape.
 
 The menu-presence watchdog is a 250 ms fighter-callback lease. Mapper polling
 alone cannot renew it. A separate active-match gate protects master-switch
@@ -103,6 +105,33 @@ Current code references are `crates/kirby_assist_core/src/sequence_config.rs`,
 When adding a new automated sequence, wire its trigger, state, cancellation,
 ownership, and mapper output explicitly, and test that the live path actually
 uses it.
+
+## Safety is layered, not a universal guarantee
+
+`SessionTicket` uses a wrapping software epoch. It rejects ordinary stale-session
+reuse; it is not an eternal globally unique allocation identifier. Actor IDs,
+settings/publication sequence, mapper tick and request age answer different
+questions and must remain independent. A 35 ms timestamp cannot revive a request
+from an older tick; a connected controller alone cannot authorize a fighter.
+
+`ControllerRestore` owns only the copied native input fields changed by the
+transaction, and `restore(self)` writes them back explicitly. There is no automatic
+`Drop` rollback here. Native aborts, incompatible layouts or other hooks remain
+outside that control-flow proof. The post-map fence protects our adjustments and
+acknowledgments; it cannot undo work already performed by the original mapper.
+
+FFI declarations and offset assertions are source-level contracts, not executable
+compatibility certification. Invalid or absent collision/clock data must withhold
+an action rather than be interpreted as harmless geometry or frame zero. Core
+unit tests can exercise these refusal paths without proving the native facts.
+
+The generic runner is intentionally less elaborate than the live path. Missing
+human input means it cannot reconstruct physical input and does not write; a
+retaining adapter must expire any previous output itself. Missing fighter context
+with available human input does write human input to release the prior recipe.
+See the canonical beginner guide at
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md` and
+[the development walkthrough](DEVELOPMENT.md#beginner-guide-follow-the-code-before-changing-it).
 
 ## What validation proves
 

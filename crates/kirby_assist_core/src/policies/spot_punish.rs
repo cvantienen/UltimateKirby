@@ -27,11 +27,12 @@ struct Seen {
     used: bool,
 }
 
-/// Represents a punisher that tracks observed spot-dodge opportunities and manages responses.
-/// # Fields
-/// * `object` - The current object being tracked.
-/// * `seen` - An array of observed spot-dodge opportunities.
-/// * `response` - The current response being managed.
+/// Tracks ordinary enemy spot dodges and starts a matching saved response once.
+///
+/// `seen` remembers motion identity and whether an event was already answered.
+/// Cancelling playback does not retry the same observed dodge. Selection uses
+/// copied recovery facts; this policy does not query the game or force attacks.
+/// `SpotDodgeAny` can match before vulnerability, unlike `SpotDodge`.
 #[derive(Default)]
 pub struct Punisher {
     /// Runtime object value used by Punisher..

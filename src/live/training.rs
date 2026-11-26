@@ -10,7 +10,12 @@ use kirby_assist_core::{
 };
 use std::{sync::atomic::Ordering, time::Instant};
 
-/// Enters the training passthrough mode if the appropriate conditions are met.
+/// Lets a recognized Training shortcut receive physical input unchanged.
+///
+/// The first handoff cancels pending assist input. Ordinary save/load shortcuts
+/// resume on release; sticky menus/recording retain the modal handoff until the
+/// separate fresh-Minus release path. Session timestamps remain alive here, so
+/// a long legitimate Training handoff is not mistaken for a disconnected pad.
 /// # Parameters
 /// * `physical` - The current button trace.
 /// * `index` - The mapping index of the controller.

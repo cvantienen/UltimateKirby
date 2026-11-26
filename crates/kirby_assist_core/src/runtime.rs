@@ -14,9 +14,20 @@ pub struct AssistRuntime {
 }
 
 impl AssistRuntime {
-    /// Call once per simulation frame, using fresh human input rather than the
-    /// previous merged output. The adapter owns frame counters and resets them
-    /// on scenario re-entry. Missing fighter state releases to fresh human input when available.
+    /// Reads fresh physical input, evaluates a generic scenario, and writes its
+    /// merged frame. This teaching/host runner is not the live callback pipeline.
+    ///
+    /// The caller supplies simulation/scenario ages and resets them on re-entry;
+    /// polling this method does not create a native game clock.
+    ///
+    /// ### Returns
+    /// `Some(decision)` after a valid evaluation, including disabled/waiting
+    /// decisions that write fresh human input. Missing context or observation
+    /// writes the available human frame and returns `None`. Missing human input
+    /// returns `None` without writing; a retaining adapter needs its own timeout
+    /// to release previously stored output on that path.
+    ///
+    /// Never read the previous assisted output as the next human-input sample.
     pub fn process_frame(&self, adapter: &mut impl GameAdapter) -> Option<FrameDecision> {
         // `?` unwraps Some(value), or returns None immediately if a read fails.
         // A missing human input read cannot safely reconstruct physical input;
@@ -44,105 +55,8 @@ impl AssistRuntime {
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        AutoMash, ButtonSet, ControllerFrame, FighterKind, FighterObservation,
-        GameObservationSource, InputBridge, RunContext, Scenario,
-    };
-
-    /// Runtime Smash data carried by `Adapter`.
-    struct Adapter {
-        /// Runtime observation value used by Adapter..
-        observation: Option<FighterObservation>,
-        /// Runtime human value used by Adapter..
-        human: Option<ControllerFrame>,
-        /// Runtime context value used by Adapter..
-        context: Option<RunContext>,
-        /// Runtime writes value used by Adapter..
-        writes: Vec<ControllerFrame>,
-    }
-
-    impl GameObservationSource for Adapter {
-        /// Observes the fighter.
-        fn observe_fighter(&self) -> Option<FighterObservation> {
-            self.observation
-        }
-    }
-    impl InputBridge for Adapter {
-        /// Reads the human input.
-        fn read_human_input(&self) -> Option<ControllerFrame> {
-            self.human
-        }
-        /// Writes the merged input.
-        fn write_merged_input(&mut self, frame: ControllerFrame) {
-            self.writes.push(frame);
-        }
-    }
-    impl GameAdapter for Adapter {
-        /// Reads the context.
-        fn read_context(&self) -> Option<RunContext> {
-            self.context
-        }
-    }
-
-    /// Regression test for `runner_releases_pulses_and_handles_disable_exit_and_missing_state`.
-    #[test]
-    fn runner_releases_pulses_and_handles_disable_exit_and_missing_state() {
-        let human = ControllerFrame {
-            buttons: ButtonSet::JUMP,
-            ..ControllerFrame::default()
-        };
-        let mut adapter = Adapter {
-            observation: Some(FighterObservation::one(Scenario::Clatter, 0)),
-            human: Some(human),
-            context: Some(RunContext {
-                is_locally_human_controlled: true,
-                fighter: FighterKind::Kirby,
-            }),
-            writes: Vec::new(),
-        };
-        let mut runtime = AssistRuntime::default();
-        runtime.config.enabled = true;
-        assert!(runtime.config.set_rule(AutoMash::default().rule()));
-        runtime.process_frame(&mut adapter).unwrap();
-        assert_eq!(
-            adapter.writes.last().unwrap().buttons,
-            ButtonSet::JUMP.union(ButtonSet::ATTACK)
-        );
-        adapter.observation = Some(FighterObservation::one(Scenario::Clatter, 1));
-        runtime.process_frame(&mut adapter).unwrap();
-        assert_eq!(adapter.writes.last(), Some(&human));
-        // A new scenario occurrence starts its timing at zero again.
-        adapter.observation = Some(FighterObservation::one(Scenario::Clatter, 0));
-        runtime.process_frame(&mut adapter).unwrap();
-        assert!(adapter
-            .writes
-            .last()
-            .unwrap()
-            .buttons
-            .contains(ButtonSet::ATTACK));
-        runtime.config.enabled = false;
-        runtime.process_frame(&mut adapter).unwrap();
-        assert_eq!(adapter.writes.last(), Some(&human));
-        runtime.config.enabled = true;
-        adapter.observation = Some(FighterObservation::EMPTY);
-        runtime.process_frame(&mut adapter).unwrap();
-        assert_eq!(adapter.writes.last(), Some(&human));
-
-        let count = adapter.writes.len();
-        adapter.observation = None;
-        assert!(runtime.process_frame(&mut adapter).is_none());
-        adapter.observation = Some(FighterObservation::EMPTY);
-        adapter.human = None;
-        assert!(runtime.process_frame(&mut adapter).is_none());
-        adapter.human = Some(human);
-        adapter.context = None;
-        assert!(runtime.process_frame(&mut adapter).is_none());
-        assert_eq!(adapter.writes.len(), count + 2);
-        assert_eq!(adapter.writes.last(), Some(&human));
-    }
-}
+#[path = "../tests/unit/runtime.rs"]
+mod tests;
 pub mod runtime_toggle {
     //! Deliberate master-switch gesture. Match detection is supplied by the adapter.
     use std::time::Duration;
@@ -210,55 +124,7 @@ pub mod runtime_toggle {
         }
     }
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        /// Converts a millisecond offset into a `Duration`.
-        fn at(ms: u64) -> Duration {
-            Duration::from_millis(ms)
-        }
-        /// Regression test for `holds_toggle_once_and_partial_or_glitchy_releases_do_not_rearm`.
-        #[test]
-        fn holds_toggle_once_and_partial_or_glitchy_releases_do_not_rearm() {
-            let mut s = RuntimeToggle::new();
-            assert!(!s.sample(CHORD, false, at(0)));
-            assert!(!s.sample(CHORD, false, at(349)));
-            assert!(s.sample(CHORD, false, at(350)));
-            assert!(!s.sample(CHORD, false, at(900)));
-            s.sample(0, false, at(950));
-            assert!(!s.sample(CHORD, false, at(960)));
-            s.sample(1 << 10, false, at(1000));
-            assert!(!s.sample(CHORD, false, at(1500)));
-            s.sample(0, false, at(1600));
-            s.sample(0, false, at(1750));
-            assert!(!s.sample(CHORD, false, at(1800)));
-            assert!(s.sample(CHORD, false, at(2150)));
-        }
-        /// Checks whether cancel pending holds and held chords cannot carry out of battle.
-        #[test]
-        fn matches_cancel_pending_holds_and_held_chords_cannot_carry_out_of_battle() {
-            let mut s = RuntimeToggle::new();
-            s.sample(CHORD, false, at(0));
-            assert!(!s.sample(CHORD, true, at(500)));
-            assert!(!s.sample(CHORD, false, at(1000)));
-            assert!(!s.sample(CHORD, true, at(2000)));
-            s.sample(0, false, at(2100));
-            s.sample(0, false, at(2250));
-            s.sample(CHORD, false, at(2300));
-            assert!(s.sample(CHORD, false, at(2650)));
-        }
-        /// Regression test for `missing_controller_samples_cancel_a_partly_completed_gesture`.
-        #[test]
-        fn missing_controller_samples_cancel_a_partly_completed_gesture() {
-            let mut s = RuntimeToggle::new();
-            s.sample(CHORD, false, at(0));
-            s.disarm();
-            assert!(!s.sample(CHORD, false, at(1000)));
-            s.sample(0, false, at(1100));
-            s.sample(0, false, at(1250));
-            s.sample(CHORD, false, at(1300));
-            assert!(s.sample(CHORD, false, at(1650)));
-        }
-    }
+    include!("../tests/unit/runtime_toggle.rs");
 }
 pub mod session {
     //! Fence cached inputs across gameplay/loading transitions, even if object IDs
@@ -340,70 +206,7 @@ pub mod session {
     }
 
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        /// Regression test for `leaving_elite_warmup_expires_menu_without_another_mapper_callback`.
-        #[test]
-        fn leaving_elite_warmup_expires_menu_without_another_mapper_callback() {
-            let now = Instant::now();
-            let mut presence = MenuPresence::new();
-            assert!(!presence.fresh(now));
-            presence.observe(now);
-            assert!(presence.fresh(now + Duration::from_millis(249)));
-            // Retained GO/roster/view data does not renew fighter presence.
-            for _ in 0..20 {
-                assert!(!presence.fresh(now + Duration::from_millis(250)));
-            }
-            assert!(!presence.fresh(now + Duration::from_secs(30)));
-            presence.observe(now + Duration::from_secs(31));
-            assert!(presence.fresh(now + Duration::from_secs(31)));
-            presence.clear();
-            assert!(!presence.fresh(now + Duration::from_secs(31)));
-        }
-        /// Regression test for `live_fighter_observations_keep_menu_available_through_normal_input_pauses`.
-        #[test]
-        fn live_fighter_observations_keep_menu_available_through_normal_input_pauses() {
-            let now = Instant::now();
-            let mut presence = MenuPresence::new();
-            for tick in 0..600 {
-                let at = now + Duration::from_millis(tick * 16);
-                presence.observe(at);
-                assert!(presence.fresh(at + Duration::from_millis(16)));
-            }
-        }
-        /// Regression test for `warmup_to_loading_to_match_rejects_old_observations_even_with_reused_ids`.
-        #[test]
-        fn warmup_to_loading_to_match_rejects_old_observations_even_with_reused_ids() {
-            let mut session = MatchSession::new();
-            assert!(session.ticket().is_none());
-            assert!(session.update(true));
-            let warmup_observation = session.ticket().unwrap();
-            assert!(session.accepts(warmup_observation));
-            assert!(!session.update(true));
-            assert!(session.update(false));
-            assert!(!session.accepts(warmup_observation));
-            assert!(session.ticket().is_none());
-            assert!(!session.update(false));
-            assert!(session.update(true));
-            let match_observation = session.ticket().unwrap();
-            assert!(!session.accepts(warmup_observation));
-            assert!(session.accepts(match_observation));
-        }
-        /// Regression test for `repeated_gameplay_polls_do_not_reset_current_action_history`.
-        #[test]
-        fn repeated_gameplay_polls_do_not_reset_current_action_history() {
-            let mut session = MatchSession::new();
-            session.update(true);
-            let ticket = session.ticket().unwrap();
-            for _ in 0..100 {
-                assert!(!session.update(true));
-                assert!(session.accepts(ticket));
-            }
-            session.update(false);
-            session.update(true);
-            assert!(!session.accepts(ticket));
-        }
-    }
+    include!("../tests/unit/runtime_session.rs");
 }
 pub mod training_test {
     //! Training compatibility in both builds: reserve Minus for OUR menu and hand the

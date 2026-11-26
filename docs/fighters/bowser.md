@@ -1,74 +1,73 @@
 # Bowser
 
-## Direct Auto react profile
+## Configure Bowser
 
-Bowser has one direct sequence for each event: roll within **30 X / 12 Y**,
-spot dodge within **25 / 10**, and air dodge within **35 / 19**. Each runs
-`up_b:4, drift:opponent:1:69`. Starts require grounded Bowser, including held
-shield; the following drift is an ordinary authored sequence action. The close-
-range shield Up-B backup has no implicit drift: add one to its edited sequence
-if desired. Up-B startup confirmation advances a sequence after its delivered
-B action; it does not activate Bowser-specific tracking. A verified Up+Special
-packet retains a bounded, input-free native receipt through shield
-hitstop/readiness loss. Late confirmation advances to the next authored action
-without replaying B. The receipt reserves punish priority only, expires within
-24 mapper updates, and still obeys L/safety/target loss.
-Active ledge-trap mode disables all automatic punish searches and responses,
-even before an opponent reaches the ledge. Hanging/captured opponents are
-excluded from ordinary punish targets.
+This page belongs to profile **`bowser`** (`fighter_kinds::BOWSER`), not a
+roster-position index. Use `[bowser.settings]` for overrides and
+`[bowser.neutral.my_response]` (or jump/roll/attack/drop) for an authored option.
+Existing choices, supplied defaults and literal inputs are shown in the generated
+snapshot below. Your installed file and unsaved Training draft may differ.
 
-Bowser's idle far-range automatic grab must observe native dash/run before
-pressing Grab. It sends neutral stick with the Grab request, rather than holding
-forward during delivery. Already-moving unshielded Grab requests also use neutral
-stick; close and shield-grab admission remains unchanged. Failed dash startup is bounded by four delivered
-approach attempts. Manual ledge recipes are unchanged.
+Start with [the complete fighter configuration walkthrough](../FIGHTER_CONFIGS.md),
+then use [all 83 tuning keys](../FIGHTER_SETTINGS.md) and
+[execution/calibration](../FIGHTER_EXECUTION.md). These shared guides explain
+units, ranges, current versus startup effects, save/restart, and cancellation.
+Choose or edit this fighter's row in Training; activate its configured Ledge
+Assist binding to run it. A missing selected timeline produces no fallback move.
 
-Unshielded automatic grabs require an enemy shielding in front and vulnerable.
-While Bowser shields, his shield-grab recipe accepts any vulnerable, grabbable
-front opponent within its separate X/Y limits; enemy shield is not required.
-If no legal grab wins, the shield backup uses its own range and native readiness. The
-incoming-grab defense sends one Down+Guard request, then uses its separate **25 / 10**
-`auto_grab_dodged` Up-B recipe only after native dodge startup and native readiness.
-Its configured Up-B follow-through is also defined by the sequence actions. A delivered R cannot be replaced
-by Up-B while awaiting receipt. Native grab/catch/hold/pummel/throw releases all
-punish and ledge tapes so throws remain manual.
+### Supplied fighter overrides
 
-Bowser's complete Auto react list also includes `auto_grab:35:24`,
-`auto_shield_grab:25:15`, and `auto_shield_backup:25:15`. Their actions and X/Y
-limits are editable alongside the three enemy-dodge responses and the separate
-grab-dodge follow-up. The default recipes retain existing native delivery,
-movement, shield safety, priorities and authored sequence actions. The current supplied
-roll/spot/air values above were preserved, not retuned by this refactor.
+These are the current repository file values, **not schema fallbacks**.
+Omitted keys retain resolved shared/reference defaults; retired fields remain
+parseable but do not restore removed behavior.
 
-## Default D-pad reversals
+| Key | Supplied value |
+| --- | --- |
+| `walk_strength` | `0.49999985` |
+| `grab_range` | `22` |
+| `vertical_range` | `20` |
+| `follow_range` | `45` |
+| `follow_vertical_range` | `45` |
+| `stand_distance` | `15` |
+| `manual_spacing` | `true` |
+| `auto_position` | `true` |
+| `grab_dodge_default` | `true` |
+| `out_of_shield_default` | `true` |
+| `grab_dodge_lookahead` | `8` |
+| `shield_body_half_width` | `10` |
+| `shield_body_height` | `20` |
+| `shield_body_half_depth` | `10` |
+| `shield_forecast` | `10` |
+| `shield_hold` | `2` |
+| `grab_dodge_padding` | `15` |
+| `grab_dodge_height` | `10` |
+| `tech_ceiling_origin` | `5` |
+| `tech_floor_padding` | `2` |
 
-The local sequence file selects **D-pad Left: Fire Breath reverse toward enemy**
-and **D-pad Right: Flying Slam reverse toward enemy**. These run once per press.
-Use them airborne with Bowser free to start a special; no jump is inserted.
+### Support and extension boundary
 
-Left uses one frame of stick away, one neutral-stick B press, then two frames of
-stick toward the opponent. Right sends B + stick away for one frame, then stick
-toward for two frames. `opponent_input` mirrors X from the observed opponent,
-independently of Bowser's facing, with no blocking Face step. Each step captures
-its direction on entry. Missing opponent observations end the sequence.
+Bowser has explicit supplied held/button bindings and six reaction event records; he does not receive a hardcoded spinning drift or automatic unshielded grab. Ranges and follow-through come from each record. Native capture returns control for manual throws; no label supplies a combo.
 
-These are input recipes, not native move/momentum edits. The result depends on
-Bowser's native reversal window and starting state; Training validation of the
-actual move is still required. The new syntax requires the updated mod build;
-uploading only this text to an older build is not supported.
+To expand this fighter, add a uniquely named option under **`bowser`** using
+existing actions first. Keep all waits, directional inputs, range checks and
+resource assumptions explicit. Do not change `fighter_kind` to another fighter
+to borrow a move. New primitives require a reviewed shared executor change;
+new character-specific prediction needs a verified native adapter, not only
+more sliders. [Rust extension contracts](../FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain registration, `Option`, validation and focused tests.
 
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
 Native fighter kind **15** (`bowser`). This reference follows the canonical fighter data;
-it is not a device-calibration result. No fighter-specific file loads during a match.
+it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
-The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.
 Up/Down selects a row; Left/Right cycles its
-choices. Hold **L** to run the selected responses. Defaults are bold.
+choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
@@ -84,14 +83,13 @@ Selecting a choice never changes native moves, hitboxes, physics or animation sp
 
 ## Saved assist rules
 
-These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+These are saved configuration records, not proof that a trigger is currently admitted.
 they are not selected ledge/button recipes. Auto react has one sequence per event;
-priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.
 
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge - Up-B chase | `bowser.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `bowser.roll.auto_grab` |
 | `auto_grab_dodged` | — | After dodging enemy grab | `bowser.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll - Up-B chase | `bowser.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield grab backup | `bowser.roll.auto_shield_backup` |

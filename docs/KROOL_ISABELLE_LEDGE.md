@@ -1,75 +1,40 @@
-# King K. Rool and Isabelle
+# King K. Rool and Isabelle: melee and projectile configuration
 
-Current [chart-based files](FIGHTER_EXECUTION.md#chart-based-roster-configurations)
-select forward tilt for normal getup, Nair for jump, down-smash for roll,
-shield into Nair for getup attack, and shield for drop on both fighters.
-Smash choices now explicitly hold/release Attack; the historical release-on-startup
-and adaptive-hop descriptions below do not schedule these text-file inputs.
+K. Rool's profile prefix is `krool` (kind 69); Isabelle uses `isabelle` (70).
+Their supplied lists/defaults are independent. Neither inherits compiled
+belly-flop/slingshot scheduling, automatic fair-versus-bair selection or adaptive
+hop behavior. Actions, not move names, determine delivery.
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+For K. Rool body/shockwave or front/rear smash coverage, keep separate data phases
+separate. For Isabelle slingshot, write the hop, directional attack, wait and
+drift explicitly; projectile emission is not projectile arrival. A Roll row
+alone does not cause a chase to an endpoint. A shield-shot sequence should wait
+for a confirmed block only if `shield_until_block` is actually authored.
+Net grab uses independent reference facts and capture hands back control.
+Drop spikes can take either fighter offstage; no label adds recovery.
 
+## Configure, save and expand
 
-Both have independent compiled profiles, native move data and five saved lists.
-Controls: [L autopilot and Minus menu](LEDGE_MENU.md). Y is reserved for configured
-held modes; B-reverse is currently unbound.
-Bold entries below are defaults.
+Read the current generated reference for [Krool](fighters/krool.md) and [Isabelle](fighters/isabelle.md). Its tables are repository
+snapshots, not your installed file or unsaved Training draft. Follow
+[the full configuration walkthrough](FIGHTER_CONFIGS.md) to choose/edit the exact
+fighter row, set explicit start delay/actions, save with Y alone and wait for
+success. External file edits require restart; current mode activation is separate
+from saved startup preference. Use [all 83 tuning keys](FIGHTER_SETTINGS.md) for
+valid ranges, units, menu visibility and active/legacy effects.
 
-| Row | King K. Rool | Isabelle |
-| --- | --- | --- |
-| Neutral | **Nair**, down tilt, forward tilt, belly flop | **Nair**, down tilt, forward tilt, party popper, slingshot |
-| Jump | **Nair**, up-air, forward-air | **Nair**, up-air, slingshot |
-| Roll | Down-smash, **grab** | **Down-smash**, net grab, slingshot |
-| Attack | **Shield → nair**, grab / rear nair, shield → up-air | **Shield → nair**, grab / rear nair, shield → up-air, shield → slingshot |
-| Drop | **Shield**, down tilt → shield, spike, belly flop | **Shield**, down tilt → shield, turnip spike, slingshot |
+New choices should reuse existing input primitives under the exact profile prefix.
+New native behavior requires an explicitly reviewed shared adapter; profile
+registration or extra sliders alone cannot implement it. Keep all assistance
+input-only. [Rust extension contracts](FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain the stable schema, exact-kind validation and focused tests.
 
-Nair defaults have continuous active spans: K. Rool 7–30, Isabelle 5–25. Normal
-get-up coverage targets eight frames before protection expiry using the existing
-numeric adjustment. K. Rool's roll grab starts sooner than his frame-22 smash.
-Isabelle's front/rear down-smash windows are separately 8–9 and 12–13; their gap
-is never counted as coverage. Successful grabs return control for pummels/throws.
+## Verify the intended outcome
 
-The playful grounded choices are K. Rool's down-smash body hit (22–24; the later
-shockwave is excluded) and Isabelle's forward-smash party popper (14–19).
-Extra jump choices use K. Rool up-air 7–19/fair 11–17, or Isabelle up-air 6–31.
-Her slingshot selects fair (first projectile phase 10–12) when the target is
-in front, or bair (13–15) when behind. Travel time remains spacing dependent. Spike choices use down-air: K. Rool 14–21, Isabelle 11–28.
-Reference facts for both fighters are in the canonical
-[Fighter Data catalog](FIGHTER_DATA.md).
-
-Nair is the forgiving general preset; up-air aims above the fighter and fair
-needs facing/spacing. These are coverage candidates, not proven optimal against
-every opponent. Airborne height, shield pushback, platform geometry and online
-input-delay changes can still defeat a correctly scheduled animation. The short
-smash windows tolerate less timing error than nair.
-
-Extra aerials pair X+A, release X in jump squat (including frozen observations),
-and hold directional A until the exact motion starts. They then release attack
-inputs, avoid fast-fall, and hand back after the chosen active window or landing.
-Drop spikes drift outward and do not recover automatically: use them selectively.
-Grounded smash variants prime a neutral release, pair direction+A, then hand back
-on native startup to avoid charging. All extra choices make only one move;
-interruptions, wrong moves, invalid clocks, timeout and releasing L cancel them.
-
-The same cached UI/config selection and active-tool observation gates are reused.
-There is no combo engine, extra roster scan, file loading, dependency, network or
-service call. Inactive profiles execute no response. Formatting/static source
-checks and regression fixtures were added; no build, Rust tests, upload or device
-performance/online measurements were run for this update.
-
-## Isabelle slingshot in all five lists
-
-Neutral, Jump, Roll, Get-up Attack, and Drop each have a Slingshot choice.
-Existing choice indices and defaults are preserved. Neutral and Roll short-hop
-in place and stage projectile emission against vulnerability using the chosen
-fair/bair startup. Roll aims toward the usual ledge-relative roll endpoint,
-without running there. Jump retains her native adaptive-hop policy. Get-up
-Attack holds shield until a confirmed block and native jump readiness; Drop
-requests an immediate short-hop shot. All shots use zero post-emission drift.
-
-The chosen facing selects fair or bair without a turnaround, and bair starts
-with a neutral hop to preserve that facing. OneShot continues through lost
-opponent tracking and stops ownership after the first projectile phase; the
-native pellet continues flying. Projectile speed, travel, and collision are not
-modeled, so emission timing does not guarantee contact before the enemy can act.
-These options require spacing and Switch validation. No new scans or runtime
-config loading are added.
+Check label versus actual action, facing on both sides, grounded/airborne state,
+resource setup, emitted press/release and native acceptance separately. Move-frame
+facts are [canonical reference data](FIGHTER_DATA.md), not timing commands.
+Then [calibrate](FIGHTER_EXECUTION.md) from repeatable positions, including
+hitstop, target loss, interruption and online play. No asset table or host check
+proves contact, safety or optimal timing. This documentation update does not
+build/upload to Switch, alter canonical assets or change executable Rust.

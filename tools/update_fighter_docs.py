@@ -31,6 +31,17 @@ def fighter_data_snapshot():
     snapshot = json.loads((ROOT / "data/Ultimate_stats.json").read_text())
     return {f["kind"]: f for f in snapshot["fighters"]}
 ROWS = ["Neutral", "Jump", "Roll", "Attack", "Drop"]
+CURRENT_AUTO_EVENTS = frozenset({
+    "auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_shield_grab",
+    "auto_grab_dodged", "auto_shield_backup",
+})
+SHORT_AUTO_EVENTS = CURRENT_AUTO_EVENTS
+
+
+def trigger_label(trigger):
+    if trigger == "auto_grab":
+        raise ValueError("Retired auto_grab trigger; use a current reaction event")
+    return trigger
 
 
 def source(path):
@@ -107,9 +118,10 @@ def file_assists(module):
             continue
         values = sequence_catalog()[section]
         fields = values.get("reaction", "off").split(":")
+        trigger_label(fields[0].strip())
         if fields[0].strip() == "off":
             continue
-        simple = fields[0].strip() in {"auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab", "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup"}
+        simple = fields[0].strip() in SHORT_AUTO_EVENTS
         priority = 1 if simple else int(fields[6])
         rules.append((fields[0], priority, values.get("name", section).strip('"'), section))
     return sorted(rules, key=lambda r: (r[0], r[1]))
@@ -130,11 +142,11 @@ def render(module):
     lines = ["# " + title(module), "", BEGIN, "",
              "[All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)", "",
              "Native fighter kind **%s** (`%s`). This reference follows the canonical fighter data;" % (kind, module),
-             "it is not a device-calibration result. No fighter-specific file loads during a match.", "",
+             "it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.", "",
              "## Saved ledge responses", "",
-             "The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.",
+             "Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.",
              "Up/Down selects a row; Left/Right cycles its",
-             "choices. Hold **L** to run the selected responses. Defaults are bold.", "",
+             "choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.", "",
              "| Row | Saved choices, in menu order |", "| --- | --- |"]
     for name, row in zip(ROWS, menu):
         names = [choice['name'] for choice in row['options']]
@@ -151,14 +163,14 @@ def render(module):
     # Put assist lists beside, never inside, the manual ledge-choice table.
     marker = lines.index("## Native move reference (not scheduling)")
     assists = ["## Saved assist rules", "",
-               "These rules have separate ON/OFF assists and Training L3/R3 rule lists;",
+               "These are saved configuration records, not proof that a trigger is currently admitted.",
                "they are not selected ledge/button recipes. Auto react has one sequence per event;",
-               "priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.", "",
+               "priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.", "",
                "| Assist trigger | Priority | Saved rule | Section |", "| --- | --- | --- | --- |"]
     rules = file_assists(module)
     for trigger, priority, label, section in rules:
-        shown_priority = "—" if trigger in {"auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab", "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup"} else priority
-        assists.append(f"| `{trigger}` | {shown_priority} | {label} | `{section}` |")
+        shown_priority = "—" if trigger in SHORT_AUTO_EVENTS else priority
+        assists.append(f"| `{trigger_label(trigger)}` | {shown_priority} | {label} | `{section}` |")
     if not rules:
         assists.append("| — | — | No saved assist rules in the supplied master | — |")
     lines[marker:marker] = assists + [""]
@@ -228,8 +240,8 @@ def render(module):
                "pacman": "PACMAN_MAC_LEDGE.md", "littlemac": "PACMAN_MAC_LEDGE.md",
                "luigi": "FIGHTER_ADDITIONS.md", "captain": "FIGHTER_ADDITIONS.md"}
     if module in related:
-        lines += ["", "See [this fighter's detailed execution notes](../%s) for its specific sequences," % related[module],
-                  "timing overrides, drift and exceptions."]
+        lines += ["", "See [this fighter's detailed execution notes](../%s) for configuration advice," % related[module],
+                  "input distinctions and limitations."]
     if module.startswith("ice_climbers"):
         lines += ["", "Nana has a registered native identity, not an extra selectable fighter or partner",
                   "AI/desync tool. The selected-human controller checks still apply."]
@@ -268,7 +280,7 @@ def outputs():
         result[path] = content
     index = ["<!-- BEGIN INDIVIDUAL FIGHTER LINKS -->", "", "## Individual fighter pages", "",
              "Each registered fighter form has its own source-based reference, including",
-             "all five file-authored lists, selected defaults, input schedules and canonical fighter facts.", "",
+             "all five file-authored lists, supplied defaults, input schedules and canonical fighter facts. These tables are repository snapshots, not live menu state.", "",
              "| Fighter | Fighter | Fighter |", "| --- | --- | --- |"]
     links = ["[%s](fighters/%s.md)" % (title(m), m) for m in sorted(modules, key=title)]
     for i in range(0, len(links), 3): index.append("| " + " | ".join((links[i:i+3] + [""] * 3)[:3]) + " |")

@@ -1,6 +1,13 @@
 # Silent and diagnostic builds
 
-The two variants share the same gameplay code. Logging is selected at compile time with the `diagnostic-logging` Cargo feature; it is independent of Rust's optimized `--release` profile. Both supplied builds are optimized releases.
+The two variants share gameplay source. Logging is selected at compile time with
+the `diagnostic-logging` Cargo feature; it is independent of Rust's optimized
+`--release` profile. The build helper requests optimized release output for both;
+this is not verification of any existing supplied NRO. The default plugin
+features include `imgui-menu`; diagnostic logging forwards to the core feature.
+A runtime `tech_debug` setting cannot compile diagnostics into a silent binary.
+For `cfg`, crates and const constructors see the canonical tutorial at
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md` and [Development](DEVELOPMENT.md).
 
 | Variant | Explicit plugin file/console logging | Detailed tech logs | Config reading |
 | --- | --- | --- | --- |
@@ -8,15 +15,17 @@ The two variants share the same gameplay code. Logging is selected at compile ti
 | Diagnostic | Enabled | Enabled when `tech_debug = true` | Enabled |
 
 Both variants support the same Training-only add/duplicate/rename/delete tools
-and separate ledge, button and assist-rule lists. An explicit Save starts one
-temporary worker immediately in Training. There is no pending-save queue or
-outside-battle wait; another save waits until completion is consumed. Silent
+and separate ledge, button and assist-rule lists. Explicit saves use the existing single-worker/result-consumption path.
+Worker completion and publication into the current live menu/library are separate
+stages; consult [sequence saves](SEQUENCE_FILES.md) for admission and lifecycle.
+Do not infer an atomic cross-file/runtime transaction from a successful write. Silent
 does not include the diagnostic logger or performance instrumentation.
 
 Silent means this plugin's explicit logger and diagnostic collection are absent. It does **not** hide the loaded NRO or hooks, erase old logs, suppress crashes, or control Skyline/OS/game reporting. It is not a ban-prevention or hardware-indistinguishability guarantee.
 
-Keep the maintained docs aligned with changes. Append a short change summary to
-`[package].description` in `Cargo.toml`, preserving all earlier entries. The
+Keep maintained docs aligned with changes. Only for an explicitly requested
+release, append a short change summary to `[package].description` in `Cargo.toml`,
+preserving all earlier entries; docs-only tasks do not change versions/descriptions. The
 packager reads the accumulated description verbatim; it does not replace it
 with a newly written summary.
 
@@ -48,7 +57,13 @@ Each command writes `target/aarch64-skyline-switch/release/libkirby_assist.nro`.
 python3 tools/build_variants.py
 ```
 
-The helper defaults to building both silent and diagnostic sequentially. `-v silent` or `-v diagnostic` selects just one. It verifies the NRO header and selected logger/message markers, snapshots the binary/config, and checks the ZIP contents. It never installs or uploads anything; uploading is a separate command. It supports Python 3.9 or newer. On Python versions before 3.11, install `requirements-docs.txt` to provide the `tomli` TOML-reader backport. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
+The helper defaults to building both silent and diagnostic sequentially.
+`-v silent` or `-v diagnostic` selects one. It verifies the NRO header and selected
+logger/message markers, snapshots binary/config and checks ZIP contents.
+**Default building does not upload.** Explicit `-upload`/`--upload` runs the
+multi-Switch uploader after successful packaging and requires `-v all`; this is
+a device-write operation, not a validation flag. Do not run any build/upload
+command below without the task's explicit authorization. It supports Python 3.9 or newer. On Python versions before 3.11, install `requirements-docs.txt` to provide the `tomli` TOML-reader backport. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
 
 Outputs:
 
@@ -83,8 +98,8 @@ Build both folders with `python3 tools/build_variants.py -v all`. A single-varia
 build refreshes only its own folder; it leaves the other variant unchanged.
 Each NRO/config is copied from that variant's staged release, not from the shared
 Cargo output. Each summary is labeled with its version and SILENT or DIAGNOSTIC variant, and the source ZIP is generated
-once and copied byte-for-byte with SHA-256 verification. The separate uploader
-selects one of these folders by version and variant. Building never uploads.
+once and copied byte-for-byte with SHA-256 verification. The separate uploader selects one of these folders by version and variant.
+Building without the explicit `-upload` flag never uploads.
 
 The source backup contains the project under a `kirby_assist_v2/` folder.
 Generated `target`, `releases`, cache, and Git metadata directories are excluded.
@@ -132,7 +147,7 @@ Close Smash, start the Switch FTP server, then select the built version and vari
 # Silent build (also the default if -s/-d is omitted):
 python3 tools/upload_switch.py 192.0.2.10 -v 1.1.2 -s
 
-# Diagnostic build; asks for yes before connecting:
+# Diagnostic build; additional confirmation applies on the saved silent-IP route:
 python3 tools/upload_switch.py 192.0.2.10 -v 1.1.2 -d
 
 # Validate the selected local files and display paths without connecting:
@@ -161,10 +176,20 @@ A missing version/variant folder or mismatched metadata stops the operation.
 
 FTP defaults to port **5000**, anonymous login, and SD root **/**. Optional settings
 are `--port 21`, `--root /sdcard`, `--user NAME`, and
-`--password-env SWITCH_FTP_PASSWORD`. Diagnostic uploads still require typing
-`yes` at the confirmation prompt; dry runs and verification do not prompt.
+`--password-env SWITCH_FTP_PASSWORD`. The uploader's extra diagnostic confirmation applies when targeting an address
+ending in `.106`, unless its explicit route override is supplied. It is not a
+universal diagnostic prompt; dry runs return before connection and verification
+does not ask that write confirmation. Confirm the target/variant yourself.
 
-The fixed installation destinations remain:
+The direct uploader reads current assembled sequence sources in addition to
+prepared binary/config/summary. By default it writes **inactive**
+`/ultimate/kirby_assist/sequences.upload.txt`, preserving active `sequences.txt`.
+Restarting does not activate that staged copy. `--replace-sequences
+--smash-closed` selects active replacement, with the same backup/readback checks.
+Guided Workbench shipping deliberately uses active replacement and first imports
+Silent's active source; see [Workbench](WORKBENCH.md).
+
+The other fixed installation destinations remain:
 
 ```text
 /ultimate/kirby_assist/config.txt
@@ -181,6 +206,8 @@ and verifies every backup by read-back SHA-256:
 /ultimate/kirby_assist/bak/
     config.txt
     RELEASE_SUMMARY.txt
+    sequences.upload.txt   # default staged destination, when previously present
+    # sequences.txt instead when active replacement was selected
     kirby_assist-source.zip  # if selected and previously installed
     libkirby_assist.nro
 ```
@@ -217,13 +244,20 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 3. Replace the existing plugin and config. Both variants install as `libkirby_assist.nro` at the same path. Do not rename them and load both.
 4. Restart Smash. Use Player 1 (`player_index = 0`), select your fighter, and use the [required controller mapping](CONTROLS.md#controller-mapping).
 
-Both variants support held-L ledge autopilot, fighter-specific X/Y/D-pad sequences
-or Normal button, and battle-only menu pages for ledge traps,
-button configs and mode settings. Normal button keeps X short hop or ordinary
-Y/D-pad input. Hard-coded D-pad B-reverse/Down-trump triggers are removed;
+Both variants support configured ledge-assist bindings, fighter-specific button
+sequences/builtins, and battle-only menu pages for ledge traps, button configs
+and mode settings. `Builtin::Normal` serializes as `normal` but displays **Short
+hop**; there is no separate Normal passthrough builtin. A slot resolves its saved
+explicit default, then its first manual recipe, then its builtin fallback. Empty
+fallbacks are L3 AutoDefense, Down Turbo, and Short hop elsewhere, except supported
+empty R3 uses Counter. These are fallback rules, not proof of the supplied fighter
+choices; see the verified [controls reference](CONTROLS.md).
+Hard-coded D-pad B-reverse/Down-trump triggers are removed;
 ledge trump is available as a button built-in and is unassigned by default.
-Grab dodge is also available in
-both builds and starts ON with the supplied defaults. Both universal defensive
+Grab dodge is available in both builds; the current supplied universal section
+enables it, as does the Rust fallback. Other gates differ: supplied auto-tech,
+DI/SDI and takeover are ON while their Rust fallbacks are OFF. See
+[the settings reference](SETTINGS_REFERENCE.md) for the exact distinction. Both universal defensive
 modes run file-authored responses and have per-fighter saved startup switches. Diagnostic-only tools/logging
 remain excluded from silent. See [current controls](CONTROLS.md). Logging and
 instrumentation can add diagnostic overhead without changing authored input timing.
@@ -303,7 +337,12 @@ The helper checks that our selected log markers are absent from the silent NRO a
 
 On hardware, compare the existing SD log's timestamp/content before and after running the silent variant; it should not be created or changed by this plugin. Then install diagnostic and verify a fresh log appears. Compare ordinary movement, mash, tech, release, pause/resume, and controller reconnect behavior with each variant. Those two-variant hardware checks have not been performed here.
 
-Core checks remain:
+These are broader reference checks for an authorized implementation/release task,
+not commands executed for this docs review. Prefer the focused core checks in
+[Development](DEVELOPMENT.md#test-and-validate); Skyline checks require explicit
+plugin-build authorization. Diagnostic health implementation is
+`src/diagnostics/performance/health.rs`, with private tests under
+`tests/unit/diagnostics/performance/`, not a separate `src/health.rs` target.
 
 ```sh
 cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
@@ -312,13 +351,16 @@ cargo skyline clippy --no-default-features
 cargo skyline clippy --no-default-features --features diagnostic-logging
 ```
 
-The source includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. The supplied config selects neutral air; each fighter’s saved menu choices resolve its actual response. Captures always return manual control, without automatic pummel or throw. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
+The source includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. Each fighter's saved menu choices resolve its actual response; verify the
+current supplied fighter sources rather than assuming a universal neutral-air
+default from a historical release. Captures always return manual control, without automatic pummel or throw. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
 
 Use A=Attack, B=Special, R=Grab, ZR=Shield, X=Jump and ZL=Jump, with Tap Jump off. Kirby attack-cancel bair also needs Tilt Attack C-stick. The menu selects fighter-specific responses; it does not use a universal bair/forward-smash sequence. Both variants share the gameplay policy; silent keeps logging compiled out. Device testing remains required, including the Pichu-on-FD small-character baseline. No guaranteed frame-perfect coverage is claimed.
 
 ## Battle ledge menu
 
-Both release variants include `imgui-menu`, sharing a matching imgui-smash host with Online Deluxe when installed. The [ledge menu guide](LEDGE_MENU.md) documents controls and prerequisites. The input engine works in every valid battle mode, including online; logging selection does not change its behavior. No build or deployment was performed for this source change.
+Both release variants include `imgui-menu`, sharing a matching imgui-smash host with Online Deluxe when installed. The [ledge menu guide](LEDGE_MENU.md) documents controls and prerequisites. The input engine uses the same runtime/mode admission in both logging variants;
+that is not certification of every battle mode or online environment. No build or deployment was performed for this source change.
 
 
 ## Frozen diagnostic calibration results

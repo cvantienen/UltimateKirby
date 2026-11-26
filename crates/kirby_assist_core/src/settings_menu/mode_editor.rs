@@ -81,6 +81,24 @@ impl MenuSelection {
         }
         result
     }
+    fn missing_auto_events(
+        &self,
+        presets: &MenuPresets,
+        events: &[Trigger],
+        entries: &[(u8, PresetSlot, usize)],
+    ) -> Vec<Trigger> {
+        events
+            .iter()
+            .copied()
+            .filter(|trigger| {
+                !entries.iter().any(|(_, slot, index)| {
+                    self.recipe_snapshot(presets, *slot, *index)
+                        .is_some_and(|sequence| sequence.reaction.trigger == *trigger)
+                })
+            })
+            .collect()
+    }
+
     /// Updates the `open_mode_list` state using the supplied inputs.
     pub(super) fn open_mode_list(&mut self, _presets: &MenuPresets, row: MenuRow) {
         if Self::mode_trigger(row).is_none() {
@@ -119,16 +137,7 @@ impl MenuSelection {
         };
         if let Some(events) = self.auto_mode_events(row) {
             let entries = self.mode_entries(presets, row);
-            let missing: Vec<_> = events
-                .iter()
-                .copied()
-                .filter(|t| {
-                    !entries.iter().any(|(_, slot, index)| {
-                        self.recipe_snapshot(presets, *slot, *index)
-                            .is_some_and(|s| s.reaction.trigger == *t)
-                    })
-                })
-                .collect();
+            let missing = self.missing_auto_events(presets, events, &entries);
             let missing = missing
                 .get(self.auto_add_event % missing.len().max(1))
                 .copied();
@@ -242,13 +251,7 @@ impl MenuSelection {
             .iter()
             .position(|(_, s, i)| self.row.slot() == Some(*s) && self.choices[*s as usize] == *i)
             .unwrap_or(0);
-        let index = cycle.map_or(0, |up| {
-            if up {
-                (current + 1) % entries.len()
-            } else {
-                (current + entries.len() - 1) % entries.len()
-            }
-        });
+        let index = cycle.map_or(0, |forward| super::cycle(current, entries.len(), forward));
         self.mode_rule_cursor = index;
         let (_, slot, index) = entries[index];
         self.choose_mode_rule(presets, slot, index);
@@ -309,16 +312,7 @@ impl MenuSelection {
             ));
         }
         if let Some(events) = self.auto_mode_events(*row) {
-            let missing: Vec<_> = events
-                .iter()
-                .copied()
-                .filter(|t| {
-                    !entries.iter().any(|(_, s, i)| {
-                        self.recipe_snapshot(presets, *s, *i)
-                            .is_some_and(|s| s.reaction.trigger == *t)
-                    })
-                })
-                .collect();
+            let missing = self.missing_auto_events(presets, events, &entries);
             panel.body.push(
                 missing
                     .get(self.auto_add_event % missing.len().max(1))
@@ -333,7 +327,11 @@ impl MenuSelection {
         panel
             .footer
             .push("Up/Down: rule | A/R3: edit | X: add | Y: manage | B/L3: back".into());
-        panel.footer.push(if simple {"Roll/spot/air: Auto react toggle; grabs/backup: Automatic grabs; grab-dodge follow-up: Grab avoidance".into()}else{"Rules run from this assist's ON/OFF setting; separate from ledge choices".into()});
+        panel.footer.push(if simple {
+            "Roll/spot/air: Auto react toggle; grabs/backup: Automatic grabs; grab-dodge follow-up: Grab avoidance".into()
+        } else {
+            "Rules run from this assist's ON/OFF setting; separate from ledge choices".into()
+        });
         if let Some(status) = &self.save_status {
             panel.footer.push(status.clone());
         }
@@ -424,417 +422,17 @@ impl MenuSelection {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{fighter_profiles::FighterProfiles, native_input::MAPPER_R};
-    /// Updates the `tap` state using the supplied inputs.
-    fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
-        m.input(0, p);
-        m.input(b, p);
-    }
-    /// Regression test for `spot_punish_opens_its_own_list_and_saved_rule_remains_separate`.
-    #[test]
-    fn spot_punish_opens_its_own_list_and_saved_rule_remains_separate() {
-        let p = MenuPresets::default();
-        let mut m = MenuSelection::new(&p);
-        m.show_modes();
-        m.row = MenuRow::SpotPunish;
-        tap(&mut m, &p, MENU_STICK_CLICK);
-        assert!(m.mode_rule_list);
-        tap(&mut m, &p, MAPPER_X);
-        let slot = m.row.slot().unwrap();
-        let i = m.choices[slot as usize];
-        assert_eq!(
-            m.recipe_snapshot(&p, slot, i).unwrap().reaction.trigger,
-            Trigger::SpotDodge
-        );
-        assert!(!m.visible_choices(&p, slot).contains(&i));
-        let e = m.editor.as_mut().unwrap();
-        let key = (slot as usize, i);
-        e.navigate(key, true);
-        assert!(e.adjust(key, true));
-        tap(&mut m, &p, MAPPER_Y);
-        assert!(m.save_requested);
-        let c = m.choice(&p, slot, i).unwrap();
-        let seq = m.recipe_snapshot(&p, slot, i).unwrap();
-        let saved = crate::sequence_config::persist::update_named(
-            "",
-            15,
-            slot,
-            c.id,
-            seq,
-            true,
-            Some("Spot hop"),
-        )
-        .unwrap();
-        let parsed = crate::sequence_config::Catalog::parse(&saved).unwrap();
-        assert_eq!(
-            parsed.entries()[0].sequence.reaction.trigger,
-            Trigger::SpotDodge
-        );
-        assert_eq!(m.resolve_reactions(&p).unwrap().len, 1);
-        assert!(!m.recipe_panel(&p).header.join(" ").contains("roster avg"));
-    }
-    /// Regression test for `each_assist_has_its_own_budget_and_legacy_storage_does_not_select_it_for_ledge`.
-    #[test]
-    fn each_assist_has_its_own_budget_and_legacy_storage_does_not_select_it_for_ledge() {
-        let mut source = String::new();
-        for trigger in ["roll", "shield_hit", "grab_dodged"] {
-            for i in 0..8 {
-                source.push_str(&format!("[bowser.roll.{trigger}_{i}]\nstart_delay=0\nreaction={trigger}:grounded:0:20:18:any:1\nactions=up_b:4\n"));
-            }
-        }
-        let catalog = crate::sequence_config::Catalog::parse(&source).unwrap();
-        let mut profiles = FighterProfiles::default();
-        profiles.add_sequence_choices(&catalog).unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        assert_eq!(m.resolve_reactions(&p).unwrap().len, 24);
-        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[2].is_none());
-        for row in [MenuRow::RollRules, MenuRow::OutOfShield, MenuRow::GrabDodge] {
-            m.open_mode_list(&p, row);
-            assert_eq!(m.mode_entries(&p, row).len(), 8);
-            m.add_mode_rule(&p, row);
-            assert!(m.save_status.as_ref().unwrap().contains("Eight rules"));
-            m.restore_mode_choices();
-        }
-        source.push_str("[bowser.roll.too_many]\nstart_delay=0\nreaction=shield_hit:grounded:0:20:18:any:1\nactions=up_b:4\n");
-        let bad = crate::sequence_config::Catalog::parse(&source).unwrap();
-        assert!(bad.validate(&profiles).is_err());
-    }
-    /// Regression test for `rules_are_separate_sorted_and_idle_list_does_not_rebuild`.
-    #[test]
-    fn rules_are_separate_sorted_and_idle_list_does_not_rebuild() {
-        let source="[bowser.roll.manual]\nstart_delay=0\ndefault=true\nactions=grab:4\n[bowser.attack.oos]\nstart_delay=0\nreaction=shield_hit:grounded:0:12:18:any:1\nactions=up_b:4\n[bowser.drop.regrab]\nstart_delay=0\nreaction=ledge_regrab:grounded:0:18:30:any:1\nactions=down_smash:4\n[bowser.roll.late]\nstart_delay=0\nreaction=roll:grounded:0:20:18:any:4\nactions=grab:4\n[bowser.attack.first]\nstart_delay=0\nreaction=roll_cross:grounded:0:12:18:any:1\nactions=up_b:4\n";
-        let catalog = crate::sequence_config::Catalog::parse(source).unwrap();
-        let mut profiles = FighterProfiles::default();
-        profiles.add_sequence_choices(&catalog).unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        for slot in PresetSlot::ALL {
-            for i in m.visible_choices(&p, slot) {
-                assert!(!m.recipe_snapshot(&p, slot, i).unwrap().reaction.active());
-            }
-        }
-        assert_eq!(m.resolve_reactions(&p).unwrap().len, 4);
-        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides
-            [PresetSlot::Attack as usize]
-            .is_none());
-        let original = m.choices;
-        m.show_modes();
-        m.row = MenuRow::RollRules;
-        tap(&mut m, &p, MENU_L3);
-        let panel = m.recipe_panel(&p);
-        assert!(panel.body[0].starts_with("P1"));
-        assert!(panel.body[1].starts_with("P4"));
-        let revision = m.revision;
-        for _ in 0..60 {
-            m.input(0, &p);
-        }
-        assert_eq!(m.revision, revision);
-        tap(&mut m, &p, crate::native_input::MAPPER_A);
-        assert!(m.recipe_editing);
-        assert!(m
-            .recipe_snapshot(&p, PresetSlot::Attack, m.choices[3])
-            .unwrap()
-            .reaction
-            .active());
-        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_none());
-        m.preview_slot = Some(PresetSlot::Attack);
-        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_some());
-        m.preview_slot = None;
-        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_none());
-        assert!(!m.recipe_panel(&p).header.join(" ").contains("roster avg"));
-        tap(&mut m, &p, MENU_STICK_CLICK);
-        assert!(m.mode_rule_list);
-        tap(&mut m, &p, MENU_L3);
-        assert_eq!(m.choices, original);
-        assert!(m.modes_menu);
-    }
-    /// Constructs the oos rule and duplicate keep their family and never enter ledge choices.
-    #[test]
-    fn new_oos_rule_and_duplicate_keep_their_family_and_never_enter_ledge_choices() {
-        let p = MenuPresets::default();
-        let mut m = MenuSelection::new(&p);
-        m.show_modes();
-        m.row = MenuRow::OutOfShield;
-        tap(&mut m, &p, MENU_L3);
-        tap(&mut m, &p, MAPPER_X);
-        let i = m.choices[PresetSlot::Attack as usize];
-        assert_eq!(
-            m.recipe_snapshot(&p, PresetSlot::Attack, i)
-                .unwrap()
-                .reaction
-                .trigger,
-            Trigger::ShieldHit
-        );
-        assert!(!m.visible_choices(&p, PresetSlot::Attack).contains(&i));
-        let key = (PresetSlot::Attack as usize, i);
-        let e = m.editor.as_mut().unwrap();
-        e.navigate(key, true);
-        assert!(e.adjust(key, true));
-        assert!(m
-            .recipe_snapshot(&p, PresetSlot::Attack, i)
-            .unwrap()
-            .actions()
-            .iter()
-            .any(|a| *a != crate::sequence_config::Action::Empty));
-        assert!(!m
-            .recipe_panel(&p)
-            .footer
-            .join(" ")
-            .contains("R3: Back to modes"));
-    }
-    /// Regression test for `r3_edits_menu_responses_cycles_them_and_restores_manual_choices`.
-    #[test]
-    fn r3_edits_menu_responses_cycles_them_and_restores_manual_choices() {
-        let text="[bowser.roll.manual]\nstart_delay=0\ndefault=true\nactions=grab:4\n[bowser.roll.first]\nstart_delay=0\nreaction=roll:grounded:0:20:18:any:1\nactions=down_smash:4\n[bowser.attack.second]\nstart_delay=0\nreaction=roll_cross:grounded:0:20:18:any:2\nactions=up_b:4\n";
-        let mut profiles = FighterProfiles::default();
-        profiles
-            .add_sequence_choices(&crate::sequence_config::Catalog::parse(text).unwrap())
-            .unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        m.show();
-        m.modes_menu = true;
-        m.row = MenuRow::RollRules;
-        let original = m.choices;
-        tap(&mut m, &p, MENU_STICK_CLICK);
-        assert!(m.mode_rule_list);
-        tap(&mut m, &p, crate::native_input::MAPPER_A);
-        assert!(m.recipe_editing);
-        assert!(m.roll_rules);
-        assert_eq!(m.row, MenuRow::Roll);
-        tap(&mut m, &p, MAPPER_R | DPAD_RIGHT);
-        assert_eq!(m.row, MenuRow::Attack);
-        tap(&mut m, &p, MENU_STICK_CLICK);
-        assert!(m.mode_rule_list);
-        tap(&mut m, &p, MENU_L3);
-        assert!(m.modes_menu);
-        assert_eq!(m.row, MenuRow::RollRules);
-        assert_eq!(m.choices, original);
-    }
-    /// Regression test for `empty_mode_creates_tagged_draft_and_minus_preserves_manual_defaults`.
-    #[test]
-    fn empty_mode_creates_tagged_draft_and_minus_preserves_manual_defaults() {
-        let p = MenuPresets::default();
-        let mut m = MenuSelection::new(&p);
-        m.show();
-        m.modes_menu = true;
-        m.row = MenuRow::OutOfShield;
-        let original = m.choices;
-        tap(&mut m, &p, MENU_STICK_CLICK);
-        assert!(m.mode_rule_list);
-        tap(&mut m, &p, MAPPER_X);
-        assert!(m.recipe_editing && m.out_of_shield);
-        let slot = m.row.slot().unwrap();
-        let c = m.choice(&p, slot, m.choices[slot as usize]).unwrap();
-        assert!(c.allow_new);
-        assert_eq!(c.sequence.reaction.trigger, Trigger::ShieldHit);
-        tap(&mut m, &p, MAPPER_MINUS);
-        assert!(m.menu_hidden);
-        assert_eq!(m.choices, original);
-    }
-}
+#[path = "../../tests/unit/settings_menu_mode_editor.rs"]
+mod tests;
 
 #[cfg(test)]
-mod event_family_tests {
-    use super::*;
-    use crate::{
-        fighter_profiles::FighterProfiles,
-        sequence_config::{persist, Catalog},
-    };
-    /// Regression test for `vulnerable_and_any_variants_share_the_right_menu_and_save_roundtrip`.
-    #[test]
-    fn vulnerable_and_any_variants_share_the_right_menu_and_save_roundtrip() {
-        let source="[bowser.attack.oos]\nstart_delay=0\nreaction=shield_hit_vulnerable:grounded:0:22:12:front:1\nactions=input:r:0:0:4\n[bowser.attack.spot]\nstart_delay=0\nreaction=spot_dodge_any:grounded:0:30:12:any:2\nactions=up_b:4\n[bowser.attack.pressure]\nstart_delay=0\nreaction=shield_pressure_vulnerable:grounded:0:22:12:front:1\nactions=input:r:0:0:4\n";
-        let c = Catalog::parse(source).unwrap();
-        let mut profiles = FighterProfiles::default();
-        profiles.add_sequence_choices(&c).unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let m = MenuSelection::new(&p);
-        for row in [
-            MenuRow::OutOfShield,
-            MenuRow::SpotPunish,
-            MenuRow::ShieldPressure,
-        ] {
-            assert_eq!(m.mode_entries(&p, row).len(), 1);
-        }
-        assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 0);
-        for e in c.entries() {
-            let saved = persist::update(source, 15, e.slot, &e.choice, e.sequence, false).unwrap();
-            let round = Catalog::parse(&saved).unwrap();
-            assert_eq!(
-                round
-                    .entries()
-                    .iter()
-                    .find(|r| r.choice == e.choice)
-                    .unwrap()
-                    .sequence
-                    .reaction,
-                e.sequence.reaction
-            );
-        }
-    }
-}
+#[path = "../../tests/unit/settings_menu_mode_editor_event_family.rs"]
+mod event_family_tests;
 
 #[cfg(test)]
-mod simple_menu_tests {
-    use super::*;
-    /// Regression test for `all_auto_recipes_share_a_list_and_replace_duplicate_grab_tuning_rows`.
-    #[test]
-    fn all_auto_recipes_share_a_list_and_replace_duplicate_grab_tuning_rows() {
-        let mut text = String::new();
-        for t in Trigger::AUTO_EVENTS {
-            text.push_str(&format!(
-                "[bowser.roll.{}]\nstart_delay=0\nreaction={}:35:24\nactions={}\n",
-                t.token(),
-                t.token(),
-                if t == Trigger::AutoShieldGrab {
-                    "input:r:0:0:4"
-                } else {
-                    "up_b:4"
-                }
-            ));
-        }
-        let c = crate::sequence_config::Catalog::parse(&text).unwrap();
-        let mut profiles = crate::fighter_profiles::FighterProfiles::default();
-        profiles.add_sequence_choices(&c).unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        m.simplified_reactions = true;
-        m.y_fighter_kind = 15;
-        m.show_modes();
-        m.input(0, &p);
-        assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 6);
-        assert_eq!(m.mode_entries(&p, MenuRow::OutOfShield).len(), 2);
-        assert_eq!(m.mode_entries(&p, MenuRow::GrabDodge).len(), 1);
-        assert!(!m.tuning_visible(crate::fighter_tuning::AUTO_GRAB_CLOSE));
-        assert!(!m.tuning_visible(crate::fighter_tuning::AUTO_GRAB_FAR));
-        let r = m.resolve_reactions(&p).unwrap();
-        assert_eq!(r.len, 6);
-        for (i, t) in Trigger::AUTO_EVENTS.iter().enumerate() {
-            assert_eq!(r.simple_sequence(i).unwrap().reaction.trigger, *t);
-        }
-        for row in [MenuRow::RollRules, MenuRow::OutOfShield, MenuRow::GrabDodge] {
-            m.restore_mode_choices();
-            m.show_modes();
-            m.row = row;
-            m.input(0, &p);
-            m.input(MENU_STICK_CLICK, &p);
-            assert!(m.mode_rule_list && !m.tuning_page);
-            let n = m.mode_entries(&p, row).len();
-            m.mode_rule_cursor = n;
-            m.add_mode_rule(&p, row);
-            assert_eq!(
-                m.mode_entries(&p, row).len(),
-                n,
-                "cannot add a duplicate event"
-            );
-        }
-    }
-    /// Regression test for `add_missing_auto_event_stays_inactive_until_actions_are_configured`.
-    #[test]
-    fn add_missing_auto_event_stays_inactive_until_actions_are_configured() {
-        let profiles = crate::fighter_profiles::FighterProfiles::default();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        m.simplified_reactions = true;
-        m.y_fighter_kind = 15;
-        m.open_mode_list(&p, MenuRow::RollRules);
-        m.auto_add_event = 4;
-        m.add_mode_rule(&p, MenuRow::RollRules);
-        let r = m.resolve_reactions(&p).unwrap();
-        assert!(r.simple_sequence(4).is_none());
-        let slot = m.row.slot().unwrap();
-        let s = m
-            .recipe_snapshot(&p, slot, m.choices[slot as usize])
-            .unwrap();
-        assert_eq!(s.reaction.trigger, Trigger::AutoGrabDodged);
-        assert_eq!(s.len, 0);
-        assert!(m.recipe_editing && !m.mode_rule_list);
-    }
-    /// Regression test for `native_simple_menu_keeps_legacy_events_and_opens_configured_grab_lists`.
-    #[test]
-    fn native_simple_menu_keeps_legacy_events_and_opens_configured_grab_lists() {
-        let mut text="[bowser.roll.old]\nstart_delay=0\nreaction=roll:grounded:0:80:30:any:1\nactions=grab:4\n".to_owned();
-        for event in ["auto_roll", "auto_spot_dodge", "auto_air_dodge"] {
-            text.push_str(&format!(
-                "[bowser.roll.{event}]\nstart_delay=0\nreaction={event}:80:30\nactions=up_b:4\n"
-            ));
-        }
-        let catalog = crate::sequence_config::Catalog::parse(&text).unwrap();
-        let mut profiles = crate::fighter_profiles::FighterProfiles::default();
-        profiles.add_sequence_choices(&catalog).unwrap();
-        let p = profiles.profile(15).unwrap().menu_options;
-        let mut m = MenuSelection::new(&p);
-        m.simplified_reactions = true;
-        m.y_fighter_kind = 15;
-        m.show_modes();
-        m.input(0, &p);
-        assert_eq!(m.resolve_reactions(&p).unwrap().len, 3);
-        assert!(!m.row_visible(MenuRow::ShieldPressure));
-        assert!(!m.row_visible(MenuRow::SpotPunish));
-        m.row = MenuRow::RollRules;
-        m.input(MENU_STICK_CLICK, &p);
-        assert!(m.mode_rule_list);
-        assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 3);
-        m.restore_mode_choices();
-        m.show_modes();
-        m.row = MenuRow::OutOfShield;
-        m.input(0, &p);
-        m.input(MENU_STICK_CLICK, &p);
-        assert!(!m.tuning_page);
-        assert!(m.mode_rule_list);
-        assert_eq!(m.mode_entries(&p, MenuRow::OutOfShield).len(), 0);
-    }
-}
+#[path = "../../tests/unit/settings_menu_mode_editor_simple_menu.rs"]
+mod simple_menu_tests;
 
 #[cfg(test)]
-mod explicit_draft_tests {
-    use super::*;
-    /// Constructs the non grab events start blank for bowser yoshi and lucina.
-    #[test]
-    fn new_non_grab_events_start_blank_for_bowser_yoshi_and_lucina() {
-        let profiles = crate::fighter_profiles::FighterProfiles::default();
-        for kind in [
-            crate::fighter_kinds::YOSHI,
-            crate::fighter_kinds::BOWSER,
-            crate::fighter_kinds::WARIO,
-        ] {
-            let p = profiles.profile(kind).unwrap().menu_options;
-            for event in 0..6 {
-                let mut m = MenuSelection::new(&p);
-                m.simplified_reactions = true;
-                m.y_fighter_kind = kind;
-                m.tuning_values[1] = profiles.profile(kind).unwrap().grab.grab.standing_range;
-                m.open_mode_list(&p, MenuRow::RollRules);
-                m.auto_add_event = event;
-                m.add_mode_rule(&p, MenuRow::RollRules);
-                let rules = m.resolve_reactions(&p).unwrap();
-                let grab = event == 3;
-                assert_eq!(
-                    rules.simple_sequence(event).is_some(),
-                    grab,
-                    "kind {kind}, event {event}"
-                );
-                let slot = m.row.slot().unwrap();
-                let draft = m
-                    .recipe_snapshot(&p, slot, m.choices[slot as usize])
-                    .unwrap();
-                if grab {
-                    assert!(matches!(
-                        draft.actions(),
-                        [crate::sequence_config::Action::Input {
-                            buttons: crate::native_input::MAPPER_R,
-                            ..
-                        }]
-                    ));
-                } else {
-                    assert_eq!(draft.len, 0);
-                    assert!(m.recipe_input_error(&p).is_some());
-                }
-            }
-        }
-    }
-}
+#[path = "../../tests/unit/settings_menu_mode_editor_explicit_draft.rs"]
+mod explicit_draft_tests;

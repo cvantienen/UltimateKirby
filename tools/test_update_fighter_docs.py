@@ -7,7 +7,7 @@ from unittest.mock import patch
 import update_fighter_docs as docs
 
 AUTO_EVENTS = (
-    "auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab",
+    "auto_roll", "auto_spot_dodge", "auto_air_dodge",
     "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup",
 )
 
@@ -48,7 +48,7 @@ class FighterDocsTests(unittest.TestCase):
         weight = next(stat["value"] for stat in fighter["stats"] if stat["key"] == "weight.weight")
         self.assertIn(f"| Weight | {weight} |", rendered)
 
-    def test_all_seven_short_auto_tokens_and_legacy_priorities_are_documented(self):
+    def test_current_short_auto_tokens_and_legacy_priorities_are_documented(self):
         catalog = configparser.RawConfigParser()
         for event in AUTO_EVENTS:
             catalog[f"bowser.roll.{event}"] = {"reaction": f"{event}:35:24", "name": event}
@@ -78,10 +78,23 @@ class FighterDocsTests(unittest.TestCase):
 
     def test_all_registered_profiles_have_five_valid_lists_and_current_pages(self):
         pages = docs.outputs()
-        self.assertEqual(len(pages) - 1, 79)
+        self.assertEqual(len(pages) - 1, 90)
         for path, text in pages.items():
             self.assertEqual(path.read_text(), text, str(path))
-        self.assertIn("## Kirby-specific timing and inputs", pages[docs.ROOT / "docs/fighters/kirby.md"])
+        self.assertIn("## Configure Kirby", pages[docs.ROOT / "docs/fighters/kirby.md"])
+
+    def test_retired_auto_grab_is_not_presented_as_a_current_rule(self):
+        catalog = configparser.RawConfigParser()
+        catalog["bowser.roll.old_grab"] = {"reaction": "auto_grab:35:24"}
+        with patch.object(docs, "sequence_catalog", return_value=catalog):
+            with self.assertRaisesRegex(ValueError, "Retired auto_grab"):
+                docs.file_assists("bowser")
+
+    def test_generated_reference_distinguishes_supplied_defaults_and_live_state(self):
+        text, _ = docs.render("kirby")
+        self.assertIn("supplied file defaults, not Rust defaults", text)
+        self.assertIn("not your installed or unsaved menu state", text)
+        self.assertIn("current automatic grabs require your shield", text)
 
 if __name__ == "__main__":
     unittest.main()

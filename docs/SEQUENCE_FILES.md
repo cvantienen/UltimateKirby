@@ -1,6 +1,62 @@
-# Ledge input timelines
+# Sequence files: beginner guide
 
 For a complete copy/paste reference, use the [sequence text syntax cheat sheet](SEQUENCE_SYNTAX_CHEATSHEET.md) or its [searchable HTML version](SEQUENCE_SYNTAX_CHEATSHEET.html).
+
+## Your first edit, without learning Rust
+
+Use a plain-text editor and save UTF-8 text; this file is not Rust source. Work on
+a copy first. Back up the active file and decide whether a newer Training save
+or the repository source is authoritative before replacing anything.
+
+1. Choose the fighter and **slot**: `neutral/jump/roll/attack/drop` are the
+   opponent's ledge options; `x/y/dpad_*/l3/r3` are your manual button recipes.
+   An automatic event is selected by `reaction`, not merely by the slot name.
+2. Add a unique `[fighter.slot.choice_id]`. Dots divide identity fields;
+   underscores belong inside IDs. `name` is a label, not a command.
+3. Set `start_delay = 0` explicitly. Add one `actions = ...` line: commas separate
+   steps, colons separate parameters, `+` combines simultaneous buttons. No
+   trailing comma. `#` starts a comment even inside a quoted label.
+4. Begin with explicit durations. Change one parameter, check syntax, then test
+   in Training. Parser success does not guarantee move eligibility, a hit or
+   compatibility with an older installed plugin.
+5. Save deliberately. Selecting/cycling, testing, closing the editor or toggling
+   modes does not autosave. In-game Y writes the exact validated draft.
+
+```ini
+[yoshi.y.two_presses]
+name = Two A presses
+start_delay = 2
+timeout = 120
+spatial_timeout = 30
+while_held = false
+# A press, release gap, then another distinct press.
+actions = press:a:1, release:2, press:a:1
+```
+
+This valid example waits two input frames, presses A for one, releases for two,
+then presses A for one. Zero-based ages 0–1 are initial delay, age 2 is A,
+ages 3–4 neutral, age 5 A. Editor labels call these F1–F2, F3, F4–F5 and F6.
+Native state determines jab/aerial/other interpretation. Adjacent
+`press:a:1, press:a:1` keeps A held, not two fresh presses. `grab:4` is a
+four-world-unit range gate then one R frame, **not** a four-frame Grab hold.
+Use `press:r:4` for that hold.
+
+## Four different kinds of defaults
+
+| Default kind | What it means |
+| --- | --- |
+| Rust storage/schema default | Used for absent settings; empty `Sequence::default()` is not a valid text recipe |
+| Supplied authoring source | Actual repository values; may deliberately differ from Rust defaults |
+| Saved recipe `default = true` | Initial selection for one fighter/manual slot, not a mode enable or rule priority |
+| Editor action preset | Starting values on a new action; most literal holds start at 4 frames, Short hop at 1 |
+
+The supplied universal section currently enables Auto-tech, DI and SDI, while
+Rust fallback defaults for those three are OFF. It sets takeover/tech debug ON,
+tech lookahead 5, mash OFF, ledge trapping/manual spacing/distance-agnostic
+tracking ON and automatic stance positioning OFF. This is a source snapshot,
+not a promise about a user's SD file or per-fighter overrides. The absent
+`sequence_input_delay_frames` key uses default 0. Shared-section replacement
+of config.txt is explained below; omitted keys do not merge from config.txt.
 
 The editable repository sources are split under `deployment/ultimate/kirby_assist/`:
 
@@ -11,14 +67,16 @@ The editable repository sources are split under `deployment/ultimate/kirby_assis
 Build and sequence-upload tools assemble the current sources automatically into
 one Switch `sd:/ultimate/kirby_assist/sequences.txt`. Smash still reads one file
 at startup, with no includes, extra disk reads or parsing during matches.
-The `[universal.settings]` section takes precedence over the legacy `config.txt`.
-All existing recipe values were preserved when splitting the files.
+When `[universal.settings]` exists, it replaces the legacy `config.txt` settings
+source entirely; omitted keys use Rust defaults, not values merged from config.txt.
+Without that section the loader tries config.txt, then `LiveConfig::default`.
+These are authoring-layout paths, not extra files parsed during gameplay.
+Supplied values mentioned above are a verified source snapshot; your saved SD
+file can differ and must be checked separately.
 
-Pyra and Mythra have separate native identities and separate fighter files.
-Their initial five `custom` ledge slots contain `wait:0`, providing editable menu
-entries without selecting attacks or swaps for the player. Author their actions
-and automatic events in Training; unconfigured automatic attack/reflect modes
-stay inert. A form change reloads only the newly selected form's saved choices.
+A fighter's actual saved recipes and startup switches may differ from Rust defaults.
+Do not infer a configured response from its fighter name. Missing ledge entries
+remain missing: there is no compiled ledge-recipe fallback.
 
 To assemble or check without building/uploading the mod:
 
@@ -133,42 +191,44 @@ settings, since older plugins do not recognize the new keys.
 
 ## Auto react sequence group
 
-Automatic responses use one `reaction = EVENT:MAX_X:MAX_Y` sequence per event
-under each fighter's `.roll.` category. The shared Auto react group contains
-`auto_roll`, `auto_spot_dodge`, `auto_air_dodge`, `auto_grab`,
-`auto_shield_grab`, `auto_grab_dodged` and `auto_shield_backup`. All accept the
-normal action syntax and editor/saving path. Duplicate events are rejected.
+The live unified group has **six** event tokens: `auto_roll`, `auto_spot_dodge`,
+`auto_air_dodge`, `auto_shield_grab`, `auto_grab_dodged`, `auto_shield_backup`.
+Use `reaction = EVENT:MAX_X:MAX_Y`; each limit is 0–100 world units. There is
+one recipe per event per fighter. `auto_grab` is retired and rejected. The fixed
+shielded-grab path is separate from the six-event recipe catalog; current live
+automatic grabs do not begin an unshielded approach.
 
-For example, `[bowser.roll.auto_grab]` has
-`reaction = auto_grab:35:24` and `actions = input:r:0:0:4`; its shielded partner
-uses `auto_shield_grab:25:10`. The grab-dodge follow-up uses
-`auto_grab_dodged:25:10` independently of enemy spot-dodge reactions.
-These are activation thresholds, not modified hitboxes.
-Only `auto_grab` requires enemy shield. `auto_shield_grab` can select any
-vulnerable, grabbable front opponent while you shield. If no legal grab wins,
-`auto_shield_backup` uses its separate limits and native readiness.
+```ini
+[yoshi.roll.my_roll_response]
+name = My roll response
+start_delay = 0
+reaction = auto_roll:30:12
+actions = range:fighter_range_instant, press:r:4
+```
 
-The migration preserves all existing ledge/button recipes and timing, relocates
-the effective automatic-grab ranges for all 77 fighters, and copies Bowser's
-previous grab-dodge follow-up exactly. It does not enable previously absent
-roll/dodge responses on other fighters. Missing new entries retain old-file
-fallbacks. Recognition, native readiness/delivery, priority and native grab/throw
-handoff remain input-only code safeguards. See [Auto react](REACTION_RULES.md).
+This is a valid starter, not a statement about supplied file values. Replace an
+existing event instead of duplicating it. The range step cancels immediately
+when its current target is too far/unavailable; it does not guarantee a hit.
+Enable the appropriate mode separately. Ordinary ledge Roll means an opponent's
+ledge roll; `auto_roll` means an onstage dodge event. Legacy priority metadata
+still parses but does not order the live unified event group.
+See [current versus legacy reactions](REACTION_RULES.md).
 
 ## Button bindings and built-in actions
+
 
 Button section rows are `x`, `y`, `dpad_up`, `dpad_down`, `dpad_left`,
 `dpad_right`, `l3`, and `r3`. Trigger rows `l`/`r`/`zl`/`zr` (including
 `lz`/`rz`) are retired and ignored, so old files remain loadable but cannot remap
 triggers. Literal trigger inputs inside an action remain supported normally.
 The eight customizable rows use the same recipe syntax as other input sequences.
-Existing saved recipes remain valid. Legacy `builtin = short_hop` entries now
-behave as `builtin = normal`; create a `short_hop` recipe when you want an
-automated short-hop press.
+`builtin = normal` is the current **Short hop** helper, not physical passthrough.
+Its stable internal ID remains `__normal_button`; that legacy name is not another
+Normal choice. A literal `short_hop:1` action is a separate timed X tape.
 
-A native helper is selected with `builtin = normal`, `ledge_assist` or
-`turbo_teabag`. These choices call the existing helper, not a sequence of
-attacks. They cannot contain `actions`, reaction conditions, startup delays,
+A native helper is selected with `builtin = normal`, `ledge_assist`,
+`turbo_teabag` or another current role listed in the syntax reference.
+These choices call an input helper rather than an authored tape. They cannot contain `actions`, active reaction conditions or nonzero startup delays,
 `while_held` or `ground_only`. `start_delay` is not required for a built-in.
 
 Use an ordinary recipe when you want a short-hop input on a button:
@@ -180,8 +240,8 @@ start_delay = 0
 actions = short_hop:1
 default = true
 
-[bowser.x.normal]
-name = Normal X
+[bowser.x.short_hop_helper]
+name = Short hop helper X
 builtin = normal
 default = true
 ```
@@ -189,11 +249,15 @@ default = true
 Keep only one `default = true` per fighter/button row. The Training editor's
 save-as-default action handles this automatically. R3/L3 are reserved for menu
 navigation while visible; their gameplay assignments work when the menu is hidden.
-Normal means physical passthrough, including ordinary X jumps. With no saved
-button default, X uses short hop and L3 uses turbo teabag. Default-layout L is
-fixed walk/ledge assistance and is never a saved binding. D-pad Down and other unassigned buttons
-are Normal.
-These new slots/built-in entries require the corresponding updated mod build.
+Current empty-slot helper defaults are L3 **Auto-defense**, D-pad Down **Turbo
+t-bag**, and **Short hop** for other button slots; supported Counter additionally
+provides the empty R3 fallback on saved-catalog reload. An explicit saved manual
+default or first available manual recipe can replace that fallback. These helpers
+are not passthrough. See [current controls](CONTROLS.md).
+Do not confuse the menu's built-in fallback with an explicit saved default;
+your actual configuration determines the selected role. Default-layout L is
+fixed walk/ledge assistance, not an editable trigger row.
+These slots/roles require a matching plugin version.
 
 ## Sections and frame timing
 
@@ -304,7 +368,7 @@ For exact button/stick combinations:
 | `wait:N`, `release[:N]` | Neutral sticks and release owned buttons |
 
 Button names in chords: A, B, X, Y, L, R, ZL, ZR, `attack`, `special`, `jump`,
-`shield`, `grab`, or `none`. Axes are **world-relative** values from -1 to 1.
+`shield`, `grab`, or `none`. Raw `input`/`stick` axes are **screen-relative** values from -1 to 1; facing/opponent references mirror only horizontal sign.
 Named move horizontal directions are relative to facing, captured at step entry.
 `move:FRAMES:STRENGTH` optionally scales the directional stick (0–100%); e.g.
 `side_special:1:50%` uses a one-frame, half-strength side+B input.
@@ -360,15 +424,14 @@ actions = short_hop, wait:3, hold:a:4
 
 Use `[yoshi.x.ID]`, `[kirby.y.ID]`, `[kirby.dpad_up.ID]`,
 `[kirby.dpad_down.ID]`, `[yoshi.dpad_left.ID]` and `[yoshi.dpad_right.ID]` for the other lists. Nothing is shared or
-copied between fighters. Without an explicit `default = true`, a button starts
-on its built-in default (X short hop, L3 turbo) or **Normal button**
-for the other sources. Y and D-pad Up/Left/Right pass through unless configured. Startup validation accepts this permanent Normal button selection even after a non-default recipe has been saved; a default is not required for button lists.
+copied between fighters. With no explicit saved default, the permanent fallback remains available.
+Startup validation accepts this permanent Short hop built-in selection even after a non-default recipe has been saved; a default is not required for button lists.
 With the menu hidden, a fresh single-button press runs the selected recipe once.
 Simultaneous binding buttons do not launch multiple timelines; chords inside a
 sequence remain supported. Holding the
 button does not repeat it or leak a jump after completion. In the menu, X remains
-Test and Y remains Save in the editor. R3 on Normal button opens a separate
-Custom template; Normal button remains permanently available.
+Test and Y remains Save in the editor. R3 on Short hop built-in opens a separate
+Custom template; Short hop built-in remains permanently available.
 
 Old `[universal.x.ID]` and `[universal.y.ID]` sections remain ignored and are
 preserved during saves. They never populate fighter lists. Fighter-specific X/Y
@@ -399,37 +462,36 @@ execution/timing change was added; the summary rebuilds with the cached editor.
 
 ## Mode bindings
 
-The Button configs page selects saved/custom input sequences or **Normal button**.
-There are currently no modes, Hold/Toggle choices, or Mode/Activation editor fields
-on any X/Y/D-pad row. In Training, R3 edits action slots and Y starts saving immediately.
+The Button configs page selects saved/custom input sequences and
+supported built-in roles. Legacy `mode`/`activation` recipe fields are not
+current mode-binding controls; a current native-helper built-in is different. In Training, R3 edits action slots and Y starts saving immediately.
 Minus opens the ledge home or closes any page. Use the Button recipes / Assist
-modes / Ledge traps rows with Left/Right to switch pages directly. Automatic features are controlled
-only on the Modes ON/OFF page, independently of button assignments.
+modes / Ledge traps rows with Left/Right to switch pages directly. Mode switches
+and native-helper button roles are separate from an ordinary action tape.
 
 For backward compatibility, known older `mode = ...` / `activation = ...`
 sections still parse, but are excluded from the loaded button choices. An old
-mode selected as a default falls back to Normal button; saved input sequences
-remain available. The original file is not rewritten or deleted. Buttons cannot
+mode selected as a default cannot activate that legacy mode; saved input
+sequences and the slot's supported fallback remain available. The original file is not rewritten or deleted. Buttons cannot
 activate, hold, toggle, or override any mode through these legacy entries.
-Unknown/malformed sections still fail ordinary validation. New button modes will
-be added only when explicitly configured in a future change. The identity
-registry remains for compatibility, not as a selectable menu catalog.
+Unknown/malformed sections still fail ordinary validation. The legacy mode
+identity registry remains for compatibility, not a selectable live binding API.
 
 Unsaved edits/selections last only for the match. Explicit Training Save uses
 the same immediate worker, backups and validation as input sequences.
 
-Menu navigation never runs a D-pad binding; held menu directions require a
-release before gameplay can use them. Empty lists remain valid and select Normal
-button, including after adding non-default mode/sequence entries. No universal
+Consumed menu navigation never runs a D-pad binding; held navigation keys need
+release before gameplay. Lightweight D-pad without L remains gameplay input.
+Empty lists remain valid and use the slot's supported fallback. No universal
 button lists are created or migrated.
 
 ## Editing button holds and checks
 
 In compact, highlight a ledge or button recipe and press **R3** to edit it.
-Choose the action, then adjust **Hold buttons: Nf** underneath it with Left/Right.
-For example, choose **Hold A button** and set Hold buttons to 30 for a 30-frame
+Choose the action, then adjust **Hold input for: N frames** underneath it with Left/Right.
+For example, choose **Neutral A / Nair** and set Hold input for to 30 for a 30-frame
 A hold. B, jump, shield, grab and the other input presets have the same duration
-setting (1–255 frames). **Delay** waits before the action; **Hold buttons** keeps
+setting (1–255 frames). **Delay** waits before the action; **Hold input for** keeps
 its buttons/stick pressed during the action. For example, `hold:a:60` holds A
 for 60 native-progress frames. A gap wholly inside an already-active button hold
 keeps that input down without generating repeated press edges. Gaps crossing an
@@ -473,8 +535,8 @@ fresh observation of the original target; cached/missing opponents do not pass.
 Distance is horizontal root-position separation in game units (0–100), not
 hitbox reach. Front/behind uses current facing. Self checks need no opponent.
 
-For example, `check:enemy_shielding:8, grab:4` waits briefly for a confirmed shield,
-then sends Grab; it ends without grabbing if that condition never becomes true.
+For example, `check:enemy_shielding:8, press:r:4` waits briefly for a confirmed shield,
+then holds Grab for four input frames; it ends without grabbing if that condition never becomes true.
 `check:self_airborne, nair:4` sends Nair immediately only if already airborne.
 The checks do not add floor rays or native queries. A positive wait makes the
 schedule variable; ordinary input actions remain literal ungated inputs.
@@ -492,7 +554,7 @@ Reactive steps are permanent action choices:
 - **Check fighter grab reach instantly**: check once and cancel the rest of the
   recipe if out of range. Add **Grab / Zair** next to press Grab when in range.
   This is useful for roll punishes that should not stand still waiting for reach.
-- **No range check**: continue immediately without a range gate.
+- **No range check**: retained saved/file `range:ignore`; not a new fixed picker entry.
 
 The original range checks use the sequence's existing spatial timeout (60
 native-progress frames by default). They send neutral input while waiting for
@@ -512,12 +574,10 @@ restart. These are literal inputs, not hidden conditional handlers.
 
 ## File-only menus and migrated defaults
 
-All 1,515 roster choices are now ordinary file entries, followed by your existing
-custom sections. `default = true` marks the initial choice in each of the five
-rows. Deleting an entry removes it; there is no Rust fallback or `code:ID` route.
-The old conditional recipes have become visible input templates, so their labels
-do not imply hidden branches or perfect spacing. Tune the explicit 30-frame
-down-tilt/shield wait, 22-unit cross-up walk and other values as needed.
+Every loaded ledge choice is a file entry. `default = true` selects an initial
+choice within its row. Deleting an entry removes it; no Rust fallback or `code:ID`
+route replaces it. A label does not imply hidden branches or perfect spacing.
+This guide does not certify a roster-wide count or the supplied file's recipes.
 
 The old config.txt ledge move-choice/timing keys are ignored. Fighter reference
 statistics still exist for other tools; they do not choose or delay file inputs.
@@ -553,116 +613,36 @@ Switch/offline/online testing is still required to verify actual delivery timing
 
 ## Migration, validation and upload
 
-This executor requires rebuilding/installing the updated mod before uploading
-new recipes. Older installed NROs can reject newly supported inputs. Compared
-with the old one-attack recipe system, multiple attacks, jump → Up B, arbitrary
-wait placement and grounded/airborne specials now parse. Input steps no longer
-retry, wait for native acceptance, or import fighter startup data. `drift`'s last
-number is now a duration, not an attack-animation deadline. Recalibrate existing
-waits/drift after migrating. The compiled option catalog and `code:ID` route are removed.
+Use a plugin that supports the grammar you author. A host parser check validates
+current source grammar/capacity, not the version installed on a Switch. This
+documentation update does not build, deploy or contact a console. Keep a copy of
+the active file before editing; do not overwrite newer Training saves with an
+older repository bundle. The [Workbench guide](WORKBENCH.md) owns transfers,
+backup/read-back and recovery instructions.
+
+For local-only syntax validation from the repository:
 
 ```sh
-python3 tools/upload_sequences.py --dry-run
+python3 tools/sequence_validation.py "/path/to/my-sequences.txt"
 ```
-
-This checks the exact deployment bytes with the current Rust parser, menu limits,
-and both build filters, without contacting either Switch. Invalid sections stop
-uploads. To upload only the file, explicitly run `python3 tools/upload_sequences.py`
-with Smash closed and FTP open. It targets both saved IPs on port 5000, attempts
-both, and verifies SHA-256 read-back; it builds/uploads no mod. By default, full
-uploads and the sequence-only tool send an inactive `sequences.upload.txt` copy,
-preserving the active `sequences.txt`. Restarting does not activate that copy.
-
-To replace the active file while uploading a prepared release, close Smash on
-both Switches and use:
-
-```sh
-python3 tools/upload_all_switches.py -v 2.3.1 --replace-sequences --smash-closed
-```
-
-Use your prepared release's version. The same flags work with `upload_switch.py`
-for one Switch. Existing active files are backed up to
-`/ultimate/kirby_assist/bak/sequences.txt` and verified before any installed file
-is replaced; the uploaded configuration is verified by SHA-256 read-back before
-the plugin is uploaded. `--replace-sequences --dry-run` previews the active paths
-without connecting; `--replace-sequences --verify-only` reads without writing.
-The sequence-only equivalent is `python3 tools/upload_sequences.py --replace --smash-closed`.
-
-Full uploads assemble the current universal settings and `fighters/*.txt` at
-upload time, rather than using a stale build-folder or generated copy. A valid
-local file does not prove an older installed mod supports it.
 
 ### Copy sequences between Switches
 
-Save your edits with **Y**, close Smash on both Switches, and start both FTP
-servers. Choose the source containing the edits you want to keep:
-
-```sh
-# Diagnostic → silent (also the default without --from)
-python3 tools/sync_sequences.py --from diagnostic
-
-# Silent → diagnostic
-python3 tools/sync_sequences.py --from silent
-```
-
-The source is selected manually; the script does not guess which copy is newer.
-It copies the active `/ultimate/kirby_assist/sequences.txt` between diagnostic
-`.142` and silent `.105`. The source file and project's deployment file stay
-unchanged. Unlike ordinary suffixed uploads, this command intentionally replaces
-the destination Switch's **active** sequences. It validates the downloaded bytes
-for both builds before connecting to the destination. Diagnostic-only recipes
-remain subject to the silent build's existing filtering.
-
-Before replacement, it keeps unique local snapshots under
-`.sequence-sync-backups/`, named for each Switch, and verifies the previous
-destination file at `/ultimate/kirby_assist/sequences.sync.bak`. Backup failure
-prevents replacement. The script verifies the transfer with SHA-256 and attempts
-to restore the previous file after a failed write or read-back check; if
-restoration also fails, it prints the recovery paths. Restart Smash on the
-destination after success. An identical file requires no writes. `--dry-run`
-downloads/validates the selected source without connecting to the destination or
-writing anything; `--port` changes the default FTP port of 5000.
-
+Choose the copy to keep explicitly. Save and wait before leaving Training; close
+Smash before external replacement. Follow the Workbench transfer/recovery guide
+rather than guessing which file is newer. Whole-file replacement affects all
+fighters and shared settings; a fighter transfer affects only that fighter.
+No transfer is performed by the menu editor documentation.
 
 ### Transfer one fighter between Switches
 
-Close Smash on both Switches, leave FTP open, and choose the copy to keep:
-
-```sh
-# Ask for direction and fighter interactively
-python3 tools/sync_sequences.py --interactive
-
-# Preview Kirby from diagnostic -> silent (reads both; writes nothing)
-python3 tools/sync_sequences.py --from diagnostic --fighter kirby --dry-run
-
-# Replace silent Kirby with diagnostic Kirby
-python3 tools/sync_sequences.py --from diagnostic --fighter kirby
-
-# Replace diagnostic Yoshi with silent Yoshi
-python3 tools/sync_sequences.py --from silent --fighter yoshi
-```
-
-The script prints source, destination and fighter. `--fighter` replaces **every
-section for that fighter**, including all ledge categories and X/Y/D-pad recipes,
-names, defaults, actions and saved timings. Destination-only recipes for that
-fighter are removed. Other fighters and destination preamble settings stay intact;
-source preamble settings are not copied. Use file names such as `ness`, `kirby`,
-`yoshi` or `captain_falcon` (spaces/hyphens also normalize to underscores).
-A missing source fighter is an error, never a request to erase the destination.
-Only settings actually saved in sequences.txt transfer; in-memory edits do not.
-
-Fighter transfers read and validate both files and the merged result before any
-SD write. They use the same unique local snapshots, verified SD backup, read-back
-verification and failure rollback as whole-file sync. A changed destination during
-preparation stops replacement. This check cannot make concurrent editing safe:
-keep Smash closed and avoid other FTP writers throughout. Restart the destination
-Smash after success. Validation checks current source code, not whether an older
-installed NRO supports every action. Without `--fighter`, existing whole-file
-sync behavior remains; whole-file dry runs read only the source, fighter dry runs
-read both Switches. Neither dry run writes backups or SD files.
-
+Only settings actually saved in `sequences.txt` transfer; in-memory drafts do
+not. Preserve the destination's unrelated fighter/settings sections and verify
+the resulting file with a matching parser. External replacement requires a
+restart because gameplay uses the loaded in-memory catalog.
 
 ### In-game save safety
+
 
 Editing, saving, renaming, adding and deleting are Training-only in both builds.
 **Y Save** immediately starts one short-lived background worker. There is no
@@ -697,12 +677,14 @@ guard confirms the battle has ended, preserving them through death and respawn.
 
 **Step tools → Recipe options → Save as startup default** saves the current recipe and selects it for the
 next match in its ledge/button category. Other defaults in that same category
-are cleared; other fighters/categories and actions are preserved. Normal button
+are cleared; other fighters/categories and actions are preserved. Short hop built-in
 and empty templates are not saved recipes. The default save includes the current
 edited actions, delays, hold durations, name and loop setting. Wait for **Saved as
 startup default** before leaving Training. Online has no save controls.
-Button categories without an explicit default start as **Normal button**, both on
-a cold game start and after an in-game saved-catalog reload.
+A saved-catalog reload selects the explicit manual default, otherwise its first
+available manual entry, otherwise the slot's supported fallback. R3 uses Counter
+as an empty-slot fallback for a supported counter fighter. Do not infer Normal
+from a missing `default` key.
 
 Per-fighter menu/editor state is discarded at confirmed match end. Each new
 match starts from current saved recipes/defaults. If native match teardown deferred
@@ -725,7 +707,7 @@ In either build, **Step tools → Recipe options** opens list management for the
 Duplicate, Delete or Save as startup default. Accepting a name returns to the
 editor; press **Y** to save it with the current actions. Confirmed Delete starts
 an immediate write. Wait for each result before saving another recipe. A saved
-Custom can be renamed/edited/deleted; blank templates and Normal button remain
+Custom can be renamed/edited/deleted; blank templates and Short hop built-in remain
 permanent.
 
 
@@ -756,7 +738,9 @@ added. The picker deliberately excludes jump/shield/grab, combinations, adjustab
 stick axes and tap hold length. Existing saved tap values still load and execute
 unchanged; choosing a different Tap input applies the new one-frame preset.
 
-The file syntax remains `tap:BUTTONS:X:Y:HOLD:RELEASE:TOTAL` for compatibility:
+The file syntax remains `tap:BUTTONS:X:Y:HOLD:RELEASE:TOTAL` for compatibility.
+The following is an **actions-line fragment**, not a standalone file: place it
+inside a unique `[fighter.slot.id]` recipe with explicit `start_delay = 0`.
 
 ```ini
 # Down-tilt inputs every 12 frames for a 120-frame block
@@ -863,24 +847,19 @@ lightweight menu has no template editor or hint rendering.
 
 ## Reaction metadata
 
-A recipe may include `reaction = roll:grounded:0:20:12:front:1` to attach an
-automatic roll event and conditions. The seven fields are trigger, own state,
-minimum X distance, maximum X distance, height difference, enemy side and priority.
-No reaction key means no automatic rule. Each assist family allows eight rules
-(up to 32 per fighter). They appear only in their separate assist lists; lower
-priority numbers are checked first. Menu roll rules start OFF; defensive mode
-startup switches follow the fighter/universal settings. Existing roll-button
-toggle groups remain supported. Training edits/save/copy use the same master file. Actions and move
-timings remain in that recipe. See [reaction rules](REACTION_RULES.md).
+Current live recipes use `reaction = EVENT:MAX_X:MAX_Y` for one of the six
+simple events above. The maximum horizontal/vertical separation checks admit a
+response; its actions determine the input tape. Active reaction entries are
+routed away from ordinary ledge/button selectors and cannot be saved as manual
+startup defaults. An event is not enabled just because a recipe was saved.
 
-Reaction activation can be specified as an optional eighth field, e.g.
-`reaction = roll:grounded:0:20:12:front:1:toggle_x`. Omitted control retains Menu
-behavior. Allowed controls are menu/toggle_x/toggle_y/toggle_up/toggle_down/
-toggle_left/toggle_right. Recipes sharing a button form one group. This metadata
-reserves that button; it is not a legacy `mode = ...` binding. See
-[reaction activation](REACTION_RULES.md#menu-versus-button-activation).
+Seven/eight-field `TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY[:CONTROL]`
+metadata is retained for legacy core/editor consumers, not the unified live
+Auto react group. `ledge_regrab` is inert. `auto_grab` is not an accepted token.
+See [reaction rules](REACTION_RULES.md) before migrating an old file.
 
 ## Per-fighter ledge policy overrides
+
 
 New builds accept an optional `[fighter.settings]` section, separate from recipes:
 
@@ -913,7 +892,7 @@ startup timings. Install a matching new plugin before using these sections;
 older plugins do not understand this syntax. Existing files without them retain
 their previous behavior.
 
-## Validate a file locally
+## Validate before installing
 
 From the project directory, check the default deployment file without FTP:
 
@@ -933,32 +912,9 @@ recipe syntax, numeric bounds and menu-capacity/default checks. Success reports
 recipe and fighter-settings section counts; syntax errors show the line and section
 when available. They run a host validator, not an installable mod build.
 
-Preview an upload without connecting, or upload after validation:
-
-```sh
-python3 tools/upload_sequences.py --dry-run
-python3 tools/upload_sequences.py
-```
-
-Default uploads (or explicit `--upload`) write **sequences.upload.txt** on both Switches, preserving active
-**sequences.txt**. Restarting does not activate the suffixed copy. `--file PATH`
-can also select the source for these commands. New fighter settings syntax requires
-the matching updated plugin; file validation cannot verify what plugin is installed.
-
-To replace the active file instead, close Smash on **both** Switches and run:
-
-```sh
-python3 tools/upload_sequences.py --replace --smash-closed
-```
-
-This validates the selected bytes, rechecks source/destination, saves unique local
-snapshots under `.sequence-sync-backups/upload-sequences/`, backs up an existing
-active file to `sequences.txt.workbench.bak`, and verifies replacement by read-back.
-It reuses the workbench transfer/recovery path; a failed write attempts to restore
-and verify the previous file. Each Switch is reported separately. `--replace`
-replaces the **whole file**, including all fighters and settings; use Workbench
-fighter transfer for a single-character update. `--replace --dry-run` previews
-without a Switch connection. `--file PATH` selects the source for either mode.
+External installation/transfer is separate from local validation. Use the
+[Workbench guide](WORKBENCH.md) for a deliberate transfer and recovery procedure.
+A validated file does not prove compatibility with an older installed plugin.
 
 `stand_distance` supplies the held-binding manual walking stop gap from the known ledge,
 and the existing automatic stance offset. The walking-speed/gap limits require
@@ -996,7 +952,7 @@ and **End facing block** to put different responses in the same get-up recipe:
 [yoshi.neutral.facing_example]
 name = Grab facing ledge / Nair facing away
 start_delay = 0
-actions = if_facing_ledge, grab:4, end_facing, if_back_to_ledge, short_hop_nair:4, end_facing
+actions = if_facing_ledge, press:r:4, else_facing, short_hop_nair:4, end_facing
 ```
 
 At the sequence's first observation, remember whether your facing points toward
@@ -1049,3 +1005,69 @@ Training’s Controller input choice exposes these values and button toggles. Th
 new token requires an updated plugin. Existing input/facing_input/opponent_input,
 C-stick, range:ignore, shield-until-manual and legacy direction tokens remain
 readable without changing their inputs/timings.
+
+## Rust beginner: extending the grammar or editor safely
+
+This is a maintenance map, not executable changes made by this docs update.
+Rust `enum` variants model different action shapes; a `match` handles each.
+`Option` means a value may be absent; `Result` is success or a validation error.
+`pub` controls visibility. Private parser/editor helpers deliberately remain
+private; do not expose them merely to write tests.
+
+### Add an alias for an existing input
+
+1. Find its mapping in `sequence_config/parser.rs::named_input` or `button_alias`.
+   Reuse canonical buttons/sticks, not a new native move command. Decide whether
+   explicit frames and strength apply.
+2. Add the alias beside that mapping. `named_move` handles bounded expansion and
+   prefixes; do not bypass `push`, `MAX_ACTIONS`, duration or numeric checks.
+3. Check persistence: aliases normally serialize as canonical `input` or
+   `facing_input`, not their original name. Parse → save → parse must preserve
+   payload/duration even when spelling changes.
+4. Add a focused accepted-alias test and malformed/edge case to the existing
+   parser suite. Update the syntax reference and regenerate paired HTML with
+   `tools/update_cheatsheets.py`.
+
+### Add a genuinely new observation/input action
+
+1. Define the smallest `Action` payload in `sequence_config.rs`, explicit units
+   and bounded durations. No strings or disk operations in playback.
+2. Add parsing/validation in `parser.rs`, canonical serialization in `persist.rs`
+   and ledge requirements in `Action::needs_ledge`. Keep response/facing-block
+   validation: parser-only success is not complete validation.
+3. Its executor/adapter also needs an input-only implementation and cancellation
+   tests reviewed in that owning scope. Syntax alone does not make it live.
+   Never edit physics, hitboxes, move definitions, animation rates or status.
+4. If editable, add a `PRESETS` entry in `settings_menu/editor.rs`, category in
+   `editor/commands.rs`, fields/display in `editor/presentation.rs` and bounded
+   adjustments in `editor.rs`. One fixed choice per category; preserve imported
+   saved payloads. A display-only choice can reuse an existing `Action`.
+5. Test bounds, round-trip persistence, Undo/copy and interruption/ownership in
+   existing suites. A new automatic event needs policy/live wiring too, not
+   merely a label. Validate before claiming a working live feature.
+
+### Add a section key
+
+Private `RecipeKey` lists recipe keys; `apply_recipe_key` assigns them and
+`check_entry` verifies combinations after the section is read. Define defaults,
+bounds and valid combinations first; retain duplicate checking and persistence
+so saves cannot silently drop the field. Universal/fighter keys belong to their
+own config/tuning parser, not recipe actions. A grammar extension requires
+implementation/tests in the appropriate scope, not a docs-only example.
+
+### Current external unit-test organization
+
+Files under `crates/kirby_assist_core/tests/unit/` are **unit tests attached to
+owning modules**, not a flat public integration API. `#[cfg(test)]` with
+`#[path = "..."] mod tests;` and some `include!` declarations compile them in
+the owning source context, permitting private access without widening the API.
+Follow an existing test's imports/attachment instead of making `parser`,
+`RecipeEditor` or internal commands public just to test them.
+
+Related files: `sequence_parser.rs`, `sequence_persist.rs`, `sequence_templates.rs`,
+`sequence_facing_blocks.rs`, `sequence_layout.rs`, `sequence_default_selection.rs`,
+`sequence_unchanged_save.rs`, `settings_menu_editor.rs`,
+`settings_menu_editor_commands.rs` and `settings_menu_mode_editor.rs`.
+Use the smallest relevant host test selector when implementing behavior. No
+Switch build/deployment is needed for this documentation update; its parent runs
+existing syntax/reference/docs/link checks. No tests are weakened or tooling added.

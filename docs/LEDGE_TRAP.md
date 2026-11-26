@@ -1,235 +1,144 @@
-# Ledge autopilot
+# Ledge trap: recognize an option, play your saved inputs
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+Ledge trapping is a **file-authored response**, not a compiled Kirby/Yoshi move
+picker. It observes an opponent's ledge option, selects the corresponding saved
+row for your fighter, and plays that row's controller inputs. Missing or empty
+rows mean no response. There is no compiled attack fallback, automatic two-frame
+punish, inferred hitbox timing, or automatic throw.
 
+## Vocabulary and activation
 
-## Input freshness
+- **Native** means a fact reported by Smash, such as ledge-climb status or motion frame.
+- **Anchor** is the copied world position of the witnessed cliff. It lets an
+  authored `ledge` direction or movement step refer to that particular edge.
+- **Timeline/tape** means an ordered list of button, stick, wait and check steps.
+- **Ownership** means this proposal wins the shared input overlay; it does not
+  alter the fighter's status or cancel native recovery.
 
-The original wall-clock watchdogs apply to every ledge input: requests expire
-after 35 ms and an observation gap of 250 ms resets the controller association.
-The stall-preserving committed-input exception has been removed. No automatic
-delay learning or compensation is enabled; configured fighter timings remain.
+Use the assigned **Ledge assist** hold or its toggle as described in
+[Controls](CONTROLS.md). A held role stops when released; a toggle retains its
+selection until changed/reset. Global OFF, menu editing, invalid controller scope
+and safety can suspend either. Activation is not a guarantee that every saved
+row can start: native observations, selected fighter configuration and the shared
+owner gates must also admit it. Held ledge activation and the persistent mode are
+not the same thing as a button recipe's `while_held` loop.
 
-## Held-L defensive shield
+Active ledge admission excludes new automatic roll/spot/air, shield-grab/backup
+and incoming-grab follow-up searches. A delivered Grab can retain its input-free
+receipt; ledge activation cannot replace that queued Grab with Special or a throw.
+Other committed/safety owners retain their protections. Held Defense/Counter can
+explicitly displace a nonsafety committed owner. See [Controls](CONTROLS.md)
+for actual role bindings rather than assuming L or X in every saved profile.
 
-With `autopilot_shield = true` (the default), held ledge assist (X by default) can request normal
-ZR shielding on the ground against a nearby fighter's active or known imminent attack.
-The opponent need not have grabbed the ledge. Releasing L releases this assist.
+## Recognition and one response per visit
 
-The check uses the existing bounded fighter roster and validated live accessors.
-A five-frame swept root envelope (24 horizontal / 28 vertical world units)
-provides the cheap active-attack warning. Unambiguous fighter-specific active windows from the canonical JSON also warn
-for mapped jabs, tilts, smashes and aerials. Unknown timings do not borrow
-another fighter's data.
-
-For active hitboxes beyond the root envelope, a bounded read of native attack
-geometry tests a swept conservative standing envelope. This covers extended
-attacks and approaching/descending aerials that a root-only distance test misses.
-A broad spatial filter precedes these reads; at most 16 active slots receive
-geometry work across the roster (at most two joint transforms per slot). Reaching
-that cap requests shield conservatively. These are read-only hitbox observations,
-not changes to attacks. A shared ATTACK observer remembers bounded weapon/item
-IDs for these checks and projectile reflection; it does not change attacks.
-Estimated body bounds and linear motion remain approximations; coverage is not guaranteed.
-
-Shield input requires native guard availability or an existing guard/shieldstun
-state. Native guard availability is checked without an idle/walk-only status
-filter, so crouching and other legitimately shield-ready states qualify too.
-Committed punishes (including onstage Roll read), capture/manual handback,
-mash/tech and trump
-retain priority. Defense overrides idle/preparation movement only; movement is
-neutral while shielding to avoid adding dodge direction. An existing defensive
-shield is held through native shield hitstop. A fixed-size hold bridges small
-gaps for up to four advancing native frames after the last warning; repeated
-polls and hitstop do not spend that interval. Release, menu/tool cancellation,
-or lost native shield readiness still stop it immediately. Once that tail ends it hands
-control back. The separate optional [Out of shield](OUT_OF_SHIELD.md) mode can
-respond after an actual approach block; this shield safeguard alone does not
-automatically attack or parry.
-
-Passive ledge tracking, including jump approaches, no longer disables this
-safeguard merely because an opponent is being tracked. Actual get-up-attack
-responses and committed text timelines remain in control: this feature cannot
-replace their shield, action or configured wait steps.
-
-This cannot shield through hitstun, shield break or uncancellable move recovery.
-It does not parry, detect grabs, or guarantee collision coverage.
-
-The added native reads run only for grounded, guard-eligible, L-held ledge
-autopilot observations. The shared observer tracks projectile sources only when
-ledge shielding or a configured reflector needs them. Runtime cost and online
-effectiveness still require Switch testing.
-Diagnostic ledge snapshots label the action `autopilot_defensive_shield`.
-Disable with `autopilot_shield = false` in `[universal.settings]` of startup `sequences.txt`, then restart.
-
-## Controls
-
-Hold **L** for the selected fighter's saved ledge responses and configured walking
-limits. With Ledge trap mode ON, tracking stays active without L; L still adds
-walking/known-ledge stopping limits. An acquired setup is protected from competing
-configured responses until it finishes. Plus/Minus, menus and native safety keep
-their documented controls; see [current controls](CONTROLS.md).
-
-Minus opens/closes the menu. Outside Training, R3 switches between ledge and
-Buttons / Assists selectors. In Training, R3 edits recipes; L3/R3 on a
-sequence-based assist opens its separate rule list. X/Y/D-pad run the selected
-fighter-specific sequence or Normal button. Hard-coded slide/B-reverse/Down-trump
-bindings and the native Y Finisher selector are removed.
-
-Use the [controller mapping](CONTROLS.md#controller-mapping). Configure exact
-attack inputs, hold durations, checks and delays in the master file rather than
-relying on a compiled fighter recipe. Auto-mash is OFF in the supplied master.
-
-These controls apply to a human-controlled fighter with a loaded ledge profile
-on the selected local controller in valid battles. All non-DLC forms have
-compiled profiles. Valid unconfigured kinds fall back to Kirby; invalid routing
-stays inactive. See [fighters](FIGHTERS.md).
-
-Kirby's **Drop → Short-hop dair** option reacts to a witnessed ledge release
-with **neutral X first**, then **down+A during native jump squat/takeoff**,
-releasing Jump for a short hop. The attack-selection stick is 0.6 toward the
-ledge and -1 down. Separating the initial Jump from Attack prevents the first
-request from selecting nair. It requests the action as soon as native grounded jump/actionability
-allows, without a spacing, facing-turn, reach or vulnerability timing gate.
-Down+A stays queued through takeoff, even
-if the opponent disappears from tracking. Once the actual dair starts, A/down
-release and full horizontal drift continues through startup. At dair animation
-frame 18 (from Kirby's canonical [Fighter Data row](FIGHTER_DATA.md)), control
-hands back so you choose recovery. A different aerial, landing, interruption or
-request timeout also ends this one-shot attempt. Release/rehold L to rearm.
-Spacing is yours; it can drift offstage and does not guarantee a spike.
-
-The default `ledge_distance_agnostic=true` policy leaves normal/jump/get-up-attack
-spacing to you. Opponent acquisition and those responses ignore horizontal and
-vertical range gates. Distance still ranks eligible ledge targets; it cannot
-prevent acquiring the only eligible target. The assist selects a response from
-the opponent's observed ledge option and schedules inputs using vulnerability,
-recovery and native action readiness.
-
-| Opponent option | Kirby default response |
+| Observed native option | Saved response slot |
 | --- | --- |
-| Hang | Keep manual capped walking. |
-| Normal get-up | Short-hop nair, targeting first activity ten frames before known protection expiry with the supplied eight-frame setting plus the current two-frame lead. Neutral stick avoids facing-dependent aerials. |
-| Jump get-up | Pair neutral X+A for short-hop nair; release X in squat while A remains buffered. A timing-gated request permits two frames earlier; immediate recognition stays immediate. |
-| Roll | Down-smash approaches the common coverage point and pulses down+A during vulnerability. Selecting Grab uses the separate range/active-frame logic below. |
-| Get-up attack | Hold shield; after a confirmed block, buffer grab regardless of distance or target protection metadata. If facing away, pair neutral jump+A directly out of shield; do not turn or grab. No whiff-only grab in this mode. |
-| Generic ledge drop | Shield by default; alternatives are one native-confirmed down tilt then shield, or short-hop dair. There are no Off entries. Recognized ledge options take priority. |
-| Confirmed capture | End autopilot immediately; physical controls choose pummels, throws and follow-ups. Release and hold L again to rearm. |
+| Normal climb | Neutral get-up |
+| Ledge roll | Roll |
+| Get-up attack | Attack |
+| Ledge jump stages | Jump |
+| Airborne release after a witnessed hang, not an excluded damage/capture state | Drop |
+| Still hanging | Watch only; no automatic attack |
 
-Manual horizontal input has two caps while waiting: the
-`ledge_walk_strength` baseline minus 0.02 normally, or a fixed **0.50** when
-horizontal stick magnitude is at least 0.95 and vertical magnitude at most 0.15.
-The supplied baseline gives **0.33 normal / 0.50 near-full horizontal**.
-The fast-walk cap is 50% stick deflection, not a guaranteed 50% of native walk
-velocity. Full analog deflection is no longer sent for manual autopilot spacing.
-Weak inputs remain proportional and vertical input is preserved. Digital
-stick-flick aliases are cleared; native fast-walk versus dash behavior still
-needs device validation. These are stick strengths, not world-units/frame;
-each fighter's native walk curve determines movement speed. This affects manual
-spacing only, not recipe-controlled roll approaches, ledge-walk preparation,
-punish drift or attack input timing.
-Only roll approaches automatically; normal-getup turning is a bounded facing
-correction. No automatic return to a standing spot occurs. Actual punish recipes
-briefly own their necessary inputs, then restore player spacing. The assigned
-Turbo t-bag button remains independent, with automatic punish inputs taking
-priority.
+A sticky previous option status can preserve recognition across a late sample.
+Tracking retains the target ID and, when supplied, its cliff anchor. A selected
+row completes this attempt; it does not repeatedly attack while that enemy hangs
+or retry a finished tape. Native catch/pull/hold/pummel/throw immediately hands
+control back so pummels, throws and follow-ups remain physical choices. Rearm
+through the normal new-visit/activation lifecycle. A preview deliberately plays
+a chosen slot against the observed target; it does not forge a get-up status.
 
-A confirmed get-up-attack grab returns all buttons and uncapped stick input on
-the first capture observation, including catch-pull. No automatic pummel, throw,
-stance return or walk cap remains active after that capture, even if L stays
-held. Release L and hold it again to rearm ledge assistance. Old
-`ledge_throw_outward` values are still parsed for config compatibility and do
-not re-enable automatic throws.
+Distance-agnostic tracking ignores acquisition/follow X/Y bounds, but still
+requires finite copied positions. With it disabled, initial hanging acquisition
+uses the supplied cliff anchor when available; following uses the target root
+and separate follow bounds. These are root-space limits, not measured hurtboxes.
 
-Kirby also has an optional neutral-get-up **Down-B / Stone** recipe in the
-[per-fighter saved lists](FIGHTER_CONFIGS.md). Its grounded
-startup is configured separately (11 by default), with zero early lead; nair
-keeps its original lead of 8. This predicts an input time rather than proving
-a frame-perfect online hit. Stone confirmation hands controls back so B remains
-available to leave Stone normally. Release/rehold L to rearm.
+## Edit a response: worked example
 
-## Configuration
+In Training, open your fighter's ledge response list and edit its **Neutral
+get-up** row. Saving, file locations and choice selection are documented in
+[Sequence files](SEQUENCE_FILES.md). For example:
 
-The menu selects compiled fighter response functions. An optional startup-only
-[`sequences.txt`](SEQUENCE_FILES.md) section can replace an existing ordinary
-choice's action recipe while retaining its compiled fallback. Global activation, shared
-shared startup settings and per-fighter overrides live in the master `sequences.txt`.
-Config files cannot register functions or define their action sequence.
-
-
-```text
-ledge_trap = true
-ledge_manual_spacing = true
-ledge_distance_agnostic = true
-ledge_walk_strength = 0.35
-ledge_drop_defense = true
-ledge_follow_range = 40.0
+```ini
+[kirby.neutral.practice_nair]
+name = Practice neutral get-up nair
+start_delay = 0
+timeout = 120
+actions = input:x+a:0:0:1, wait:1
 ```
 
-Distance-agnostic mode defaults to true even if an old config omits the key.
-Setting it false makes `ledge_trap_range` and
-`ledge_trap_vertical_range` constrain opponent acquisition. The old
-fighter-independent tilt, grab, anti-air and roll ranges remain accepted and
-validated for config compatibility, but do not affect live responses; grab
-recipes use the selected fighter's profile reach instead.
+This is an illustrative input experiment, **not a bundled default or calibrated
+punish**. It requests the named buttons with neutral left stick for one input
+frame, then waits one. Your game's mapping must make them Jump/Attack. It does
+not prove nair started, compute protection expiry, or wait for takeoff. Native
+shield/attack restrictions may make the input ineffective. Use
+[Sequence files](SEQUENCE_FILES.md) for literal grammar, explicit spatial/check
+steps and facing blocks.
 
-Use the selected fighter's saved sequence to define the roll response. Stand
-positioning remains controlled separately by `ledge_stand_distance`; a legacy
-`ledge_roll_distance` value does not tune it.
+To make get-up-attack playback wait for a real block, author the documented
+wait-for-block step; selecting Attack alone does not add one. To approach a roll,
+author movement/check actions; Roll alone does not run a compiled braking or
+fixed-inset grab routine. To choose dair after Drop, author your jump/attack/stick
+sequence; no hidden Kirby frame-18 drift tail is appended.
 
-Native speed and ground braking guide early stick release; live extra delay is zero.
-The final short approach slows down near the fixed point. Missing braking data
-uses a short coasting estimate instead of blocking movement. Arrival, not an
-opening timing window, ends navigation. Opponent movement cannot drag the spot
-farther away. A missed punish window never becomes a chase.
+## Clock, ordering and cancellation
 
-At the spot, the policy releases horizontal input and sends down+A when the
-native down-smash transition is ready and the hit window overlaps vulnerability
-before roll recovery ends. Separate velocity, endpoint-reach and height vetoes
-have been removed from this timing path. Rejected down+A inputs get release gaps
-and retries during the window; only one actual down-smash animation is attempted.
+The first admitted observation is timeline frame zero. Progress comes from
+rate-normalized native motion evidence; identical mapper polls reuse output and
+hitstop does not spend authored duration. A configured shared input-delay
+allowance shifts only acquisition delay, clamped at zero; it never shortens every
+hold or learns network delay. Its Rust default is zero.
 
-Roll grabs use the fighter's own configured grab reach, startup and active
-length. Kirby's experimental Roll → Grab runs directly to **20 units inward
-from the witnessed ledge**, brakes, uses a small walking correction near arrival,
-stops within one unit and faces center stage. Arrival precedes the timed catch;
-his destination does not extend from enemy movement or subtract grab reach.
-Yoshi instead uses shared tracked 0.65-stick walking again. Existing timed grab
-checks remain; a fixed inset is not stage-specific or a guaranteed catch.
-Other fighters retain their existing navigation style.
+An ordinary ledge tape rejects a native-progress gap over 1.25 frames unless the
+current already-held input or explicit waiting predicate safely tolerates it.
+It never bursts missed taps to catch up. Automatic-response tapes have additional
+bounded continuous-progress handling; that exception is not universal ledge timing.
+Fresh requests still expire after the shared 35 ms watchdog; a 250 ms controller
+sample gap resets the association. These are wall-clock safety checks, not move
+frames or online ping measurements.
 
-The approach area extends up to 60% of configured standing reach. The request
-itself requires predicted opponent reach, facing, height AND vulnerability on the
-same active grab frame, using the full configured standing range. An already
-useful tracked position can request without reaching the common point; Kirby's
-fixed-stance experiment instead requires arrival. These are root
-position/velocity estimates, not an animated grab/hurtbox model. Diagnostic gate
-`roll_wait_actual_grab_reach` means timing is available but forecast geometry fails.
+Damage/capture/native interruption, global or activation scope loss, invalid
+clock, timeout, ground-only takeoff and unavailable targets for target-dependent
+steps end playback. Ordinary physical gameplay input is masked while a tape owns
+it, not automatically treated as cancellation. Explicit until-manual holds are
+the exception: fresh manual intent hands back that same sample. Losing one target
+does not permit retargeting an active response to an unrelated fighter.
 
-The whole configured grab-active interval is checked against a target three
-frames after protection expiry (midpoint for narrow vulnerable windows, two
-frames if the recovery deadline is unknown). Unknown protection still waits.
-Only activity before the known recovery deadline counts. Native can_grab,
-movement release, bounded delivery and capture handback remain in effect.
-There is no learned input-delay compensation. The area and roll endpoint remain
-estimates; they do not extend native hitboxes or guarantee a catch.
+## Position preparation and shielding are separate
 
-`ledge_roll_hit_window_frames` defaults to **5**, planning contact during attack
-frames **7–11**. Set 1–13 to extend or shorten that window through frame 19.
-Live extra input-delay compensation is zero. Unknown protection still waits for observed
-vulnerability; these settings do not change actual hitboxes or guarantee
-opponent-relative frame-perfect timing online.
+Optional ground preparation searches the current floor for a candidate edge,
+remembers an inward standing offset and proposes damped stick movement. It yields
+in air and on failed readiness/support; landing requires a fresh floor selection.
+This collision edge is not proof of native cliff grabbability. Saved response
+movement is a separate timeline and does not inherit an automatic return stance.
 
-## Timing and limits
+<a id="held-l-defensive-shield"></a>
 
-Saved sequences start at the first eligible observation of the recognized option,
-then deliver the configured inputs and waits. Move startup is additional native
-move time, not a hidden sequence delay. There is no learned online-delay
-compensation or automatic retry behind literal attack inputs.
+### Ledge defensive shield
 
-Only explicit spatial/check/wait-for-block actions add their documented waits.
-Missing targets, unsafe movement or invalid scope can end a sequence. Inputs
-cannot bypass shieldstun, landing lag, recovery or native action restrictions.
-Timing perfected in Training is not proof of identical online input acceptance.
-Use [input timing](SEQUENCE_FILES.md), [Fighter Data](FIGHTER_DATA.md) and
-[diagnostic observations](OBSERVATIONS_AND_TIMING.md).
+The preserved `held-l-defensive-shield` link is a historical anchor, not a claim
+that every layout or saved binding uses L; use the current assigned ledge role.
+
+`autopilot_shield = true` is the Rust startup fallback for the ledge shield
+safeguard. It proposes ordinary neutral-axis Shield for an eligible incoming
+attack, and a bounded hold can bridge warning gaps. It is not parry, grab defense
+or a guaranteed punish. Body/forecast/hold estimates belong to
+[Fighter settings](FIGHTER_SETTINGS.md); a saved file may override them. Portable
+`Envelope::default()` and live tuning need not use the same forecast: do not treat
+a helper constant as a universal device default.
+
+## Extend in code, or tune as a player?
+
+Players edit saved slots, inputs, checks and delays through the save/load workflow.
+Rust beginners should start at `policies/ledge_trap.rs`: `response_slot` recognizes
+an event, `start_timeline` requires its saved sequence, and
+`ledge_trap/file_timeline.rs` plays it. `Option<Sequence>` distinguishes an absent
+row from a configured one. Add an event only with verified native observation
+and menu/config resolution; add an action only with parser, validation, playback
+and focused regression coverage. Registering a fighter identity cannot generate
+a new recipe.
+
+All results remain controller inputs. Stage shape, moving platforms, startup,
+invulnerability, online queues and input acceptance can defeat a Training setup.
+This documentation does not establish a successful on-device punish.

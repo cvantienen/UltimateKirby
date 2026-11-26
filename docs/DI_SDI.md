@@ -1,76 +1,92 @@
 # DI and SDI input assistance
 
-Both features are **experimental and independently OFF by default**. They request
-controller inputs only during observed victim damage hitstop; they do not change
-knockback, damage, physics, hitboxes, status or move definitions. Their predictions
-are bounded heuristics, not guarantees of survival or globally optimal choices.
+**DI** changes the launch direction through ordinary stick sampling; **SDI** uses
+stick flicks during victim damage hitstop. They are independent experimental
+features. The mod requests input only: it never writes knockback, damage, native
+physics, hitboxes, status or animation rate. Bounded estimates are not guaranteed
+survival or globally optimal decisions.
 
-Enable `Auto DI (experimental)` and/or `Auto SDI (experimental)` in the assist
-menu. Each toggle updates that fighter's settings immediately. To persist, open
-**Fighter settings** in Training and press **Y: Save**. The existing
-`[fighter.settings]` section in `sequences.txt` stores `auto_di_default` and
-`auto_sdi_default` as booleans. No new file format or automatic disk writes are
-introduced. Unset preferences inherit startup `auto_di`/`auto_sdi` (both OFF by
-default); explicit saved false overrides startup true. Resetting the tuning field
-restores its startup value. Unsaved changes do not survive a restart.
+## Enable and persist deliberately
 
-- `auto_di_mode = survival` is the default. Existing `adaptive` configs now use
-  the same survival selection; launch speed alone no longer enables outward
-  combo-escape DI. `escape` is still an explicit separation-focused option and
-  can make survival worse. The legacy `auto_di_survival_speed` field still parses
-  for file compatibility but no longer switches Adaptive into Escape.
-- With valid blast-zone bounds and fighter data, Survival evaluates a bounded,
-  collision-free trajectory forecast for neutral and multiple stick directions,
-  favoring predicted clearance. The live adapter abstains when that data is
-  missing or invalid, including after an earlier valid decision. The standalone
-  launch-only scoring helper remains available for model tests, but is not the
-  live missing-data fallback.
-- The live damage response uses exclusive ownership: once selected, its inputs
-  and neutral gaps do not yield to physical stick movement. Disable the relevant
-  menu toggles to retain manual control over those responses.
-- SDI requests flicks away from a known attacker, separated by neutral and at
-  least four native hitstop frames. Valid observed blast-zone geometry may bend
-  the flick inward or upward. Missing/invalid environment data or unknown attacker
-  direction makes SDI abstain. The eight-unit candidate step is only a scoring
-  approximation, not a measured displacement or a collision sweep. Candidates
-  outside the observed bounds are rejected. SDI currently abstains above 60%
-  damage and stops
-  for the final three hitstop frames, leaving the launch-input phase to DI or
-  manual input when no other owner is active.
-- Capture mash takes priority; only an urgent actual tech press can interrupt
-  final DI. Non-press tech preparation/release yields to final DI; other active
-  tech input takes priority over early SDI. An already held
-  game-visible stick is released to neutral before SDI's first flick.
+Enable the separate Auto DI / Auto SDI rows for your selected fighter, then save
+fighter settings through the Training workflow in
+[Fighter settings](FIGHTER_SETTINGS.md). `auto_di_default` and `auto_sdi_default`
+are optional fighter startup overrides; an explicit false overrides universal
+true, while omission inherits. Current selection and saved startup are different.
 
-Escape is explicitly separation-focused and requires a known attacker direction;
-it can make survival worse. The forecast does not model stage collisions,
-recovery options or the game's KO decision.
+The **live plugin's** Rust fallback `auto_di` and `auto_sdi` are **false**.
+The standalone DI policy's `Settings::default()` has `enabled = true`, survival
+mode and speed3; `LiveConfig` explicitly overrides its enabled flag to false.
+That internal model default is not live startup admission. The supplied universal
+section sets both live features **true**, but a fighter file may explicitly
+disable either. For example:
 
-The local prediction uses the existing
-[DI/LSI calculator formulas](https://github.com/rubendal/SSBU-Calculator/blob/master/js/formulas.js)
-as a small approximation. It is not a game-physics modification. The live
-adapter reads the native death area and fighter movement parameters, caching
-the bounds per hit and refreshing them at the final DI handoff. Host regressions
-cover the forecast, SDI flick timing, duplicate samples, new-hit reset and
-DI/SDI handoff, independent menu choices, and persistence. No terrain model is
-invented: floor/wall/ceiling rays elsewhere do not prove these trajectories
-collision-free. Native DI sampling order, delivery lead time, zero-count release,
-per-hit SDI eligibility/multipliers and displacement still need on-device
-validation. Host tests establish input policy and copied-data behavior only.
-No hardware build or deployment is implied; source changes do not update an
-installed build.
+```ini
+[lucina.settings]
+auto_di_default = false
+auto_sdi_default = false
+```
 
-## Host verification
+That is a valid per-fighter opt-out, not a universal command. Check the actual
+saved section rather than assuming all fighters use the universal value.
+[Controls](CONTROLS.md) owns mode admission; [Sequence files](SEQUENCE_FILES.md)
+owns startup/file precedence. Global OFF, invalid controller scope, menu and
+Training passthrough still suspend automation.
 
-Focused host checks passed **291 tests** across damage policies, native damage
-adapter stubs, menu navigation/rendering, independent preferences, tuning saves,
-and diagnostics. The final combined integration check passed **96 tests**
-(43 collision checks plus 53 damage/menu checks). These are host-model results,
-not on-device certification.
+## DI decision and its limits
 
-Broader menu suites retain baseline failures reproduced from an isolated,
-unchanged HEAD: `per_fighter_auto_cache` had 33 passing / 5 failing tests;
-diagnostic `live_menu_diagnostics` had 35 passing / 3 failing tests. The primary
-failure is the existing Training-editor fixture's invalid short reaction syntax
-(`short reaction syntax requires an auto-react event`); subsequent failures are
-poisoned shared test locks. These unrelated fixtures were not changed.
+`auto_di_mode = survival` is the Rust fallback and supplied universal mode.
+Adaptive uses the same survival selection; legacy `auto_di_survival_speed` does
+not switch it into escape at high launch speed. Explicit Escape is separation-
+focused, requires known attacker direction and may make survival worse.
+
+With valid copied blast bounds and native fighter movement data, survival scores
+neutral and bounded stick candidates using a local trajectory approximation.
+The live adapter abstains on invalid/missing environment data, even after an
+earlier valid decision. A launch-only helper used by model tests is not a live
+missing-data fallback. The forecast omits stage collisions, recovery choices and
+the game's exact KO decision; do not call it a collision-safe path.
+
+`src/live/damage.rs` caches copied bounds for a hit and refreshes them at the final
+launch-input handoff. It retains no game pointer. Upward launch sectors select
+native damage-fly-top gravity/fall parameters before candidate scoring. Invalid
+or unbounded damage-stop observations return no geometry/trajectory.
+
+## SDI flicks and handoff
+
+Only the **victim's damage hitstop** qualifies—not attacker hitlag, ordinary
+hitstun, shield freeze or global stop. Remaining native hitstop distinguishes
+updates while animation is frozen; repeated polls reuse the same decision.
+A game-visible held stick gets neutral release before the first flick. Flicks
+have neutral rearm gaps and at least four native hitstop frames between them.
+SDI abstains above 60% damage and stops for the final three hitstop frames,
+leaving launch input to DI or manual input when no other owner is active.
+
+Known attacker direction and valid environment evidence are required. Geometry
+may bend a flick inward/upward; out-of-bounds candidates are rejected. The
+candidate eight-unit step is scoring only, not measured displacement or a terrain
+sweep. When selected, the response owns its stick including neutral gaps;
+physical movement does not silently cancel it. Disable the row to keep that
+response manual.
+
+Capture mash has first safety priority. The native tech scheduler's actual
+Guard-preparation/press ownership can take precedence over DI; otherwise DI
+precedes SDI. A contact forecast alone is not permission to override. Losing
+hitstop/eligibility, disabled selection, invalid environment/session or safety
+cancellation removes the proposal. No wall-time catch-up or learned online-delay
+compensation is added.
+
+## Player experiment versus Rust extension
+
+Test one feature at a time in Training with repeatable damage/launch, including
+near-blast-zone, unknown attacker and final-hitstop cases. A mapped stick is not
+proof Smash sampled DI/SDI at the desired instant. Native SDI multipliers, per-hit
+restrictions, sampling order, queues and actual displacement need device checks.
+Do not use old host test counts as current certification.
+
+Rust beginners should distinguish `Option<Trajectory>` (valid copied prediction
+or absence) from a cached pointer. `src/live/damage.rs::observe` is read-only and
+bounded; the shared policies choose input. Extend scoring only with finite-data,
+missing-data, duplicate-hitstop and handoff tests, and never change native physics
+to make a predicted outcome true. See [Trip follow-up](TRIP_AND_SDI.md) for the
+separate Kirby tool; enabling SDI does not enable a trip punish.

@@ -1,128 +1,99 @@
-# Grab dodge and configured punish
+# Grab avoidance and configured follow-up
 
-**Modes → Grab dodge + punish** is available for every fighter. The supplied
-startup config enables it; a fresh match reloads the startup default. It is
-independent of Spot punish, Out of shield and Roll rules.
+Grab avoidance predicts an **ordinary standing/dash/pivot grab**, requests one
+spot dodge, then optionally plays your fighter's saved **After dodging enemy
+grab** response. Avoidance and enemy Spot punish are different tools. Native
+spot-dodge startup is confirmation of the attempted dodge—not proof the grab
+missed or the punish will hit.
 
-The existing eight-slot fighter roster is checked for ordinary standing, dash
-and pivot grab statuses. Detailed reads are limited to those candidates. Their
-observed motion, facing, position and velocity plus reference grab timing/reach
-drive a relative-motion forecast. Only standing still and shielding are eligible,
-and native dodge/shield-entry readiness must allow the input immediately.
-Walking/running and other actions are excluded even if a transition term is set.
-Current physical movement/attack input is checked too, so the final native idle
-frame cannot turn a new run into an automatic spot dodge. Held-shield tilt remains
-eligible; full roll input and releasing shield to move stay under manual control.
-Down + Shield with neutral horizontal stick requests the dodge; this mode does
-not brake movement or reserve controls while waiting for recovery.
+## Enable and tune
 
-The default forecast is six native frames. Continuous linear interval intersection
-checks whether grab activity, horizontal reach and vertical proximity overlap at
-the same future instant; it cannot step over a contact between half-frame samples. Training
-**Fighter settings → Grab dodge forecast frames** saves
-`grab_dodge_lookahead = 6` for that fighter; allowed values are 1–8. The maximum
-is two fixed axis-interval checks per candidate, with no stage rays or new hooks.
-A larger forecast can dodge earlier, but can also dodge too early.
-**Grab dodge padding** is your fighter's horizontal body allowance added to the
-attacker's reach; **Grab dodge height** controls root-height tolerance. These
-remain saved per fighter, including Bowser. A larger body may need more padding;
-this is an estimate, not a read of actual hurtboxes or a hitbox edit.
-
-## Current automatic Up-B follow-up
-
-The live mode has its own **Auto react → After dodging enemy grab** entry:
+Use the current Grab avoidance row and its Training list in
+[Controls](CONTROLS.md). The portable menu starts it ON; Rust `auto_spot_dodge`
+and the supplied universal value are true. Optional fighter
+`grab_dodge_default` overrides startup. The row's current state and saved startup
+are distinct; see [Fighter settings](FIGHTER_SETTINGS.md).
 
 ```ini
-[bowser.roll.auto_grab_dodged]
-start_delay = 0
-timeout = 240
-reaction = auto_grab_dodged:25:10
-actions = facing_input:b:0:1:4, drift:opponent:1:69
+[kirby.settings]
+grab_dodge_lookahead = 6
+grab_dodge_padding = 2
+grab_dodge_height = 8
 ```
 
-This was copied exactly from Bowser's prior shared spot-dodge response. Enemy
-spot-dodge reactions and your grab-dodge follow-up can now have independent
-ranges and actions. **Grab avoidance** still controls this response independently
-of the Auto react toggle. Its L3/R3 shortcut opens this entry; the main Auto react
-list shows it alongside rolls, dodges and automatic grabs. Edited actions use
-the shared sequence player; native readiness, confirmation and ownership remain
-mandatory. Generic actions wait for native action recovery, and direct Up-B
-retains its specific native Up-B readiness gate.
+These are schema fallback values, not a read of your saved Kirby section.
+Lookahead accepts 1–8 native frames. Padding adds an estimated horizontal body
+allowance to the attacker's reference reach; height is root-height tolerance.
+Larger values can dodge sooner/wider but may dodge too early. They do not resize
+hurtboxes or change native grab activity. The current policy's ground-status gate
+admits controllable movement/ordinary landing/ready shield candidates; final native
+spot-dodge readiness and physical/manual intent checks still determine admission.
+Do not rely on older documentation's idle-only description.
 
-Only observed native spot-dodge startup from a pending assisted request arms the
-follow-up. This confirms dodge startup, not successful grab avoidance. Recovery
-owns no input: the mode checks native Up-B readiness and sends the punish in that
-same observation, including a legal native dodge cancel. It never forces recovery
-to end. The first actionable observation must still have the original grabber
-within the saved X/Y range; a miss is discarded rather than queued for later.
-Airborne starts, target loss/capture, damage and higher-priority safety ownership
-cancel it. Before a punish commits, manual takeover and mode OFF also cancel it.
-After Up-B starts, only actions authored in the response sequence run; there is no
-Bowser-specific air-spin tracking. A new grab warning cannot interrupt that
-committed sequence. Native grab/catch/hold/pummel/throw states release the entire
-plan so throwing remains manual. If clocks freeze before native Up-B starts, 24
-distinct delivered mapper attempts bound its input; duplicate/wrong-target
-receipts do not count. Native confirmation advances to the next authored action.
-Leaving the floor before native startup is confirmed cancels B/Up; a prior
-grounded request alone never authorizes a fresh airborne special.
+## How a threat becomes input
 
-Older `grab_dodged` / `grab_dodged_vulnerable` recipe lists remain readable for
-legacy tools. The current live mode uses `auto_grab_dodged`. Without that fighter’s own `auto_grab_dodged` entry, the mode only dodges; it
-never borrows an enemy spot-dodge or another fighter’s punish. One delivered
-Down+Guard packet is followed by neutral input while native ESCAPE is observed.
-Unmapped attempts and missing confirmation both have bounded mapper budgets.
+The bounded fighter snapshot supplies ordinary grab motion, active window,
+position, velocity, facing and reach. Horizontal and vertical interval overlap
+must occur at the **same future time** inside activity. Unknown grab data, command
+grabs, invalid clocks, capture links, air or unavailable dodge readiness do not
+invent threats. Current active ledge hold/toggle suppresses these new searches.
 
-## Defaults and limits
+The earliest qualifying target receives neutral-horizontal **Down+Shield**.
+Before mapper delivery the request remains bounded/revalidated. One delivered
+packet is followed by neutral input while waiting for native `ESCAPE`; it does
+not repeatedly flick Down and queue a second dodge. Duplicate receipts do not
+spend the budget. Native progress or at most 24 distinct delivered/attempted
+mapper updates bound an unanswered attempt. Stationary held shield can borrow
+already-observed attacker motion progress; controller polls are not game frames.
+Stop pauses native progress.
 
-Training **Fighter settings → Grab dodge + punish at startup** saves
-`grab_dodge_default = true` or `false` in `[fighter.settings]`. The global fallback
-is `auto_spot_dodge` in `[universal.settings]` of `sequences.txt`; the supplied config now sets it true. Saving
-a startup default does not change the current match's mode switch.
+A temporarily lost forecast/readiness before delivery releases the request
+without necessarily marking that grab handled; it can qualify again while still
+threatening. Delivery, native dodge confirmation or exhausted attempt marks the
+observed grab event used. The identity survives missing observations until an
+already-read changed status confirms the old grab ended.
 
-Held shields may have zero animation rate. Only guard-on/held-shield states
-accept that stationary clock; the observed grab animation supplies retry timing
-without counting repeated policy polls. Delivery holds one continuous Down +
-Shield request; it does not repeatedly flick Down and queue another dodge. The
-live adapter observes your native dodge state and releases both inputs at startup.
-Hitstop does not advance recipes. The attempt ends after 24 native-progress
-frames or 24 distinct delivered mapper attempts; duplicate acknowledgments do
-not spend that budget. A temporary
-uncancelable state or changed range forecast releases the request without marking
-the grab handled. It may be reacquired while still threatening and native readiness
-allows it. Native spot-dodge startup consumes the grab once; a delivery timeout
-also stops that attempt. Consumed grab identity survives missing samples but
-clears when an already-read native status confirms that grab ended, preventing
-an old marker from suppressing a later grab. This avoids discarding an unaccepted dodge merely because
-shieldstun or a movement prediction briefly interrupted delivery.
+## After-dodge response example
 
-Root reach/linear forecasts are approximations, not exact collision prediction.
-Command grabs, unknown grab data and situations where native dodge cannot start
-remain unsupported. This cannot guarantee avoiding every grab or landing every
-punish, especially under online input delay. All actions are simulated controller
-input; no physics, statuses, move definitions or hitboxes are changed.
+```ini
+[bowser.roll.practice_grab_dodged]
+name = Practice grab-dodge follow-up
+start_delay = 0
+timeout = 120
+reaction = auto_grab_dodged:25:10
+actions = input:b:0:1:4
+```
 
-Ordinary-grab follow-up recovery uses the actual opponent's standing/dash/pivot
-active window rather than a standing-grab duration shared by all variants. DK's
-reference is 8–10 standing, 11–13 dash, 12–14 pivot, with a 19.5-unit standing
-reach estimate. Saved reach overrides still apply to the attacker they belong to.
-Native readiness and higher-priority ledge responses can still prevent a dodge;
-reference forecasts cannot guarantee avoiding every grab.
+The supplied Bowser event currently also uses maximum X25/Y10; the actions above
+are an illustrative short upward-Special experiment, not a claim about its full
+saved tape. Use [Sequence files](SEQUENCE_FILES.md) for selection, exact grammar
+and adding an explicit drift/wait/check. The simplified event exposes maximum
+X/height, not legacy side/priority fields. Missing your fighter's own
+`auto_grab_dodged` entry means dodge only; it never borrows an enemy spot-dodge or
+another fighter's punish.
 
-Incoming-grab defense is sampled before new offense. Existing committed
-roll/OOS/ledge/safety owners keep their protection. After native dodge startup,
-the defense-only owner releases; the tracked Up-B uses ordinary committed
-punish ownership when ready. Active grab frames are inclusive: fractional
-progress inside the last listed active frame remains a threat until it ends.
+Only the pending assisted dodge's observed native startup arms follow-up against
+its original grabber. Recovery owns no speculative attack. At the first native
+recovery opportunity, the original enemy must still be valid and inside the
+saved limits; a miss is discarded rather than queued to chase later. Direct
+Up-B keeps its native readiness and bounded receipt; generic configured actions
+use native control readiness. Once Up-B confirms, only the remaining authored
+steps run—no Bowser spin/drift tail is invented.
 
-Active ledge mode (held binding or toggle) disables incoming-grab searches and
-this follow-up. Busy own states do not start a new dodge or punish; the confirmed
-own dodge can still follow its original grabber until native recovery permits
-the configured response. Physical Grab also suspends automation before native
-catch is visible. Captured actors are excluded using cached capture-link reads.
+## Cancellation and extension
 
-After Bowser's follow-up actually maps Special+Up, a short passive receipt can
-survive hitstop/readiness changes until native Up-B appears. It holds no buttons
-or sticks, sends no extra B, and retains punish priority for at most 24 mapper
-updates. The configured drift keeps its full duration after that confirmation.
-This does not arm a new punish during dodge/shield recovery or alter the single
-spot-dodge input. L and the existing safety/target-loss rules clear the receipt.
+Airborne start/unconfirmed takeoff, damage/capture, lost target, disabled mode,
+invalid scope/clock/timeout and competing safety cancel. Held Defense/Counter
+can explicitly preempt a nonsafety committed response. A new warning cannot
+resume an old hidden punish after cancellation. Physical Grab and native
+catch/pull/hold/pummel/throw hand control back so throw choice remains manual.
+A mapped upward Special may retain a short input-free receipt through readiness
+changes; it never holds B while waiting or proves successful startup.
+
+Rust beginners: `policies/spot_dodge.rs` separates forecasting, mapped delivery,
+native `ESCAPE` confirmation and `punish_automatic`. `Option<u32>` target means
+an acquired opponent or none; `used` remembers an answered motion event.
+`grab_handoff.rs` prevents delivered Grab becoming a Special/throw packet.
+Players tune estimates and saved actions; developers adding command-grab support
+need verified native timing/scope and focused duplicate/receipt/interruption
+tests. Input-only approximations cannot guarantee avoidance or a punish online.

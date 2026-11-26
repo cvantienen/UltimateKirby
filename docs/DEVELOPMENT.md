@@ -22,6 +22,14 @@ hitboxes, move definitions, or animation rates.
 
 ## Beginner guide: follow the code before changing it
 
+For the canonical Rust tutorial, open
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`. It explains packages versus
+crates/modules, re-exports, structs/enums, `Option`/`Result`, traits, borrowing,
+`Copy`, guards, compile-time features and FFI using the actual core APIs. Its
+worked deadline-to-input helper is explicitly educational, not a live feature.
+Use that tutorial once, then use the task-specific workflow below; source paths
+are inline because Rust files outside `docs/` are not documentation-site assets.
+
 The safest way to understand a feature is to follow one input from its trigger
 to the final controller packet. The project is split between portable policy
 and Switch integration; a feature is not complete just because its policy
@@ -251,11 +259,29 @@ The roster overview is [FIGHTERS.md](FIGHTERS.md), and generation rules are in
 ## Test and validate
 
 Run the smallest relevant check first. Portable Rust policy and parser tests use
-the core crate:
+the core crate; a positional filter selects names, not filenames:
 
 ```sh
-cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --lib runtime::tests
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --test shared_observations
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --features diagnostic-logging --lib diagnostics
 ```
+
+Private unit bodies now live under `crates/kirby_assist_core/tests/unit/`, with
+`#[cfg(test)]` and a `#[path] mod` or minimal `include!` wrapper in the original
+production scope. They remain library unit tests with private access; do not use
+`--test runtime` merely because `tests/unit/runtime.rs` exists. Public-contract
+integration targets remain directly under `tests/`. Root native unit bodies under
+`tests/unit/diagnostics/` and `tests/unit/live/` need their existing stub/source
+harnesses; core tests do not run the Switch hooks.
+
+Legacy source-contract helpers are not all current after the callback split:
+`tools/check_action_ownership.py` still extracts mapper symbols from `src/live.rs`,
+while `mapper_action_intents` and `selected_owner_output` live in
+`src/live/mapper.rs`. Inspect a harness's actual extraction paths before treating
+its output as wiring evidence; this docs update does not repair executable tools.
+Use broader core checks only when the task requires them, and do not fetch missing
+offline dependencies without authorization.
 
 Validate sequence configuration with:
 

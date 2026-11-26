@@ -1,8 +1,17 @@
-//! Data model for named SD-card ledge choices and input recipes.
+//! Text-file catalog and bounded controller-input recipes.
 //!
-//! Parsing may allocate, but live execution copies one fixed-size recipe into
-//! `AssistSettings`; no strings, files, maps or allocations are touched in the
-//! frame path. File parsing and validation live in the child `parser` module.
+//! A section identifies a fighter, menu slot and stable choice ID. Its ordered
+//! [`Action`] values describe proposed buttons/sticks or observation checks, not
+//! forced moves, hitboxes or animation changes. [`Sequence::default`] supplies
+//! storage defaults; a text recipe still requires explicit `start_delay` and
+//! nonempty `actions`. [`Catalog::parse`] checks grammar; [`Catalog::validate`]
+//! additionally checks fighter/menu limits, facing blocks and reaction constraints.
+//!
+//! Parsing and persistence may allocate at startup or explicit save. Execution
+//! receives a fixed-size recipe rather than parsing text in the frame path.
+//! The private parser and editor helpers remain implementation details. The
+//! separate [`sequence`] samplers are experimental building blocks, not the
+//! live SD-file executor.
 use crate::fighter_profiles::{presets::PresetSlot, FighterProfiles};
 pub mod layout {
     //! Bounded, save-time presentation only. Never used by input/frame processing.
@@ -189,86 +198,7 @@ pub mod layout {
 
     #[cfg(test)]
     mod tests {
-        use super::*;
-        /// Regression test for `stable_grouping_and_repeat_saves`.
-        #[test]
-        fn stable_grouping_and_repeat_saves() {
-            let source = "[universal.settings]\nenabled = true\n[kirby.roll.a]\nname = First\nactions = grab\n[yoshi.neutral.a]\nactions = grab\n[kirby.settings]\nwalk_strength = 0.4\n[kirby.roll.b]\nname = Second\nactions = grab\n";
-            let result = organize(source).unwrap();
-            assert_eq!(organize(&result).unwrap(), result);
-            assert!(
-                result.find("[kirby.settings]").unwrap() < result.find("[kirby.roll.a]").unwrap()
-            );
-            assert!(
-                result.find("[kirby.roll.a]").unwrap() < result.find("[kirby.roll.b]").unwrap()
-            );
-            assert!(
-                result.find("[kirby.roll.b]").unwrap() < result.find("[yoshi.neutral.a]").unwrap()
-            );
-            assert!(result.starts_with("# ---- UNIVERSAL SETTINGS ----"));
-        }
-
-        #[test]
-        fn organizing_preserves_properties_between_decorative_borders() {
-            let source = format!(
-                "[kirby.neutral.a]\nstart_delay=0\n{BORDER}\nactions=wait:2,jab\n{BORDER}\n"
-            );
-            let expected = crate::sequence_config::Catalog::parse(&source).unwrap();
-            let organized = organize(&source).unwrap();
-            assert_eq!(
-                crate::sequence_config::Catalog::parse(&organized).unwrap(),
-                expected
-            );
-            assert_eq!(organize(&organized).unwrap(), organized);
-        }
-
-        #[test]
-        fn oversized_comment_only_input_is_rejected_before_presentation() {
-            let source = format!("#{}", "x".repeat(MAX_FILE_BYTES as usize));
-            assert!(organize(&source).is_err());
-        }
-
-        /// Regression test for `decorative_headers_never_reject_a_valid_near_limit_source`.
-        #[test]
-        fn decorative_headers_never_reject_a_valid_near_limit_source() {
-            let mut source = String::from("[universal.settings]\nenabled=true\n");
-            let mut count = 0;
-            'fighters: for fighter in ["mario", "luigi", "kirby", "yoshi", "bowser"] {
-                for slot in [
-                    "neutral",
-                    "jump",
-                    "roll",
-                    "attack",
-                    "drop",
-                    "x",
-                    "y",
-                    "dpad_up",
-                    "dpad_down",
-                    "dpad_left",
-                    "dpad_right",
-                    "l3",
-                    "r3",
-                ] {
-                    for i in 0..32 {
-                        source.push_str(&format!("[{fighter}.{slot}.option_{i}]\nname = A saved option\nstart_delay=0\nactions=up_b:1\n"));
-                        count += 1;
-                        if count == 2040 {
-                            break 'fighters;
-                        }
-                    }
-                }
-            }
-            let remaining = MAX_FILE_BYTES as usize - source.len();
-            source.push('#');
-            source.extend(std::iter::repeat('x').take(remaining - 2));
-            source.push('\n');
-            assert_eq!(source.len() as u64, MAX_FILE_BYTES);
-            crate::sequence_config::persist::validate_output(&source).unwrap();
-            assert_eq!(organize(&source).unwrap(), source);
-            assert_eq!(for_save(&source, source.clone()).unwrap(), source);
-            source.push('x');
-            assert!(organize(&source).is_err());
-        }
+        include!("../tests/unit/sequence_layout.rs");
     }
 }
 mod library {
@@ -875,18 +805,23 @@ impl Action {
         }
     }
 }
-/// A sequence of actions that can be executed by a fighter.
+/// Bounded input tape plus activation metadata.
+///
+/// Only the first `len` actions are meaningful; keep `len <= MAX_ACTIONS` when
+/// constructing a value in Rust. Durations are native-progress input frames,
+/// not attack startup or wall-clock milliseconds. A default value is empty and
+/// is not, by itself, a valid executable text recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sequence {
-    /// Runtime actions value used by Sequence..
+    /// Fixed storage; trailing unused elements remain `Action::Empty`.
     pub actions: [Action; MAX_ACTIONS],
-    /// Runtime len value used by Sequence..
+    /// Number of initialized actions, bounded by `MAX_ACTIONS`.
     pub len: u8,
-    /// Runtime start delay value used by Sequence..
+    /// Neutral input frames before the first action; text range 0–3600.
     pub start_delay: u16,
-    /// Runtime timeout value used by Sequence..
+    /// Whole-tape native-progress budget; text range 1–3600, default 3600.
     pub timeout: u16,
-    /// Runtime spatial timeout value used by Sequence..
+    /// Budget for supported observation-dependent steps; default 60 frames.
     pub spatial_timeout: u16,
     /// Runtime mode value used by Sequence..
     pub mode: Option<crate::button_bindings::ModeBinding>,
@@ -949,9 +884,9 @@ pub struct Entry {
 /// Inert, fighter-independent Training editor starter; never a live response.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Template {
-    /// battle-object ID.
+    /// Stable text identifier from `[template.ID]`, not a battle-object ID.
     pub id: String,
-    /// player-facing move/fighter name.
+    /// Human-readable starter label shown in the generic template picker.
     pub name: String,
     /// Runtime sequence value used by Template..
     pub sequence: Sequence,
@@ -973,355 +908,16 @@ pub struct Catalog {
     pub tuning: std::collections::BTreeMap<i32, crate::fighter_tuning::Tuning>,
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::native_input::*;
-    /// Constructs a parsed input action from the supplied arguments.
-    fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
-        Action::Input {
-            buttons,
-            stick,
-            frames,
-            relative,
-        }
-    }
-
-    /// Parses the supplied source into the module’s validated representation.
-    fn parse(actions: &str) -> Sequence {
-        Catalog::parse(&format!(
-            "[kirby.drop.custom]\nstart_delay=0\nactions = {actions}"
-        ))
-        .unwrap()
-        .entries()[0]
-            .sequence
-    }
-    /// Regression test for sequence-declared auto-tilt directions.
-    #[test]
-    fn sequence_auto_tilt_parses_and_round_trips() {
-        let sequence = Catalog::parse("[lucina.neutral.custom]\nstart_delay=0\nactions=down_tilt\nauto_tilt=down,side,up")
-            .unwrap()
-            .entries()[0]
-            .sequence;
-        assert_eq!(sequence.auto_tilt, Some(crate::posture::TiltSettings { down: true, forward: true, up: true }));
-    }
-
-    /// Regression test for `direction_spellings_are_unique_and_the_canonical_one_round_trips`.
-    #[test]
-    fn direction_spellings_are_unique_and_the_canonical_one_round_trips() {
-        for (index, (direction, spellings)) in Direction::TOKENS.iter().enumerate() {
-            assert_eq!(*direction as usize, index, "TOKENS must follow enum order");
-            assert_eq!(direction.token(), spellings[0]);
-            for spelling in *spellings {
-                assert_eq!(Direction::from_token(spelling), Some(*direction));
-            }
-        }
-        let mut all: Vec<_> = Direction::TOKENS
-            .iter()
-            .flat_map(|(_, spellings)| spellings.iter())
-            .collect();
-        let count = all.len();
-        all.sort();
-        all.dedup();
-        assert_eq!(all.len(), count, "a spelling maps to two directions");
-        assert_eq!(Direction::from_token("sideways"), None);
-    }
-
-    /// Regression test for `only_saved_ledge_geometry_directions_need_a_ledge`.
-    #[test]
-    fn only_saved_ledge_geometry_directions_need_a_ledge() {
-        for (direction, _) in Direction::TOKENS {
-            let needs = !matches!(
-                direction,
-                Direction::Opponent
-                    | Direction::AwayFromOpponent
-                    | Direction::Facing
-                    | Direction::Backward
-            );
-            for action in [
-                Action::Face(direction),
-                Action::Walk {
-                    direction,
-                    units: 1.0,
-                    strength: 0.5,
-                    min_gap: None,
-                },
-                Action::Run {
-                    direction,
-                    units: 1.0,
-                },
-                Action::Drift {
-                    direction,
-                    strength: 0.5,
-                    frames: 1,
-                },
-            ] {
-                assert_eq!(action.needs_ledge(), needs, "{action:?}");
-            }
-        }
-        assert!(Action::IfFacingLedge { away: true }.needs_ledge());
-        assert!(!Action::IfFacingOpponent { away: true }.needs_ledge());
-        assert!(!Action::Wait(1).needs_ledge());
-    }
-
-    /// Regression test for `only_universal_bindings_are_ignored_and_fighter_bindings_stay_separate`.
-    #[test]
-    fn only_universal_bindings_are_ignored_and_fighter_bindings_stay_separate() {
-        let source="[universal.x.old]\nold invalid text ignored\n[kirby.x.custom]\nstart_delay=0\nactions=short_hop\n[yoshi.x.custom]\nstart_delay=2\nactions=grab\n[kirby.y.custom]\nstart_delay=1\nactions=shield\n";
-        let c = Catalog::parse(source).unwrap();
-        assert_eq!(c.len(), 3);
-        assert_ne!(c.entries()[0].fighter_kind, c.entries()[1].fighter_kind);
-        assert_ne!(c.entries()[0].sequence, c.entries()[1].sequence);
-        assert!(Catalog::parse("[kirby.x.bad]\nstart_delay=oops\nactions=grab").is_err());
-    }
-    /// Regression test for `file_facing_inputs_and_special_strength_are_explicit_and_bounded`.
-    #[test]
-    fn file_facing_inputs_and_special_strength_are_explicit_and_bounded() {
-        let s = parse("facing_input:A:1:-0.5:1, side_special:2:0.5");
-        assert_eq!(s.actions()[0], input(MAPPER_A, [1.0, -0.5], 1, true));
-        assert_eq!(s.actions()[1], input(MAPPER_B, [0.5, 0.0], 2, true));
-        assert!(Catalog::parse("[kirby.neutral.bad]\nstart_delay=0\nactions=full_hop").is_err());
-        assert!(
-            Catalog::parse("[kirby.neutral.bad]\nstart_delay=0\nactions=up_special:1:2").is_err()
-        );
-    }
-
-    /// Regression test for `timeline_accepts_ordered_multi_move_air_specials_and_explicit_durations`.
-    #[test]
-    fn timeline_accepts_ordered_multi_move_air_specials_and_explicit_durations() {
-        let sequence = parse("Short Hop, wait:2, Up B:3, wait:6, Down Special, release, grab");
-        assert_eq!(sequence.len, 7);
-        assert_eq!(sequence.actions()[0], input(MAPPER_X, [0.0; 2], 1, true));
-        assert_eq!(sequence.actions()[1], Action::Wait(2));
-        assert_eq!(sequence.actions()[2], input(MAPPER_B, [0.0, 1.0], 3, true));
-        assert_eq!(sequence.actions()[4], input(MAPPER_B, [0.0, -1.0], 1, true));
-    }
-    /// Regression test for `timeline_raw_inputs_preserve_signed_axes_and_button_chords`.
-    #[test]
-    fn timeline_raw_inputs_preserve_signed_axes_and_button_chords() {
-        let sequence =
-            parse("input:A+X:-1:0.5:3, cstick:0:-1:1, hold:shield:8, press:B, stick:1:0:4");
-        assert_eq!(
-            sequence.actions()[0],
-            input(MAPPER_A | MAPPER_X, [-1.0, 0.5], 3, false)
-        );
-        assert_eq!(
-            sequence.actions()[1],
-            Action::CStick {
-                stick: [0.0, -1.0],
-                frames: 1
-            }
-        );
-        assert_eq!(sequence.actions()[2], input(MAPPER_ZR, [0.0; 2], 8, false));
-    }
-    /// Regression test for `timeline_universal_actions_validate_for_every_configured_fighter_without_hitbox_data`.
-    #[test]
-    fn timeline_universal_actions_validate_for_every_configured_fighter_without_hitbox_data() {
-        let profiles = FighterProfiles::default();
-        let mut checked = 0;
-        for kind in 0..crate::fighter_kinds::PLAYABLE_KIND_COUNT {
-            if !profiles
-                .profile(kind)
-                .is_some_and(|p| p.fighter_kind == kind)
-            {
-                continue;
-            }
-            let mut catalog = Catalog::parse("[kirby.neutral.everything]\nstart_delay=0\nactions = nair, fair, bair, uair, dair, jab, ftilt, utilt, dtilt, fsmash, usmash, dsmash, neutral_special, side_special, up_special, down_special, dash_attack, shield, roll_forward, roll_backward, spot_dodge, air_dodge, grab").unwrap();
-            catalog.entries[0].fighter_kind = kind;
-            catalog.validate(&profiles).unwrap();
-            checked += 1;
-        }
-        assert!(checked > 70);
-    }
-    /// Regression test for `timeline_numeric_keys_are_order_independent_and_duplicates_invalid`.
-    #[test]
-    fn timeline_numeric_keys_are_order_independent_and_duplicates_invalid() {
-        let catalog = Catalog::parse("[kirby.roll.custom]\nstart_delay = 7\ntimeout = 200\nspatial_timeout = 15\nactions = dash_attack:3:2\nname = My attack").unwrap();
-        let sequence = catalog.entries()[0].sequence;
-        assert_eq!(
-            (
-                sequence.start_delay,
-                sequence.timeout,
-                sequence.spatial_timeout
-            ),
-            (7, 200, 15)
-        );
-        assert_eq!(sequence.actions()[0], input(0, [1.0, 0.0], 3, true));
-        assert_eq!(sequence.actions()[1], input(MAPPER_A, [1.0, 0.0], 2, true));
-        assert!(
-            Catalog::parse("[kirby.roll.custom]\nstart_delay=1\nstart_delay=2\nactions=jab")
-                .is_err()
-        );
-    }
-    /// Regression test for `timeline_file_menus_require_explicit_delays_and_have_no_code_fallback`.
-    #[test]
-    fn timeline_file_menus_require_explicit_delays_and_have_no_code_fallback() {
-        assert!(Catalog::parse("[kirby.neutral.custom]\nactions=jab")
-            .unwrap_err()
-            .contains("requires start_delay"));
-        assert!(
-            Catalog::parse("[kirby.neutral.custom]\nstart_delay=0\nactions=code:nair").is_err()
-        );
-        let catalog = Catalog::parse("[kirby.neutral.first]\nstart_delay=0\ndefault=true\nactions=jab\n[kirby.neutral.second]\nstart_delay=2\ndefault=true\nactions=up_b").unwrap();
-        assert!(catalog
-            .validate(&FighterProfiles::default())
-            .unwrap_err()
-            .contains("multiple defaults"));
-    }
-
-    /// Regression test for `timeline_bounds_unknown_names_and_nonfinite_axes_are_rejected`.
-    #[test]
-    fn timeline_bounds_unknown_names_and_nonfinite_axes_are_rejected() {
-        for actions in [
-            "up_special:0",
-            "input:A:NaN:0:1",
-            "input:A:2:0:1",
-            "hold:bad:2",
-            "jab,,jab",
-            "cstick:0:1:256",
-            "unknown",
-            "walk:away:5:0.5:2",
-        ] {
-            assert!(
-                Catalog::parse(&format!(
-                    "[kirby.neutral.custom]\nstart_delay=0\nactions={actions}"
-                ))
-                .is_err(),
-                "{actions}"
-            );
-        }
-        let long = vec!["jab"; MAX_ACTIONS + 1].join(",");
-        assert!(Catalog::parse(&format!(
-            "[kirby.neutral.custom]\nstart_delay=0\nactions={long}"
-        ))
-        .is_err());
-        assert!(Catalog::parse(
-            "[kirby.neutral.custom]\nstart_delay=0\nactions=jab\n[kirby.neutral.custom]\nstart_delay=0\nactions=up_special"
-        )
-        .is_err());
-    }
-    /// Regression test for `timeline_deployment_validates_and_filters_only_diagnostic_tests`.
-    #[test]
-    fn timeline_deployment_validates_and_filters_only_diagnostic_tests() {
-        let catalog = Catalog::parse(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
-        )))
-        .unwrap();
-        let lucina = catalog.tuning.get(&crate::fighter_kinds::LUCINA).unwrap();
-        assert_eq!(lucina.0[crate::fighter_tuning::COUNTER_DEFAULT], Some(1.0));
-        assert!(
-            crate::auto_counter::Config::for_fighter(crate::fighter_kinds::LUCINA, *lucina)
-                .is_some()
-        );
-        let gamewatch = catalog
-            .tuning
-            .get(&crate::fighter_kinds::MR_GAME_AND_WATCH)
-            .unwrap();
-        assert_eq!(
-            gamewatch.0[crate::fighter_tuning::REFLECT_DEFAULT],
-            Some(1.0)
-        );
-        assert!(crate::projectile_reflect::Config::for_fighter(
-            crate::fighter_kinds::MR_GAME_AND_WATCH,
-            *gamewatch
-        )
-        .is_some());
-        for diagnostic in [false, true] {
-            let mut profiles = FighterProfiles::default();
-            profiles
-                .add_sequence_choices(&catalog.clone().for_build(diagnostic))
-                .unwrap();
-        }
-        assert!(catalog.clone().for_build(false).len() < catalog.for_build(true).len());
-    }
-}
+#[path = "../tests/unit/sequence_config.rs"]
+mod tests;
 
 #[cfg(test)]
-mod facing_block_tests {
-    use super::*;
-    /// Regression test for `markers_validate_and_save_roundtrip`.
-    #[test]
-    fn markers_validate_and_save_roundtrip() {
-        let source="[yoshi.neutral.test]\nstart_delay=0\nactions=if_facing_ledge, drift:saved_ledge:0.25:4, end_facing, if_back_to_ledge, walk:away_from_ledge:4:0.3, end_facing";
-        let c = Catalog::parse(source).unwrap();
-        let s = c.entries()[0].sequence;
-        let saved = persist::update(source, 5, PresetSlot::Neutral, "test", s, false).unwrap();
-        assert_eq!(Catalog::parse(&saved).unwrap().entries()[0].sequence, s);
-        for actions in [
-            "end_facing",
-            "if_facing_ledge, a",
-            "if_facing_ledge, if_back_to_ledge, a, end_facing, end_facing",
-        ] {
-            assert!(Catalog::parse(&format!(
-                "[yoshi.neutral.test]\nstart_delay=0\nactions={actions}"
-            ))
-            .is_err());
-        }
-    }
-}
+#[path = "../tests/unit/sequence_facing_blocks.rs"]
+mod facing_block_tests;
 
 #[cfg(test)]
-mod generic_template_tests {
-    use super::*;
-    /// Regression test for `named_templates_are_inert_bounded_and_survive_organizing_and_saving`.
-    #[test]
-    fn named_templates_are_inert_bounded_and_survive_organizing_and_saving() {
-        let source="[universal.settings]\nenabled=true\n[template.shield]\nname=Quick shield\nstart_delay=0\nactions=input:zr:0:0:4\n[kirby.neutral.test]\nstart_delay=0\nactions=jab:2\n";
-        let c = Catalog::parse(source).unwrap();
-        assert_eq!(c.len(), 1);
-        assert_eq!(c.templates.len(), 1);
-        assert_eq!(c.templates[0].id, "shield");
-        assert_eq!(c.templates[0].name, "Quick shield");
-        let organized = layout::organize(source).unwrap();
-        let again = Catalog::parse(&organized).unwrap();
-        assert_eq!(again.templates, c.templates);
-        let updated = persist::update(
-            source,
-            6,
-            PresetSlot::Neutral,
-            "test",
-            c.entries()[0].sequence,
-            false,
-        )
-        .unwrap();
-        assert_eq!(Catalog::parse(&updated).unwrap().templates, c.templates);
-        for diagnostic in [false, true] {
-            let c = c.clone().for_build(diagnostic);
-            assert_eq!(c.templates.len(), 1);
-            c.validate(&FighterProfiles::default()).unwrap();
-        }
-    }
-    /// Regression test for `templates_cannot_activate_modes_reactions_or_defaults_and_reject_duplicate_ids`.
-    #[test]
-    fn templates_cannot_activate_modes_reactions_or_defaults_and_reject_duplicate_ids() {
-        for value in [
-            "default=true",
-            "while_held=true",
-            "reaction=auto_roll:30:12",
-            "mode=auto_tech",
-            "builtin=normal",
-        ] {
-            assert!(
-                Catalog::parse(&format!(
-                    "[template.bad]\nstart_delay=0\nactions=jab\n{value}\n"
-                ))
-                .is_err(),
-                "{value}"
-            );
-        }
-        assert!(Catalog::parse(
-            "[template.a]\nstart_delay=0\nactions=jab\n[template.a]\nstart_delay=0\nactions=grab\n"
-        )
-        .is_err());
-        assert!(Catalog::parse("[template.a.b]\nstart_delay=0\nactions=jab\n").is_err());
-        let text = (0..=MAX_TEMPLATES)
-            .map(|i| format!("[template.test_{i}]\nstart_delay=0\nactions=jab\n"))
-            .collect::<String>();
-        assert!(Catalog::parse(&text)
-            .unwrap_err()
-            .contains("generic templates"));
-    }
-}
+#[path = "../tests/unit/sequence_templates.rs"]
+mod generic_template_tests;
 pub mod sequence {
     //! Frame-indexed input sequences for experimenting with custom combos.
     //! These describe proposed inputs, not guaranteed fighter actions.
@@ -1536,25 +1132,6 @@ pub mod sequence {
     // Switch logging or gameplay callbacks. Add regressions here for new behavior.
     #[cfg(test)]
     mod tests {
-        use super::*;
-        use crate::ButtonSet;
-
-        /// Regression test for `sequence_has_release_gaps_and_ends_without_stuck_inputs`.
-        #[test]
-        fn sequence_has_release_gaps_and_ends_without_stuck_inputs() {
-            let attack = InputRecipe::buttons(ButtonSet::ATTACK);
-            let steps = [
-                InputStep::hold(1, attack),
-                InputStep::wait(2),
-                InputStep::hold(1, attack),
-            ];
-            let sequence = InputSequence { steps: &steps };
-            assert_eq!(sequence.recipe_at(0), Some(attack));
-            assert_eq!(sequence.recipe_at(1), Some(InputRecipe::NONE));
-            assert_eq!(sequence.recipe_at(2), Some(InputRecipe::NONE));
-            assert_eq!(sequence.recipe_at(3), Some(attack));
-            assert_eq!(sequence.recipe_at(4), None);
-            assert_eq!(sequence.recipe_at(u32::MAX), None);
-        }
+        include!("../tests/unit/input_sequence.rs");
     }
 }

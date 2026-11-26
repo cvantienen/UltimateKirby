@@ -1,30 +1,47 @@
-# Fighters
+# Fighters: identity, configuration and support
 
-Every configured fighter has file-authored **Neutral, Jump, Roll, Attack and
-Drop** options. Open the menu with **Minus** and use the D-pad to select them.
-All labels, defaults, initial delays and ordered input timing come from
-`sequences.txt`; there are no compiled fighter option tables or fallback recipes.
+The source registers **90 exact fighter-profile identities**, including all DLC
+fighters, echoes, the three Pokémon forms, all three Miis, and Popo/Nana. This
+is not a count of fighter-select portraits: a form/partner can have its own
+native kind. The contiguous kind limit is 94 (Sora + 1); four non-playable IDs
+inside that range are not registered profiles. Unknown kinds and missing
+sections never borrow Kirby or another fighter's actions.
 
-All non-DLC playable fighter forms have identities, including echoes, Pokémon
-forms and Miis. Pyra and Mythra are also registered as separate native forms,
-bringing the configured registry to 79 identities. Their separate `pyra.txt` and
-`mythra.txt` files begin with five editable, nonattacking ledge slots; configure
-their actions in Training. Automatic punish recipes stay inactive until authored,
-and neither form inherits Game & Watch's reflector or Bowser's specials.
-Missing identities/sections have no fallback option. The file
-controls controller inputs only; it never changes native moves or physics.
+A **profile** tells the runtime which fighter it is and supplies independent
+grab facts. A **recipe** tells it which controller inputs to request. The 90
+profiles begin with empty menu lists in Rust; `sequences.txt` supplies options
+at startup. Registration alone never enables an attack or creates a default
+script. Five ledge rows are Neutral, Jump, Roll, Attack and Drop; eight profile
+button slots are X, Y, D-pad directions, L3 and R3. Current control binding
+support also includes configured hold/toggle tools; see [controls](CONTROLS.md).
 
-The [Fighter Data dataset](FIGHTER_DATA.md) contains exact-kind stats and move
-facts for 90 native kinds, including DLC fighters. Each fighter page links to
-that canonical source; unknown or unavailable values are not filled from another
-fighter. These facts do not add ledge recipes.
+Standalone auto-counter currently supports Lucina; standalone projectile defense
+supports Game & Watch; Kirby-specific trip/fair follow-ups stay Kirby-only.
+Universal held tools use separate gates and do not imply those adapters exist
+for every fighter. Tilt-facing schema rows are shown for Kirby/Yoshi/Lucina.
+[All settings and prerequisites](FIGHTER_SETTINGS.md) separate capability from
+saved preference and current activation.
+
+## Beginner path
+
+1. Find your exact fighter below. Read **Configure**, supplied overrides and
+   support limits before selecting a label.
+2. Follow [configuration](FIGHTER_CONFIGS.md) to edit an existing option or make
+   a new one. Use [sequence syntax](SEQUENCE_FILES.md), not a Rust move table.
+3. Use [tuning](FIGHTER_SETTINGS.md) for prediction/spacing settings. A numeric
+   reach is an estimate, not a hitbox edit; an at-startup flag is not the current
+   mode switch.
+4. Save in Training and wait for the result. External changes require restart;
+   an installed file may differ from the repository snapshot.
+5. [Calibrate execution](FIGHTER_EXECUTION.md) at repeatable spacing. No snapshot
+   demonstrates on-device or online hit reliability.
 
 <!-- BEGIN INDIVIDUAL FIGHTER LINKS -->
 
 ## Individual fighter pages
 
 Each registered fighter form has its own source-based reference, including
-all five file-authored lists, selected defaults, input schedules and canonical fighter facts.
+all five file-authored lists, supplied defaults, input schedules and canonical fighter facts. These tables are repository snapshots, not live menu state.
 
 | Fighter | Fighter | Fighter |
 | --- | --- | --- |
@@ -61,35 +78,20 @@ all five file-authored lists, selected defaults, input schedules and canonical f
 
 <!-- END INDIVIDUAL FIGHTER LINKS -->
 
-## Shared and detailed guides
+## Group-specific walkthroughs
 
-| Fighter or group | Guide |
-| --- | --- |
-| Kirby and Yoshi | [Current choices, nair nudges, bair and roll-grab changes](KIRBY_YOSHI_LEDGE.md) |
-| Mario, DK, Link, Samus, Yoshi, Kirby, Fox and Pikachu | [Starting-roster options and frame windows](STARTING_CAST.md) |
-| Luigi and Captain Falcon | [Ledge profiles](FIGHTER_ADDITIONS.md) |
-| Samus and Dark Samus | [Zair, missiles, aerials, roll grab and drop Bomb](SAMUS_LEDGE.md) |
-| Sonic | [Ledge options](SONIC_LEDGE.md) |
-| King K. Rool and Isabelle | [Ledge options and Isabelle's five-row slingshot choices](KROOL_ISABELLE_LEDGE.md) |
-| Pac-Man and Little Mac | [Ledge options](PACMAN_MAC_LEDGE.md) |
-| Every configured fighter | [Full non-DLC roster, defaults and data audit](NON_DLC_ROSTER.md) |
+- [Kirby/Yoshi](KIRBY_YOSHI_LEDGE.md): separate follow-ups, tilts and explicit drift.
+- [Starting cast](STARTING_CAST.md): exact profile keys rather than copied timing defaults.
+- [Luigi/Falcon](FIGHTER_ADDITIONS.md): registration and distinct grab facts.
+- [Samus/Dark Samus](SAMUS_LEDGE.md): tether airborne guards and projectile travel.
+- [K. Rool/Isabelle](KROOL_ISABELLE_LEDGE.md): disconnected phases and slingshot direction.
+- [Sonic](SONIC_LEDGE.md): charge/recovery assumptions.
+- [Pac-Man/Mac](PACMAN_MAC_LEDGE.md): resource and grounded-versus-aerial choices.
+- [Roster/data distinction](NON_DLC_ROSTER.md) and [data lifecycle](FIGHTER_DATA.md).
 
-Kirby also has a [forward-air first-hit landing follow-up](KIRBY_FAIR_CONFIRM.md).
-Lucina's configured [automatic down-special counter](FIGHTER_SETTINGS.md#auto-counter-lucina)
-is described with the other fighter-specific settings.
-
-## Configure or add responses
-
-Use [file-authored fighter options](FIGHTER_CONFIGS.md) and the
-[complete action/timing syntax](SEQUENCE_FILES.md) to add or edit responses.
-`start_delay` is required for every option; waits schedule each following input.
-Only shared recognition, observation, input routing and spatial predicates stay
-in code. New input primitives need Rust changes; new scripts need only a file edit
-and restart after installing the updated executor.
-
-Frame intervals reference the canonical fighter data, not universal collision
-or optimality.
-Reach and root-motion forecasts are approximate. Projectile travel, opponent
-steering, native readiness, stage geometry and online delay can defeat a punish.
-Check [diagnostic grab traces](BUILD_VARIANTS.md#diagnostic-performance) when
-testing a miss, and distinguish the source version from the installed NRO.
+Generated tables are current **repository asset snapshots**. Bold means the file's
+saved default; labels may differ from their actions, so inspect the input column.
+Move-frame data is an independent reference, not a live input schedule. New
+options need a file edit; new input primitives or native adapters require reviewed
+Rust work and a separately authorized build/install. No Switch build, upload or
+native move changes are part of this documentation update.

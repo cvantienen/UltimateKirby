@@ -15,7 +15,14 @@ use crate::sequence_config::{
     Action, Condition, Direction, InputReference, RangeCheck, Sequence, MAX_ACTIONS,
 };
 
-/// Runtime Smash data carried by `Timeline`.
+/// Plays one saved sequence as an ordered controller-input tape.
+///
+/// A tape is a list of steps plus a cursor (the index of the current step).
+/// `sample` advances from copied native animation progress, not the number of
+/// controller polls. Ordinary button steps are literal: they do not prove a
+/// move started. Explicit spatial/predicate steps may inspect supplied facts.
+/// Ground-action guards and late Up-B receipts are opt-in automatic-response
+/// behavior; they are not hidden timing added to every saved ledge sequence.
 pub struct Timeline {
     /// Runtime sequence value used by Timeline..
     sequence: Sequence,
@@ -1453,13 +1460,7 @@ fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
     if matches!(status, GUARD_OFF | GUARD_DAMAGE) {
         return true;
     }
-    // Direct OOS grab, jump, Up-B and up-smash inputs do not pay shield drop.
-    let direct = buttons & MAPPER_R != 0 && stick[1] >= 0.
-        || buttons & SEQUENCE_JUMP_BUTTONS != 0 && stick[1] >= 0.
-        || buttons & MAPPER_A != 0 && stick[1] >= 0.95
-        || buttons & MAPPER_B != 0 && stick[1] > 0.5
-        || cstick[1] > 0.5;
-    !direct
+    !crate::out_of_shield::is_direct_shield_cancel(buttons, stick, cstick)
 }
 /// Returns the `cstick_buttons` result.
 /// Gets the cstick buttons result.

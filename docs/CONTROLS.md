@@ -1,14 +1,25 @@
 # Current controls
 
-Spot punish (reads an opponent's spot dodge) and Auto-tech are available in both
-silent and diagnostic builds and start ON. Both retain independent ON/OFF rows.
-Spot punish needs a saved rule; it no longer has a compiled smash fallback.
-**Grab dodge + punish** and **Out of shield** are available in both builds, initially ON with the supplied defaults; only diagnostics expose **Perf**.
-Ledge trump is a **Built-in: Ledge trump** choice in Button configs, unassigned
-by default. It runs only when assigned to a button and that button is pressed.
-Regular Roll read and ledge-trap responses remain available. Auto-tech starts ON with the supplied config; an
-explicit `auto_tech = false` still starts it OFF. Use
-Up/Down to select it and Left/Right to toggle it. OFF skips its collision rays.
+Use this page for physical buttons and mode activation. Use
+[Settings and modes](SETTINGS_REFERENCE.md) for the complete configuration
+layers, accepted keys, defaults, bounds and extension workflow; use
+[Ledge menu](LEDGE_MENU.md) for exact page-specific edit/save controls.
+
+Both silent and diagnostic builds contain gameplay assists. Diagnostic-only
+rows such as **Perf** do not become available by enabling a text key in a silent
+build. A mode being ON means its eligibility checks may run, not that a move is
+guaranteed. Recipe-driven reactions need a matching saved action tape.
+
+**Defaults have three meanings:** Rust fallback, the supplied SD configuration,
+and the current match's choices. Auto-tech is OFF in Rust fallback but ON in
+the supplied universal section. DI/SDI have the same distinction. Auto-mash is
+OFF in both. Fighter overrides and current menu switches can differ again.
+Always check your actual active file and menu.
+
+Ledge trump is an assignable **Built-in: Ledge trump**, not the retired standalone
+ledge-trump mode. Auto-Spacing & Attack, Counter and Auto Defense are distinct
+assignable helpers with hold/toggle variants. Their detailed guides explain
+support, prediction and interruption limits.
 
 These bindings describe the current source with the supplied configuration.
 Use the selected local controller (`player_index = 0` by default).
@@ -28,22 +39,23 @@ controls responses to ledge roll get-ups.
 | D-pad Up/Down, compact or modes page | Select the previous/next row |
 | D-pad Left/Right, compact or modes page | Change the hovered recipe or mode (Left previous, Right next; either toggles ON/OFF) |
 | D-pad, recipe editor | Up/Down selects a field; Left/Right adjusts its value. Choose a different recipe in compact |
-| D-pad, menu hidden | Current fighter’s configured input sequence; Normal button passes through |
+| D-pad, menu hidden | Current fighter's saved recipe/helper; D-pad Down fallback is Turbo, other empty slots use Short hop |
 | Minus | Open the ledge home from hidden; close from any page |
 | Hold Plus+Minus outside battle (~0.35 seconds) | Toggle the entire mod ON/OFF; works on Arena character select/results |
-| Hold the button assigned to Built-in: Turbo t-bag (L3 by default) | Fast crouch/creep; release to stop |
+| Hold the button assigned to Built-in: Turbo t-bag (D-pad Down fallback; saved choices can differ) | Fast crouch/creep; release to stop |
 | Auto-mash row, Left/Right | Toggle mash ON/OFF |
-| Press X | Saved X binding; defaults to Normal button when unconfigured |
-| Press Y | Current fighter’s Y recipe; Normal button passes through |
+| Press X | Current fighter's saved X binding; empty-slot helper fallback is Short hop |
+| Press Y | Current fighter's saved Y recipe/helper; inspect its row rather than assuming passthrough |
 | L3/R3 on a sequence-driven assist in Training | Open its separate priority-ordered rule list |
 
 The A+B jab-to-grab shortcut and old Y Finisher binding are removed. X/Y/D-pad
 and L3/R3 bindings are fighter specific. L/R/ZL/ZR are not custom binding slots.
 L retains its legacy fixed walk/ledge role on the default layout; R/ZL/ZR retain
 the game's normal configured actions. Old saved trigger-binding sections are
-ignored at startup and cannot consume or remap triggers. **Normal button** passes the
-physical button through to the game; it does not apply short-hop assistance.
-Configure a `short_hop` recipe when you want a short-hop input. Recipes run
+ignored at startup and cannot consume or remap triggers. The internal built-in
+`normal` token is displayed as **Short hop**; it is not a separate physical
+passthrough choice. Configure an explicit tape when you need different input
+behavior, and verify the current slot's displayed helper or saved recipe. Recipes run
 once per fresh press or loop while held, according to the recipe setting.
 Generic button-to-mode assignments are removed;
 legacy reaction-rule toggle groups remain supported separately. Hard-coded
@@ -69,8 +81,8 @@ when nearby active or known imminent fighter attacks enter an approximate danger
 works without a ledge grab. Releasing the ledge binding disengages it when the toggle is OFF; committed punishes retain
 priority. Tracked weapon/item hitboxes may also be checked; grabs are not detected.
 Auto-duck has been removed; an older `kirby_auto_duck` setting has no effect.
-The old Y Finisher binding is retired; Y
-uses the selected recipe or Normal button. See [sequence files](SEQUENCE_FILES.md).
+The old Y Finisher binding is retired; Y uses its selected saved recipe or
+current helper fallback. See [sequence files](SEQUENCE_FILES.md).
 
 Menus appear in the **top-left in silent builds** and **top-right in diagnostic
 builds**, using dark rounded panels and a teal selection highlight. Training edit/save control hints are visible; lightweight gameplay selectors
@@ -90,8 +102,9 @@ Only when **diagnostic build + Training Modpack detected + Training Mode**:
   **R3 in the editor:** return to compact. **Minus:** close.
   The compact view shows Neutral, Jump, Roll, Getup Attack and Drop
   together; it switches saved responses without editing or managing recipes.
-  **Hold X** still runs ledge trapping with the compact selector visible. D-pad
-  navigation pauses it; releasing the D-pad resumes it without releasing X.
+  The effective held ledge helper can remain active with the compact selector
+  visible. Do not assume it is X: fixed/default-layout L and any saved helper
+  assignment determine activation. D-pad navigation takes menu precedence.
   The assigned ledge binding takes over from a running recipe test.
   **L3** tests/stops the highlighted ledge recipe in Training’s compact selector. Ordinary A/B and
   other gameplay buttons pass through; a manual action cancels a running test.
@@ -102,9 +115,11 @@ Only when **diagnostic build + Training Modpack detected + Training Mode**:
   Action editing retains Up/Down for fields and Left/Right for values. Release
   each control before pressing it again. Menu navigation blocks
   and cancels D-pad specials, including held directions through closing/release.
-- All configured Kirby Assist gameplay tools remain enabled: **X** autopilot,
-  **L** short hop, mash/tech/SDI, slides, follow-ups
-  and configured Roll read. Auto-mash has its own ON/OFF menu row.
+- Supported gameplay tools retain their own startup/current switches and
+  admission rules. Fixed L is not universally remapped to short hop and X is
+  not universally autopilot; use the current fighter's button choices.
+  Hard-coded slides and the old Y finisher are retired. Auto-mash remains an
+  independent optional switch.
 - Default **ZL+Up load / ZL+Down save** keeps our panel visible and resumes
   automatically on release, including held ledge-binding practice. No R3 tap needed.
 - Real **Plus** or known Training menu/recording chords hand the complete
@@ -133,20 +148,34 @@ short hop; Minus remains the menu control.
 ## Remap built-in button actions
 
 Open **Minus → Button configs**, highlight a button and cycle its choices.
-Alongside saved recipes and **Normal button**, every button offers:
+Alongside saved recipes, the current selectable built-in list offers:
 
 | Built-in choice | Existing behavior |
 | --- | --- |
-| Short hop | One jump pulse then release; fresh airborne presses still jump normally |
-| Ledge assist / walk | Hold to slow walking, apply the saved ledge-distance limit and activate ledge trapping; the ON toggle still keeps trapping active independently |
-| Turbo t-bag | Hold its assigned button to alternate fast crouch and slight facing creep; release to stop |
+| Short hop | One jump pulse then release; fresh airborne presses remain eligible for ordinary jump handling |
+| Turbo t-bag | Hold its assigned button to alternate crouch and slight facing creep; release to stop |
+| Ledge trump | Assigned-button activation of the supported ledge-trump input helper |
+| Auto-Spacing & Attack (hold / toggle) | Enables the current fighter's spacing/attack helper through the selected activation style |
+| Counter (hold / toggle) | Activates the supported counter predictor; currently Lucina-only counter facts |
+| Auto Defense (hold / toggle) | Activates incoming-attack defensive input; distinct from Counter and OOS |
 
-On the default layout, **L is fixed Ledge assist / walk**. Customizable defaults
-are **X = Short hop** and **L3 = Turbo t-bag**. The Turbo t-bag built-in can be assigned to any button slot; it never becomes the L ledge-assist role. Y and D-pad Left/Right/Up retain their
-saved choices; unassigned D-pad Down and other buttons are
-Normal. Explicit saved defaults win.
-Select a built-in on any other button to move it, and select Normal on the old
-button if desired. Multiple sources share one helper, never multiple executions.
+Legacy **Ledge assist / walk** remains loadable for old files but is not in the
+current selectable built-in list. Fixed L retains its default-layout role.
+There is no separate **Normal button** passthrough variant in the current
+built-in picker: the serialized token `normal` selects **Short hop**. Older
+documentation that described it as passthrough does not match the current code.
+
+On the default layout, **L is fixed Ledge assist / walk**. Saved explicit
+startup defaults and the first available manual recipe are resolved before
+fallback helpers. The built-in fallback uses **D-pad Down = Turbo t-bag** and
+**L3 = Auto Defense**; other slots use the short-hop built-in fallback, with a
+supported Counter fallback for R3 where the selector applies it. Your supplied
+fighter recipe lists can select different actual choices. Read the visible
+button row rather than assuming a fallback is your installed default.
+The Turbo helper can be assigned to any supported custom slot; it does not
+replace fixed L's role. Select a different saved recipe/helper on the old slot
+when moving an assignment; selecting the internal Normal helper means Short
+hop, not physical passthrough. Multiple sources share one helper, never multiple executions.
 
 In Training, press R3 on the selected built-in to open its information page,
 then **Y** to save it as that fighter/button's startup default. Built-in actions
@@ -201,8 +230,8 @@ with no network/service queries, new scene hooks or native gameplay writes.
 
 ## Menu behavior
 
-The lightweight menu starts visible on its ledge page at every battle entry,
-including a reused selector from an earlier intro/match. It draws option rows
+Outside Training, the lightweight menu starts visible on its ledge page at
+battle entry. Training starts with the full menu hidden; press Minus to open it. It draws option rows
 only, with no character/page heading or control hints. **Minus** hides or shows it
 during the current battle. Outside Training it shows five ledge choices;
 **R3** switches to/from a separate Buttons / Assists page. Up/Down navigates and
@@ -246,9 +275,12 @@ nearby tumble/knockdown/tech chases, including late Nair setups. Techs get grab
 attempts.
 
 
-The experimental automatic Spacing assist, its settings and dedicated hitbox/
-movement prediction code are removed. This does not change manual walking,
-file-authored movement actions or held ledge-binding positioning and defense.
+The current **Auto-Spacing & Attack** built-in is active code, distinct from
+manual held-L walking and explicit Walk/Run/Drift recipe steps. It has
+fighter-specific settings and hold/toggle activation; see
+[Auto-Spacing & Attack](AUTO_SPACING.md). Counter and Auto Defense are separate
+helpers, not alternative names for that spacing policy. See
+[Counter](AUTO_COUNTER.md) and [Auto Defense](AUTO_DEFENSE.md).
 
 ## Menu availability and saves
 
@@ -329,6 +361,8 @@ The turbo helper alternates Down/release per local input update. Fixed L retains
 legacy autopilot takeover in hidden and compact menus; it cannot be reassigned
 to short hop or another recipe.
 
-L3 is the only default turbo t-bag binding in gameplay. In Training’s compact
-selector, L3 tests the hovered recipe and R3 opens editing; X remains available
-for its assigned helper. Full-editor Test controls are unchanged.
+Do not assume L3 is a universal turbo binding: its built-in fallback is Auto
+Defense, and saved fighter choices can override fallbacks. In Training's compact
+selector, L3 tests the hovered recipe and R3 opens editing; physical bindings
+have page-specific menu precedence. See [Ledge menu](LEDGE_MENU.md) before
+attempting a gameplay helper while an editor page is open.

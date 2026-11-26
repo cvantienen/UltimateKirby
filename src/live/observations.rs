@@ -29,11 +29,10 @@ pub(super) fn within_observation_range(
     (target[0] - origin[0]).abs() <= limits[0] && (target[1] - origin[1]).abs() <= limits[1]
 }
 
-/// returns `true` if it’s yours or its category is not an allowed one.
-/// blocks fighter, weapon, and item categories that are not allowed.
+/// Rejects self, unsupported object categories, and inactive attack sources.
 /// # Safety
 /// The native game API must be available when this function is called.
-unsafe fn non_valid_id(id: u32, own_id: u32) -> bool {
+unsafe fn should_skip_attack_source_id(id: u32, own_id: u32) -> bool {
     if id == own_id
         || !matches!(
             id >> 28,
@@ -74,10 +73,10 @@ fn is_within_attack_scan_range(
     (target[0] - position[0]).abs() <= x_limit && (target[1] - position[1]).abs() <= y_limit
 }
 
-/// Returns true when this object should be skipped.
+/// Rejects missing, recycled, or friendly attack-source accessors.
 /// # Safety
 /// If `enemy` is non-null, it must point to a live game object for these reads.
-unsafe fn non_valid_enemy(
+unsafe fn should_skip_attack_source(
     reads: &super::frame::FrameReads,
     enemy: *mut game::Object,
     id: u32,
@@ -189,13 +188,11 @@ pub(super) unsafe fn incoming_fighter_attack(
         .chain(super::attack_sources::sources())
         .flatten()
     {
-        // skip self and invalid IDs
-        if unsafe { non_valid_id(id, own_id) } {
+        if unsafe { should_skip_attack_source_id(id, own_id) } {
             continue;
         }
-        // Skip enemies that should be ignored based on team and validity checks.
         let enemy = game::module_accessor(id);
-        if unsafe { non_valid_enemy(reads, enemy, id, team) } {
+        if unsafe { should_skip_attack_source(reads, enemy, id, team) } {
             continue;
         }
         // Skip targets that are outside the attack scan range.

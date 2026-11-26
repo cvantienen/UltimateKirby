@@ -1,70 +1,68 @@
-# Down-tilt trip follow-up and auto SDI
+# Kirby confirmed-trip follow-up and separate SDI
 
-Both tools apply to the selected human player's controller without holding the ledge-assist button.
-They respect the global `enabled` setting and existing controller/session checks.
-No parry feature or ZL/ZR chord was added.
+The trip follow-up watches Kirby's grounded forward/down tilt, confirms a **new
+nearby trip attributed to that attack**, then attempts facing forward smash.
+Auto SDI is unrelated damage-hitstop stick assistance; enabling one does not
+activate the other. Neither changes native physics, status, hitboxes or trip odds.
 
-The Kirby-specific trip policy lives in
-[trip_followup.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/fighters/kirby.rs);
-shared SDI remains in
-[combat_assist.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/shared/survival/combat_assist.rs).
-Existing `combat_assist` imports of the Kirby follow-up types remain supported.
+## Activate and configure
 
-```text
-down_tilt_trip_smash = true
-auto_sdi = true
+`down_tilt_trip_smash = true` is the Rust startup fallback. The route does not
+require a ledge hold, but mode/global enabled, selected controller/Kirby and
+native safety admission still matter. To disable it independently:
+
+```ini
+[universal.settings]
+down_tilt_trip_smash = false
 ```
 
-## Tilt trip follow-up
+Use [Settings reference](SETTINGS_REFERENCE.md) for shared startup precedence
+and [Controls](CONTROLS.md) for actual current admission. The internal confirmed-
+trip timing/range is compiled, not a set of arbitrary saved-sequence sliders.
+[Fighter settings](FIGHTER_SETTINGS.md) owns configurable estimates elsewhere;
+a similarly named legacy field cannot change this state machine by assumption.
 
-This Kirby-only tool is independent of L and Y. **Down tilt → Forward smash**;
-forward tilt also uses forward smash. Recognition accepts an
-opponent in native trip states `0x86..=0x88`, including an already-tripped target.
-It also accepts grounded damage (`0x47`) or downed damage (`0x5a`) immediately
-following one of those trip states. Re-hits can replace the trip status before
-the next observation, so a new trip transition is not required. Unrelated damage,
-air launch, and trip get-up/roll states do not qualify through this fallback.
-There is no extra attribution, spacing, age or hit-confirm requirement.
+## Current recognition: stricter than older versions
 
-Recognition owns competing controls, releases the old tilt input, then alternates
-neutral releases with **facing-direction+A** for either tilt. These are ordinary buffered inputs during native tilt recovery; they cannot
-cancel native lag. No additional smash-readiness gate or six-pulse limit is added.
-Repeated identical observations reuse output. Native startup of the selected
-smash releases A so it does not deliberately charge. Damage/air/unsupported own
-states, disabling the feature and route/session changes still cancel.
+The source requires your grounded `ATTACK_S3`/`ATTACK_LW3`, corroborated
+`hit_confirmed` attacker-entry evidence and the same target changing from
+non-trip to native `SLIP..SLIP_WAIT` **during the same tilt motion**. The target
+must be grounded, in front within18 horizontal units, and within8 vertical units.
+An already-tripped enemy does not newly arm it. Old documentation's trip re-hit,
+`DOWN_DAMAGE` fallback, no-attribution and unlimited-pulse claims are retired.
 
-Each new tilt can rearm the follow-up even when the opponent remains in trip
-wait across attempts. The existing `down_tilt_trip_smash` config key is unchanged.
+Fresh recognition releases the old tilt input first. The queued target must
+remain nearby/tripping with the same facing and your fighter in a supported
+grounded tilt/idle state. The policy alternates neutral release and facing+A
+requests, at most **six flicks**, bounded by **18 native updates**. Inputs buffer
+through ordinary recovery; they cannot cancel it. Native smash startup releases
+the proposal rather than charging or forcing attack selection.
 
-## SDI
+Duplicates/stop do not add pulses. Air, damage/capture, wrong action, lost/changed
+target/facing, disabled route, invalid scope/clock and budget expiry cancel,
+returning a neutral release. Safety and explicit Held Defense/Counter can
+preempt. A confirmed trip plus mapped Attack does not prove the smash connected.
 
-Only the damage recipient's hitstop enables this tool. It does not act during
-ordinary hitstun, the attacker's hitlag, shield freeze or global stop. The native
-remaining-hitstop timer distinguishes advancing samples even when the animation
-is frozen. Repeated mapper polls at one timer value reuse one output.
+## SDI belongs to its own policy
 
-When eligible, SDI requests a full-strength flick and a neutral rearm, with at
-least four native hitstop frames between flicks. A stick already held in the
-game-visible output first receives a neutral release. When selected, the live
-damage response owns the gameplay inputs, including neutral gaps; moving the
-physical stick does not cancel it. SDI stops for the final three hitstop frames,
-when automatic DI may take over. Control returns when the response ends.
+See [DI and SDI](DI_SDI.md) for the authoritative damage response, defaults,
+geometry and ownership. Rust fallback SDI is false; supplied universal true may
+be overridden by a fighter false. It requests flicks only in victim damage
+hitstop, with neutral gaps and final-hitstop DI handoff; it does not run while
+Kirby is attacking merely because a trip route is enabled.
 
-Direction uses the attributed attacker's current horizontal position. If that
-attribution is unavailable and exactly one opponent is known, it uses that
-opponent. If direction is unknown or both roots overlap, SDI abstains instead of
-guessing toward center stage. When valid blast-zone geometry is available, the
-flick may bend inward or upward for clearance instead of remaining horizontal.
-Capture mash and tech can take priority over SDI. Live learned-delay compensation
-has been removed. This does not change native SDI multipliers, restrictions or
-launch physics; actual movement still depends on the move, native acceptance and
-observation cadence. See [DI and SDI input assistance](DI_SDI.md) for priority
-and survival-model details.
+## Beginner source map and extension boundary
 
-## Validation
+`src/live/kirby_followups.rs::trip_enabled` admits only nonsuspended configured
+Kirby; `trip_watch` requests observation during eligible tilts or an existing
+queue. `trip_context` supplies copied native and target facts; `TripFollowup`
+checks confirmation and progression. **Watching** is not yet input permission,
+and **hit confirmation** is not equivalent to any nearby opponent being tripped.
+`Option<TripFollowup>` distinguishes enabled state from absence.
 
-Host regressions cover trip-state recognition, full control takeover through
-hitstop and tilt lag, continued input beyond six attempts, missing target data,
-smash release/acceptance, duplicate polls, SDI direction selection and control
-restoration. Native symbols and constants are checked against the pinned
-skyline-smash bindings. Switch testing is required for actual hit/SDI outcomes.
+Players can toggle the compiled route and practice spacing, or author separate
+literal inputs in [Sequence files](SEQUENCE_FILES.md). Developers changing trip
+recognition need transition/attribution, already-tripped rejection, range/facing,
+six-pulse budget, duplicate/stop and smash-handback regressions. Never increase
+native trip odds or shorten move lag. Test real trips and nontrips at both facings;
+online delay/native acceptance remains a limitation.

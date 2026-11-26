@@ -7,7 +7,12 @@ use crate::{
     settings::AssistSettings,
 };
 
-/// Runtime Smash data carried by `AutomaticConfig`.
+/// Optional file-authored shield-grab and backup responses for one fighter.
+///
+/// `Option<&Sequence>` borrows a sequence without copying its action list;
+/// `None` means that configured response is absent. A missing backup never
+/// borrows another fighter's attack. The live automatic path is shield-only;
+/// the legacy approach argument does not restore unshielded dash grabs.
 #[derive(Clone, Copy, Default)]
 pub struct AutomaticConfig<'a> {
     /// Runtime shield grab value used by AutomaticConfig..
@@ -181,6 +186,13 @@ impl OutOfShield {
         if self.shield_up_b.delivery_started() {
             return self.run_backup(&f, f.allowed, f.c);
         }
+        if let Some(output) = self.sample_guard_tail(&f) {
+            return output;
+        }
+        self.sample_response_or_grab(&f)
+    }
+
+    fn sample_guard_tail(&mut self, f: &Sample) -> Option<ControllerOutput> {
         if !f.allowed || !f.shielded || !f.context.gameplay {
             self.guard_hold = 0.;
             self.guard_clock = crate::ledge_trap::NativeAttempt::new();
@@ -232,18 +244,22 @@ impl OutOfShield {
         {
             self.simple.cancel();
             self.shield_up_b.cancel();
-            return ControllerOutput {
+            return Some(ControllerOutput {
                 owned: crate::ledge_trap::SEQUENCE_BUTTONS,
                 requested: MAPPER_ZR,
                 stick: Some([0.; 2]),
                 ..Default::default()
-            };
+            });
         }
+        None
+    }
+
+    fn sample_response_or_grab(&mut self, f: &Sample) -> ControllerOutput {
         if self.configured_settling {
-            return self.settle_grab(&f);
+            return self.settle_grab(f);
         }
         if self.configured_response {
-            return self.continue_response(&f);
+            return self.continue_response(f);
         }
         if !f.shielded {
             self.simple.cancel();
@@ -252,16 +268,16 @@ impl OutOfShield {
         let mut fallback_ended = false;
         if self.shield_up_b.active() {
             self.simple.cancel();
-            let output = self.run_backup(&f, f.allowed, f.c);
+            let output = self.run_backup(f, f.allowed, f.c);
             if output.owned != 0 || self.shield_up_b.active() {
                 return output;
             }
             fallback_ended = true;
         }
-        if let Some(output) = self.sample_grab(&f, fallback_ended) {
+        if let Some(output) = self.sample_grab(f, fallback_ended) {
             return output;
         }
-        self.sample_backup(&f)
+        self.sample_backup(f)
     }
 
     /// Samples the configured grab.

@@ -1,11 +1,81 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reaction-rule cheat sheet</title><style>*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#182c42;font:15px/1.6 system-ui,sans-serif}main{max-width:1500px;margin:28px auto;padding:28px;background:white;border:1px solid #d9e3ef;border-radius:16px}h1{font-size:30px;margin-top:0}h2{margin-top:32px;color:#174c68}h3{color:#235369}a{color:#006f87}code{background:#eaf2f6;border-radius:4px;padding:2px 5px;font:13px/1.6 ui-monospace,monospace}pre{background:#102a3c;color:#e7f5ff;padding:18px;overflow:auto;border-radius:10px}pre code{background:transparent;color:inherit;padding:0}table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0 26px}th{text-align:left;background:#123c52;color:white;padding:12px;vertical-align:top}td{border-bottom:1px solid #dbe6ed;padding:11px;vertical-align:top}tbody tr:nth-child(even){background:#f3f7fa}td:first-child{font-weight:600;min-width:165px}td code{overflow-wrap:anywhere}blockquote{border-left:4px solid #3b9aa4;margin-left:0;padding-left:16px;color:#43576b}.search{position:sticky;top:0;z-index:1;background:#edf2f7ed;backdrop-filter:blur(6px);padding:14px max(20px,calc((100vw - 1444px)/2));border-bottom:1px solid #c9d8e6;display:flex;align-items:center;gap:14px}input{width:min(700px,80vw);font:inherit;padding:10px 14px;border:1px solid #a6bece;border-radius:9px}.search span{font-size:13px;color:#38556c}tr[hidden]{display:none}@media(max-width:850px){main{padding:16px;margin:12px}table{display:block;overflow-x:auto}h1{font-size:24px}.search{padding:10px}td{min-width:180px}}@media print{body,main{background:white}main{border:0;padding:0;margin:0}.search{display:none}table{font-size:10px}td,th{padding:6px}pre{white-space:pre-wrap}h2{break-after:avoid}tr{break-inside:avoid}tr[hidden]{display:table-row}}</style></head><body><div class="search"><input id="query" type="search" aria-label="Filter reference rows" placeholder="Find a move, setting, syntax or example…"><span id="count"></span></div><main><h1>Reaction-rule cheat sheet</h1>
 <p><strong>Legacy priority-builder reference.</strong> The current unified Auto-react controller
-uses seven <code>auto_*:MAX_X:MAX_Y</code> events. Start with the
+uses six <code>auto_*:MAX_X:MAX_Y</code> events. <code>auto_grab</code> is retired/rejected; <code>ledge_regrab</code> is inert. Start with the
 <a href="SEQUENCE_SYNTAX_CHEATSHEET.md">current sequence syntax cheat sheet</a>; accepted
 legacy triggers below are not active in that unified controller.</p>
-<p>Settings, choices and feedback entries for the reaction builder. <a href="REACTION_RULE_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
+<p>The tables below describe retained legacy grammar/core/editor consumers, not current live controls. Legacy feedback labels are not proof that the unified live controller uses these conditions. <a href="REACTION_RULE_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
 <p><a href="REACTION_RULES.md">Setup guide</a> · <a href="EDITOR_ACTION_CHEATSHEET.md">Editor actions</a></p>
+<h2>Current live event quick reference</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Mode / scope</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auto_roll</code></td>
+<td>Auto react; opponent ordinary roll</td>
+<td><code>reaction = auto_roll:30:12</code></td>
+</tr>
+<tr>
+<td><code>auto_spot_dodge</code></td>
+<td>Auto react; opponent spot dodge</td>
+<td><code>reaction = auto_spot_dodge:30:12</code></td>
+</tr>
+<tr>
+<td><code>auto_air_dodge</code></td>
+<td>Auto react; opponent air dodge</td>
+<td><code>reaction = auto_air_dodge:40:20</code></td>
+</tr>
+<tr>
+<td><code>auto_shield_grab</code></td>
+<td>Automatic grabs; you shield, target vulnerable/grabbable/front</td>
+<td><code>reaction = auto_shield_grab:25:10</code></td>
+</tr>
+<tr>
+<td><code>auto_grab_dodged</code></td>
+<td>Grab avoidance; after confirmed assisted dodge recovery</td>
+<td><code>reaction = auto_grab_dodged:25:10</code></td>
+</tr>
+<tr>
+<td><code>auto_shield_backup</code></td>
+<td>Automatic grabs; configured response when no legal grab wins</td>
+<td><code>reaction = auto_shield_backup:25:15</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each event has at most one saved sequence per fighter. X/Y are maximum absolute
+root-position separations, 0–100 world units. No minimum distance, numeric
+priority, own-state selector, enemy-side selector or button-toggle control is
+offered in the simple editor. Those legacy fields are not current live arbitration.
+Native grounded/readiness gates still apply. A check inside the selected tape
+can cancel it but does not choose a different response for that consumed event.</p>
+<p>Training: Minus → Assist modes → Auto react → L3/R3. Select → A/R3 edits;
++ Add → Left/Right chooses a missing event → A/R3/X creates its draft. The
+Automatic grabs and Grab avoidance rows open subsets of that same catalog.
+Y alone saves; wait for the result. B/L3 returns to the same assist row.
+Start delays/holds/actions are edited normally; saving does not enable a mode.
+Current live automatic grabs are shield-only; the fixed fallback is not an
+unshielded <code>auto_grab</code> recipe. Missing custom follow-up/backup means no such
+attack. <a href="REACTION_RULES.md">Complete current setup and handoff</a>.</p>
+<pre><code class="language-ini">[yoshi.roll.roll_starter]
+name = Roll starter, not a supplied default
+start_delay = 0
+timeout = 180
+reaction = auto_roll:30:12
+actions = check:enemy_in_front:0, range:fighter_range_instant, press:r:4
+</code></pre>
+<p>This valid example requests Grab only if its in-tape checks pass. Native input
+acceptance and reach still decide the outcome. It does not turn the mode ON.
+Do not add it alongside another <code>auto_roll</code> for the same fighter.</p>
+<h2>Legacy grammar below — not the unified live event editor</h2>
+<p>This is <strong>grammar notation, not a valid standalone recipe</strong>. Replace uppercase
+placeholders and omit the notation brackets around an optional control; put the
+result inside a complete section with <code>start_delay</code> and <code>actions</code>.</p>
 <pre><code class="language-ini">reaction = TRIGGER:STATE:MIN_X:MAX_X:MAX_HEIGHT:SIDE:PRIORITY[:CONTROL]
 </code></pre>
 <ul>
@@ -13,11 +83,11 @@ legacy triggers below are not active in that unified controller.</p>
 <li>Events cover opponent shields/shield-origin rolls, ordinary rolls, confirmed shield hits, assisted grab-dodge recovery. Auto-tech and missed-tech branches remain separate. Defensive events use their own ON/OFF mode, not Roll rules or button groups.</li>
 <li>Priority compares conditions matching now. A plain roll rule can fire before a higher-priority rule becomes true later. Use roll_vulnerable and roll_cross_vulnerable together when comparing those outcomes at vulnerability.</li>
 <li>One response at a time; one attempt per enemy roll. Once playback starts, it does not switch to a different rule mid-response. A cancellation does not rearm that same roll.</li>
-<li>Eight rules per assist family, up to 48 per fighter. Ranges are world units, not hitbox reach. Every action remains simulated input governed by native game rules.</li>
+<li>Retained legacy builders permit eight rules per assist family; current simple events additionally enforce one recipe per event/fighter. Ranges are world units, not hitbox reach. Every action is input-only under native rules.</li>
 <li>Requires the updated mod on every Switch loading reaction metadata. Older builds cannot parse the new property. This reference changes no Switch files and adds no runtime load.</li>
 </ul>
 <p>Defensive startup switches and the 1–8 frame grab forecast are saved in <strong>Fighter settings</strong>. Defensive recipes must use Menu control; that field names their specific ON/OFF mode.</p>
-<p>In Training: Assist modes → highlight the assist → L3/R3 opens its separate priority list. A/R3 edits, X adds, Y manages, B/L3 returns. In the editor, Y saves and R3/L3 returns to the list. Activate the assist with its ON/OFF row. Outside Training the switch is on Buttons / Assists, reached with R3 from the ledge selector.</p>
+<p>In the retained legacy editor: Assist modes → highlight the assist → L3/R3 opens its separate priority list. A/R3 edits, X adds, Y manages, B/L3 returns. In the editor, Y saves and R3/L3 returns to the list. Activate the assist with its ON/OFF row. Outside Training the switch is on Buttons / Assists, reached with R3 from the ledge selector.</p>
 <h2>Editor settings</h2>
 <table>
 <thead>
@@ -31,7 +101,7 @@ legacy triggers below are not active in that unified controller.</p>
 <tbody>
 <tr>
 <td>Auto reaction</td>
-<td>In a separate Assist rule editor, choose a roll variant or one of seven Shield pressure events; other defensive assists keep their own event. Ordinary ledge/button editors do not expose this setting.</td>
+<td>In a separate Assist rule editor, choose a roll variant or one of the retained Shield pressure events; other defensive assists keep their own event. Ordinary ledge/button editors do not expose this setting.</td>
 <td><code>Field 1 · TRIGGER</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code></td>
 </tr>
@@ -326,43 +396,43 @@ legacy triggers below are not active in that unified controller.</p>
 <tbody>
 <tr>
 <td>Mode control → Menu</td>
-<td>Follow the Roll rules Menu ON/OFF switch. This is the default for older seven-field rules. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Follow the Roll rules Menu ON/OFF switch. This is the default for older seven-field rules. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>menu</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:menu</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle X</td>
-<td>Fresh X presses toggle this group. X is reserved instead of jumping or playing its selected sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh X presses toggle this group. X is reserved instead of jumping or playing its selected sequence. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_x</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_x</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle Y</td>
-<td>Fresh Y presses toggle this group. Y is reserved instead of its ordinary action/sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh Y presses toggle this group. Y is reserved instead of its ordinary action/sequence. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_y</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_y</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle D-pad Up</td>
-<td>Fresh D-pad Up presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh D-pad Up presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_up</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_up</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle D-pad Down</td>
-<td>Fresh D-pad Down presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh D-pad Down presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_down</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_down</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle D-pad Left</td>
-<td>Fresh D-pad Left presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh D-pad Left presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_left</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_left</code></td>
 </tr>
 <tr>
 <td>Mode control → Toggle D-pad Right</td>
-<td>Fresh D-pad Right presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td>Fresh D-pad Right presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
 <td><code>toggle_right</code></td>
 <td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_right</code></td>
 </tr>
@@ -442,7 +512,7 @@ legacy triggers below are not active in that unified controller.</p>
 <tbody>
 <tr>
 <td>Roll rules → ON / OFF</td>
-<td>Controls Menu-tagged recipes only. Button groups have independent states shown on this row. All groups start OFF; acquired ledge setups and native safety retain priority.</td>
+<td>Controls Menu-tagged recipes only. Button groups have independent states shown on this row. Legacy button groups start OFF; acquired ledge setups and native safety retain priority.</td>
 <td><code>Menu group: Assist modes. Button group: assigned button.</code></td>
 <td><code>Training: Minus → Assist modes → Roll rules → ON</code></td>
 </tr>
@@ -478,9 +548,9 @@ legacy triggers below are not active in that unified controller.</p>
 </tr>
 <tr>
 <td>Save as startup default</td>
-<td>Selects the recipe for ordinary manual button/ledge startup selection. It does NOT turn Roll rules ON.</td>
-<td><code>default = true</code></td>
-<td><code>default = true</code></td>
+<td>Not allowed for active assist rules: persistence rejects it. Use the mode ON/OFF control, not a manual startup default.</td>
+<td><code>default = true</code> is for manual recipes only</td>
+<td><code>No active reaction default</code></td>
 </tr>
 <tr>
 <td>Loop while held</td>
@@ -575,8 +645,8 @@ legacy triggers below are not active in that unified controller.</p>
 </tr>
 </tbody>
 </table>
-<h2>Complete Yoshi examples</h2>
-<p>These ranges and delays are starting examples to tune, not calibrated guarantees. If more than one rule matches now, the lower priority number wins.</p>
+<h2>Complete legacy Yoshi examples (parseable, not live unified starters)</h2>
+<p>These examples document legacy consumers only. Use the simple event example above for current live behavior; these ranges/delays are not calibrated guarantees. If more than one rule matches now, the lower priority number wins.</p>
 <pre><code class="language-ini"># reaction = TRIGGER:MY_STATE:MIN_X:MAX_X:MAX_HEIGHT:ENEMY_SIDE:PRIORITY[:CONTROL]
 [yoshi.roll.near_grab_rule]
 name = Near roll grab

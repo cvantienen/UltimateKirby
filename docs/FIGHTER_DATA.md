@@ -1,70 +1,90 @@
-# Fighter Data
+# Fighter data: read-only native reference facts
 
-`data/Ultimate_stats.json` is the single source of truth for fighter statistics
-and move frame data. It contains 90 exact
-native-kind records, including DLC fighters and both Ice Climbers identities.
-Data lookup is keyed by native fighter kind, not by whether the fighter is
-controlled by the player or observed as an opponent.
+`data/Ultimate_stats.json` is the canonical embedded statistics/move-frame asset.
+The core requires schema version **1** and **90 records**; this is separate from
+the profile/menu registry. The data is keyed by exact native kind for both player
+and opponent. It is not live hitbox geometry, a per-instance physics model, an
+input recipe or a remote fallback service.
 
-## Data lifecycle
+## Lifecycle in plain Rust
 
-The core embeds this JSON file with `include_str!`, parses and validates it once
-at startup, and retains the parsed records for the lifetime of the process.
-There is no generated Rust copy, runtime file/network access, remote fallback,
-or substitution of one fighter's values for another's. Invalid or incomplete
-embedded data stops plugin installation with an explicit error.
+`include_str!` embeds the asset in the program at build time. Editing the SD
+sequence file does not change it. `OnceLock<Result<Vec<FighterData>,String>>`
+parses once and remembers either the roster or the error. A `Vec` is a growable
+list; `Result` means success (`Ok`) or an explanatory failure (`Err`).
+`initialize()` validates before live hooks. There is no battle-time JSON read,
+network request, generated Rust mirror or other-fighter substitution.
 
-Loading has distinct checks: the schema version and roster size are checked
-first; each fighter's identity, stats, and moves are then converted; active
-frame spans are validated; and readable motion names are converted to hashes.
-Finally, records must be ordered by unique native kind so exact lookups can use
-a binary search.
+Parsing verifies schema/count, nonempty identity/stats/moves, nonempty stat keys,
+positive ordered active intervals, then strictly increasing unique native kinds.
+Readable motion names are hashed once. `fighter(kind)` uses binary search and
+returns `Option<&FighterData>`: `Some` exact record or `None`. It never resolves
+an unknown kind to Kirby. `all()` expects successful initialization and panics
+on invalid embedded data; do not call it as an error-recovery fallback.
 
-`fighter_data::all()` exposes the roster, and `fighter_data::fighter(kind)`
-returns the exact row or `None` for an unknown native kind. Each row contains
-the raw per-fighter stats and every move record in the file; active-frame spans,
-landing lag, motion identifiers, and raw source fields are retained. Compound
-and missing values stay as supplied/unknown rather than becoming guessed
-numbers. A feature must decline a decision when the required fact is absent or
-ambiguous.
+## What the public fields mean
 
-`FighterProfile::fighter_data()` resolves the same row for a profile. Fighter
-profile initialization and reference-hint rendering use this lookup, so
-player-controlled and opponent fighters share the same data path. Native
-observations such as current position, motion, facing, and readiness remain
-authoritative for live state.
-
-Recovery estimates are intentionally narrow: the move must be eligible, its
-motion and status must match, and the observation must show a grounded,
-vulnerable fighter past the active frames without a cancel or registered hit.
-Invalid frame values or a move-end time that differs too much from the catalog
-also make the estimate unavailable. Grab timing references are prepared for
-standing, dash, and pivot grabs; conflicting move variants stay unknown.
-
-The dataset currently has 4,076 move records. It is not a complete hitbox,
-hurtbox, collision, or per-instance physics model. Numeric reference stats do
-not include stage conditions, equipment, scaling, or other gameplay mods.
-Values unavailable in the JSON are intentionally not supplied by defaults.
-
-## Files and checks
-
-| File/API | Responsibility |
+| Type/field | Interpretation |
 | --- | --- |
-| `data/Ultimate_stats.json` | Canonical roster stats and move-frame facts |
-| `crates/kirby_assist_core/src/fighters/fighter_data.rs` | Parse, validate, and expose exact-kind data |
-| `tools/validate_fighter_data.py` | Offline schema and roster validation |
-| `FighterProfile::fighter_data()` | Resolve the canonical row for an initialized profile |
-| `MoveData::recovery()` | Validate a recovery observation against that fighter's move data |
+| `Stat { key, value }` | Named raw string fact; numeric parsing may fail |
+| `FighterData { kind, name, stats, moves }` | One exact native identity |
+| `MoveData.total` | Optional total animation frames, not always available |
+| `landing_lag` | Optional aerial landing lag |
+| `active: Vec<Span>` | Separate inclusive first/last hitbox intervals |
+| `motions` | Native motion hashes identifying candidate moves |
+| `whiff_eligible` | Permission for a narrow recovery estimate, not proof of whiff |
+| `raw` | Original named move facts retained as strings |
+| `GrabReference` | First/last active frame and optional approximate root reach |
 
-Run from the repository root:
+`numeric_stat` only parses a raw string; callers must reject nonfinite/out-of-range
+values as needed. `named_move` and `move_for_motion` require exactly one match;
+zero or conflicting variants yield `None`. `last_active` finds the latest span
+end; it does not join gaps into continuous coverage. For spans 6–7 and 15–21,
+frames 8–14 are not active. Missing/compound values are not invented.
 
-```sh
-python3 tools/validate_fighter_data.py
-python3 -m unittest tools.test_validate_fighter_data
-cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
-```
+## Grab facts and their limits
 
-Missing motion mappings, unavailable spans, compound values, and duplicate move
-variants are not inferred from another fighter or selected arbitrarily. Update
-the canonical JSON only with reviewed fighter-specific facts, then run all
-three checks.
+`prepare_grab_references()` derives a compact exact-kind cache once. `ordinary_grab`
+accepts only standing/dash/pivot grab statuses. Before cache initialization it
+uses the same uncached lookup. Matching variants with different active intervals
+are ambiguous and return `None`; validated first/last values must lie in 1–120.
+Root reach uses a finite numeric `grabs.grabrange` in 1–60 when supplied. Unknown
+reach becomes 0 in a profile's display/default field, not a fabricated catch range.
+Shield-grab startup similarly needs a valid 1–120 numeric reference.
+
+These facts estimate root positions, not animated hands/hurtboxes. In the current
+ordinary-grab helper, standing/dash/pivot share the available numeric reach field;
+do not invent distinct dash reach from a fighter-page label. Tuning's automatic
+far-range formula uses returned reference values and never resolves far below close.
+An explicit fighter override changes policy estimates only.
+
+## Recovery estimates are deliberately narrow
+
+`MoveData::recovery(observation)` handles only recognized grounded dash attack,
+forward/up/down tilt and forward/up/down smash. Status/motion must match; the move
+must be whiff-eligible, vulnerable, past all active frames, not currently active,
+not already contacted and not cancelable. Observed frame/end must be finite;
+end must agree with catalog total within two frames. Remaining native progress
+must be positive. Failing any condition yields no estimate. This API existing
+does not mean a retired automatic whiff-punish mode is active.
+
+`FighterDataCache` has eight controller slots. `bind(slot,id,kind)` reuses a row
+only when both object ID and kind match; identity changes resolve afresh and
+unknown kinds clear the entry. Invalid slots return `None`. It stores copied
+identity/fact references, not a native mutable fighter pointer.
+
+## Update or extend
+
+Only change canonical records with reviewed fighter-specific facts and explicit
+permission. Preserve kind order, unique identities, raw uncertainty and separated
+active spans. A new public helper should return `Option` when facts are ambiguous;
+never choose an arbitrary variant or another fighter's values. Add focused
+lookup/variant/cache tests, then validate the data and regenerate fighter snapshots.
+New records need coordination with profile validation; the count constant alone
+cannot register a fighter.
+
+Authorized offline commands are `python3 tools/validate_fighter_data.py` and
+`python3 tools/update_fighter_docs.py --check`. Generator tests verify tables
+against the canonical asset. Host checks establish schema/reference consistency,
+not Switch input delivery, hitboxes or online contact. This documentation update
+reads assets only; it neither edits them nor builds/deploys a new embedded catalog.

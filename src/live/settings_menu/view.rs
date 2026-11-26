@@ -7,6 +7,7 @@ use kirby_assist_core::{
     settings_menu::{MenuRow, MenuSelection, RecipePanel},
 };
 use std::ffi::CString;
+#[cfg_attr(test, path = "../../../tests/unit/live/settings_menu/view")]
 mod text_cache {
     //! Explicit owned C-string copies for cached UI. Never reuse a Vec<String>
     //! allocation as Vec<CString> or transfer the source strings' byte allocations.
@@ -48,52 +49,8 @@ mod text_cache {
 
     #[cfg(test)]
     /// Ownership and text-validity regressions for native display copies.
-    mod tests {
-        use super::*;
-        #[test]
-        /// Checks empty, Unicode, error, and embedded-NUL line handling and ownership.
-        fn copies_empty_unicode_and_error_rows_without_aliasing_sources() {
-            let lines = vec![
-                "".into(),
-                "Save failed: SD unavailable (514)".into(),
-                "Saving…".into(),
-                "invalid\0text".into(),
-            ];
-            let result = copy_lines(&lines).unwrap();
-            assert_eq!(result.len(), 3);
-            assert_eq!(result[0].as_bytes_with_nul(), b"\0");
-            assert_eq!(result[1].to_str().unwrap(), lines[1]);
-            assert_eq!(result[2].to_str().unwrap(), "Saving…");
-            for (copy, source) in result.iter().zip(&lines) {
-                assert_ne!(copy.as_ptr().cast::<u8>(), source.as_ptr());
-            }
-            drop(lines);
-            assert_eq!(
-                result[1].to_str().unwrap(),
-                "Save failed: SD unavailable (514)"
-            );
-        }
-        #[test]
-        /// Repeatedly replaces cached save-status lines without source-buffer reuse.
-        fn repeated_save_status_cache_replacement_does_not_reuse_source_storage() {
-            let mut view = Some(copy_lines(&["Before save".into()]).unwrap());
-            for i in 0..2000 {
-                let source = vec![
-                    format!("Field {i}"),
-                    String::new(),
-                    "Saved to sequences.txt (backup created)".into(),
-                    "Save failed: temporary file exists".into(),
-                ];
-                let next = copy_lines(&source).unwrap();
-                let retired = view.replace(next);
-                drop(source);
-                drop(retired);
-                for line in view.as_ref().unwrap() {
-                    assert_eq!(line.as_bytes_with_nul().last(), Some(&0));
-                }
-            }
-        }
-    }
+    #[path = "text_cache_tests.rs"]
+    mod tests;
 }
 
 /// Fully owned, revision-tagged presentation data consumed by the draw callback.
@@ -216,16 +173,8 @@ fn toggle_value(enabled: bool) -> (String, usize, usize) {
 
 #[cfg(test)]
 /// Regressions for cached menu row labels and choice positions.
-mod row_tests {
-    use super::*;
-
-    #[test]
-    /// Ensures toggle labels correspond to their selected indices.
-    fn toggle_rows_keep_matching_labels_and_positions() {
-        assert_eq!(toggle_value(false), ("OFF".to_owned(), 0, 2));
-        assert_eq!(toggle_value(true), ("ON".to_owned(), 1, 2));
-    }
-}
+#[path = "../../../tests/unit/live/settings_menu/view/row_tests.rs"]
+mod row_tests;
 
 /// Formats the selected preset display name and its one-based position.
 fn slot_value(

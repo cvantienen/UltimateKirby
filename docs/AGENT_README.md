@@ -1,7 +1,38 @@
-# Foundry Models as VS Code Coding Agents
+# Coding-agent handoff and historical Foundry notes
 
-Short guide to the Microsoft Foundry setup backing the AI coding agents in
-this workspace. Verified 2026-11-22.
+## Current local coding workflow
+
+A coding assistant works on this repository's files; it is not the in-game
+Kirby Assist policy engine. Model/provider configuration does not change the
+compiled plugin's controller-only safety boundary. For Rust beginners start with
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`, then
+[Development](DEVELOPMENT.md) and [the source map](CODE_MAP.md).
+
+A useful task handoff names the exact files and owning policy, reproducer,
+expected controller request, conflicting human/assist inputs, missing facts,
+clock/event identity and smallest relevant test. Keep native reads in `src/`,
+portable decisions in the core and output at the mapper boundary. Preserve
+uncommitted work and report checks honestly; do not silently build, upload,
+change versions or make remote changes. Docs-only work must not change executable
+Rust, even when it discovers a bug.
+
+Current layout landmarks: private test bodies live under each package's
+`tests/unit/`; recovery punishes live in `policies/option_read.rs`; diagnostic
+health reporting lives in `src/diagnostics/performance/health.rs`. Aliases and
+test wrappers preserve old public imports/private scopes rather than duplicate
+implementations. Use [runtime safety](RUNTIME_SAFETY.md) before proposing a
+native integration change and [Maintaining](MAINTAINING.md) for docs validation.
+
+## Historical provider setup (recorded 2026-11-22)
+
+The notes below preserve the earlier workspace setup report, not a current
+cloud inventory or provider contract. No cloud, endpoint, quota, model catalog,
+local settings database or credentials were queried for this documentation
+update. Capacity, context limits, request formats and endpoint support may have
+changed; do not use historical values as guaranteed current configuration.
+Commands are historical reference examples, not instructions to contact services
+as part of a local coding/docs task. Never put access tokens or private code in
+logs or commit them. Reverify provider behavior only when explicitly authorized.
 
 ## Mental model
 
@@ -11,7 +42,7 @@ Three layers, often confused:
 | --- | --- | --- |
 | **Model** | Published weights in the Foundry catalog | `claude-opus-5` |
 | **Deployment** | *Your* billable instance, with its own quota | `claude-opus-5` (same name) |
-| **Agent** | Stateful Foundry service with instructions, tools, memory | **none — you have zero** |
+| **Agent** | Stateful Foundry service with instructions, tools, memory | None reported in the historical setup |
 
 A deployment is a phone number you call. An agent is an employee who
 remembers prior calls. You are using **deployments only**.
@@ -22,7 +53,7 @@ receives the whole conversation each time and returns text or a tool call.
 Your extension executes the tool. This is why long sessions drift toward
 the context limit, and why Foundry portal settings do not affect VS Code.
 
-## Current setup
+## Recorded setup
 
 Resource `gsanerds-resource` (eastus2), project `gsanerds`:
 
