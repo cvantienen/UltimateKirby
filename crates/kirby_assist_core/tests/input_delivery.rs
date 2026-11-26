@@ -222,6 +222,38 @@ fn partial_spacing_walk_suppresses_generated_direction_flicks() {
 }
 
 #[test]
+fn spacing_retreat_keeps_full_axis_and_dash_flick_while_manual_walk_is_capped() {
+    use kirby_assist_core::{auto_spacing::{Config, Spacing}, gameplay::{GameplayContext, Opponent},
+        native_states::{situation, status}};
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        for side in [-1., 1.] {
+            let c = GameplayContext {
+                gameplay: true, can_control: true, can_act: true,
+                situation: situation::GROUND, status: status::WAIT,
+                facing: side, safe_ground: [true; 2], walk_stick: Some(0.6),
+                ..Default::default()
+            };
+            let out = Spacing::default().sample_threat(1, true, Config::default(), c,
+                Some(Opponent { id: 2, position: [side * 25., 0.], ..Default::default() }), true);
+            let selected = out.controller;
+            let walking = !selected.stick.is_some_and(|stick| stick[0].abs() >= 0.8);
+            let raw = ManualOverlay::default().apply_reaction_controls(
+                ButtonTrace::default(), [side, 0.], TurboOutput { stick: selected.stick },
+                sequence_flick_consumption(selected.owned, walking),
+                layout.physical_buttons(selected.requested),
+                layout.physical_owned_buttons(selected.owned), true,
+            );
+            assert_eq!(raw.stick, [-side, 0.]);
+            let direction = if side > 0. { MAPPER_LEFT_STICK_LEFT } else { MAPPER_LEFT_STICK_RIGHT };
+            assert_ne!(raw.buttons.pressed & direction, 0);
+            assert_eq!(mapped_stick_axis(raw.stick[0]), (-side * 127.) as i8);
+            assert_eq!(kirby_assist_core::auto_spacing::manual_movement([side, 0.],
+                out.movement_caps.unwrap()), [side * 0.49, 0.]);
+        }
+    }
+}
+
+#[test]
 fn spacing_final_walk_cap_blocks_full_strength_reversals_after_mapping() {
     for dash_threshold in [0.5, 0.66, 0.8, 1.] {
         let cap = fastest_walk_stick(0.2, dash_threshold).unwrap();
@@ -333,7 +365,38 @@ fn spacing_forward_tilt_never_exceeds_walk_cap_or_falls_back_to_jab() {
 }
 
 #[test]
-fn spacing_caps_native_dash_without_neutral_or_accidental_dash_attack() {
+fn lucina_spacing_down_tilt_faces_enemy_and_releases_cstick_between_retries() {
+    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
+        fighter_kinds::LUCINA, native_states::{situation, status}};
+    let cfg = Config { fighter_kind: LUCINA, ground: AttackConfig {
+        attack: Attack::Down, startup: 7., active_frames: 2., reach: 20., height: 9., commitment: 25.,
+    }, ..Default::default() };
+    for side in [-1., 1.] {
+        let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
+            situation: situation::GROUND, status: status::WAIT, facing: -side,
+            walk_stick: Some(0.69), safe_ground: [true; 2], ..Default::default() };
+        let target = Some(Opponent { position: [side * 18., 0.], vulnerable: true, ..Default::default() });
+        let mut spacing = Spacing::default();
+        let turn = spacing.sample_threat(0, true, cfg, c, target, true);
+        assert!(!turn.attack);
+        assert_eq!(turn.controller.stick, Some([side * 0.6, 0.]));
+        for tick in 1..=3 {
+            let out = spacing.sample_threat(tick, true, cfg,
+                GameplayContext { facing: side, ..c }, target, true);
+            assert_eq!(out.attack, tick != 2);
+            assert_eq!(out.right_stick, if out.attack { [side * 0.2, -1.] } else { [0.; 2] });
+            let (buttons, left, right) = mapped_spacing_input(MAPPED_JUMP, out.attack,
+                out.controller.stick.unwrap(), out.right_stick);
+            assert_eq!(left, if out.attack { [side * 0.2, -0.6] } else { [0.; 2] });
+            assert_eq!(right, [0.; 2]);
+            assert_eq!(buttons, MAPPED_JUMP | if out.attack { MAPPED_ATTACK_HOLD_BITS } else { 0 });
+            if out.attack { spacing.mapped(tick); }
+        }
+    }
+}
+
+#[test]
+fn spacing_brakes_native_dash_in_attack_range_without_accidental_dash_attack() {
     use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
         native_states::{situation, status}};
     let cfg = Config { ground: AttackConfig { attack: Attack::Forward,
@@ -348,7 +411,7 @@ fn spacing_caps_native_dash_without_neutral_or_accidental_dash_attack() {
         let mut spacing = Spacing::default();
         for target in [enemy, None] {
             let out = spacing.sample(1, true, cfg, c, target);
-            assert_eq!(out.controller.stick, None);
+            assert_eq!(out.controller.stick, target.map(|_| [0.; 2]));
             assert_eq!(out.walk_cap, Some(0.49));
             assert_eq!(out.controller.requested, 0);
             assert_eq!(out.right_stick, [0.; 2]);

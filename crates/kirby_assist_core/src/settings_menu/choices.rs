@@ -49,6 +49,12 @@ impl<'a> Source<'a> {
     /// Returns the display name associated with the value.
     pub fn name(&self) -> &'a str {
         match self {
+            Self::Draft(d) if d.sequence.builtin == Some(Builtin::Normal) => {
+                Builtin::Normal.label()
+            }
+            Self::Saved(c) if c.sequence.builtin == Some(Builtin::Normal) => {
+                Builtin::Normal.label()
+            }
             Self::Draft(d) => &d.name,
             Self::Saved(c) => c.name,
             Self::Builtin(b) => b.label(),
@@ -191,7 +197,7 @@ impl MenuSelection {
                     .unwrap_or_else(|| entry.choice.replace('_', " "));
                 if !old_index.is_some_and(|i| {
                     options[i].name == name && *options[i].sequence == entry.sequence
-                }) && entry.sequence.builtin != Some(crate::button_bindings::Builtin::Normal) {
+                }) {
                     records.drafts.insert(
                         (slot as usize, index),
                         catalog::Draft {
@@ -209,15 +215,16 @@ impl MenuSelection {
                     }
                 }
             }
-            self.choices[slot as usize] = selected
-                .or(first)
-                .unwrap_or_else(|| {
-                    if slot == PresetSlot::Y && crate::auto_counter::supports(kind) {
-                        options.len() + crate::button_bindings::Builtin::Counter.visible_template_offset().unwrap()
-                    } else {
-                        slot.default_index(options.len())
-                    }
-                });
+            self.choices[slot as usize] = selected.or(first).unwrap_or_else(|| {
+                if slot == PresetSlot::Y && crate::auto_counter::supports(kind) {
+                    options.len()
+                        + crate::button_bindings::Builtin::Counter
+                            .visible_template_offset()
+                            .unwrap()
+                } else {
+                    slot.default_index(options.len())
+                }
+            });
         }
         if !records.drafts.is_empty() {
             self.catalog = Some(Box::new(records));
@@ -399,11 +406,38 @@ impl MenuSelection {
     }
     /// Returns the `visible_choices` result.
     pub(super) fn visible_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
-        self.all_choices(presets, slot)
+        let choices: Vec<_> = self
+            .all_choices(presets, slot)
             .into_iter()
             .filter(|index| {
                 self.recipe_snapshot(presets, slot, *index)
                     .is_some_and(|s| !s.reaction.active())
+            })
+            .collect();
+        let selected = self.choices[slot as usize];
+        let selected_builtin = choices
+            .contains(&selected)
+            .then(|| {
+                self.source(presets, slot, selected)
+                    .and_then(|s| s.builtin())
+            })
+            .flatten();
+        let mut seen = Vec::new();
+        choices
+            .into_iter()
+            .filter(|index| {
+                let Some(builtin) = self.source(presets, slot, *index).and_then(|s| s.builtin())
+                else {
+                    return true;
+                };
+                if selected_builtin == Some(builtin) {
+                    return *index == selected;
+                }
+                if seen.contains(&builtin) {
+                    return false;
+                }
+                seen.push(builtin);
+                true
             })
             .collect()
     }
@@ -443,6 +477,7 @@ impl MenuSelection {
     fn quick_choice(&self, presets: &MenuPresets, slot: PresetSlot, index: usize) -> bool {
         self.source(presets, slot, index).is_some_and(|source| {
             source.builtin().is_some()
+                || !self.lightweight && slot.is_button() && matches!(source, Source::Custom)
                 || !source.allow_new()
                 || self.draft(slot, index).is_some()
                 || self

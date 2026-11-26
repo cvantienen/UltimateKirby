@@ -21,14 +21,12 @@ fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
 #[test]
 fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
     use crate::button_bindings::Builtin;
-    let (p, mut m) = setup("", 6);
+    let (p, mut m) = setup(
+        "[kirby.y.spacing]\nbuiltin=auto_spacing_toggle\ndefault=true\n[kirby.x.counter]\nbuiltin=counter_toggle\ndefault=true\n",
+        6,
+    );
     m.menu_hidden = true;
-    for (slot, builtin, mode_index) in [
-        (PresetSlot::Y, Builtin::AutoSpacingToggle, 0),
-        (PresetSlot::X, Builtin::CounterToggle, 1),
-    ] {
-        m.choices[slot as usize] = p.list(slot).options.len()
-            + builtin.visible_template_offset().unwrap();
+    for (slot, mode_index) in [(PresetSlot::Y, 0), (PresetSlot::X, 1)] {
         m.input(0, &p);
         let button = slot.button();
         m.input(button, &p);
@@ -44,8 +42,8 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
     let (p, mut m) = setup("", 6);
     m.menu_hidden = true;
     let slot = PresetSlot::Y;
-    m.choices[slot as usize] = p.list(slot).options.len()
-        + Builtin::AutoSpacing.visible_template_offset().unwrap();
+    m.choices[slot as usize] =
+        p.list(slot).options.len() + Builtin::AutoSpacing.visible_template_offset().unwrap();
     m.input(0, &p);
     m.input(slot.button(), &p);
     assert!(m.auto_spacing_held());
@@ -54,19 +52,27 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
 }
 
 #[test]
-fn l3_defaults_to_spacing_and_down_to_turbo_without_starting_a_recipe() {
+fn l3_defaults_to_spacing_and_down_passes_through_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
     let index = m.choices[PresetSlot::L3 as usize];
-    assert_eq!(m.choice(&p, PresetSlot::L3, index).unwrap().id,
-        Builtin::AutoSpacing.choice_id());
+    assert_eq!(
+        m.choice(&p, PresetSlot::L3, index).unwrap().id,
+        Builtin::AutoSpacing.choice_id()
+    );
     m.input(0, &p);
     assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
     assert!(m.auto_spacing_held());
-    assert_eq!(m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER, 0);
+    assert_eq!(
+        m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER,
+        0
+    );
     m.input(0, &p);
-    assert_ne!(m.input(DPAD_DOWN, &p) & DPAD_DOWN, 0);
-    assert_ne!(m.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER, 0);
+    assert_eq!(m.input(DPAD_DOWN, &p) & DPAD_DOWN, 0);
+    assert_eq!(
+        m.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER,
+        0
+    );
     assert!(m.preview_slot.is_none());
 }
 
@@ -118,12 +124,9 @@ fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper(
                     Builtin::Normal.choice_id(),
                     "menu_custom",
                     "universal_b_reverse",
-                    Builtin::TurboTeabag.choice_id(),
                     Builtin::LedgeTrump.choice_id(),
                     Builtin::AutoSpacing.choice_id(),
                     Builtin::Counter.choice_id(),
-                    Builtin::AutoSpacingToggle.choice_id(),
-                    Builtin::CounterToggle.choice_id(),
                 ]
             );
             assert!(m.choice(&p, slot, base + slot.templates()).is_none());
@@ -338,7 +341,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 7);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 5);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m
@@ -508,7 +511,10 @@ fn obsolete_defense_builtins_reload_as_normal_and_do_not_consume_the_button() {
         assert!(!m.counter_held());
         assert!(!m.auto_spacing_held());
         assert_eq!(catalog.entries()[0].sequence.builtin, Some(Builtin::Normal));
-        assert!(text.contains(token), "loading does not rewrite the saved file");
+        assert!(
+            text.contains(token),
+            "loading does not rewrite the saved file"
+        );
     }
 }
 
@@ -517,12 +523,19 @@ fn held_y_counter_consumes_normal_y_in_both_control_layouts_and_releases() {
     use crate::native_input::ControlLayout;
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         let (p, mut m) = setup("", crate::fighter_kinds::LUCINA);
-        m.load_saved_recipes(&p, &Catalog::parse("").unwrap(), crate::fighter_kinds::LUCINA);
+        m.load_saved_recipes(
+            &p,
+            &Catalog::parse("").unwrap(),
+            crate::fighter_kinds::LUCINA,
+        );
         m.binding_input = Some((0, layout));
         m.input(0, &p);
         m.binding_input = Some((MAPPER_Y, layout));
         let consumed = m.input(layout.policy_buttons(MAPPER_Y), &p);
-        assert_eq!(consumed & layout.binding_ownership(MAPPER_Y), layout.binding_ownership(MAPPER_Y));
+        assert_eq!(
+            consumed & layout.binding_ownership(MAPPER_Y),
+            layout.binding_ownership(MAPPER_Y)
+        );
         assert!(m.counter_held());
         assert_eq!(m.native_buttons(MAPPER_Y) & MAPPER_Y, 0);
         assert!(m.preview_slot.is_none());

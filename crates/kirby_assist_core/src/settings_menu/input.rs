@@ -505,6 +505,13 @@ impl MenuSelection {
                 return Some(mask);
             }
             if s.pressed & MAPPER_B != 0 {
+                let builtin = self.row.slot().and_then(|slot| {
+                    self.source(presets, slot, self.choices[slot as usize])
+                        .and_then(|s| s.builtin())
+                });
+                if builtin.is_some() {
+                    return Some(self.manage_page_input(presets, s));
+                }
                 self.show_quick();
                 self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
                 return Some(s.consume(MAPPER_L | MAPPER_B | self.pad_quarantine));

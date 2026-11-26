@@ -453,15 +453,12 @@ pub mod button_bindings {
             Self::AutoSpacingToggle,
             Self::CounterToggle,
         ];
-        /// Selectable native helpers; legacy ledge assistance remains loadable only.
-        pub const MENU: [Self; 7] = [
+        /// Selectable native helpers; other saved helpers remain loadable only.
+        pub const MENU: [Self; 4] = [
             Self::Normal,
-            Self::TurboTeabag,
             Self::LedgeTrump,
             Self::AutoSpacing,
             Self::Counter,
-            Self::AutoSpacingToggle,
-            Self::CounterToggle,
         ];
         /// Returns the serialized token for the value.
         pub fn token(self) -> &'static str {
@@ -479,12 +476,12 @@ pub mod button_bindings {
         /// Returns the display label for the value.
         pub fn label(self) -> &'static str {
             match self {
-                Self::Normal => "Short hop",
+                Self::Normal => "Default",
                 Self::LedgeAssist => "Built-in: Ledge assist / walk",
                 Self::TurboTeabag => "Built-in: Turbo t-bag",
                 Self::LedgeTrump => "Built-in: Ledge trump",
-                Self::AutoSpacing => "Built-in: Auto-Spacing & Attack (hold)",
-                Self::Counter => "Built-in: Counter (hold)",
+                Self::AutoSpacing => "Built-in: Auto-spacing (hold)",
+                Self::Counter => "Built-in: Auto-counter (hold)",
                 Self::AutoSpacingToggle => "Built-in: Auto-Spacing & Attack (toggle)",
                 Self::CounterToggle => "Built-in: Counter (toggle)",
             }
@@ -514,7 +511,6 @@ pub mod button_bindings {
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             match slot {
                 crate::fighter_profiles::presets::PresetSlot::L3 => Self::AutoSpacing,
-                crate::fighter_profiles::presets::PresetSlot::DpadDown => Self::TurboTeabag,
                 _ => Self::Normal,
             }
         }
@@ -535,25 +531,19 @@ pub mod button_bindings {
         pub fn visible_template_offset(self) -> Option<usize> {
             match self {
                 Self::Normal => Some(0),
-                Self::TurboTeabag => {
+                Self::LedgeTrump => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 1)
                 }
-                Self::LedgeTrump => {
+                Self::AutoSpacing => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 2)
                 }
-                Self::AutoSpacing => {
+                Self::Counter => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 3)
                 }
-                Self::Counter => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 4)
-                }
-                Self::AutoSpacingToggle => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 5)
-                }
-                Self::CounterToggle => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 6)
-                }
-                Self::LedgeAssist => None,
+                Self::LedgeAssist
+                | Self::TurboTeabag
+                | Self::AutoSpacingToggle
+                | Self::CounterToggle => None,
             }
         }
     }

@@ -45,7 +45,7 @@ fn auto_spacing_choice_cycles_and_saved_default_reloads_by_identity() {
         assert_eq!(selection.cycle_choice(&presets, slot, true), spacing + 1);
         selection.quick_menu = true;
         let (position, count) = selection.choice_position(&presets, slot);
-        assert_eq!(position + 4, count);
+        assert_eq!(position + 2, count);
         selection.quick_menu = false;
     }
     let saved = persist::update(
@@ -127,7 +127,7 @@ fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
         let selection = MenuSelection::new(&presets);
         for (slot, expected) in [
             (PresetSlot::L3, Builtin::AutoSpacing),
-            (PresetSlot::DpadDown, Builtin::TurboTeabag),
+            (PresetSlot::DpadDown, Builtin::Normal),
         ] {
             assert_eq!(
                 selection

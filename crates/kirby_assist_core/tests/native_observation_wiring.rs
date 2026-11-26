@@ -414,6 +414,39 @@ fn counter_observer_sees_close_startup_but_not_frozen_animation() {
 }
 
 #[test]
+fn counter_observer_admits_slow_close_startup_before_contact_horizon() {
+    use kirby_assist_core::{auto_counter::Counter, native_states::status, native_input::MAPPER_B};
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.kind = kirby_assist_core::fighter_kinds::YOSHI;
+    enemy.status = status::ATTACK_AIR;
+    enemy.motion = kirby_assist_core::timing::motion_hash("attack_air_f");
+    enemy.frame = 0.;
+    enemy.position[0] = 12.;
+    enemy.active = false;
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    let config = kirby_assist_core::auto_counter::Config {
+        startup: 5., input_delay: 0., margin: 0.,
+        half_width: 6., height: 16., half_depth: 4.,
+    };
+    let mut policy = Counter::new();
+    for frame in [0., 1., 2.] {
+        SOURCES.with(|s| s.borrow_mut()[0].frame = frame);
+        let reads = source_reads();
+        let (_, context, threat) = unsafe {
+            counter::observe(&reads, own.object(), 1, kirby_assist_core::fighter_kinds::LUCINA,
+                Some(config), true).unwrap()
+        };
+        assert!(threat.is_some());
+        assert_eq!(policy.sample(true, Some(config), context, threat).requested, MAPPER_B);
+    }
+    SOURCES.with(|s| s.borrow_mut()[0].position[0] = 60.);
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
 fn counter_observer_does_not_expire_frozen_active_geometry() {
     let mut own = Actor::new(1);
     own.special_enabled = true;

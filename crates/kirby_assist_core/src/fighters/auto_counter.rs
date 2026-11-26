@@ -91,7 +91,8 @@ pub fn predicted_attack(
         || !rate.is_finite()
         || rate <= 0.0
         || !(melee_status(status)
-            || (crate::native_states::status::SPECIAL_N..=crate::native_states::status::SPECIAL_LW).contains(&status))
+            || status >= crate::native_states::status::SPECIAL_N
+                && !crate::native_states::fighter_sequence_interrupted(kind, status))
         || !config.valid()
     {
         return None;
@@ -103,6 +104,15 @@ pub fn predicted_attack(
         })
     {
         return None;
+    }
+    // A close, slow startup is actionable now; the short live-contact horizon
+    // must not postpone it until the animation is almost active.
+    if move_data.active.first().is_some_and(|window| {
+        (f32::from(window.first) - frame) / rate > config.horizon()
+    }) && root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
+        0.0, 0.0, 12.0, 6.0).is_some()
+    {
+        return Some(Threat { id, motion, status, frame, in_frames: 0.0 });
     }
     // Missing live geometry during an active window is not startup evidence.
     // Only forecast a future window, screening contact throughout that window.

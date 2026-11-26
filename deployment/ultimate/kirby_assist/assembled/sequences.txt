@@ -8953,7 +8953,6 @@ timeout = 3600
 spatial_timeout = 60
 actions = down_tilt:1, wait:30, shield:255
 
-
 [lucina.drop.forward_air]
 default = false
 start_delay = 0
@@ -9017,6 +9016,7 @@ reaction = auto_spot_dodge:10:12
 name = Spot dodge > Up B
 default = false
 
+# Hold L3 for spacing; releasing it stops the assist.
 [lucina.roll.auto_air_dodge]
 start_delay = 0
 timeout = 240
@@ -9027,6 +9027,8 @@ reaction = auto_air_dodge:15:30
 name = Air dodge > Up B
 default = false
 
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 [lucina.roll.auto_grab_dodged]
 start_delay = 0
 timeout = 240
@@ -9037,11 +9039,16 @@ reaction = auto_grab_dodged:10:12
 name = Dodged grab > Up B
 default = false
 
-[lucina.y.__builtin_auto_spacing]
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+[lucina.l3.__builtin_auto_spacing]
 default = true
 name = Built-in: Auto-Spacing & Attack (hold)
 builtin = auto_spacing
 
+[lucina.y.__builtin_counter_hold]
+default = true
+name = Built-in: Counter (hold)
+builtin = counter_hold
 
 [lucina.settings]
 walk_strength = 0.48999986
@@ -9050,11 +9057,14 @@ tilt_turn_down = false
 tilt_turn_forward = false
 tilt_turn_up = false
 counter_default = true
+counter_aim_after_activation = true
 counter_startup = 7
 counter_margin = 3
 counter_half_width = 9
 counter_height = 17
 counter_half_depth = 6
+# Normal root-to-root spacing, in game units.
+# Normal root-to-root spacing, in game units.
 auto_spacing_minimum_distance = 24
 auto_spacing_ground_move = 2
 auto_spacing_ground_startup = 10
@@ -9073,7 +9083,11 @@ auto_spacing_maximum_drift = 1
 auto_spacing_minimum_drift = 0.11
 auto_spacing_ground_braking = false
 auto_spacing_braking_distance = 10
-auto_defense_lead_frames = 10
+
+[lucina.x.__builtin_auto_spacing]
+default = true
+name = Built-in: Auto-Spacing & Attack (hold)
+builtin = auto_spacing
 
 [luigi.neutral.nair]
 default = false

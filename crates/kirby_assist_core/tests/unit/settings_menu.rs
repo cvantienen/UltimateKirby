@@ -275,8 +275,8 @@ fn visible_pad_edits_only_and_close_quarantines_held_directions() {
     assert!(menu.menu_hidden);
     assert_ne!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
     assert_ne!(menu.input(0, p) & DPAD_DOWN, 0);
-    assert_ne!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
-    assert_ne!(menu.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER, 0);
+    assert_eq!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
+    assert_eq!(menu.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER, 0);
 }
 
 #[test]

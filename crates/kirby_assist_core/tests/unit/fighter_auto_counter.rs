@@ -708,6 +708,31 @@ fn never_retries_when_native_counter_has_started() {
 }
 
 #[test]
+fn close_slow_startup_requests_counter_at_animation_start() {
+    use crate::native_states::status;
+    for state in [status::ATTACK_AIR, status::SPECIAL_S, status::FINAL + 1] {
+        let predict = |x, frame| predicted_attack(
+            config(), [0.; 3], [0.; 2], [x, 0., 0.], [0.; 2],
+            crate::fighter_kinds::YOSHI, 7, crate::timing::motion_hash("attack_air_f"),
+            state, frame, 1.,
+        );
+        let hit = predict(12., 0.).expect("close startup must not wait for the contact horizon");
+        let mut counter = Counter::new();
+        assert_eq!(counter.sample(true, Some(config()), context(), Some(hit)).requested, MAPPER_B);
+        assert!(predict(40., 0.).is_none());
+        assert!(predict(12., 16.).is_none(), "missing active geometry is not startup");
+        assert!(predict(12., 80.).is_none(), "recovery is not startup");
+    }
+    for state in [status::FINAL, status::GUARD, status::CAPTURE_WAIT] {
+        assert!(predicted_attack(
+            config(), [0.; 3], [0.; 2], [12., 0., 0.], [0.; 2],
+            crate::fighter_kinds::YOSHI, 7, crate::timing::motion_hash("attack_air_f"),
+            state, 0., 1.,
+        ).is_none());
+    }
+}
+
+#[test]
 fn close_startup_uses_contact_time_not_counter_activation_time() {
     let motion = crate::timing::motion_hash("attack_air_f");
     let predict = |x, vx| {

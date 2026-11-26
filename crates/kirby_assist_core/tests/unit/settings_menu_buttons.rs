@@ -674,7 +674,7 @@ fn match_all_supported_saved_slots_select_the_matching_payload() {
         );
         let (position, count) = m.choice_position(&p, slot);
         assert_eq!(position, 1);
-        assert_eq!(count, if slot.is_button() { 9 } else { 2 });
+        assert_eq!(count, if slot.is_button() { 6 } else { 2 });
     }
     assert!(m.editor.is_none() && m.catalog.is_none());
 }
@@ -864,4 +864,133 @@ fn lightweight_starts_visible_minus_still_toggles_and_training_starts_hidden() {
     let mut training = MenuSelection::new(&p);
     training.input_with_editing(0, &p, true);
     assert!(training.menu_hidden && !training.lightweight);
+}
+
+#[test]
+fn training_custom_button_sequence_can_be_selected_edited_and_saved() {
+    let p = presets("");
+    for slot in PresetSlot::BUTTONS {
+        let mut m = MenuSelection::new(&p);
+        m.show_quick();
+        m.row = MenuRow::ALL
+            .into_iter()
+            .find(|row| row.slot() == Some(slot))
+            .unwrap();
+        m.input(0, &p);
+        let custom = p.list(slot).options.len() + PresetSlot::BUTTON_CUSTOM_OFFSET;
+        for _ in 0..slot.templates() {
+            if m.choices[slot as usize] == custom {
+                break;
+            }
+            m.input(DPAD_RIGHT, &p);
+            m.input(0, &p);
+        }
+        assert_eq!(m.choices[slot as usize], custom, "{slot:?}");
+        m.input(MENU_STICK_CLICK, &p);
+        m.input(0, &p);
+        assert!(m.recipe_editing && m.editor.is_some());
+        m.input(DPAD_DOWN, &p);
+        m.input(0, &p);
+        m.input(DPAD_RIGHT, &p);
+        m.input(0, &p);
+        let sequence = m.recipe_snapshot(&p, slot, custom).unwrap();
+        assert!(sequence.len > 0 && sequence.builtin.is_none());
+        m.input(MAPPER_Y, &p);
+        assert!(m.save_requested);
+        let saved = crate::sequence_config::persist::update_named(
+            "",
+            6,
+            slot,
+            "menu_custom",
+            sequence,
+            true,
+            Some("My sequence"),
+        )
+        .unwrap();
+        let saved_catalog = Catalog::parse(&saved).unwrap();
+        assert_eq!(saved_catalog.entries()[0].sequence, sequence);
+        let reloaded = presets(&saved);
+        let restored = MenuSelection::new(&reloaded);
+        assert_eq!(
+            restored.recipe_snapshot(&reloaded, slot, restored.choices[slot as usize]),
+            Some(sequence)
+        );
+        m.complete_saved_snapshot(&p, slot, custom, false, Some(sequence), Some("My sequence"));
+        m.show_quick();
+        let choice = m.choice(&p, slot, custom).unwrap();
+        assert_eq!(choice.name, "My sequence");
+        assert!(!choice.allow_new);
+        m.input_with_editing(0, &p, false);
+        let mut found = false;
+        for _ in 0..slot.templates() {
+            found |= m.choices[slot as usize] == custom;
+            m.choices[slot as usize] = m.cycle_quick_choice(&p, slot, true);
+        }
+        assert!(found);
+    }
+}
+
+#[test]
+fn builtin_manage_add_opens_a_blank_button_editor() {
+    let p = presets("");
+    let mut m = MenuSelection::new(&p);
+    m.show_quick();
+    m.row = MenuRow::XSequence;
+    m.input(0, &p);
+    for button in [MENU_STICK_CLICK, MAPPER_B, DPAD_DOWN, MAPPER_A] {
+        m.input(button, &p);
+        m.input(0, &p);
+    }
+    assert!(m.recipe_editing && !m.managing());
+    let index = m.choices[PresetSlot::X as usize];
+    let choice = m.choice(&p, PresetSlot::X, index).unwrap();
+    assert!(choice.allow_new && choice.sequence.builtin.is_none());
+    assert!(choice
+        .sequence
+        .actions()
+        .iter()
+        .all(|action| matches!(action, crate::sequence_config::Action::Empty)));
+    assert!(m
+        .editor
+        .as_ref()
+        .unwrap()
+        .has((PresetSlot::X as usize, index)));
+}
+
+#[test]
+fn saved_builtin_choices_are_not_duplicated_and_legacy_default_names_are_normalized() {
+    use crate::button_bindings::Builtin;
+    let text = "[kirby.y.first]\nbuiltin=counter_hold\ndefault=true\n[kirby.y.second]\nbuiltin=counter_hold\n[kirby.x.normal]\nbuiltin=normal\nname=Short hop\ndefault=true\n";
+    let p = presets(text);
+    let mut m = MenuSelection::new(&p);
+    m.load_saved_recipes(&p, &Catalog::parse(text).unwrap(), 6);
+    for slot in [PresetSlot::X, PresetSlot::Y] {
+        let builtin = if slot == PresetSlot::X {
+            Builtin::Normal
+        } else {
+            Builtin::Counter
+        };
+        let choices = m.visible_choices(&p, slot);
+        assert_eq!(
+            choices
+                .iter()
+                .filter(|index| { m.source(&p, slot, **index).unwrap().builtin() == Some(builtin) })
+                .count(),
+            1
+        );
+        assert!(choices.contains(&m.choices[slot as usize]));
+    }
+    assert_eq!(
+        m.choice(&p, PresetSlot::X, m.choices[PresetSlot::X as usize])
+            .unwrap()
+            .name,
+        "Default"
+    );
+    let changed = "[kirby.x.new_normal]\nbuiltin=normal\nname=Short hop\ndefault=true\n";
+    m.load_saved_recipes(&p, &Catalog::parse(changed).unwrap(), 6);
+    let choice = m
+        .choice(&p, PresetSlot::X, m.choices[PresetSlot::X as usize])
+        .unwrap();
+    assert_eq!(choice.id, "new_normal");
+    assert_eq!(choice.name, "Default");
 }

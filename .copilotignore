@@ -44,3 +44,4 @@
 # unless the task explicitly concerns dependency resolution.
 /Cargo.lock
 /crates/kirby_assist_core/Cargo.lock
+data

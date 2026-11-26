@@ -469,7 +469,7 @@ pub fn mapped_spacing_input(
         && right.iter().any(|v| v.abs() > 0.5);
     let left = if tilt {
         if right[1].abs() > right[0].abs() {
-            [0., right[1].signum() * 0.6]
+            [right[0].clamp(-0.2, 0.2), right[1].signum() * 0.6]
         } else {
             [right[0].signum() * 0.6, 0.]
         }

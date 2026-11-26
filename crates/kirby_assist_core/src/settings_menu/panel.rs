@@ -62,7 +62,11 @@ impl MenuSelection {
                         crate::button_bindings::Builtin::Normal => "Uses this button's normal game action; no standalone assist or recipe runs.",
                         _ => "Uses the existing input helper; no input recipe runs. The game still decides whether the action is available.",
                     }.into(),
-                    "This assignment replaces the button's normal action. Assign it to another button to move its control.".into(),
+                    if builtin == crate::button_bindings::Builtin::Normal {
+                        "Keeps the button's normal action. B: manage, then Add to create a custom sequence."
+                    } else {
+                        "This assignment replaces the button's normal action. Assign it to another button to move its control."
+                    }.into(),
                 ],
                 footer: vec!["Y: save as startup default | R3: back | B: manage".into()],
                 focus: None,
