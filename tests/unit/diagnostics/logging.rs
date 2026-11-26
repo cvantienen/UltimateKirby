@@ -1,5 +1,22 @@
 use super::*;
 #[test]
+fn live_logs_include_ordinary_and_performance_reports_as_plain_text() {
+    let mut file = None;
+    let mut console = BufWriter::new(std::io::stdout());
+    output(&mut file, &mut console, "live-route-test ordinary <script>");
+    output_performance(&mut file, &mut console, "live-route-test performance");
+    let batch: serde_json::Value = serde_json::from_str(&live_logs(0)).unwrap();
+    let texts: Vec<_> = batch["entries"].as_array().unwrap().iter()
+        .map(|entry| entry["text"].as_str().unwrap()).collect();
+    assert!(texts.contains(&"live-route-test ordinary <script>"));
+    assert!(texts.contains(&"live-route-test performance"));
+    let next = batch["next"].as_u64().unwrap();
+    let after: serde_json::Value = serde_json::from_str(&live_logs(next)).unwrap();
+    assert!(after["entries"].as_array().unwrap().iter()
+        .all(|entry| entry["id"].as_u64().unwrap() > next));
+}
+
+#[test]
 /// Confirms ordinary and performance reports use distinct file paths.
 fn performance_and_ordinary_reports_write_to_separate_files() {
     let unique = std::time::SystemTime::now()

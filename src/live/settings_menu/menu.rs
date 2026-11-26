@@ -412,7 +412,7 @@ unsafe extern "C" fn draw() {
         lightweight::draw(view, display, scale);
         return;
     }
-    draw_card(view, display, scale, status.is_some());
+    draw_card(view, display, scale);
 }
 
 /// Window flags shared by every overlay: never focused, clickable or persisted.
@@ -433,7 +433,7 @@ fn row_highlight() -> ImVec4_c {
 }
 
 /// Draws the cached panel frame, heading, content, and status within display bounds.
-unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown: bool) {
+unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32) {
     // A fixed-width card shows a bounded option window; never shrink text to
     // fit the entire catalog or horizontally scroll the gameplay overlay.
     let gap = 5.0 * scale;
@@ -492,19 +492,7 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown
     ) {
         draw_card_contents(view, display, scale);
     }
-    #[cfg(feature = "diagnostic-logging")]
-    let result_space = kirby_assist_core::diagnostics::modes::left_result_space(
-        display.y - if status_shown { 24.0 * scale } else { 0.0 },
-        scale,
-        igGetWindowHeight() + 8.0 * scale,
-    );
-    #[cfg(not(feature = "diagnostic-logging"))]
-    let _ = status_shown;
     igEnd();
-    #[cfg(feature = "diagnostic-logging")]
-    if let Some((result_y, available)) = result_space {
-        draw_result(scale, width, display.x - 8.0 * scale, result_y, available);
-    }
     igPopStyleVar(4);
     igPopStyleColor(3);
     igPopFont();
@@ -812,56 +800,6 @@ unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
             },
             std::ptr::null(),
         );
-    }
-    igEnd();
-    igPopStyleColor(1);
-    igPopFont();
-}
-#[cfg(feature = "diagnostic-logging")]
-/// Draws the latest cached diagnostic/result card when its epoch is current.
-unsafe fn draw_result(scale: f32, width: f32, right: f32, y: f32, available: f32) {
-    igSetNextWindowPos(
-        ImVec2_c { x: right, y },
-        ImGuiCond_Always as _,
-        ImVec2_c { x: 1.0, y: 0.0 },
-    );
-    igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
-    igSetNextWindowSizeConstraints(
-        ImVec2_c { x: width, y: 0.0 },
-        ImVec2_c {
-            x: width,
-            y: available,
-        },
-        None,
-        std::ptr::null_mut(),
-    );
-    igPushFont(std::ptr::null_mut(), 13.5 * scale);
-    igPushStyleColor_Vec4(ImGuiCol_WindowBg as _, color(0.035, 0.045, 0.075, 0.97));
-    if igBegin(
-        c"##ledge_result".as_ptr(),
-        std::ptr::null_mut(),
-        OVERLAY_FLAGS,
-    ) {
-        igPushTextWrapPos(0.0);
-        crate::performance::with_card(|card| {
-            igTextUnformatted(card.as_ptr(), std::ptr::null());
-            igSeparator();
-        });
-        // Both cards are cached by the worker. Drawing performs no native
-        // reads, formatting, file I/O or blocking lock acquisition.
-        if !crate::logging::with_snapshot(|card| igTextUnformatted(card.as_ptr(), std::ptr::null()))
-        {
-            igTextUnformatted(
-                c"LIVE SNAPSHOT: waiting for an assisted action. Full log: status.log".as_ptr(),
-                std::ptr::null(),
-            );
-        }
-        crate::calibration::with_card(|card| {
-            igSeparator();
-            igTextUnformatted(c"LAST COMPLETED LEDGE ATTEMPT".as_ptr(), std::ptr::null());
-            igTextUnformatted(card.as_ptr(), std::ptr::null());
-        });
-        igPopTextWrapPos();
     }
     igEnd();
     igPopStyleColor(1);

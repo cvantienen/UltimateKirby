@@ -665,10 +665,15 @@ path. It has a 2 MiB stack, capped 512 KiB reads and exits after one operation.
 Malformed action counts are rejected before slicing/serialization. If a worker
 exits without publishing completion, saving is unlocked and an unconfirmed-save
 error is shown rather than leaving the editor permanently busy.
-No SD read/parse/write runs on the input/render callback. The worker refreshes
-the owned saved catalog only after successful replacement; old catalogs are
-freed outside the short publication lock. It never publishes leaked startup
-menu references. Training writes can cause brief SD/CPU activity while active.
+No SD read/parse/write runs on the input/render callback. After a recipe or
+fighter-settings save, the worker reopens the canonical `sequences.txt`, checks
+its bytes against the expected saved text, validates it and reloads the owned
+saved catalog from that file—not from the pre-save draft. An unchanged save
+also reloads the file without rewriting it or replacing the backup. If the file
+changes before reload or cannot be read, runtime publication is refused and the
+save reports an error; retry rather than assuming the runtime was refreshed.
+Old catalogs are freed outside the short publication lock. The worker never
+publishes leaked startup menu references. Training writes can cause brief SD/CPU activity while active.
 Leaving Training releases unchanged/saved editor records, undo/clipboard data and
 temporary tool lists; unsaved or invalid drafts stay available. Lightweight input
 polls reuse button-role mappings until their configuration changes. Match-end

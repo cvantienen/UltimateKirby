@@ -176,7 +176,7 @@ class Controller:
         if action == 'lan-editor-configure':
             return self.app.configure_lan_editor(data.get('lan_host'), data.get('lan_port'))
         if action.startswith('lan-editor-'):
-            raise ValueError('LAN transport is unavailable; only local endpoint setup is supported')
+            raise ValueError('Use the dedicated LAN request endpoint')
         if action in {'ship', 'upload'} and data.get('ready') is not True:
             raise ValueError('Close Smash and open FTP on the Silent Switch and selected targets, then check the ready box')
         for key in ('silent_port', 'diagnostic_port'):
@@ -449,20 +449,33 @@ def launch(app):
                 return
             try:
                 size = int(self.headers.get('Content-Length', '0'))
-                if not 0 < size <= 65536:
+                limit = 4 * 1024 * 1024 if self.path == '/api/lan' else 65536
+                if not 0 < size <= limit:
                     raise ValueError('Invalid request size')
                 data = json.loads(self.rfile.read(size))
-                if self.path == '/api/run':
+                if self.path == '/api/lan':
+                    if not isinstance(data, dict):
+                        raise ValueError('Invalid LAN request')
+                    operation = data.get('operation')
+                    if operation == 'connect':
+                        app.lan.disconnect()
+                        app.configure_lan_editor(data.get('host'), data.get('port'))
+                    arguments = {key: data[key] for key in ('host', 'port', 'token', 'text', 'confirmed') if key in data}
+                    self.respond(200, app.lan.perform(operation, **arguments))
+                elif self.path == '/api/run':
                     controller.start(data)
                     self.respond(202, {'started': True})
                 elif self.path == '/api/close':
                     if controller.snapshot()['busy']:
                         raise RuntimeError('Wait for the current operation before closing')
+                    app.lan.disconnect()
                     self.respond(200, {'closed': True})
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
                 else:
                     self.respond(404, {'error': 'Not found'})
-            except (ValueError, RuntimeError) as error:
+            except (ValueError, RuntimeError, OSError) as error:
+                if self.path == '/api/lan':
+                    app.lan.disconnect()
                 self.respond(400, {'error': str(error)})
 
     with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
@@ -476,5 +489,6 @@ def launch(app):
         except KeyboardInterrupt:
             print('\nClosing after any active operation finishes; transfers are not interrupted.', flush=True)
         finally:
+            app.lan.disconnect()
             if controller.thread:
                 controller.thread.join()

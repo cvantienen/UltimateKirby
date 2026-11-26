@@ -42,6 +42,12 @@ import ftplib
 import json
 import os
 import ipaddress
+import getpass
+import socket
+import threading
+import time
+import difflib
+import re
 from pathlib import Path
 import shlex
 import sys
@@ -99,12 +105,196 @@ def helper(name, *args):
     return [sys.executable, str(ROOT / "tools" / name), *map(str, args)]
 
 
+class LanClient:
+    """Explicit, input-only diagnostic session; no resolver, proxy or retry path."""
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.connected = False
+        self.host, self.port, self.token = '', 4242, ''
+        self.editing = False
+        self.revision = None
+        self.original = None
+        self.preview_text = None
+        self.next = 0
+        self.generation = 0
+
+    def disconnect(self):
+        self.generation += 1
+        self.connected = self.editing = False
+        self.token = ''
+        self.revision = self.original = self.preview_text = None
+        self.next = 0
+        return {'connected': False}
+
+    def _request(self, method, path, limit, body=b'', revision=None):
+        generation = self.generation
+        deadline = time.monotonic() + (10 if method == 'PUT' else 2)
+        def remaining():
+            value = deadline - time.monotonic()
+            if value <= 0:
+                raise TimeoutError()
+            return value
+        headers = (f'{method} {path} HTTP/1.1\r\nHost: {self.host}:{self.port}\r\n'
+                   f'X-Kirby-Token: {self.token}\r\nConnection: close\r\nContent-Length: {len(body)}\r\n')
+        if revision is not None:
+            headers += f'X-Kirby-Revision: {revision}\r\n'
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as peer:
+            peer.settimeout(remaining())
+            peer.connect((self.host, self.port))
+            peer.settimeout(remaining())
+            peer.sendall(headers.encode('ascii') + b'\r\n' + body)
+            received = b''
+            while b'\r\n\r\n' not in received:
+                peer.settimeout(remaining())
+                chunk = peer.recv(1024)
+                if not chunk:
+                    raise ValueError('Incomplete HTTP headers')
+                received += chunk
+                if len(received.split(b'\r\n\r\n', 1)[0]) > 8192:
+                    raise ValueError('Oversized HTTP headers')
+            head, payload = received.split(b'\r\n\r\n', 1)
+            lines = head.decode('ascii').split('\r\n')
+            status = re.fullmatch(r'HTTP/1\.[01] ([0-9]{3})(?: [^\r\n]*)?', lines[0])
+            if not status:
+                raise ValueError('Invalid HTTP status')
+            fields = {}
+            for line in lines[1:]:
+                key, separator, value = line.partition(':')
+                key = key.lower()
+                if not separator or key in fields:
+                    raise ValueError('Invalid or duplicate HTTP header')
+                fields[key] = value.strip()
+            length = fields.get('content-length', '')
+            if not length.isascii() or not length.isdecimal() or int(length) > limit:
+                raise ValueError('Missing or oversized Content-Length')
+            if fields.get('connection', '').lower() != 'close' or 'transfer-encoding' in fields:
+                raise ValueError('Unsupported HTTP framing')
+            length = int(length)
+            if len(payload) > length:
+                raise ValueError('Unexpected HTTP bytes')
+            while len(payload) < length:
+                peer.settimeout(remaining())
+                chunk = peer.recv(min(8192, length - len(payload)))
+                if not chunk:
+                    raise ValueError('Incomplete HTTP body')
+                payload += chunk
+        if generation != self.generation:
+            raise RuntimeError('Session disconnected')
+        code = int(status[1])
+        if code != 200:
+            messages = {403: 'Training access revoked or editor closed', 409: 'Stale revision; reconnect and reload before editing'}
+            raise RuntimeError(messages.get(code, f'HTTP {code}; redirects and retries are disabled'))
+        return payload, fields
+
+    def perform(self, operation, **data):
+        if operation == 'disconnect':
+            return self.disconnect()
+        if not self.lock.acquire(blocking=False):
+            raise RuntimeError('A LAN request is already running')
+        save_started = False
+        try:
+            if operation == 'connect':
+                self.disconnect()
+                self.host, self.port = lan_endpoint(data.get('host'), data.get('port'))
+                token = data.get('token')
+                if not isinstance(token, str) or not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token):
+                    raise ValueError('Token must be 32..128 ASCII letters, digits, hyphens or underscores')
+                self.token = token
+                payload, _ = self._request('GET', '/status', 8191)
+                status = json.loads(payload)
+                if not isinstance(status, dict) or type(status.get('protocol')) is not int or status['protocol'] != 1 or status.get('training') is not True or type(status.get('editing')) is not bool:
+                    raise ValueError('Unsupported protocol or Training not active')
+                self.connected, self.editing = True, status['editing']
+                return {'connected': True, 'editing': self.editing}
+            if not self.connected:
+                raise RuntimeError('Connect explicitly first')
+            if operation == 'load':
+                payload, headers = self._request('GET', '/sequences', 512 * 1024)
+                revision = headers.get('x-kirby-revision', '')
+                if not re.fullmatch(r'[0-9a-fA-F]{1,128}', revision):
+                    raise ValueError('Missing or invalid sequence revision')
+                text = payload.decode('utf-8')
+                self.original, self.revision, self.preview_text = text, revision, None
+                return {'text': text, 'revision': revision}
+            if operation in {'preview', 'save'}:
+                text = data.get('text')
+                if self.original is None or not isinstance(text, str):
+                    raise ValueError('Load the complete file first')
+                body = text.encode('utf-8')
+                if not body.strip() or len(body) > 512 * 1024:
+                    raise ValueError('File must be nonempty and at most 512 KiB')
+                if operation == 'preview':
+                    generation = self.generation
+                    try:
+                        transfer.validate_sequences(body)
+                    except Exception:
+                        raise RuntimeError('Local sequence validation failed; disconnected, correct the draft and reconnect') from None
+                    if generation != self.generation or not self.connected:
+                        raise RuntimeError('Session disconnected')
+                    self.preview_text = text
+                    diff = ''.join(difflib.unified_diff(self.original.splitlines(True), text.splitlines(True), fromfile='Switch', tofile='draft'))
+                    return {'diff': diff[:64000], 'truncated': len(diff) > 64000}
+                if data.get('confirmed') is not True or self.preview_text != text:
+                    raise RuntimeError('Preview this exact text and explicitly confirm save')
+                save_started = True
+                payload, _ = self._request('PUT', '/sequences', 8191, body, self.revision)
+                result = json.loads(payload)
+                if not isinstance(result, dict) or result.get('saved') is not True or result.get('reloaded') is not True:
+                    raise ValueError('Save/reload not acknowledged; reload before retrying')
+                self.revision = self.original = self.preview_text = None
+                return result
+            if operation == 'logs':
+                payload, _ = self._request('GET', f'/logs?after={self.next}', 65536)
+                result = json.loads(payload)
+                def u64(value):
+                    return type(value) is int and 0 <= value <= 2**64 - 1
+                if not isinstance(result, dict) or not u64(result.get('next')) or not u64(result.get('dropped')):
+                    raise ValueError('Invalid log cursor')
+                entries = result.get('entries')
+                if not isinstance(entries, list) or len(entries) > 64:
+                    raise ValueError('Invalid log batch')
+                restarted = result['next'] < self.next
+                previous = 0 if restarted else self.next
+                for entry in entries:
+                    if not isinstance(entry, dict) or not u64(entry.get('id')) or not isinstance(entry.get('text'), str) or not previous < entry['id'] <= result['next']:
+                        raise ValueError('Invalid log entry')
+                    previous = entry['id']
+                self.next = result['next']
+                return {**result, 'restarted': restarted}
+            raise ValueError('Unknown LAN operation')
+        except Exception as error:
+            self.disconnect()
+            # Peer content, draft text and credentials never enter error messages/history.
+            if isinstance(error, RuntimeError):
+                raise
+            if save_started:
+                raise RuntimeError('Save acknowledgment lost or invalid; disk may have changed. Reconnect and reload; never retry automatically') from None
+            raise RuntimeError('LAN request failed validation or transport; disconnected, reconnect manually') from None
+        finally:
+            self.lock.release()
+
+
+def lan_endpoint(host, port):
+    if not isinstance(host, str):
+        raise ValueError('Use the Switch numeric private IPv4 address')
+    try:
+        address = ipaddress.IPv4Address(host.strip())
+    except ipaddress.AddressValueError:
+        raise ValueError('Use a numeric private IPv4 address, not a hostname or URL') from None
+    if not any(address in ipaddress.IPv4Network(network) for network in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')):
+        raise ValueError('Only RFC1918 private IPv4 addresses are allowed')
+    if isinstance(port, bool) or not isinstance(port, (str, int)) or not str(port).isascii() or not str(port).isdecimal() or not 1 <= int(port) <= 65535:
+        raise ValueError('LAN port must be an integer from 1 to 65535')
+    return str(address), int(port)
+
+
 class Workbench:
     def __init__(self, history: History):
         self.history = history
         self.preferences_path = history.directory / "preferences.json"
         self.preferences = {}
         self.noninteractive = False
+        self.lan = LanClient()
         if self.preferences_path.exists():
             try:
                 self.preferences = json.loads(self.preferences_path.read_text())
@@ -565,29 +755,17 @@ class Workbench:
             self.upload()
 
     def lan_editor_state(self):
-        return {"available": False, "connected": False, "listening": False,
-                "status": "Unavailable — native LAN transport is not verified",
+        return {"available": True, "connected": self.lan.connected, "listening": False,
+                "editing": self.lan.editing,
+                "status": "Connected" if self.lan.connected else "Disconnected; connect manually",
                 "host": self.preferences.get("lan_editor_host", ""),
                 "port": self.preferences.get("lan_editor_port", 4242)}
 
     def configure_lan_editor(self, host, port):
-        """Save a proposed Mac endpoint locally; never bind, resolve or connect."""
-        if not isinstance(host, str):
-            raise ValueError("Use the Mac's numeric private IPv4 address")
-        try:
-            address = ipaddress.IPv4Address(host.strip())
-        except ipaddress.AddressValueError:
-            raise ValueError("Use a numeric private IPv4 address, not a hostname or URL") from None
-        if not any(address in ipaddress.IPv4Network(network)
-                   for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")):
-            raise ValueError("Only RFC1918 private IPv4 addresses are allowed")
-        if isinstance(port, bool) or not isinstance(port, (str, int)):
-            raise ValueError("LAN port must be an integer from 1 to 65535")
-        text = str(port)
-        if not text.isascii() or not text.isdecimal() or not 1 <= int(text) <= 65535:
-            raise ValueError("LAN port must be an integer from 1 to 65535")
+        """Persist only the numeric Switch endpoint; never the shared secret."""
+        host, port = lan_endpoint(host, port)
         previous = dict(self.preferences)
-        self.preferences.update(lan_editor_host=str(address), lan_editor_port=int(text))
+        self.preferences.update(lan_editor_host=host, lan_editor_port=port)
         try:
             self.save_preferences()
         except OSError:
@@ -597,18 +775,43 @@ class Workbench:
 
     def lan_editor(self):
         state = self.lan_editor_state()
-        print("\nTRAINING LAN EDITOR · unavailable · not listening · disconnected")
-        print("Native transport is not verified. This screen cannot connect or edit the game.")
-        print("Save the Mac's numeric LAN address and port for future setup only.")
-        print("No DNS, discovery, connection attempts or Switch writes occur here.")
-        print("Private IP validation does not verify a LAN route or block internet egress.")
-        host = ask("Mac LAN IPv4 address (empty cancels)", state["host"])
+        print("TRAINING LAN: activate Diagnostic server in Training; edits require editor open.")
+        host = ask("Switch private IPv4 (empty cancels)", state["host"])
         if not host:
             return
-        port = ask("Future LAN editor port (not FTP)", state["port"])
-        if confirm("Save endpoint locally only? This does not enable the adapter.", "SAVE"):
-            saved = self.configure_lan_editor(host, port)
-            print(f"Saved {saved['host']}:{saved['port']} locally. Adapter remains unavailable.")
+        port = ask("Diagnostic HTTP port (not FTP)", state["port"])
+        self.configure_lan_editor(host, port)
+        token = getpass.getpass("Shared secret (not saved): ")
+        try:
+            print(self.lan.perform('connect', host=host, port=port, token=token))
+            while self.lan.connected:
+                action = choose("LAN actions", ["Read complete file to computer", "Preview and save computer file", "Read new logs", "Disconnect"])
+                if action is None or action == 3:
+                    return
+                if action == 0:
+                    result = self.lan.perform('load')
+                    path = Path(ask("Output file")).expanduser()
+                    with path.open('x', encoding='utf-8', newline='') as output:
+                        output.write(result['text'])
+                    print("Loaded revision", result['revision'])
+                elif action == 1:
+                    path = Path(ask("Edited complete file")).expanduser()
+                    with path.open('rb') as source:
+                        body = source.read(512 * 1024 + 1)
+                    if len(body) > 512 * 1024:
+                        raise ValueError("File exceeds 512 KiB")
+                    text = body.decode('utf-8')
+                    print(self.lan.perform('preview', text=text)['diff'])
+                    if confirm("Save and reload on Switch?", "SAVE"):
+                        print(self.lan.perform('save', text=text, confirmed=True))
+                elif action == 2:
+                    result = self.lan.perform('logs')
+                    print("Queue dropped:", result['dropped'])
+                    for entry in result['entries']:
+                        print(entry['id'], json.dumps(entry['text'], ensure_ascii=True))
+        finally:
+            token = ''
+            self.lan.disconnect()
 
     def validate(self):
         self.run("validate", helper("sequence_validation.py", self.local_path("File to validate")))
@@ -627,7 +830,7 @@ class Workbench:
             ("History / shipped versions / file logs", self.show_history),
             ("Preferences", self.settings),
             ("Original helpers / advanced options", self.advanced),
-            ("Training LAN editor setup (transport unavailable)", self.lan_editor),
+            ("Training LAN editor / live logs", self.lan_editor),
         )
 
     def loop(self):

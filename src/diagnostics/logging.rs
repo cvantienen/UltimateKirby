@@ -40,23 +40,34 @@ enum Message {
 static SENDER: OnceLock<SyncSender<Message>> = OnceLock::new();
 /// Counts messages rejected because the bounded queue was full.
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
+static LIVE_LOGS: OnceLock<std::sync::Mutex<kirby_assist_core::diagnostic_http::LogBuffer>> = OnceLock::new();
+
+fn live_output(text: &str) {
+    let logs = LIVE_LOGS.get_or_init(|| std::sync::Mutex::new(Default::default()));
+    logs.lock().unwrap_or_else(|e| e.into_inner()).push(text);
+}
+
+pub(crate) fn live_logs(after: u64) -> String {
+    let logs = LIVE_LOGS.get_or_init(|| std::sync::Mutex::new(Default::default()));
+    logs.lock().unwrap_or_else(|e| e.into_inner()).logs_json(after)
+}
 
 // Generation tags prevent a queued report from an old match repopulating the UI.
 /// Generation counter invalidating stale mode snapshots.
 static SNAPSHOT_EPOCH: AtomicUsize = AtomicUsize::new(0);
-#[cfg(any(feature = "imgui-menu", test))]
+#[cfg(test)]
 /// Nonblocking cached card text paired with the generation that created it.
 static SNAPSHOT_CARD: std::sync::Mutex<Option<(usize, std::ffi::CString)>> =
     std::sync::Mutex::new(None);
 /// Advances the cache generation and clears any currently cached card.
 pub fn clear_snapshot() {
     SNAPSHOT_EPOCH.fetch_add(1, Ordering::AcqRel);
-    #[cfg(any(feature = "imgui-menu", test))]
+    #[cfg(test)]
     if let Ok(mut card) = SNAPSHOT_CARD.try_lock() {
         *card = None;
     }
 }
-#[cfg(any(feature = "imgui-menu", test))]
+#[cfg(test)]
 /// Publishes text only if its generation remains current across locking.
 fn publish_snapshot(epoch: usize, text: String) {
     if epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
@@ -70,7 +81,7 @@ fn publish_snapshot(epoch: usize, text: String) {
         }
     }
 }
-#[cfg(any(feature = "imgui-menu", test))]
+#[cfg(test)]
 /// Calls `draw` only while a nonblocking lock holds a current cached card.
 pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
     if let Ok(card) = SNAPSHOT_CARD.try_lock() {
@@ -90,8 +101,10 @@ pub fn start() {
     if SENDER.get().is_some() {
         return;
     }
+    live_output(concat!("Kirby Assist diagnostic build ", env!("CARGO_PKG_VERSION"), "; bounded live logging; LAN disabled until Training editor activation"));
     if let Err(error) = std::fs::create_dir_all("sd:/ultimate/kirby_assist") {
         eprintln!("[kirby_assist] diagnostic log directory failed: {error}; expected {LOG_PATH}");
+        live_output(&format!("LOG DIRECTORY ERROR: {error}; expected {LOG_PATH}"));
     }
     for path in [LOG_PATH, PERFORMANCE_PATH] {
         if let Err(error) = std::fs::write(
@@ -103,6 +116,7 @@ pub fn start() {
             ),
         ) {
             eprintln!("[kirby_assist] diagnostic startup log failed: {error}; expected {path}");
+            live_output(&format!("LOG STARTUP ERROR: {error}; expected {path}"));
         }
     }
     let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
@@ -187,6 +201,7 @@ fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
             eprintln!(
                 "[kirby_assist] diagnostic log open failed: {error}; console only; expected {path}"
             );
+            live_output(&format!("LOG OPEN ERROR: {error}; expected {path}"));
             None
         }
     }
@@ -202,6 +217,7 @@ fn flush_log(
             console,
             "[kirby_assist] LOG FLUSH ERROR: {error}; continuing console logging; expected {path}"
         );
+        live_output(&format!("LOG FLUSH ERROR: {error}; SD log may be incomplete: {path}"));
         *file = None;
     }
 }
@@ -274,9 +290,9 @@ fn output_message(
     match message {
         Message::Text(message) => output(file, console, &message),
         Message::Modes(epoch, report) => {
-            #[cfg(any(feature = "imgui-menu", test))]
+            #[cfg(test)]
             publish_snapshot(epoch, report.card_text());
-            #[cfg(not(any(feature = "imgui-menu", test)))]
+            #[cfg(not(test))]
             let _ = epoch;
             output(file, console, &report.format());
         }
@@ -314,6 +330,7 @@ fn output_to(
     message: &str,
     path: &str,
 ) {
+    live_output(message);
     // BufWriter owns a stdout handle, not its lock. No global console lock is
     // held while waiting for another queue message. Batch flushes run here only.
     let _ = writeln!(console, "[kirby_assist] {message}");
@@ -322,6 +339,7 @@ fn output_to(
         .and_then(|file| writeln!(file, "{message}").err())
     {
         let _ = writeln!(console, "[kirby_assist] LOG FILE ERROR: {error}. Continuing console logging; SD log may be incomplete: {path}");
+        live_output(&format!("LOG FILE ERROR: {error}; SD log may be incomplete: {path}"));
         *file = None;
     }
 }

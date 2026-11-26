@@ -27,6 +27,7 @@ mod diagnostics {
     pub(crate) mod grab_diagnostics;
     /// Provides the diagnostic logging backend.
     pub(crate) mod logging;
+    pub(crate) mod lan;
     /// Provides runtime performance measurements and reports.
     pub(crate) mod performance;
 }

@@ -21,7 +21,7 @@ class GuiTests(unittest.TestCase):
         self.app = workbench.Workbench(History(self.root / 'state'))
         self.gui = gui.Controller(self.app)
 
-    def test_lan_setup_is_local_only_persists_and_never_enables_transport(self):
+    def test_lan_setup_is_local_only_persists_without_connecting(self):
         with patch('socket.socket', side_effect=AssertionError('No network sockets')), \
              patch('socket.getaddrinfo', side_effect=AssertionError('No DNS')), \
              patch.object(self.app, 'host', side_effect=AssertionError('No FTP settings')), \
@@ -29,7 +29,7 @@ class GuiTests(unittest.TestCase):
             result = self.gui.perform({'action': 'lan-editor-configure',
                                        'lan_host': '192.168.1.20', 'lan_port': '4242'})
             self.assertEqual(result['host'], '192.168.1.20')
-            self.assertFalse(result['available'])
+            self.assertTrue(result['available'])
             self.assertFalse(result['connected'])
             self.assertFalse(result['listening'])
             restarted = workbench.Workbench(self.app.history)
@@ -54,25 +54,34 @@ class GuiTests(unittest.TestCase):
                 self.app.configure_lan_editor('10.0.0.21', 4243)
         self.assertEqual(self.app.preferences, before)
 
-    def test_lan_connect_and_write_operations_are_rejected_server_side(self):
+    def test_lan_cannot_use_journal_worker_and_state_does_not_wait_for_network(self):
         with patch('socket.socket', side_effect=AssertionError('No network sockets')):
             for operation in ['start', 'connect', 'pair', 'apply', 'save']:
                 data = {'action': f'lan-editor-{operation}'}
                 with self.assertRaises(ValueError):
                     self.gui.start(data)
-                with self.assertRaisesRegex(ValueError, 'unavailable'):
+                with self.assertRaisesRegex(ValueError, 'dedicated'):
                     self.gui.perform(data)
+            self.app.lan.lock.acquire()
+            try:
+                self.assertFalse(self.gui.snapshot()['lan_editor']['connected'])
+            finally:
+                self.app.lan.lock.release()
             self.assertFalse(self.gui.busy)
             self.assertIsNone(self.gui.thread)
 
-    def test_terminal_lan_setup_uses_same_validation_without_transfer(self):
+    def test_terminal_lan_explicit_connect_disconnect_without_transfer(self):
         with patch.object(workbench, 'ask', side_effect=['172.16.1.20', '4242']), \
-             patch.object(workbench, 'confirm', return_value=True), \
-             patch('socket.socket', side_effect=AssertionError('No network sockets')), \
-             contextlib.redirect_stdout(io.StringIO()) as output:
+             patch.object(workbench.getpass, 'getpass', return_value='x' * 32), \
+             patch.object(workbench, 'choose', return_value=3), \
+             patch.object(self.app.lan, 'perform', return_value={'connected': True}) as perform, \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.app.lan.connected = True
             self.app.lan_editor()
         self.assertEqual(self.app.lan_editor_state()['host'], '172.16.1.20')
-        self.assertIn('remains unavailable', output.getvalue())
+        perform.assert_called_once_with('connect', host='172.16.1.20', port='4242', token='x' * 32)
+        self.assertFalse(self.app.lan.connected)
+        self.assertNotIn('token', self.app.preferences_path.read_text())
 
     def test_manifest_version_changes_only_requested_literal_and_is_atomic(self):
         manifest = self.root / 'Cargo.toml'

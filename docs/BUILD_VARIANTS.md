@@ -363,11 +363,19 @@ Both release variants include `imgui-menu`, sharing a matching imgui-smash host 
 that is not certification of every battle mode or online environment. No build or deployment was performed for this source change.
 
 
-## Frozen diagnostic calibration results
+## Live diagnostic results in Workbench
 
-Diagnostic builds provide a [frozen result card](CALIBRATION_CARD.md) for all
-five ledge response lists. The compact card appears beside the menu after an
-attempt ends; Minus hides/shows both. It records available configured timing,
-request/mapping/startup evidence, root spacing and waiting gates. Full detail
-is written to `status.log`. Missing metadata stays unknown; configured frames
-are not measured hitboxes. Silent builds exclude this feature.
+Diagnostic builds provide bounded live HTTP logs through the explicitly enabled
+Training LAN service. The former in-game diagnostic/result HUD is removed;
+ordinary menu and assist-state indicators remain. Use the
+[Workbench setup and log guide](WORKBENCH.md#training-lan-editor-and-live-diagnostic-logs)
+for pairing, activation, viewing, and safe saves. Silent builds compile out the
+HTTP service, activation row, and live logger.
+
+Completed calibration reports still record available configured timing,
+request/mapping/startup evidence, root spacing and waiting gates for all five
+ledge response lists. They are available in Workbench and `status.log`, alongside
+mode, grab, configuration and performance reports. Missing metadata stays
+unknown; configured frames are not measured hitboxes. Request or mapper evidence
+alone does not prove the native move occurred. The live ring is bounded and
+reports overwritten/truncated entries; SD logs remain a separate fallback.

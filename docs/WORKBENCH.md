@@ -9,15 +9,16 @@ python3 tools/workbench.py
 This opens a small dark-themed browser GUI served only on your computer, using
 Python's standard library. Keep the terminal open; **Close** stops the launcher.
 No build or FTP connection happens merely by opening it. All original helper
-commands still work independently. This adds no Switch runtime work.
+commands still work independently. Training LAN connects only on explicit request to the separately activated Diagnostic server.
 
-Six tabs cover the whole workflow, and the window reopens on the tab you used
+Seven tabs cover the whole workflow, and the window reopens on the tab you used
 last:
 
 | Tab | Use it to |
 | --- | --- |
 | **Ship** | Set the version and build/upload to either or both Switches |
 | **Edit fighter** | Change one fighter's sections with a diff preview |
+| **Training LAN** | Explicit Diagnostic connection, complete-file editor and bounded live logs |
 | **Break down** | Split a combined `sequences.txt` into `fighters/*.txt` |
 | **Transfer** | Copy a whole file or one fighter between computer and Switches |
 | **History** | Review shipped versions, past runs and their logs |
@@ -78,6 +79,83 @@ for that guided synchronization even if only Diagnostic is selected. This differ
 from the direct upload helper's default inactive staging. **History** retains logs and the last verified
 upload for each Switch. A partial upload is reported as a failure with individual
 target results; the other Switch is still attempted.
+
+## Training LAN editor and live Diagnostic logs
+
+Manual setup only; Workbench does not deploy configuration, discover devices or
+activate the native listener. Use an isolated trusted LAN and router/firewall rules.
+Private numeric addressing is not proof of a local route or internet isolation;
+this feature does not control Nintendo services or other mods. The native
+listener uses the installed Switch Rust TCP backend, whose first socket use may
+request OS network access. That initialization runs only on the LAN worker, not
+on controller/render callbacks; it cannot be forcibly cancelled while inside
+the OS. Revocation is rechecked before serving requests. No private/guessed
+native networking bindings or shared-service finalization are introduced.
+
+1. On the Diagnostic Switch SD card, create
+   `sd:/ultimate/kirby_assist/lan_editor.txt` with the exact Switch and computer
+   RFC1918 IPv4 addresses and a separate HTTP port (not FTP):
+
+   ```ini
+   switch_ip=192.168.1.142
+   computer_ip=192.168.1.20
+   port=4242
+   token=REPLACE_WITH_GENERATED_SECRET
+   ```
+
+   Generate your own secret locally when setting up (do not use the placeholder):
+   `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'`.
+   Native tokens require 32–128 ASCII letters/digits/`-`/`_`. Protect the SD
+   configuration and never share the token in screenshots or logs.
+2. Start the Diagnostic build, enter Training, open the Training fighter tuning
+   panel and explicitly enable its LAN editor row. Finish/discard local unsaved
+   recipe/tuning drafts first; they cannot overlap a remote write. Silent has no
+   diagnostic listener. Leaving Training revokes permission.
+3. Open **Training LAN**, enter the **Switch** address, HTTP port and shared
+   secret; press **Connect explicitly**. Workbench saves only host/port. The
+   secret stays in process memory and is cleared on disconnect; it never enters
+   the journal or browser storage. HTTP is plaintext on the trusted LAN, not TLS.
+4. **Load complete file**, preserve unknown/unrelated sections, edit fighter
+   recipes or tuning, then **Validate + preview** with the existing local parser.
+   `[universal.settings]` and templates are immutable startup contracts: native
+   rejects their changes even if local syntax validation succeeds. **Save +
+   reload…** confirms the exact validated text and uses the opaque loaded
+   revision. Saving requires the native editor open; stale revisions (409) or
+   revoked access (403) disconnect instead of overwriting. Reconnect and load
+   again manually. Unsaved browser text remains available to copy/reconcile.
+5. Save acknowledgment confirms disk save and catalog reload, **not gameplay
+   success**. The next mapper processes native pending-assist cancellation and
+   menu-selection reset from reread disk; it may not have run when HTTP returns.
+   Load again before making another edit. No FTP/build-ready checkbox is needed.
+
+All HTTP calls go through the loopback Workbench backend to one configured
+numeric RFC1918 Switch address with `X-Kirby-Token`. There is no DNS, proxy,
+redirect following, discovery, automatic reconnect or persistent log worker.
+GET requests have a two-second total transport deadline; PUT allows ten seconds
+for validation/SD save and acknowledgment. Lost save acknowledgment does not mean
+the disk is unchanged: reconnect and reload before deciding what to do; never
+automatically retry a save. Sequence reads/writes are
+bounded to 512 KiB, status/save replies below 8 KiB, and log replies to 64 KiB / 64
+entries. A transport/protocol error clears the session; only explicit connect
+starts another one. State polling uses a separate lock and is not held during
+Switch I/O. Backend loopback Host/Origin/session-token protections remain intact.
+
+Logs poll while explicitly connected and not paused, including startup/errors.
+**Clear view** is local only; **Pause polling** stops log reads, not gameplay.
+The text filter and log renderer use plain text, never peer-supplied HTML. The
+browser view keeps at most 512 entries / 128 KiB. **Native live-ring loss
+(overwrites/truncation)** counts loss in the bounded native live ring, not the
+source queues. Source queue losses appear as separate event lines. A lower valid native cursor indicates a server
+restart; Workbench resets its view/cursor and accepts the sorted retained batch.
+An **event** means an assist decision/request;
+**mapper delivery** means controller input reached the mapper, not that the game
+accepted a move. **Game confirmation** needs a later observed state. Missing
+observations or dropped/gapped queue entries cannot prove success or failure.
+
+`python3 tools/workbench.py --cli` also offers **Training LAN editor / live logs**:
+explicit connect, read a complete file to a new computer file, preview/save that
+edited file, read one new log batch, and disconnect. No secret command-line
+argument is used; the terminal asks privately. No automatic writes or retries.
 
 ## Editing one fighter
 

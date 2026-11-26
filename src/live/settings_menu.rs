@@ -53,6 +53,16 @@ pub(super) fn recover_saved_file() -> Result<(), String> {
     save::recover()
 }
 
+#[cfg(all(feature = "diagnostic-logging", not(test)))]
+pub(crate) fn lan_read() -> Result<(Vec<u8>, String), String> {
+    save::lan_read()
+}
+
+#[cfg(all(feature = "diagnostic-logging", not(test)))]
+pub(crate) fn lan_write(body: &[u8], revision: &str, allowed: impl Fn() -> bool) -> Result<(), String> {
+    save::lan_write(body, revision, allowed)
+}
+
 /// Updates menu presence from an existing local-fighter callback timestamp.
 pub(super) fn observe_local_fighter(now: std::time::Instant) {
     #[cfg(feature = "imgui-menu")]
@@ -89,12 +99,21 @@ pub(super) fn poll_maintenance() {
     #[cfg(feature = "imgui-menu")]
     menu::finish_deferred_clear();
     let cleanup = cleanup_pending() && !super::MASTER_IN_MATCH.load(Ordering::Acquire);
-    if !cleanup && !save::has_result() {
+    #[cfg(all(feature = "diagnostic-logging", not(test)))]
+    let reload_check = crate::diagnostics::lan::reload_pending();
+    #[cfg(not(all(feature = "diagnostic-logging", not(test))))]
+    let reload_check = false;
+    if !cleanup && !save::has_result() && !reload_check {
         return;
     }
     let Ok(mut state) = super::STATE.try_lock() else {
         return;
     };
+    #[cfg(all(feature = "diagnostic-logging", not(test)))]
+    if crate::diagnostics::lan::take_reload() {
+        state.cancel();
+        state.settings_menu = None;
+    }
     let cleanup =
         cleanup && !state.menu_battle_active && !super::MASTER_IN_MATCH.load(Ordering::Acquire);
     if let Some(menu) = state.settings_menu.as_mut() {
@@ -327,6 +346,10 @@ impl SettingsMenu {
             return false;
         };
         if let Some(tuning) = result.tuning {
+            #[cfg(feature = "diagnostic-logging")]
+            if result.success {
+                saved.saved_tuning = tuning;
+            }
             saved.save_status = Some(if result.success && saved.tuning != tuning {
                 "Saved earlier fighter settings; newer edits are unsaved".into()
             } else {
@@ -637,6 +660,10 @@ impl SettingsMenu {
     }
     /// Updates ImGui battle visibility without affecting menu state.
     pub fn display_battle(&self, active: bool) {
+        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        if !active {
+            crate::diagnostics::lan::revoke();
+        }
         #[cfg(feature = "imgui-menu")]
         menu::set_battle_active(active);
         #[cfg(not(feature = "imgui-menu"))]
@@ -664,6 +691,17 @@ impl SettingsMenu {
         #[cfg(feature = "diagnostic-logging")]
         let _timing =
             crate::performance::health::Trace::new(crate::performance::health::Lane::MenuInput);
+        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        let other_drafts_clean = self.selections.iter().all(|(saved_kind, s)| {
+            Some(*saved_kind) == kind || !s.lan_has_unsaved_edits()
+        });
+        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        crate::diagnostics::lan::observe(
+            available && training,
+            available && training && other_drafts_clean && kind == self.kind
+                && self.selections.get(&kind.unwrap_or(-1))
+                    .is_some_and(|s| s.lan_editing_allowed()),
+        );
         let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
             #[cfg(feature = "imgui-menu")]
@@ -739,6 +777,22 @@ impl SettingsMenu {
                 || selection.autopilot_held(buttons));
         self.resolved.refresh(selection, profile, base);
         request_saves(selection, kind, options, training);
+        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        {
+            crate::diagnostics::lan::observe(
+                training,
+                training && other_drafts_clean && selection.lan_editing_allowed(),
+            );
+            if std::mem::take(&mut selection.lan_toggle_requested) {
+                selection.lan_status = crate::diagnostics::lan::toggle().err();
+                bump_content(selection);
+            }
+            let enabled = crate::diagnostics::lan::enabled();
+            if selection.lan_enabled != enabled {
+                selection.lan_enabled = enabled;
+                bump_content(selection);
+            }
+        }
         #[cfg(feature = "diagnostic-logging")]
         self.diagnostics
             .log_configuration(kind, profile, selection, *auto_mash);
@@ -812,6 +866,10 @@ fn new_selection(
         let slot = kirby_assist_core::fighter_profiles::presets::PresetSlot::R3;
         s.choices[slot as usize] = profile.menu_options.list(slot).options.len()
             + kirby_assist_core::button_bindings::Builtin::Counter.visible_template_offset().unwrap();
+    }
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        s.saved_tuning = s.tuning;
     }
     s.tuning_values = kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
     s.tuning_values[11] = if grab_default { 1.0 } else { 0.0 };

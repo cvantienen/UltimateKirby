@@ -413,6 +413,8 @@ pub mod modes {
         hit_sampled: bool,
         /// Runtime native actions value used by Report..
         native_actions: u16,
+        /// Safety flags observed in this batch, not necessarily simultaneously.
+        safety: u8,
     }
     impl Report {
         /// Constructs a new value with the type’s initial state.
@@ -426,6 +428,7 @@ pub mod modes {
                 hit_seen: false,
                 hit_sampled: false,
                 native_actions: native_action(snapshot.status),
+                safety: 0,
             }
         }
         /// Records the time of the latest fighter observation.
@@ -435,6 +438,7 @@ pub mod modes {
             self.changes = self.changes.saturating_add(1);
             self.hit_seen |= s.hit == Some(true);
             self.hit_sampled |= s.hit.is_some();
+            self.safety |= s.safety;
             for (index, owner) in OWNERS.iter().enumerate() {
                 let e = &mut self.modes[index];
                 e.proposed |= s.present & (1 << index) != 0;
@@ -538,14 +542,14 @@ pub mod modes {
                 let _ = write!(text, "    Input: ");
                 write_input_evidence(&mut text, e, last.valid);
             }
-            if last.safety != 0 {
+            if self.safety != 0 {
                 let _ = writeln!(
                     text,
-                    "Safety flags: tech={}, mash={}, SDI={}, DI={}.",
-                    last.safety & SAFETY_TECH_GUARD != 0,
-                    last.safety & SAFETY_MASH != 0,
-                    last.safety & SAFETY_SDI != 0,
-                    last.safety & SAFETY_DI != 0
+                    "Safety flags observed in batch (not necessarily simultaneous): tech={}, mash={}, SDI={}, DI={}.",
+                    self.safety & SAFETY_TECH_GUARD != 0,
+                    self.safety & SAFETY_MASH != 0,
+                    self.safety & SAFETY_SDI != 0,
+                    self.safety & SAFETY_DI != 0
                 );
             }
             let _ = write!(text, "Evidence: {}. Requests above describe inputs sent before mapping; they do not prove the selected move started or hit. Button names are a union across the batch, not necessarily simultaneous presses. Native state is the latest copied observation. +ms is wall-clock time, not a simulation-frame count.",

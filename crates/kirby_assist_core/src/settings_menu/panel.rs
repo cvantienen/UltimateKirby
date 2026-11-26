@@ -97,9 +97,13 @@ impl MenuSelection {
         RecipePanel {
             header: vec![
                 "FIGHTER SETTINGS / Training only".into(),
-                fighter_tuning::HINTS[row].into(),
+                if row == fighter_tuning::COUNT {
+                    "Left/Right or A: toggle LAN editor HTTP service".into()
+                } else {
+                    fighter_tuning::HINTS[row].into()
+                },
             ],
-            body: (0..fighter_tuning::COUNT)
+            body: (0..fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
                 .filter(|i| self.tuning_visible(*i))
                 .map(|i| self.tuning_line(i, i == row))
                 .collect(),
@@ -117,6 +121,22 @@ impl MenuSelection {
     }
     /// One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
+        #[cfg(feature = "diagnostic-logging")]
+        if i == fighter_tuning::COUNT {
+            return format!(
+                "{} LAN editor HTTP: {} | Left/Right or A: toggle{}{}",
+                if selected { ">" } else { " " },
+                if self.lan_enabled { "ON" } else { "OFF" },
+                if self.lan_editing_allowed() {
+                    ""
+                } else {
+                    " | Save/discard local drafts before remote editing"
+                },
+                self.lan_status
+                    .as_ref()
+                    .map_or(String::new(), |s| format!(" | {s}"))
+            );
+        }
         let custom = self.tuning.0[i];
         let value = custom.unwrap_or(self.tuning_values[i]);
         let shown = if Tuning::is_bool(i) {

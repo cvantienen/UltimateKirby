@@ -1141,6 +1141,10 @@ impl RecipeEditor {
     pub fn edited(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| r.modified)
     }
+    #[cfg(feature = "diagnostic-logging")]
+    pub fn has_unsaved_edits(&self) -> bool {
+        self.recipes.values().any(|r| r.modified)
+    }
     /// Marks the saved.
     pub fn mark_saved(&mut self, key: (usize, usize)) {
         if let Some(r) = self.recipes.get_mut(&key) {

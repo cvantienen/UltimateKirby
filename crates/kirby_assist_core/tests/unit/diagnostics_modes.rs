@@ -140,6 +140,50 @@ mod tests {
         assert!(report.contains("do not prove"));
         assert!(report.contains("no hit flag"));
     }
+    #[test]
+    fn transient_safety_requests_survive_release_without_leaking_into_next_batch() {
+        let mut recorder = Recorder::new();
+        let baseline = Snapshot {
+            winner: None,
+            present: 0,
+            hit: None,
+            ..snapshot()
+        };
+        assert!(recorder.sample(baseline, 0).is_none());
+        recorder.sample(snapshot(), 1).unwrap();
+        for (index, safety) in [SAFETY_TECH_GUARD, SAFETY_MASH, SAFETY_SDI, SAFETY_DI]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(recorder
+                .sample(
+                    Snapshot {
+                        winner: Some(Owner::Safety),
+                        present: bit(Owner::Safety),
+                        safety,
+                        ..baseline
+                    },
+                    10 + index as u64,
+                )
+                .is_none());
+        }
+        let report = recorder.sample(baseline, 251).unwrap();
+        assert_eq!(report.last.safety, 0);
+        let text = report.format();
+        assert!(
+            text.contains("tech=true, mash=true, SDI=true, DI=true"),
+            "{text}"
+        );
+        assert!(text.contains("batch"));
+        assert!(text.contains("do not prove"));
+        assert!(recorder.sample(snapshot(), 252).is_none());
+        let next = recorder.sample(snapshot(), 501).unwrap().format();
+        assert!(!next.contains("tech=true"), "{next}");
+        assert!(!next.contains("mash=true"), "{next}");
+        assert!(!next.contains("SDI=true"), "{next}");
+        assert!(!next.contains("DI=true"), "{next}");
+    }
+
     /// Regression test for `every_owner_and_configured_row_has_a_readable_label`.
     #[test]
     fn every_owner_and_configured_row_has_a_readable_label() {

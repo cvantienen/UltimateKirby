@@ -648,6 +648,9 @@ pub fn update_tuning(
     validate_output(source)?;
     let profiles = FighterProfiles::default();
     let name = profiles.profile(kind).ok_or("Unknown fighter")?.name;
+    if Catalog::parse(source)?.tuning.get(&kind) == Some(&tuning) {
+        return Ok(source.to_owned());
+    }
     let mut result = String::with_capacity(source.len() + 512);
     let mut skip = false;
     for raw in source.split_inclusive('\n') {

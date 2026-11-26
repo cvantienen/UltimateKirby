@@ -45,11 +45,7 @@ fn job() -> Job {
 #[test]
 /// Verifies two fighter-specific edits preserve each other's catalog sections.
 fn pyra_and_mythra_edits_save_once_without_overwriting_the_other_form() {
-    let source = format!(
-        "{}\n{}",
-        include_str!("../../../../deployment/ultimate/kirby_assist/fighters/pyra.txt"),
-        include_str!("../../../../deployment/ultimate/kirby_assist/fighters/mythra.txt")
-    );
+    let source = "[pyra.neutral.custom]\nname=Pyra original\nstart_delay=0\nactions=wait:2\n\n[mythra.neutral.custom]\nname=Mythra original\nstart_delay=0\nactions=wait:4\n".to_owned();
     let directory = Directory::new();
     let path = directory.0.join("sequences.txt");
     let temp = directory.0.join("temp");
@@ -528,33 +524,89 @@ fn fighter_settings_share_verified_save_and_preserve_all_recipes() {
     tuning.set("grab_range", "14").unwrap();
     tuning.set("auto_di_default", "false").unwrap();
     tuning.set("auto_sdi_default", "true").unwrap();
-    write_tuning_paths(job.kind, tuning, &path, &temp, &backup).unwrap();
-    let saved = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
+    let (saved, changed) = write_tuning_paths(job.kind, tuning, &path, &temp, &backup).unwrap();
+    assert!(changed);
     assert_eq!(saved.tuning[&5], tuning);
+    assert_eq!(saved.entries(), Catalog::parse(SOURCE).unwrap().entries());
     assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     assert!(fs::read_to_string(&path).unwrap().starts_with(SOURCE));
     assert!(!temp.exists());
 }
 
 #[test]
-/// Verifies publishing tuning preserves compact recipes and other fighter entries.
-fn publishing_settings_preserves_compact_recipes_and_other_fighters() {
-    let mut original = Catalog::parse(SOURCE).unwrap();
-    let mut other = kirby_assist_core::fighter_tuning::Tuning::default();
-    other.set("grab_range", "8").unwrap();
-    original.tuning.insert(6, other);
-    let original_entries = original.entries().to_vec();
-    let saved =
-        Mutex::new(kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(original));
+fn unchanged_settings_save_reloads_disk_catalog_instead_of_stale_runtime_data() {
+    let directory = Directory::new();
+    let path = directory.0.join("sequences.txt");
+    let temp = directory.0.join("temp");
+    let backup = directory.0.join("backup");
     let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
     tuning.set("stand_distance", "20").unwrap();
-    publish_tuning(&saved, 5, tuning);
+    let source = persist::update_tuning(SOURCE, 5, tuning).unwrap();
+    fs::write(&path, &source).unwrap();
+    // Apply any legacy mode migration before exercising an unchanged save.
+    write_tuning_paths(5, tuning, &path, &temp, &backup).unwrap();
+    fs::write(&backup, "previous backup").unwrap();
+    let saved = Mutex::new(
+        kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(Catalog::default()),
+    );
+    let (catalog, changed) = write_tuning_paths(5, tuning, &path, &temp, &backup).unwrap();
+    assert!(!changed);
+    drop(publish_catalog(&saved, catalog));
     let after = saved.lock().unwrap();
+    assert_eq!(after.tuning[&5], tuning);
     let mut entries = after.for_fighter(5).entries().to_vec();
     entries.extend_from_slice(after.for_fighter(6).entries());
-    assert_eq!(entries, original_entries);
-    assert_eq!(after.tuning[&5], tuning);
-    assert_eq!(after.tuning[&6], other);
+    assert_eq!(entries, Catalog::parse(SOURCE).unwrap().entries());
+    assert_eq!(fs::read_to_string(&backup).unwrap(), "previous backup");
+    assert!(!temp.exists());
+}
+
+#[cfg(feature = "diagnostic-logging")]
+#[test]
+fn lan_save_checks_revision_permission_and_preserves_universal_settings() {
+    let directory = Directory::new();
+    let path = directory.0.join("sequences.txt");
+    let temp = directory.0.join("temp");
+    let backup = directory.0.join("backup");
+    fs::write(&path, SOURCE).unwrap();
+    let revision = kirby_assist_core::diagnostic_http::revision(SOURCE.as_bytes());
+    let updated = SOURCE.replace("Tongue grab", "LAN saved grab");
+    assert!(lan_commit_paths(updated.as_bytes(), "stale", &path, &temp, &backup, || true).is_err());
+    assert!(
+        lan_commit_paths(updated.as_bytes(), &revision, &path, &temp, &backup, || {
+            false
+        })
+        .is_err()
+    );
+    assert_eq!(fs::read_to_string(&path).unwrap(), SOURCE);
+    let global = format!("{SOURCE}\n[universal.settings]\nauto_sdi=false\n");
+    assert!(
+        lan_commit_paths(global.as_bytes(), &revision, &path, &temp, &backup, || true).is_err()
+    );
+    let saved = lan_commit_paths(updated.as_bytes(), &revision, &path, &temp, &backup, || {
+        true
+    })
+    .unwrap();
+    assert_eq!(fs::read_to_string(&path).unwrap(), updated);
+    assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
+    assert_eq!(saved.entries(), Catalog::parse(&updated).unwrap().entries());
+    assert!(
+        lan_commit_paths(SOURCE.as_bytes(), &revision, &path, &temp, &backup, || true).is_err()
+    );
+}
+
+#[test]
+fn reload_rejects_changed_or_missing_canonical_file_without_publishing() {
+    let directory = Directory::new();
+    let path = directory.0.join("sequences.txt");
+    fs::write(&path, format!("{SOURCE}\n# external change\n")).unwrap();
+    assert!(reload_saved_catalog(&path, SOURCE)
+        .unwrap_err()
+        .contains("changed before reload"));
+    fs::remove_file(&path).unwrap();
+    assert!(reload_saved_catalog(&path, SOURCE)
+        .unwrap_err()
+        .contains("Save reload failed"));
 }
 #[test]
 /// Verifies identical serialized output skips replacement for each save type.

@@ -463,6 +463,14 @@ pub struct MenuSelection {
     pub tuning_row: usize,
     /// Runtime tuning save requested value used by MenuSelection..
     pub tuning_save_requested: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    pub lan_toggle_requested: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    pub lan_enabled: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    pub lan_status: Option<String>,
+    #[cfg(feature = "diagnostic-logging")]
+    pub saved_tuning: crate::fighter_tuning::Tuning,
     /// Training category tabs have focus instead of the selected page.
     pub training_tab_focus: bool,
 
@@ -926,13 +934,16 @@ impl MenuSelection {
     }
     /// Checks whether the tuning section is visible.
     fn tuning_visible(&self, i: usize) -> bool {
+        if i == crate::fighter_tuning::COUNT {
+            return cfg!(feature = "diagnostic-logging") && !self.lightweight;
+        }
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
             && i != crate::fighter_tuning::AUTO_GRAB_FAR
             && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured != 0)
     }
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     fn tuning_visible_index(&self, row: usize) -> usize {
-        (row..crate::fighter_tuning::COUNT)
+        (row..crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
             .find(|i| self.tuning_visible(*i))
             .or_else(|| (0..crate::fighter_tuning::COUNT).find(|i| self.tuning_visible(*i)))
             .unwrap_or(0)
@@ -964,6 +975,24 @@ impl MenuSelection {
             .as_ref()
             .is_some_and(|e| e.edited((slot as usize, index)))
             || self.draft(slot, index).is_some_and(|d| d.dirty)
+    }
+    #[cfg(feature = "diagnostic-logging")]
+    pub fn lan_has_unsaved_edits(&self) -> bool {
+        self.tuning != self.saved_tuning
+            || self.catalog.as_ref()
+                .is_some_and(|c| c.drafts.values().any(|d| d.dirty))
+            || self.editor.as_ref().is_some_and(|e| e.has_unsaved_edits())
+    }
+    #[cfg(feature = "diagnostic-logging")]
+    pub fn lan_editing_allowed(&self) -> bool {
+        !self.menu_hidden
+            && !self.lightweight
+            && !self.lan_has_unsaved_edits()
+            && !self.managing()
+            && !self.save_requested
+            && !self.tuning_save_requested
+            && !self.delete_requested
+            && !self.default_requested
     }
     /// Checks whether ledge assistance is currently held.
     pub fn ledge_held(&self, buttons: u32) -> bool {
@@ -1246,6 +1275,10 @@ mod auto_spacing_tests;
 #[cfg(test)]
 #[path = "../tests/unit/settings_menu.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/settings_menu_lan.rs"]
+mod lan_tests;
 
 #[cfg(test)]
 #[path = "../tests/unit/settings_menu_maintenance.rs"]

@@ -9061,113 +9061,74 @@ name = Built-in: Auto-Spacing & Attack (hold)
 builtin = auto_spacing
 
 [lucina.settings]
-# Walking baseline uses the original curve: slightly lower at partial stick, 50% at full horizontal stick. Recipes keep their own strengths.
-# Walking baseline uses the original curve: slightly lower at partial stick, 50% at full horizontal stick. Recipes keep their own strengths.
+# Manual ledge-walking stick scale, not a physics speed change. Larger values give stronger movement; smaller values give gentler movement. The existing curve is slightly lower at partial stick and 50% at full stick. Recipes keep their own strengths; auto spacing uses its separate ground cap.
 walk_strength = 0.48999986
-# Estimated body radius around your root used against native hitbox geometry.
-# Estimated body radius around your root used against native hitbox geometry.
+# Estimated body half-width in game units for incoming hitbox tests. Increase for more cautious shielding; decrease for tighter collision estimates. Does not change your hurtbox.
 shield_body_half_width = 10
-# Shared approach, known-startup and active-hitbox prediction horizon.
-# Shared approach, known-startup and active-hitbox prediction horizon.
+# Game frames ahead to predict approach, attack startup and active hits. Increase to shield earlier; decrease to react closer to contact. Longer prediction can be less accurate.
 shield_forecast = 6
-# Extra defensive shield hold after a warning ends. Regrabs still clear the old tail.
-# Extra defensive shield hold after a warning ends. Regrabs still clear the old tail.
+# Extra game frames to keep defensive shield held after a threat warning ends. Increase for a longer safety tail; decrease to release sooner. New grab threats clear the old tail.
 shield_hold = 3
-# Your estimated horizontal body allowance added to the actual attacker grab reach.
-# Your estimated horizontal body allowance added to the actual attacker grab reach.
+# Extra horizontal body allowance in game units added to the opponent's grab reach. Increase to dodge more cautiously; decrease for closer predictions. Does not extend grabs.
 grab_dodge_padding = 10
-# Prepare down tilt toward the opponent. Kirby and Yoshi default ON.
-# Prepare down tilt toward the opponent. Kirby and Yoshi default ON.
-tilt_turn_down = true
-# Aim physical forward C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.
-# Aim physical forward C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.
+# ON prepares manual down tilt facing toward the tracked opponent; OFF keeps your own facing. Kirby and Yoshi default ON. This does not change move startup or auto-spacing's selected move.
+tilt_turn_down = false
+# ON aims manual forward C-stick tilts toward the tracked opponent; OFF keeps your direction. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 tilt_turn_forward = false
-# Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.
-# Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.
+# ON faces manual up C-stick tilts toward the tracked opponent; OFF keeps your own facing. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 tilt_turn_up = false
-# Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
 # Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
 counter_default = true
 # Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
-# Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
 counter_startup = 7
 # Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
-# Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
 counter_margin = 3
-# Estimated horizontal body half-width for active melee hitbox prediction.
-# Estimated horizontal body half-width for active melee hitbox prediction.
+# Estimated body half-width in game units for counter threat tests. Increase for more cautious counter requests; decrease for tighter collision estimates. Does not change your hurtbox.
 counter_half_width = 9
-# Estimated body height above root for active melee hitbox prediction.
-# Estimated body height above root for active melee hitbox prediction.
+# Estimated body height above your root in game units for counter threat tests. Increase to include higher hits; decrease for a shorter estimate.
 counter_height = 17
-# Estimated body half-depth for active melee hitbox prediction.
-# Estimated body half-depth for active melee hitbox prediction.
+# Estimated body half-depth in game units for counter threat tests. Increase to include more off-plane hits; decrease to reject them sooner. Does not change native geometry.
 counter_half_depth = 6
-# Normal horizontal root-to-root spacing in game units while spacing is active (default hold L3). Increase to stay farther away; decrease to allow closer attacks.
-# Normal root-to-root spacing, in game units.
-# Normal root-to-root spacing, in game units.
-# Normal horizontal root-to-root spacing in game units while spacing is active (default hold L3). Increase to stay farther away; decrease to allow closer attacks.
-# Normal root-to-root spacing, in game units.
-# Normal root-to-root spacing, in game units.
+# Retreat boundary: horizontal fighter-root gap in game units. Increase to back away sooner; decrease to tolerate closer opponents. A predicted in-range attack takes priority over retreat. Select spacing with L mode swap, then hold L; approach stays manual.
 auto_spacing_minimum_distance = 24
-# 0 disabled (default for every fighter); 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts use directional tilt inputs, never move or status edits.
-# 0 disabled (default for every fighter); 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts use directional tilt inputs, never move or status edits.
+# 0 OFF; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 invalid/OFF. Select the move whose timing and distance estimates you enter below. Repeats as soon as native recovery allows. All fighters honor this selection.
 auto_spacing_ground_move = 2
-# Estimated frames before the configured ground attack becomes active; does not change native startup.
-# Estimated frames before the configured ground attack becomes active; does not change native startup.
+# Game frames from the ground attack input to its first active hit frame, plus observed input delay. A larger estimate forecasts contact farther ahead; a smaller one forecasts sooner. Enter the move's real startup, not a desired speed: this never speeds up the move.
 auto_spacing_ground_startup = 10
-# Estimated active duration of the configured ground attack; never changes native hitboxes.
-# Estimated active duration of the configured ground attack; never changes native hitboxes.
+# Number of active ground-hit frames starting at the first hit frame. Increase to allow more predicted contact times; decrease for a narrower timing window. Overestimating may cause misses. Does not extend native hitboxes.
 auto_spacing_ground_active_frames = 5
-# Tunable ground reach estimate, not an exact hitbox or hit guarantee.
-# Tunable ground reach estimate, not an exact hitbox or hit guarantee.
+# Maximum predicted horizontal root-to-root gap for a ground hit, in game units. Increase to attempt farther hits; decrease to wait for closer contact. Also limited by attack engagement range. Calibrate for the selected move; not exact hitbox size.
 auto_spacing_ground_reach = 30
-# Tunable ground root-height tolerance, not an exact hitbox or hit guarantee.
-# Tunable ground root-height tolerance, not an exact hitbox or hit guarantee.
+# Maximum predicted vertical root gap during a ground hit, in game units. Increase to attempt larger height differences; decrease for tighter matching. Up tilt requires the opponent at/above you; down tilt at/below you.
 auto_spacing_ground_height = 10
-# 0 disabled (default for every fighter); 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Already airborne only; never jumps or consumes manual jump.
-# 0 disabled (default for every fighter); 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Already airborne only; never jumps or consumes manual jump.
+# 0 OFF; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Uses the estimates below after you jump, fall or leave a platform; never jumps for you. Forward/back air require the correct native facing.
 auto_spacing_aerial_move = 2
-# Estimated frames before the configured aerial becomes active; does not change native startup.
-# Estimated frames before the configured aerial becomes active; does not change native startup.
+# Game frames from aerial input to its first active hit frame, plus observed input delay. A larger estimate checks contact farther into your fall/rise; a smaller one checks sooner. Gravity is included when observed. Enter real startup; this does not alter native timing.
 auto_spacing_aerial_startup = 10
-# Estimated active duration of the configured aerial; never changes native hitboxes.
-# Estimated active duration of the configured aerial; never changes native hitboxes.
+# Number of active aerial-hit frames starting at the first hit frame. Increase to allow a longer predicted contact window; decrease to require tighter timing. Overestimating may cause early attacks that miss.
 auto_spacing_aerial_active_frames = 5
-# Tunable aerial reach estimate, not an exact hitbox or hit guarantee.
-# Tunable aerial reach estimate, not an exact hitbox or hit guarantee.
+# Maximum predicted horizontal root gap for an aerial hit, in game units. Increase to attempt farther hits; decrease to wait until closer. Also limited by current attack engagement range. Does not extend attack reach.
 auto_spacing_aerial_reach = 28
-# Tunable aerial root-height tolerance, not an exact hitbox or hit guarantee.
-# Tunable aerial root-height tolerance, not an exact hitbox or hit guarantee.
+# Maximum predicted vertical root gap for an aerial hit, in game units. Increase to attack earlier across larger height differences; decrease to wait for closer heights. Up air requires the opponent at/above you; down air at/below you.
 auto_spacing_aerial_height = 20.5
-# Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
 # Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
 auto_di_default = false
 # Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
-# Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
 auto_sdi_default = false
-# Maximum horizontal root distance for choosing an attack. Increasing allows attacks from farther away; decreasing waits for closer range. Approach movement is otherwise governed by normal spacing.
-# Maximum horizontal root distance for choosing an attack. Increasing allows attacks from farther away; decreasing waits for closer range. Approach movement is otherwise governed by normal spacing.
+# Current horizontal root-distance limit in game units: no attack starts or retries outside it, even if the opponent is approaching. Increase to allow farther attempts; decrease to wait until closer. Each move must also predict a hit within its own reach/height. Zero disables attacks; approach remains manual.
 auto_spacing_engagement_range = 30
 # Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
-# Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
 auto_spacing_ground_speed = 0.49
-# Maximum aerial approach drift (0-1) while spacing is active. Increase for faster approach; decrease to preserve more drift control. Retreat may use full drift.
-# Maximum aerial approach drift (0-1) while spacing is active. Increase for faster approach; decrease to preserve more drift control. Retreat may use full drift.
+# Retired automatic-approach drift setting: retained for file compatibility, ignored and hidden. Approach is manual; automatic retreat uses full directional drift.
 auto_spacing_maximum_drift = 1
-# Minimum aerial approach strength (0-1) in the movement taper zone. Increase to maintain more approach drift; decrease to taper more. Retreat remains full directional drift.
-# Minimum aerial approach strength (0-1) in the movement taper zone. Increase to maintain more approach drift; decrease to taper more. Retreat remains full directional drift.
+# Retired approach-taper setting: retained for file compatibility, ignored and hidden. Manual aerial drift is not tapered by spacing.
 auto_spacing_minimum_drift = 0.11
-# When enabled, reduce excess grounded movement near normal spacing. Disable to retain the configured approach speed until the boundary.
-# When enabled, reduce excess grounded movement near normal spacing. Disable to retain the configured approach speed until the boundary.
+# Retired approach-braking switch: retained for file compatibility, ignored and hidden. Ground movement uses its separate configured stick cap.
 auto_spacing_ground_braking = true
-# When enabled, reduce excess aerial movement near normal spacing. Disable to retain aerial approach drift until the boundary.
-# When enabled, reduce excess aerial movement near normal spacing. Disable to retain aerial approach drift until the boundary.
+# Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.
 auto_spacing_air_braking = false
-# Distance in game units where enabled movement braking begins before normal spacing. Increase to brake earlier; decrease to brake later.
-# Distance in game units where enabled movement braking begins before normal spacing. Increase to brake earlier; decrease to brake later.
+# Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.
 auto_spacing_braking_distance = 15
-# Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
 # Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
 counter_aim_after_activation = true
 

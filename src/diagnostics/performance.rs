@@ -6,8 +6,10 @@
 //! is enabled.
 #[path = "performance/health.rs"]
 pub mod health;
+#[cfg(test)]
+use std::ffi::CStr;
 use std::{
-    ffi::{CStr, CString},
+    ffi::CString,
     fmt::Write,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -144,6 +146,7 @@ impl Card {
     }
     /// Draw the card if it is free and belongs to the current epoch.
     /// Calls `draw` only for an available card from the current generation.
+    #[cfg(test)]
     pub fn show(&self, current: &AtomicUsize, draw: impl FnOnce(&CStr)) -> bool {
         let Ok(card) = self.0.try_lock() else {
             return false;
@@ -284,6 +287,7 @@ pub fn ray() {
 /// End-to-end regressions for opt-in timing, report generation, and stale-card clearing.
 #[path = "../../tests/unit/diagnostics/performance/tests.rs"]
 mod tests;
+#[cfg(test)]
 /// Draws the diagnostic card only while instrumentation is enabled.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if enabled() {

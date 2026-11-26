@@ -8,7 +8,7 @@ use kirby_assist_core::{
     manual_controls::RIGHT_STICK_DIRECTIONS,
     native_input::{self, MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZL, MAPPER_ZR},
 };
-#[cfg(feature = "imgui-menu")]
+#[cfg(all(feature = "imgui-menu", test))]
 use std::{
     ffi::{CStr, CString},
     sync::Mutex,
@@ -21,7 +21,7 @@ use std::{
 
 /// Generation counter invalidating stale rendered calibration cards.
 static EPOCH: AtomicUsize = AtomicUsize::new(0);
-#[cfg(feature = "imgui-menu")]
+#[cfg(all(feature = "imgui-menu", test))]
 /// Mutex-protected cached calibration-card text and its generation.
 static CARD: Mutex<Option<(usize, CString)>> = Mutex::new(None);
 /// Time limit after which an unfinished trace is considered stalled.
@@ -297,7 +297,7 @@ impl Report {
     }
 
     /// Compact frozen summary; all formatting happens on the logger worker.
-    #[cfg(any(feature = "imgui-menu", test))]
+    #[cfg(test)]
     fn card_text(&self) -> String {
         let mut text = String::with_capacity(768);
         let _ = writeln!(
@@ -934,7 +934,7 @@ pub fn publish(report: &Report) {
     if report.epoch != EPOCH.load(Ordering::Acquire) {
         return;
     }
-    #[cfg(feature = "imgui-menu")]
+    #[cfg(all(feature = "imgui-menu", test))]
     {
         let text = CString::new(report.card_text()).ok();
         if let Ok(mut card) = CARD.lock() {
@@ -943,18 +943,18 @@ pub fn publish(report: &Report) {
             }
         }
     }
-    #[cfg(not(feature = "imgui-menu"))]
+    #[cfg(not(all(feature = "imgui-menu", test)))]
     let _ = report;
 }
 /// Advances the recorder epoch and clears the cached menu card.
 pub fn clear() {
     EPOCH.fetch_add(1, Ordering::AcqRel);
-    #[cfg(feature = "imgui-menu")]
+    #[cfg(all(feature = "imgui-menu", test))]
     if let Ok(mut card) = CARD.try_lock() {
         *card = None;
     }
 }
-#[cfg(feature = "imgui-menu")]
+#[cfg(all(feature = "imgui-menu", test))]
 /// Invokes the renderer with the cached card only when its epoch is current.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if let Ok(card) = CARD.try_lock() {

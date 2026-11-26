@@ -72,7 +72,7 @@ mod reflect;
 /// Owns runtime gates and local-session teardown.
 mod runtime;
 /// Manages in-game settings state and saved menu interactions.
-mod settings_menu;
+pub(crate) mod settings_menu;
 /// Stores callback-shared session and policy state.
 mod state;
 /// Reads native passive-transition eligibility for frame-by-frame auto-tech.

@@ -339,52 +339,38 @@ fn spawn_worker(
     }
 }
 
-/// Publishes committed tuning into the shared in-memory sequence library.
-fn publish_tuning(
+/// Publishes the verified disk catalog and returns the old library for deferred cleanup.
+fn publish_catalog(
     saved: &Mutex<kirby_assist_core::sequence_config::SequenceLibrary>,
-    kind: i32,
-    tuning: kirby_assist_core::fighter_tuning::Tuning,
-) {
-    saved
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .tuning
-        .insert(kind, tuning);
+    catalog: kirby_assist_core::sequence_config::Catalog,
+) -> kirby_assist_core::sequence_config::SequenceLibrary {
+    let library = kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(catalog);
+    let mut saved = saved.lock().unwrap_or_else(|e| e.into_inner());
+    std::mem::replace(&mut *saved, library)
 }
-/// Persists a tuning or recipe job and publishes changed recipe snapshots.
+/// Persists a tuning or recipe job and publishes the catalog reread from disk.
 fn write(job: &Job) -> Result<bool, String> {
-    if let Some(tuning) = job.tuning {
-        let changed = write_tuning_paths(
+    let (catalog, changed) = if let Some(tuning) = job.tuning {
+        write_tuning_paths(
             job.kind,
             tuning,
             Path::new(PATH),
             Path::new(TEMP),
             Path::new(BACKUP),
-        )?;
-        if let Some(saved) = super::super::SEQUENCES.get() {
-            publish_tuning(saved, job.kind, tuning);
-        }
-        return Ok(changed);
-    }
-    let (catalog, changed) =
-        write_recipe_paths(job, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?;
-    if !changed {
-        return Ok(false); // No file replacement or live recipe publication for an unchanged save.
-    }
-    // Recipe saves replace the owned snapshot on the temporary worker.
+        )?
+    } else {
+        write_recipe_paths(job, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?
+    };
+    // Even a no-op save refreshes stale runtime data from the canonical file.
     if let Some(saved) = super::super::SEQUENCES.get() {
-        let library = kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(catalog);
-        let old = {
-            let mut saved = saved.lock().unwrap_or_else(|e| e.into_inner());
-            std::mem::replace(&mut *saved, library)
-        };
+        let old = publish_catalog(saved, catalog);
         super::super::SEQUENCES_UPDATED.store(true, Ordering::Release);
         RETIRED_LIBRARIES
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .push(old);
     }
-    Ok(true)
+    Ok(changed)
 }
 /// Recover an interrupted save, then read the live file and apply `update`.
 /// Runs recovery before applying a text transformation to the current file.
@@ -408,14 +394,114 @@ fn write_tuning_paths(
     path: &Path,
     temp: &Path,
     backup: &Path,
-) -> Result<bool, String> {
-    // Full-file validation still runs, but its temporary catalogs are dropped
-    // before disk replacement. No recipe snapshot survives/publishes this save.
+) -> Result<(kirby_assist_core::sequence_config::Catalog, bool), String> {
     let (original, updated) = read_updated(path, temp, |original| {
         persist::update_tuning(original, kind, tuning)
     })?;
-    commit_paths(path, temp, backup, &original, &updated)
+    let changed = commit_paths(path, temp, backup, &original, &updated)?;
+    Ok((reload_saved_catalog(path, &updated)?, changed))
 }
+
+fn reload_saved_catalog(
+    path: &Path,
+    expected: &str,
+) -> Result<kirby_assist_core::sequence_config::Catalog, String> {
+    let bytes = read_bounded(path)
+        .map_err(|error| format!("Save reload failed; runtime not refreshed: {error}"))?;
+    if bytes != expected.as_bytes() {
+        return Err("Saved file changed before reload; runtime not refreshed. Retry Save".into());
+    }
+    let source = String::from_utf8(bytes).map_err(|error| error.to_string())?;
+    persist::validate_output(&source)?;
+    Ok(kirby_assist_core::sequence_config::Catalog::parse(&source)?
+        .for_build(cfg!(feature = "diagnostic-logging")))
+}
+#[cfg(feature = "diagnostic-logging")]
+pub(super) fn lan_read() -> Result<(Vec<u8>, String), String> {
+    let _gate = try_ui_edit().ok_or("Save or menu edit busy")?;
+    recover()?;
+    let bytes = read_bounded(Path::new(PATH))?;
+    let revision = kirby_assist_core::diagnostic_http::revision(&bytes);
+    Ok((bytes, revision))
+}
+
+#[cfg(feature = "diagnostic-logging")]
+pub(super) fn lan_write(
+    bytes: &[u8],
+    revision: &str,
+    allowed: impl Fn() -> bool,
+) -> Result<(), String> {
+    struct Release;
+    impl Drop for Release {
+        fn drop(&mut self) {
+            BUSY.store(false, Ordering::Release);
+        }
+    }
+    if !allowed() {
+        return Err("Training editor permission expired".into());
+    }
+    claim_worker(true)?;
+    let _release = Release;
+    let _ui_gate = UI_SAVE_GATE.lock().unwrap_or_else(|e| e.into_inner());
+    let catalog = lan_commit_paths(
+        bytes,
+        revision,
+        Path::new(PATH),
+        Path::new(TEMP),
+        Path::new(BACKUP),
+        allowed,
+    )?;
+    if let Some(saved) = super::super::SEQUENCES.get() {
+        let old = publish_catalog(saved, catalog);
+        RETIRED_LIBRARIES
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(old);
+        super::super::SEQUENCES_UPDATED.store(true, Ordering::Release);
+    }
+    #[cfg(not(test))]
+    crate::diagnostics::lan::request_reload();
+    Ok(())
+}
+
+#[cfg(feature = "diagnostic-logging")]
+fn lan_commit_paths(
+    bytes: &[u8],
+    revision: &str,
+    path: &Path,
+    temp: &Path,
+    backup: &Path,
+    allowed: impl Fn() -> bool,
+) -> Result<kirby_assist_core::sequence_config::Catalog, String> {
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        return Err("File exceeds 512 KiB".into());
+    }
+    let updated = std::str::from_utf8(bytes).map_err(|_| "Sequence file must be UTF-8")?;
+    persist::validate_output(updated)?;
+    if !allowed() {
+        return Err("Training editor permission expired".into());
+    }
+    recover_paths(path, temp)?;
+    let original_bytes = read_bounded(path)?;
+    if kirby_assist_core::diagnostic_http::revision(&original_bytes) != revision {
+        return Err("Stale file revision; reload before editing".into());
+    }
+    let original = std::str::from_utf8(&original_bytes).map_err(|_| "Saved file must be UTF-8")?;
+    let before = kirby_assist_core::sequence_config::Catalog::parse(original)?;
+    let after = kirby_assist_core::sequence_config::Catalog::parse(updated)?;
+    if before.universal != after.universal || before.templates != after.templates {
+        return Err("Live edits support fighter settings/recipes only; universal settings and templates require restart".into());
+    }
+    drop((before, after));
+    if !allowed() {
+        return Err("Training editor permission expired".into());
+    }
+    // Once admitted, finish the recoverable filesystem transaction even if the
+    // player exits Training; never interrupt between rollback/publish renames.
+    commit_paths(path, temp, backup, original, updated)?;
+    reload_saved_catalog(path, updated)
+}
+
 /// Reads at most the file limit plus one detection byte.
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     // Bound the actual read, not only a racy metadata check: FTP/other tools
@@ -467,10 +553,8 @@ fn write_recipe_paths(
             Ok(updated)
         }
     })?;
-    let saved_catalog = kirby_assist_core::sequence_config::Catalog::parse(&updated)?
-        .for_build(cfg!(feature = "diagnostic-logging"));
     let changed = commit_paths(path, temp, backup_path, &original, &updated)?;
-    Ok((saved_catalog, changed))
+    Ok((reload_saved_catalog(path, &updated)?, changed))
 }
 /// Rejects a commit when the live file changed since its initial read.
 fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
