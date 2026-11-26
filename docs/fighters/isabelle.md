@@ -1,17 +1,50 @@
 # Isabelle
 
+## Configure Isabelle
+
+This page belongs to profile **`isabelle`** (`fighter_kinds::ISABELLE`), not a
+roster-position index. Use `[isabelle.settings]` for overrides and
+`[isabelle.neutral.my_response]` (or jump/roll/attack/drop) for an authored option.
+Existing choices, supplied defaults and literal inputs are shown in the generated
+snapshot below. Your installed file and unsaved Training draft may differ.
+
+Start with [the complete fighter configuration walkthrough](../FIGHTER_CONFIGS.md),
+then use [all 83 tuning keys](../FIGHTER_SETTINGS.md) and
+[execution/calibration](../FIGHTER_EXECUTION.md). These shared guides explain
+units, ranges, current versus startup effects, save/restart, and cancellation.
+Choose or edit this fighter's row in Training; activate its configured Ledge
+Assist binding to run it. A missing selected timeline produces no fallback move.
+
+### Supplied fighter overrides
+
+No `[fighter.settings]` overrides are supplied in this fighter file. Shared
+settings and exact-kind reference facts remain the baseline; this does not mean
+every assist is active or every recipe is populated.
+
+### Support and extension boundary
+
+Slingshot projectile travel is not a guaranteed contact window. Fair/bair direction, hop, waiting and drift must all be explicit actions; no automatic facing-dependent compiled shot is hidden behind the label. Net-grab reference facts are separate from hitbox geometry.
+
+To expand this fighter, add a uniquely named option under **`isabelle`** using
+existing actions first. Keep all waits, directional inputs, range checks and
+resource assumptions explicit. Do not change `fighter_kind` to another fighter
+to borrow a move. New primitives require a reviewed shared executor change;
+new character-specific prediction needs a verified native adapter, not only
+more sliders. [Rust extension contracts](../FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain registration, `Option`, validation and focused tests.
+
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
 Native fighter kind **70** (`isabelle`). This reference follows the canonical fighter data;
-it is not a device-calibration result. No fighter-specific file loads during a match.
+it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
-The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.
 Up/Down selects a row; Left/Right cycles its
-choices. Hold **L** to run the selected responses. Defaults are bold.
+choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
@@ -27,14 +60,13 @@ Selecting a choice never changes native moves, hitboxes, physics or animation sp
 
 ## Saved assist rules
 
-These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+These are saved configuration records, not proof that a trigger is currently admitted.
 they are not selected ledge/button recipes. Auto react has one sequence per event;
-priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.
 
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge > Neutral Air | `isabelle.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `isabelle.roll.auto_grab` |
 | `auto_grab_dodged` | — | Dodged grab > Neutral Air | `isabelle.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll > Neutral Air | `isabelle.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield backup > Neutral Air | `isabelle.roll.auto_shield_backup` |
@@ -120,8 +152,8 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Drop / `short_hop_dair` | 0 | `short_hop_dair:1` |
 | Drop / `slingshot` | 0 | `face:opponent, short_hop_fair:1` |
 
-See [this fighter's detailed execution notes](../KROOL_ISABELLE_LEDGE.md) for its specific sequences,
-timing overrides, drift and exceptions.
+See [this fighter's detailed execution notes](../KROOL_ISABELLE_LEDGE.md) for configuration advice,
+input distinctions and limitations.
 
 Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
@@ -145,18 +177,3 @@ Rust/reference-data changes need a separately authorized build/install.
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
-
-> Historical implementation notes: the old conditional fighter engines described below have been retired. Current options and exact input delays are the file-authored schedules above and in `sequences.txt`; native reference facts do not add scheduling.
-
-
-## Slingshot coverage
-
-Slingshot is selectable in all five response rows. Facing selects fair or bair
-without a turnaround, with no post-emission drift. Neutral/Roll stage a stationary
-short-hop shot against protection; Roll does not chase the endpoint. Jump can
-use adaptive hop choice. Attack waits for a real shield block and jump readiness;
-Drop requests the shot immediately. Projectile travel is not modeled.
-
-Net grab has its own startup, active duration and reach reference. Successful
-capture hands back control. Party popper and turnip chase are alternatives with
-different startup/spacing; they do not share a guaranteed hit window.

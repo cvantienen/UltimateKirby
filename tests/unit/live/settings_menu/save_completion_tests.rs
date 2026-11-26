@@ -69,6 +69,45 @@ fn prepared() -> (FighterProfiles, SettingsMenu, save::ResultMessage, Sequence) 
 }
 
 #[test]
+fn unavailable_menu_samples_clear_routed_input_and_preserve_real_button_edges() {
+    use kirby_assist_core::native_input::{ControlLayout, MAPPER_MINUS};
+    let _guard = save_test_guard();
+    let (_, mut menu, _, _) = prepared();
+    menu.consumed = MAPPER_Y;
+    menu.builtin_consumed = MAPPER_Y;
+    menu.native_buttons = MAPPER_Y;
+    menu.scope = true;
+    menu.ledge_held = true;
+    menu.input(MenuInput {
+        available: false,
+        gameplay: false,
+        bindings_blocked: false,
+        safety_jump: false,
+        fighter_kind: Some(15),
+        buttons: MAPPER_MINUS,
+        physical: MAPPER_MINUS,
+        layout: ControlLayout::Default,
+        base: AssistSettings::default(),
+        mash_default: false,
+        grab_default: false,
+        tech_default: false,
+        damage_defaults: [false; 2],
+        training: true,
+    });
+    assert_eq!(menu.consumed, 0);
+    assert_eq!(menu.builtin_consumed, 0);
+    assert_eq!(menu.native_buttons, MAPPER_MINUS);
+    assert!(!menu.scope && !menu.ledge_held);
+    let selection = menu.selections.get_mut(&15).unwrap();
+    assert!(selection.preview_slot.is_none());
+    let p = FighterProfiles::default();
+    let options = &p.profile(15).unwrap().menu_options;
+    let hidden = selection.menu_hidden;
+    selection.input(MAPPER_MINUS, options);
+    assert_eq!(selection.menu_hidden, hidden, "held passthrough Minus is not a new menu tap");
+}
+
+#[test]
 fn maintenance_acknowledgement_commits_the_first_edit_and_invalidates_runtime_caches() {
     let _guard = save_test_guard();
     let (profiles, mut menu, result, sequence) = prepared();
@@ -235,7 +274,6 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
         "auto_roll",
         "auto_spot_dodge",
         "auto_air_dodge",
-        "auto_grab",
         "auto_shield_grab",
         "auto_grab_dodged",
         "auto_shield_backup",

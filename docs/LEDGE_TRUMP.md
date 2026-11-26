@@ -1,73 +1,61 @@
-# Button-mapped ledge trump
+# Ledge trump: one-shot run-off and inward catch attempt
 
-Assign **Built-in: Ledge trump** to a button in Button configs. No button is
-assigned by default, so D-pad Down has no special behavior. The assigned button
-can be tapped: the input-only sequence continues after release. Release and
-press again after changing the assignment. A held button cannot start the
-sequence again after it finishes.
+Assign **Ledge trump** to a configurable button via [Controls](CONTROLS.md).
+A fresh press starts it; release does not stop an in-flight one-shot. Holding
+cannot restart it after catch, failure or timeout. Release and press again to
+retry. It is not a hard-coded D-pad Down macro, persistent toggle or proof the
+opponent was actually displaced from the ledge.
 
-The routine requires native grounded readiness and the selected human
-fighter/controller scope. It uses existing read-only floor geometry and
-simulated controller input; it does not change positions, velocities or ledge
-physics.
+## Edge selection and exact input phases
 
-On activation, native floor-support rays search both directions up to 100
-world units for the nearest boundary of the controlled fighter's current floor.
-A failed search does not repeat while the button remains held; release and
-press again to retry.
-The nearer edge wins regardless of facing; equal distances
-prefer the controlled fighter's facing. There is no opponent acquisition-range
-requirement. An undetected edge means no movement. Start on the main flat stage
-floor: this finds collision edges, not proof of a grabbable native cliff.
-Platforms, slopes, moving terrain and irregular stages need device testing.
+The selected human fighter must be grounded and native-ready at activation.
+Read-only support probes search both directions up to100 world units along the
+current floor. Nearest detected boundary wins; equal distances prefer native
+facing. Failed search means no movement and no repeated scan until a fresh
+press. This detects collision support, **not native cliff grabbability**.
 
-The input sequence is outward stick until native fall, one native animation
-step of Down, then inward stick. It deliberately permits running off the
-selected edge. The Down step uses native animation progress rather than
-counting repeated mapper polls. This is an input-only attempt: no position,
-velocity, status, invincibility or ledge-occupancy writes are made.
+1. Request outward stick toward the chosen boundary: full strength while far,
+   then0.55 within8 units to reduce outward carry.
+2. On first native fall, request **inward+Down**, not the old Down-only phase.
+3. Keep that input until native status/motion frame advances, then release Down
+   and retain inward input.
+4. Native ledge catch/catch-move/wait ends ownership immediately; choose follow-up
+   yourself. No attack, ledge invulnerability or occupancy write is performed.
 
-At native ledge catch/catch-move, ownership ends immediately. Choose the
-follow-up yourself. Catching an occupied ledge is not separately confirmed as
-a successful trump: the opponent can escape or otherwise prevent displacement.
+The attempt deliberately permits running offstage. It cannot make a platform
+edge grabbable or erase ledge lockouts. Slopes, moving floors and stage shapes can
+invalidate the selected boundary; no moving target chase or new edge search is
+performed mid-attempt.
 
-The attempt cancels on damage or another unexpected action, running more than
-three units past the selected edge while still grounded, a drop more than 16
-units from the anchor, separation over 12 units after the initial fall, or 120
-changing non-stopped own-state observations. Approach distance is bounded by
-the initial distance plus four units. These observations are not a verified
-simulation-frame timer. Plus uses the existing cancellation path. A failed
-catch hands back physical control; press the assigned button again for another
-attempt.
+## Clock and cancellation
 
-Holding L activates ledge autopilot, including Kirby recovery cover. Minus
-toggles the menu. An active ledge-trump attempt takes priority over ledge
-autopilot and side-D-pad slides; mash and tech retain priority. Only the
-assigned button is reserved for its binding; D-pad Down is not reserved by
-default.
+Repeated mapper polls are not Down-phase frames. Native status/motion/frame
+changes advance a bounded120-observation attempt budget; stopped play pauses and
+emits no new trump stick. This count is not a certified simulation-frame timer.
+Unexpected attack/damage, invalid context/readiness, more than3 units past the
+selected edge while grounded, more than16 vertical units from its anchor or more
+than12 horizontal units after falling cancel. Approach reach is initial distance
+plus4. Failed catch returns physical controls rather than teleporting to the edge.
 
-Diagnostic builds identify the root Cargo package version at startup. The
-`trump input:` message reports scope, request freshness, phase and stick output
-when the assigned button is pressed. The `trump mapped:` message reports final
-mapped buttons and stick after taunt suppression. If the assigned action does
-not start, check the loaded NRO/version, selected human fighter, selected
-player input slot and `player_index`. A host build cannot verify the SD install.
+Safety and protected committed inputs can outrank trump; explicit Held Defense/
+Counter preempt nonsafety owners. Trump is not automatically above every ledge
+response. Mode/menu/session cancellation and shared request freshness apply.
+Only the configured role binding is reserved; no universal Down reservation is
+implied. See [Sequence files](SEQUENCE_FILES.md) for assignments and
+[Fighter settings](FIGHTER_SETTINGS.md) for separate movement estimates.
 
-The run-off/inward approach follows the manual technique demonstrated in
-[How To Ledge Trump Like A Pro](https://www.youtube.com/watch?v=V6B0g3a0KpU).
-[Hit Box's ledge-trump notes](https://www.hitboxarcade.com/blogs/smash-box/different-walks-sb-ssbu)
-explain that occupied-ledge collision can make a running approach inconsistent.
-No universal fastest timing or successful Switch trump has been measured here.
-Test both ledges on Final Destination first, starting close to the edge; check
-both catch success and immediate manual follow-up. Then vary distance and
-opponent.
+## Player practice versus code extension
 
-The approach changes from full run input to 0.55 walking input within eight
-units of the selected edge, suppressing dash aliases there. On the first native
-airborne observation it sends inward+Down, then releases Down after native
-progress and keeps inward input. This reduces outward carry during the former
-Down-only phase. It cannot make an ungrabbable platform edge catchable, erase
-native ledge lockouts, or guarantee a trump; verify both sides on Switch.
+Start near each edge of a simple flat stage, compare both facings and confirm
+native catch plus immediate manual follow-up. Then test an empty ledge and an
+occupied ledge; catch alone is not confirmed trump success. Change only one
+binding/starting position per trial. No fastest or guaranteed online timing is
+claimed.
 
-Policy: `crates/kirby_assist_core/src/policies/ledge_trump.rs`. The live adapter composes
-its output through the existing shared stick/button overlay.
+For Rust readers, `policies/ledge_trump.rs::nearest_floor_edge` returns
+`Option<[f32;2]>`: a bounded candidate or none. `LedgeTrump` retains press history
+and an optional `Attempt`; its phases are Approach, Down and Return. Adding a
+stage-aware technique requires verified read-only geometry, native readiness,
+phase/cancellation and duplicate/stop tests—not position/velocity/status edits.
+A saved input tape is a different tool and cannot register a new native catch
+capability. No Switch build or certification accompanies this guide.

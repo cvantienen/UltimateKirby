@@ -1,37 +1,38 @@
-# Luigi and Captain Falcon ledge profiles
+# Luigi and Captain Falcon: independent profiles
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+Luigi uses `luigi`; Captain Falcon uses `captain_falcon` (the documentation filename
+is captain.md). Their exact native kinds are 9 and 11. Neither borrows Kirby
+reference data, option defaults or a compiled combo builder. The supplied pages
+show each current file's rows and actual delays; older lead/clamp/shield-to-Nair
+claims were retired with the compiled ledge engine.
 
+A shorter native startup is a useful calibration fact, not an automatic input
+lead. In a multihit aerial, inspect separate active spans rather than joining the
+gap. A grab recipe needs each fighter's own reach/facing/state; a successful
+capture does not automatically pummel or throw.
 
-Luigi (native kind 9) and Captain Falcon (11) retain their compiled ledge options
-and timings. Their combo builders have been removed, along with the other
-fighter combos. See [the ledge menu](LEDGE_MENU.md) for held-L autopilot and the other current bindings.
+## Configure, save and expand
 
-## Ledge timing choices
+Read the current generated reference for [Luigi](fighters/luigi.md) and [Captain](fighters/captain.md). Its tables are repository
+snapshots, not your installed file or unsaved Training draft. Follow
+[the full configuration walkthrough](FIGHTER_CONFIGS.md) to choose/edit the exact
+fighter row, set explicit start delay/actions, save with Y alone and wait for
+success. External file edits require restart; current mode activation is separate
+from saved startup preference. Use [all 83 tuning keys](FIGHTER_SETTINGS.md) for
+valid ranges, units, menu visibility and active/legacy effects.
 
-Move-frame facts are read from the canonical
-[Fighter Data catalog](FIGHTER_DATA.md), not copied into per-fighter timing
-profiles.
-Native kind/status/transition IDs were checked against the pinned skyline-smash
-lua_const.rs bindings. Recipe delays are starting values, not experimentally
-verified universal optimal timings.
+New choices should reuse existing input primitives under the exact profile prefix.
+New native behavior requires an explicitly reviewed shared adapter; profile
+registration or extra sliders alone cannot implement it. Keep all assistance
+input-only. [Rust extension contracts](FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain the stable schema, exact-kind validation and focused tests.
 
-- Luigi: nair 3–31; down tilt 5–8; forward tilt 5–7; first down-smash hit 6–7.
-  Shield grab starts at 18, so the faster 6-frame shield-to-nair is the default
-  get-up-attack response. Shield grab remains selectable and hands control back
-  immediately on capture. Normal-getup nair defaults to lead 8.
-- Falcon: first nair hit 7–8; down tilt 11–12; forward tilt 7–10; first down-smash
-  hit 19–20. His second nair hit (13–15) and rear down-smash hit (29–30) have gaps;
-  they are not counted as continuous coverage. Forward tilt is the normal-getup
-  default. Selecting nair clamps early lead to at most 1 frame for its first hit.
-- Both have alternative neutral-getup tilts, shield-to-nair/shield-grab choices,
-  shield or one down-tilt-then-shield on ledge drop, without Off entries.
-  Roll uses the existing fixed common destination and native vulnerability
-  schedule. Late recognition/arrival can miss, especially Falcon's slower smash.
-  These are practical initial presets, not a proof of optimal match-up coverage.
+## Verify the intended outcome
 
-## Runtime
-
-Only the selected fighter's response executes. Settings and UI labels are
-cached on changes; no fighter files load at runtime. Idle movement/ledge reads
-are skipped. These changes have not been built or measured on Switch.
+Check label versus actual action, facing on both sides, grounded/airborne state,
+resource setup, emitted press/release and native acceptance separately. Move-frame
+facts are [canonical reference data](FIGHTER_DATA.md), not timing commands.
+Then [calibrate](FIGHTER_EXECUTION.md) from repeatable positions, including
+hitstop, target loss, interruption and online play. No asset table or host check
+proves contact, safety or optimal timing. This documentation update does not
+build/upload to Switch, alter canonical assets or change executable Rust.

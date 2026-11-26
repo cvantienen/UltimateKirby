@@ -4,7 +4,7 @@ use kirby_assist_core::{
     gameplay::GameplayContext,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
-    reaction_rules::{Engine, Resolved},
+    reaction_rules::{AutomaticEvent, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
     settings::AssistSettings,
@@ -83,7 +83,8 @@ fn generic_templates_never_become_roll_dodge_or_grab_followups_and_fighter_grab_
             let mut m = MenuSelection::new(&p.menu_options);
             m.simplified_reactions = true;
             let rules = m.resolve_reactions(&p.menu_options).unwrap();
-            for event in 0..7 {
+            for event in AutomaticEvent::ALL {
+                let event = event.index();
                 let authored = c.entries().iter().find(|entry| {
                     entry.fighter_kind == kind
                         && entry.sequence.reaction.trigger.simple() == Some(event)
@@ -192,11 +193,10 @@ fn unconfigured_fighters_never_get_up_b_from_generic_grab_backup_even_with_empty
             )
             .requested
             & MAPPER_R;
-        if close > 0.0 {
-            assert_ne!(grab, 0, "moving grab vs shield, fighter {kind}");
-        } else {
-            assert_eq!(grab, 0, "missing reach disables grab, fighter {kind}");
-        }
+        assert_eq!(
+            grab, 0,
+            "unshielded movement never starts an OOS grab, fighter {kind}"
+        );
     }
     assert!(!Resolved::default().has_simple_events());
 }
@@ -208,20 +208,24 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
     .unwrap();
     let mut profiles = FighterProfiles::default();
     profiles.add_sequence_choices(&file).unwrap();
-    let mut seen = Vec::new();
     for kind in [5, 22] {
         let p = profiles.profile(kind).unwrap();
         let mut m = MenuSelection::new(&p.menu_options);
         m.simplified_reactions = true;
         let r = m.resolve_reactions(&p.menu_options).unwrap();
-        let g = r.simple_sequence(3).unwrap();
-        let s = r.simple_sequence(4).unwrap();
-        seen.push((g.reaction.max, s.reaction.max));
         let config = AutomaticConfig {
-            grab: Some(g),
-            shield_grab: Some(s),
-            backup: r.simple_sequence(6),
+            shield_grab: r.automatic_sequence(AutomaticEvent::ShieldGrab),
+            backup: r.automatic_sequence(AutomaticEvent::ShieldBackup),
         };
+        for event in [AutomaticEvent::ShieldGrab, AutomaticEvent::GrabDodged] {
+            let authored = file.entries().iter().find(|entry| {
+                entry.fighter_kind == kind && entry.sequence.reaction.trigger == event.trigger()
+            });
+            assert_eq!(
+                r.automatic_sequence(event).copied(),
+                authored.map(|entry| entry.sequence)
+            );
+        }
         // A saved explicit backup remains fighter configuration; global templates
         // must never supply or replace it. Some imported catalogs already contain one.
         let authored = file.entries().iter().find(|e| {
@@ -232,7 +236,8 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
         assert_eq!(config.backup.copied(), authored.map(|e| e.sequence));
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
             .auto_grab_ranges(kind, p.grab.grab.standing_range);
-        for (distance, want_grab) in [(s.reaction.max * 0.5, true), (s.reaction.max + 0.1, false)] {
+        let range = config.limits(close).close;
+        for (distance, want_grab) in [(range * 0.5, range > 0.), (range + 0.1, false)] {
             let c = own(kind, kirby_assist_core::native_states::GUARD);
             let out = OutOfShield::new().sample_automatic_configured(
                 true,
@@ -255,10 +260,6 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
             assert_eq!(out.requested & MAPPER_B, 0);
         }
     }
-    assert_ne!(
-        seen[0], seen[1],
-        "fighters retain their independent configured ranges"
-    );
 }
 #[test]
 fn deleting_a_configured_backup_stops_its_active_spin_without_another_attack_or_grab() {

@@ -174,7 +174,12 @@ impl Attempt {
     }
 }
 
-/// Runtime Smash data carried by `LedgeTrump`.
+/// One-shot input-only run-off, inward/down, then inward ledge-catch attempt.
+///
+/// A fresh trigger press starts the attempt; releasing it does not stop an
+/// in-flight attempt, and holding it cannot start a second one. The adapter
+/// supplies a floor edge found at activation. A collision edge is only a
+/// candidate, not proof that Smash permits ledge catch or opponent displacement.
 #[derive(Default)]
 pub struct LedgeTrump {
     /// Runtime held value used by LedgeTrump..

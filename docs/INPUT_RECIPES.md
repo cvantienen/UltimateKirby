@@ -1,101 +1,102 @@
-# Shared move inputs and Kirby posture
+# Input recipes and posture: requests are not forced moves
 
-This page describes compiled helpers used by existing assists. Saved text actions
-are literal input timelines and do not inherit these helper acceptance checks or
-hidden waits. Use the [editor action reference](EDITOR_ACTION_CHEATSHEET.md) for
-current sequence behavior and [controls](CONTROLS.md) for active bindings.
+This guide separates **saved literal input tapes** from **compiled helpers with
+native confirmation**. A saved action does not inherit a helper's hidden recovery
+wait or move acceptance check. Use [Sequence files](SEQUENCE_FILES.md) for text
+syntax and [Controls](CONTROLS.md) for actual physical mappings/activation.
 
-`crates/kirby_assist_core/src/policies/move_input.rs` names physical input recipes.
-They pass through the existing single mapper overlay and action owner. They
-do not force moves, change animation speed or add an input-delay estimate.
+## Three kinds of input behavior
 
-| Action | Request and acceptance rule |
-| --- | --- |
-| Neutral short-hop attack | Neutral X+A, release Jump at squat; confirm exact nair motion |
-| Directional short-hop aerial | Neutral X+ZL, release both at squat, directional A after native takeoff |
-| Full hop | Hold X through squat, select aerial only after takeoff |
-| Fair / bair | Stick toward / opposite native facing plus A; never a grounded directional A |
-| Turnaround bair | Grounded stick-only turnaround, confirm facing away, then short hop and airborne backward+A |
-| Fast fall | Down after exact move acceptance and negative native vertical speed; recipes choose the earliest permitted move frame |
-| Smash | Neutral/release primer, direction+A, release A on native startup; rejection retries stay bounded |
+| Kind | What it does | What it does not promise |
+| --- | --- | --- |
+| Literal saved step | Requests the authored buttons/sticks/wait duration | That Smash starts the named move |
+| Native-confirmed compiled helper | Uses copied status/motion evidence to bound delivery/release | Forced recovery cancellation or faster move startup |
+| Posture adjustment | Changes proposed stick angle while preserving physical attack edges | An automatic Attack press or guaranteed tilt reversal |
 
-The table describes independent native-confirmed helpers such as manual finishers
-and onstage roll reads. Ledge trapping uses [literal file timelines](SEQUENCE_FILES.md)
-instead: no acceptance retry, native JumpMini marker, fighter-specific drift window
-or inferred startup delay is added to its inputs.
+`policies/move_input.rs` retains shared delivery and Up-B receipt helpers. A
+**receipt** remembers mapped input without owning another B pulse; **acceptance**
+means native move status/motion was actually observed. Its 24-packet acceptance
+budget is not hitbox startup or a sequence timing offset. Ledge/button tapes are
+played by `ledge_trap/file_timeline.rs`, not a universal compiled move engine.
 
-This assumes **A = Attack, X and ZL = Jump, R = Grab, ZR = Shield** in the selected
-Smash controller profile. Manual X short hop deliberately uses X alone and releases
-it in squat. A shared recipe cannot correct a different game mapping, a closed
-transition term, an OS overlay consuming the controller, or an airborne wrong move.
-Physical C-stick inputs are suppressed while an assisted sequence owns them.
-Nothing promises frame-perfect arena execution despite stalls or packet delay.
+## Posture: idle crouch and tilt facing
 
-## Grounded posture menu rows
+Idle crouch is Kirby-only. It proposes Down during grounded neutral when a known
+enemy is within45 horizontal/20 vertical world units, with safe ground and no
+competing physical input. Passable platforms are excluded to avoid a drop.
+Physical intent, loss of target/range/ground/readiness, suspension and stronger
+owners remove the proposal. It owns no Attack button. Down can remain through
+native crouch entry/wait/turn/rise; crouch looping is not a reason to release.
 
-Idle crouch (Kirby) and **Tilt face** start **ON** and can be changed with the
-normal menu controls. Tilt face is available to every fighter, but only selected
-moves are assisted. In **Fighter settings**, independently configure
-`tilt_turn_down`, `tilt_turn_forward`, and `tilt_turn_up` and save with Y.
-Down defaults ON for Kirby and Yoshi; every other fighter/move combination
-defaults OFF. The mode toggle and saved move settings are independent.
+Tilt facing is a stick helper, not an attack macro. The current configured
+helper adjusts a **physical dominant C-stick** direction toward the known opponent.
+Down/up uses a small horizontal component (0.2) with a dominant vertical0.8;
+forward uses opponent direction with the physical horizontal magnitude. It
+preserves the left stick and actual physical attack edges. Held left-stick
+Down+A alone does not run the old 0.80 angled-main-stick reversal. Native tilt
+recovery can retain eligibility, but there is no standing-turn tape or guaranteed
+reversal before the game accepts the physical C-stick input.
 
-- **Idle crouch:** When grounded in ordinary movement and physical buttons/stick
-  are neutral and an enemy is within **45 horizontal units and 20 vertical units**,
-  propose Down immediately. No enemy or leaving that range removes the proposal.
-  This deliberately generous approach distance starts crouching early. Holding L
-  suspends crouching; releasing L resumes it
-  without changing the saved toggle. Any physical movement, attack,
-  jump, shield or other button immediately removes that proposal. No action
-  buttons are owned. Passable platforms are excluded to prevent platform drops.
-  Roll read, ledge responses, safety and every committed action have priority.
-  Down stays held through native crouch entry/wait/turn/rise states (0x11–0x15)
-  and crouch-animation loop resets; entering crouch must never release it.
-- **Tilt face, down:** While holding Down, prepare the angle before pressing A. A physical down C-stick also qualifies while standing with a neutral left stick; configure that stick as Tilt Attack in the game. The live helper reads the pre-map right-stick axes immediately instead of waiting for a digital Down alias. Keep Down fully held and
-  angle the stick 0.80 toward the nearest enemy if facing away. Already facing
-  the enemy uses straight Down. Attack presses/releases remain physical, so
-  mashed down tilts keep their original edges. For an actual down C-stick flick,
-  the winning helper also angles that stick toward the enemy, keeping Down the
-  dominant axis; this avoids leaving a contradictory straight-down C-stick
-  direction for the mapper. Side/up flicks and released C-stick axes are not
-  converted into down tilts. Both stick values are restored after mapping.
-  Horizontal native direction bits
-  pass through instead of being suppressed by the walking filter. A physical
-  down-tilt press and native down-tilt recovery use manual-tool priority over ledge preparation, while safety
-  and confirmed finishers retain priority. This also runs during native
-  down-tilt recovery (0x2c) to aim the next buffered tilt, using the latest enemy
-  direction each sample. There is no standing-turn sequence, queued attack or
-  eight-frame timer. Releasing Down removes the adjustment; during down-tilt
-  recovery the angle remains through A-release gaps to prepare the next tilt.
-  Pre-attack aiming stays passive so committed automatic punishes still win.
-  It uses a bounded pass over at most eight already-known fighter IDs only while
-  enabled and Down intent or native down-tilt recovery is present, including when other opponent-reading assists are off. No item/hitbox
-  scan is added. In a free-for-all, nearest means nearest
-  root position, not the opponent you intend to target.
-  Direction is proposed in the same poll with no added delay. Native input
-  acceptance can still choose the old facing when turn and attack arrive
-  together; input-only behavior cannot guarantee a reversal before every tilt.
-- **Tilt face, forward/up:** Opt in separately and map the C-stick to **Tilt
-  Attack** in the game's controller settings. The helper cannot detect that
-  mapping: enabling either option with Smash Attack mapping can redirect a smash.
-  Only a physical, dominant side/up C-stick movement with a neutral left stick
-  is adjusted; left-stick+A attacks are untouched. The helper aims the sticks
-  toward the nearest opponent without requesting an attack, and retains the
-  physical C-stick press and release. It yields to higher-priority owners, air,
-  unrelated inputs and unavailable targets. Native acceptance and in-game
-  facing still require device verification.
+Forward/up C-stick adjustments are opt-in and require the game's C-stick to be
+**Tilt Attack**. The helper cannot read that controller setting: with Smash
+Attack mapping, enabling them can redirect a smash. Only the real dominant
+side/up C-stick intent qualifies; arbitrary left-stick+A attacks are not
+converted. Physical C-stick axes/button history are restored after mapping.
 
-The A+B jab-to-grab shortcut and its menu row are removed. A/B now follow
-normal game behavior. Use universal X/Y input recipes for your own named button
-sequences; these do not inherit native jab-confirmation or recovery checks.
+Schema `tilt_turn_down` inherits true for Kirby, Yoshi **and Lucina**, not just
+Kirby/Yoshi; forward/up inherit false. Supplied Lucina overrides all three false.
+The global `auto_turn_tilts_active` fallback is false and `auto_turn_tilts`
+directions default OFF; direction settings and current mode admission are distinct.
+A direct startup example enables both shared admission and a direction:
 
-Dtilt facing retains its angle during native down-tilt hitstop, allowing the next
-physical tilt to buffer with its direction intact. Down on a C-stick mapped to
-Tilt Attack is permitted alongside held left-stick Down. Left-stick-only aiming
-preserves the physical C-stick attack edge while aiming its down angle; full assisted
-sequences still suppress competing physical C-stick input. Neither A nor a
-C-stick attack is generated by this helper.
+```ini
+[universal.settings]
+auto_turn_tilts_active = true
+auto_turn_tilts = down
+```
 
-Startup-loaded file choices now use [literal input timelines](SEQUENCE_FILES.md).
-Their general move names compile to controller inputs and do not use these
-native-confirmed compiled helpers; there is no `code:ID` fallback.
+The direction parser accepts comma/space/pipe-separated down/forward/up names
+and `none`/`off` disables it. `down`, `d`, `dtilt`; `forward`, `side`, `f`,
+`ftilt`; `up`, `u`, `utilt` are accepted aliases. Empty/unknown values are errors.
+Keep the canonical [Fighter settings](FIGHTER_SETTINGS.md) workflow for per-fighter
+save/reset; numeric tuning inheritance is not the same as toggling the current
+helper ON. No universal key list is duplicated here.
+
+## Worked literal input example
+
+```ini
+[kirby.x.practice_hop]
+name = Practice neutral hop attack
+start_delay = 0
+timeout = 120
+actions = input:x+a:0:0:1, wait:1
+```
+
+This file experiment requests those physical buttons with neutral main stick
+for one frame, then waits. It does not wait for native takeoff, verify nair,
+append fast fall or alter landing lag. Controller mapping determines meaning.
+A player should choose explicit documented waits/checks instead of expecting a
+move name to register a hidden callback. [Sequence files](SEQUENCE_FILES.md)
+explains once/while-held looping, facing branches and zero-frame until-manual holds.
+
+The old A+B jab-to-grab/native Y Finisher and hard-coded slide/B-reverse bindings
+are retired. Ordinary A/B remain game inputs; current button roles and saved
+recipes are documented in Controls. Legacy portable helper types or config fields
+are not proof those old live actions remain enabled.
+
+## Order, cancellation and extension
+
+A committed literal tape masks ordinary physical gameplay inputs, including its
+neutral gaps. Explicit until-manual holds are different: new manual intent ends
+them. Native stop pauses progress; duplicate polls reuse output. Damage/capture,
+invalid scope/clock, timeout and lost required target facts end tapes. Safety and
+explicit Held Defense/Counter can preempt nonsafety owners. Posture yields to
+other owners rather than silently changing their attack angle.
+
+Rust beginners should keep **data**, **proposal**, **mapper receipt** and **native
+confirmation** separate. `ControllerOutput` owns only requested controller input;
+`Option<[f32;2]>` means stick proposal or no override. Players edit saved inputs
+and posture preferences; developers adding an action must update parser,
+validation, playback and targeted duplicate/cancellation/manual-handback cases.
+Never alter move definitions, hitboxes, rates, physics or status to make a recipe
+succeed. Training success still does not guarantee online acceptance.

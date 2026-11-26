@@ -1,5 +1,14 @@
-//! Shared settings menu state for fighter recipes, feature modes and input bindings.
-//! Minus toggles the panel; ledge choices and other settings are saved per fighter.
+//! Shared in-memory menu state for manual recipes, assist switches and bindings.
+//!
+//! Minus opens ledge home or closes the current page. Actual Training scenes
+//! permit editing/testing and explicit save requests; other battle scenes use
+//! a two-page selector without editor or persistence controls. Navigation returns
+//! a consumed-button mask so menu commands do not leak into gameplay.
+//!
+//! A selection, edit or mode toggle is session state, not an automatic disk
+//! write. The live adapter consumes explicit save requests and owns the worker,
+//! backups and catalog publication. Private editor/catalog modules remain private;
+//! tests are included from `tests/unit` under their owning modules.
 #[cfg(test)]
 #[path = "../tests/unit/settings_menu_bindings.rs"]
 mod binding_tests;
@@ -353,6 +362,14 @@ pub struct MenuSelection {
     trump_sources: u32,
     /// Physical sources assigned to hold-only spacing and attack assistance.
     spacing_sources: u32,
+    spacing_toggle_sources: u32,
+    spacing_toggled: bool,
+    counter_sources: u32,
+    counter_toggle_sources: u32,
+    counter_toggled: bool,
+    defense_sources: u32,
+    defense_toggle_sources: u32,
+    defense_toggled: bool,
     /// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
     /// Runtime binding sources value used by MenuSelection..
@@ -696,20 +713,20 @@ impl MenuSelection {
     }
     /// Rows hidden by the build, the fighter or the reaction mode.
     fn row_available(&self, row: MenuRow) -> bool {
-        !(!cfg!(feature = "diagnostic-logging")
-            && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
-            && row != MenuRow::RollRead
-            && !(self.simplified_reactions
-                && matches!(row, MenuRow::ShieldPressure | MenuRow::SpotPunish))
-            && !(row == MenuRow::IdleCrouch && self.y_fighter_kind != crate::fighter_kinds::KIRBY)
-            && !(row == MenuRow::TiltTurn
-                && !crate::button_bindings::Mode::TiltTurn.supports(self.y_fighter_kind))
-            && !(row == MenuRow::AutoReflect
-                && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
-                    .is_none())
-            && !(row == MenuRow::AutoCounter
-                && crate::auto_counter::Config::for_fighter(self.y_fighter_kind, self.tuning)
-                    .is_none())
+        match row {
+            MenuRow::Performance | MenuRow::TestLatency => cfg!(feature = "diagnostic-logging"),
+            MenuRow::RollRead | MenuRow::AutoCounter => false,
+            MenuRow::ShieldPressure | MenuRow::SpotPunish => !self.simplified_reactions,
+            MenuRow::IdleCrouch => self.y_fighter_kind == crate::fighter_kinds::KIRBY,
+            MenuRow::TiltTurn => {
+                crate::button_bindings::Mode::TiltTurn.supports(self.y_fighter_kind)
+            }
+            MenuRow::AutoReflect => {
+                crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
+                    .is_some()
+            }
+            _ => true,
+        }
     }
     /// Constructs a new value with the type’s initial state.
     pub fn new(presets: &MenuPresets) -> Self {
@@ -728,7 +745,7 @@ impl MenuSelection {
             idle_crouch: true,
             tilt_turn: true,
             spot_punish: true,
-            auto_tech: true,
+            auto_tech: false,
             grab_dodge: true,
             out_of_shield: true,
             menu_hidden: true,
@@ -888,7 +905,9 @@ impl MenuSelection {
     /// A toggled ledge watch stays reserved even while manual input temporarily
     /// pauses its movement. Safety tech/mash and ledge shield are separate.
     pub fn reserves_automatic_modes(&self) -> bool {
-        self.ledge_mode()
+        self.defensive_owner().is_some()
+            || self.auto_spacing_held()
+            || self.ledge_mode()
             || self.preview_slot.is_some()
             || self.native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
                 & MAPPER_L
@@ -966,6 +985,9 @@ impl MenuSelection {
 
     /// Resets the inputs.
     pub fn reset_inputs(&mut self) {
+        self.spacing_toggled = false;
+        self.counter_toggled = false;
+        self.defense_toggled = false;
         self.restore_mode_choices();
         self.tuning_page = false;
         self.close_tools();
@@ -1117,138 +1139,8 @@ fn cycle(index: usize, count: usize, forward: bool) -> usize {
 }
 
 #[cfg(test)]
-mod auto_spacing_tests {
-    use super::*;
-    use crate::button_bindings::Builtin;
-
-    fn spacing_selection() -> (MenuSelection, MenuPresets) {
-        let presets = MenuPresets::default();
-        let mut selection = MenuSelection {
-            menu_hidden: true,
-            ..MenuSelection::default()
-        };
-        selection.choices[PresetSlot::Y as usize] = presets.list(PresetSlot::Y).options.len()
-            + Builtin::AutoSpacing.visible_template_offset().unwrap();
-        selection.capture_binding_input(MAPPER_Y, &presets);
-        (selection, presets)
-    }
-
-    #[test]
-    fn auto_spacing_choice_cycles_and_saved_default_reloads_by_identity() {
-        use crate::{
-            fighter_profiles::FighterProfiles,
-            sequence_config::{persist, Catalog, Sequence},
-        };
-        let mut profiles = FighterProfiles::default();
-        profiles
-            .add_sequence_choices(&Catalog::parse("").unwrap())
-            .unwrap();
-        let presets = profiles
-            .profile(crate::fighter_kinds::KIRBY)
-            .unwrap()
-            .menu_options;
-        let mut selection = MenuSelection::new(&presets);
-        for slot in PresetSlot::BUTTONS {
-            let base = presets.list(slot).options.len();
-            let spacing = base + Builtin::AutoSpacing.template_offset();
-            let choices = selection.visible_choices(&presets, slot);
-            assert_eq!(choices.last(), Some(&spacing));
-            assert_eq!(selection.choice_end(&presets, slot), spacing + 1);
-            assert_eq!(
-                selection.choice(&presets, slot, spacing).unwrap().id,
-                Builtin::AutoSpacing.choice_id()
-            );
-            selection.choices[slot as usize] = spacing;
-            assert_eq!(selection.cycle_choice(&presets, slot, true), choices[0]);
-            selection.quick_menu = true;
-            let (position, count) = selection.choice_position(&presets, slot);
-            assert_eq!(position + 1, count);
-            selection.quick_menu = false;
-        }
-        let saved = persist::update(
-            "",
-            crate::fighter_kinds::KIRBY,
-            PresetSlot::Y,
-            "saved_spacing",
-            Sequence {
-                builtin: Some(Builtin::AutoSpacing),
-                ..Sequence::default()
-            },
-            true,
-        )
-        .unwrap();
-        let catalog = Catalog::parse(&saved).unwrap();
-        profiles.add_sequence_choices(&catalog).unwrap();
-        let startup = profiles
-            .profile(crate::fighter_kinds::KIRBY)
-            .unwrap()
-            .menu_options;
-        let mut startup_selection = MenuSelection::new(&startup);
-        selection.load_saved_recipes(&presets, &catalog, crate::fighter_kinds::KIRBY);
-        for (menu, p) in [
-            (&mut startup_selection, &startup),
-            (&mut selection, &presets),
-        ] {
-            assert_eq!(
-                menu.choice(p, PresetSlot::Y, menu.choices[PresetSlot::Y as usize])
-                    .unwrap()
-                    .id,
-                "saved_spacing"
-            );
-            menu.menu_hidden = true;
-            menu.capture_binding_input(MAPPER_Y, p);
-            assert!(menu.auto_spacing_held());
-        }
-    }
-
-    #[test]
-    fn auto_spacing_hold_releases_without_toggling_or_latching() {
-        let (mut selection, presets) = spacing_selection();
-        assert!(selection.auto_spacing_held());
-        assert_ne!(selection.builtin_consumed & MAPPER_Y, 0);
-        selection.process_bindings(&presets, MAPPER_Y, MAPPER_Y, true, 0);
-        assert!(selection.auto_spacing_held());
-        assert_eq!(selection.button_latch & MAPPER_Y, 0);
-        selection.capture_binding_input(0, &presets);
-        assert!(!selection.auto_spacing_held());
-        selection.capture_binding_input(MAPPER_Y, &presets);
-        assert!(selection.auto_spacing_held());
-        selection.capture_binding_input(MAPPER_Y | MAPPER_L, &presets);
-        assert!(!selection.auto_spacing_held());
-    }
-
-    #[test]
-    fn auto_spacing_respects_menu_cancel_and_quarantine() {
-        let (mut selection, presets) = spacing_selection();
-        selection.menu_hidden = false;
-        assert!(!selection.auto_spacing_held());
-        selection.menu_hidden = true;
-        selection.recipe_editing = true;
-        assert!(!selection.auto_spacing_held());
-        selection.recipe_editing = false;
-        selection.tuning_page = true;
-        assert!(!selection.auto_spacing_held());
-        selection.tuning_page = false;
-        selection.cancel_pending = true;
-        assert!(!selection.auto_spacing_held());
-        selection.cancel_pending = false;
-        selection.pad_quarantine = MAPPER_Y;
-        assert!(!selection.auto_spacing_held());
-        selection.pad_quarantine = 0;
-        selection.block_binding_starts(true);
-        selection.capture_binding_input(MAPPER_Y, &presets);
-        assert!(!selection.auto_spacing_held());
-        selection.block_binding_starts(false);
-        assert!(
-            !selection.auto_spacing_held(),
-            "blocked holds stay latched until release"
-        );
-        selection.observe_physical_passthrough(0, ControlLayout::Default);
-        assert!(!selection.auto_spacing_held());
-        selection.capture_binding_input(MAPPER_Y, &presets);
-        assert!(selection.auto_spacing_held());
-    }
-}
+#[path = "../tests/unit/settings_menu_auto_spacing.rs"]
+mod auto_spacing_tests;
 
 #[cfg(test)]
 #[path = "../tests/unit/settings_menu.rs"]

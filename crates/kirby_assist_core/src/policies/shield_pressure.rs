@@ -2,7 +2,7 @@
 //! No native queries, guessed move timings, allocation or physics writes.
 use crate::{
     defense_response::Response,
-    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
     reaction_rules::{Resolved, Side, Trigger},
     roll_read::Target,
     settings::AssistSettings,
@@ -42,12 +42,12 @@ struct Seen {
     /// Runtime used value used by Seen..
     used: bool,
 }
-/// Represents the shield pressure manager that tracks observed shield interactions and manages responses.
-/// # Fields
-/// * `object` - The current object being tracked.
-/// * `seen` - An array of observed shield interactions.
-/// * `response` - The current response being managed.
-/// * `claim_rolls` - Indicates whether roll claims are active.
+/// Remembers enemy shielding so later rolls can be classified as shield-origin.
+///
+/// A roll cannot acquire this history if shielding was never observed. Crossing
+/// compares relative horizontal positions, so player movement also counts.
+/// Each shield visit/roll is answered once; an already committed tape is not
+/// replaced by a later event. A hit on our shield cancels pressure playback.
 #[derive(Default)]
 pub struct Pressure {
     /// Runtime object value used by Pressure..
@@ -300,24 +300,10 @@ impl Pressure {
                     if !matched {
                         continue;
                     }
-                    let enemy = Opponent {
-                        id: target.id,
-                        status: target.status,
-                        situation: crate::native_states::situation::GROUND,
-                        position: target.position,
-                        velocity: [target.velocity_x, 0.],
-                        motion: Some(MotionTiming {
-                            kind: target.motion,
-                            frame: target.frame,
-                            rate: target.rate,
-                            remaining: target.actionable_in,
-                        }),
-                        vulnerable: target
-                            .vulnerable_in
-                            .is_some_and(|v| v.is_finite() && v <= 0.),
-                        vulnerable_in: target.vulnerable_in,
-                        ..Default::default()
-                    };
+                    let enemy = target.opponent(
+                        crate::native_states::situation::GROUND,
+                        target.actionable_in,
+                    );
                     if self.response.start(rules, rule.trigger, context, enemy) {
                         self.seen[i].as_mut().unwrap().used = true;
                         following = Some(enemy);

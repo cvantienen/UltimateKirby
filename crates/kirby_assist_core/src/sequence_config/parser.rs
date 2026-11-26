@@ -566,7 +566,12 @@ fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<
 }
 
 impl Catalog {
-    /// Parses the supplied source into the module’s validated representation.
+    /// Parses one complete UTF-8 catalog, rejecting malformed sections/actions.
+    ///
+    /// Comments begin at the first `#`, including inside quoted names. Recipe
+    /// names may be quoted, but action lists are single comma-separated lines.
+    /// This allocates and belongs at startup or explicit save, not execution.
+    /// Call `validate` as well to enforce cross-entry menu and event uniqueness.
     pub fn parse(source: &str) -> Result<Self, String> {
         if source.len() as u64 > MAX_FILE_BYTES {
             return Err("sequence file exceeds 512 KiB".into());
@@ -585,7 +590,11 @@ impl Catalog {
         parser.finish()
     }
 
-    /// Returns the `validate` result.
+    /// Checks parsed entries against fighter profiles and shared catalog limits.
+    ///
+    /// This rejects duplicate simple automatic events, excess rules/options,
+    /// multiple manual startup defaults and invalid reaction/facing responses.
+    /// It does not prove native move acceptance, timing, reach or a successful hit.
     pub fn validate(&self, profiles: &FighterProfiles) -> Result<(), String> {
         // Count each row once. The old nested full-catalog scan allocated a
         // temporary row Vec for every section, repeatedly during a single save.
@@ -616,18 +625,18 @@ impl Catalog {
                     ));
                 }
             }
-            let row = rows
+            let (choice_count, default_count) = rows
                 .entry((entry.fighter_kind, entry.slot as usize))
                 .or_default();
-            if row.0 == 0 {
+            if *choice_count == 0 {
                 profiles
                     .profile(entry.fighter_kind)
                     .filter(|profile| profile.fighter_kind == entry.fighter_kind)
                     .ok_or_else(|| format!("{} has no compiled ledge profile", entry.fighter))?;
             }
-            row.0 += usize::from(!reaction.active());
-            row.1 += usize::from(entry.default && !reaction.active());
-            if row.0 > entry.slot.max_choices() {
+            *choice_count += usize::from(!reaction.active());
+            *default_count += usize::from(entry.default && !reaction.active());
+            if *choice_count > entry.slot.max_choices() {
                 return Err(format!(
                     "{}.{} exceeds {} menu options",
                     entry.fighter,
@@ -635,7 +644,7 @@ impl Catalog {
                     entry.slot.max_choices()
                 ));
             }
-            if row.1 > 1 {
+            if *default_count > 1 {
                 return Err(format!(
                     "{}.{} has multiple defaults",
                     entry.fighter,
@@ -1440,23 +1449,24 @@ fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
         .strip_prefix("short_hop_")
         .or_else(|| name.strip_prefix("shorthop_"))
         .map_or((false, name), |v| (true, v));
+    if paired && !pairs_with_short_hop(name) {
+        return Err(format!(
+            "{}: short_hop_ requires an aerial name",
+            args.token
+        ));
+    }
     if name == "dash_attack" || name == "dashattack" {
         push(sequence, input(0, [1.0, 0.0], args.duration(1, 1)?, true))?;
         return push(sequence, input(A, [1.0, 0.0], args.duration(2, 1)?, true));
     }
     if let Some(&(bit, _)) = BUTTON_TOKENS.iter().find(|(_, token)| *token == name) {
+        args.at_most(2)?;
         return push(sequence, input(bit, [0.0; 2], args.duration(1, 1)?, false));
     }
     let (mask, stick) =
         named_input(name).ok_or_else(|| format!("unknown action {}", args.token))?;
     if matches!(name, "full_hop" | "fullhop") && args.len() < 2 {
         return Err("full_hop requires an explicit hold duration, e.g. full_hop:4".into());
-    }
-    if paired && !pairs_with_short_hop(name) {
-        return Err(format!(
-            "{}: short_hop_ requires an aerial name",
-            args.token
-        ));
     }
     let strength = args.float_or(2, 1.0, 0.0, 1.0)?;
     push(
@@ -1526,109 +1536,5 @@ fn parse_frames(value: &str) -> Option<u16> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Parses the supplied source into the module’s validated representation.
-    fn parse(text: &str) -> Result<Vec<Action>, String> {
-        parse_actions(text, 1).map(|sequence| sequence.actions().to_vec())
-    }
-
-    /// Regression test for `shortcuts_expand_to_the_documented_inputs`.
-    #[test]
-    fn shortcuts_expand_to_the_documented_inputs() {
-        let facing = |buttons, stick, frames| input(buttons, stick, frames, true);
-        for (text, expected) in [
-            ("Short Hop", vec![facing(X, [0.0, 0.0], 1)]),
-            ("up_b:3:50%", vec![facing(B, [0.0, 0.5], 3)]),
-            ("short_hop_bair:4", vec![facing(X | A, [-1.0, 0.0], 4)]),
-            (
-                "turnaround_nair",
-                vec![Action::Face(Direction::Backward), facing(A, [0.0, 0.0], 1)],
-            ),
-            (
-                "dash_attack:3:2",
-                vec![facing(0, [1.0, 0.0], 3), facing(A, [1.0, 0.0], 2)],
-            ),
-            ("zr:5", vec![input(ZR, [0.0; 2], 5, false)]),
-            ("press:attack+jump", vec![input(A | X, [0.0; 2], 1, false)]),
-            ("wait_5_frames", vec![Action::Wait(5)]),
-            ("release", vec![Action::Wait(1)]),
-            ("face_away", vec![Action::Face(Direction::AwayFromOpponent)]),
-            ("grab", vec![input(R, [0.0; 2], 1, false)]),
-            ("grab_no_range_check", vec![input(R, [0.0; 2], 1, false)]),
-            (
-                "grab:verified",
-                vec![
-                    Action::Range(RangeCheck::FighterGrabRange),
-                    input(R, [0.0; 2], 1, false),
-                ],
-            ),
-            (
-                "grab:4",
-                vec![
-                    Action::Range(RangeCheck::Verify(4.0)),
-                    input(R, [0.0; 2], 1, false),
-                ],
-            ),
-            (
-                "range:fighter_range_instant",
-                vec![Action::Range(RangeCheck::FighterGrabRangeInstant)],
-            ),
-        ] {
-            assert_eq!(parse(text), Ok(expected), "{text}");
-        }
-    }
-
-    /// Regression test for `rejected_tokens_report_the_original_wording`.
-    #[test]
-    fn rejected_tokens_report_the_original_wording() {
-        for (text, error) in [
-            ("a,,b", "line 1: empty action"),
-            ("wait:1:2", "line 1: invalid action wait:1:2"),
-            ("wait:x", "line 1: invalid frame count in wait:x"),
-            ("check:bogus", "line 1: check:bogus: unknown check condition"),
-            ("check:enemy_within:5:1:1", "line 1: invalid check check:enemy_within:5:1:1"),
-            ("check:enemy_within:101:1", "line 1: number out of range in check:enemy_within:101:1"),
-            ("tap:a:0:0:1:1:0", "line 1: tap:a:0:0:1:1:0: total frames must be 1..3600"),
-            ("tap:none:0:0:1:1:60", "line 1: tap requires a button"),
-            ("press", "line 1: use press:BUTTONS[:FRAMES] or hold:BUTTONS:FRAMES"),
-            ("hold:a:0", "line 1: hold:a:0: input duration must be 1..255"),
-            ("press:a+q:1", "line 1: unknown button q"),
-            ("input:a:2:0:1", "line 1: number out of range in input:a:2:0:1"),
-            ("input:a:x:0:1", "line 1: invalid number in input:a:x:0:1"),
-            ("hold_until_manual:none:0:0", "line 1: hold_until_manual requires a button"),
-            ("walk:away:5:0.5:2", "line 1: MIN_GAP requires walk:opponent"),
-            ("walk:opponent", "line 1: use walk:DIRECTION:UNITS:STRENGTH[:MIN_GAP]"),
-            (
-                "run_to_ledge:1",
-                "line 1: use run_to_ledge:OFFSET:STRENGTH[:TOLERANCE[:BRAKE_DISTANCE[:MAX_FRAMES]]]",
-            ),
-            ("run_to_ledge:1:0.5:1:1:0", "line 1: invalid movement timeout in run_to_ledge:1:0.5:1:1:0"),
-            ("face:sideways", "line 1: invalid direction in face:sideways"),
-            ("walk_to_opponent:1.0:3:10", "line 1: number out of range in walk_to_opponent:1.0:3:10"),
-            ("full_hop", "line 1: full_hop requires an explicit hold duration, e.g. full_hop:4"),
-            ("short_hop_jab", "line 1: short_hop_jab: short_hop_ requires an aerial name"),
-            ("a:1:2:3", "line 1: invalid action a:1:2:3"),
-            ("bogus", "line 1: unknown action bogus"),
-            ("end_facing", "end_facing has no matching facing condition"),
-        ] {
-            let error = if error.starts_with("line ") {
-                error.to_owned()
-            } else {
-                format!("line 1: {error}")
-            };
-            assert_eq!(parse(text), Err(error), "{text}");
-        }
-    }
-
-    /// Regression test for `the_action_budget_is_checked_after_each_expansion`.
-    #[test]
-    fn the_action_budget_is_checked_after_each_expansion() {
-        let full = "wait:1,".repeat(MAX_ACTIONS - 1);
-        assert!(parse(&format!("{full}jab")).is_ok());
-        assert!(parse(&format!("{full}dash_attack"))
-            .unwrap_err()
-            .contains("at most 32 expanded actions"));
-    }
-}
+#[path = "../../tests/unit/sequence_parser.rs"]
+mod tests;

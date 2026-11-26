@@ -276,7 +276,7 @@ fn grounded_damage_interrupts_a_fixed_automatic_grab() {
         let mut native = Context {
             object: 1,
             kind: kirby_assist_core::fighter_kinds::BOWSER,
-            status: kirby_assist_core::native_states::status::WAIT,
+            status: kirby_assist_core::native_states::status::GUARD,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -304,9 +304,9 @@ fn grounded_damage_interrupts_a_fixed_automatic_grab() {
         });
         assert_eq!(
             assist
-                .sample_simple(true, native, context(0., 0), targets, None, 22., 35.)
+                .sample_simple(true, native, context(0., native.status), targets, None, 22., 35.)
                 .requested,
-            MAPPER_R
+            MAPPER_R | MAPPER_ZR
         );
         native.status = status;
         native.frame = 1.;

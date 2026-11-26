@@ -3,8 +3,10 @@
 //! consumed-button mask or declines with `None` so the next phase can run.
 use super::*;
 
-/// Buttons the recipe editor and its tool pickers own while open.
+/// Editing commands other than the separate test/save buttons.
 const EDITOR_BUTTONS: u32 = MAPPER_A | MAPPER_B | MAPPER_ZL | MAPPER_ZR | MAPPER_R;
+/// Editor-owned commands, including test/save, quarantined through their release.
+const EDITOR_OWNED_BUTTONS: u32 = EDITOR_BUTTONS | MAPPER_X | MAPPER_Y;
 
 /// One controller sample shared by every input phase.
 #[derive(Clone, Copy)]
@@ -458,7 +460,7 @@ impl MenuSelection {
         self.button_latch
             | bound
             | s.consume(MENU_L3)
-            | ((s.quarantined | self.pad_quarantine) & EDITOR_BUTTONS)
+            | ((s.quarantined | self.pad_quarantine) & EDITOR_OWNED_BUTTONS)
     }
     /// Returns the `page_row_after` result.
     fn page_row_after(&self, forward: bool) -> MenuRow {
@@ -504,8 +506,8 @@ impl MenuSelection {
             }
             if s.pressed & MAPPER_B != 0 {
                 self.show_quick();
-                self.pad_quarantine |= MAPPER_B;
-                return Some(s.consume(MAPPER_L | MAPPER_B));
+                self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
+                return Some(s.consume(MAPPER_L | MAPPER_B | self.pad_quarantine));
             }
         }
         if !s.toggled && self.row.slot().is_some() && (self.managing() || s.pressed & MAPPER_B != 0)
@@ -523,7 +525,7 @@ impl MenuSelection {
             .as_mut()
             .and_then(|e| e.command_input(key, s.buttons, s.pressed))?;
         recipe_changed |= self.service_editor_requests(presets, key);
-        self.pad_quarantine |= s.buttons & (s.directions | MAPPER_X | MAPPER_Y | EDITOR_BUTTONS);
+        self.pad_quarantine |= s.buttons & (s.directions | EDITOR_OWNED_BUTTONS);
         self.trigger_ready &= !(MAPPER_L | bindings::BUTTON_MASK);
         self.hold.reset();
         if recipe_changed {

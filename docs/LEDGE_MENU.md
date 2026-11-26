@@ -4,25 +4,33 @@ See the [complete editor action cheat sheet](EDITOR_ACTION_CHEATSHEET.md) for
 every picker entry, its behavior, corresponding file syntax and examples. A
 [styled searchable/printable table](EDITOR_ACTION_CHEATSHEET.html) is also available.
 
-Spot punish is available and defaults ON in silent and diagnostic builds.
-**Grab dodge + punish** and **Out of shield** are available in both builds and
-start ON with the supplied defaults. Configure their `grab_dodged` / `shield_hit`
-responses in the Training reaction editor, and save per-fighter startup switches
-in Fighter settings. No matching response means no automatic follow-up. Diagnostics also
-expose **Perf**. Ledge trump is available in both builds as **Built-in: Ledge
-trump** in Button configs; it is not an ON/OFF mode and is unassigned by default.
-Temporary choices/mode toggles last only for this match. Each new match starts
-from saved recipe defaults and normal mode startup settings. **Perf** samples local observation
-work and shows a compact timing card below the menu after about five seconds;
-full ranked gauges, sampled collision-ray counts and runtime health reports go to
-`performance.log`. Other diagnostic evidence remains in `status.log`.
-See [performance testing](TRAINING_MONITOR.md#testing-feature-cost-in-diagnostics).
-Regular Roll read and the fighter-specific ledge responses remain available.
-Auto-tech is available for all fighters as the compact **Tech:ON/OFF** row,
-initially ON with the supplied config. An explicit `auto_tech = false` still
-starts it OFF. Its temporary setting lasts through the current match. Select it with Up/Down and toggle with Left/Right.
+## Which menu and defaults am I using?
 
-The lightweight menu starts visible on the ledge page at every battle entry. It contains option rows only: no character/menu heading or control-hint footer. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. The former L+R3 binding is removed. While
+Actual Training Mode permits the full editor in both silent and diagnostic builds.
+Other active battles use a lightweight selector only. Training starts hidden;
+the lightweight selector starts visible on ledge choices at actual match entry.
+Minus opens ledge home or closes any page. A stock loss does not reset your
+session choices, but confirmed match end does.
+
+Do not confuse Rust startup defaults, the editor's new-action presets, a saved
+`default = true` recipe and your actual supplied SD file. Without a settings
+source, Rust `LiveConfig` defaults Auto-tech/Auto-mash/Auto-DI/Auto-SDI OFF.
+Configured values can change that. The supplied universal source explicitly
+sets Auto-tech/DI/SDI ON and mash OFF, unlike the missing-setting fallback.
+Per-fighter overrides still apply; supplied Lucina disables DI/SDI.
+Menu construction starts Auto react, Grab
+avoidance and Automatic grabs ON, then live startup settings/resolvers apply;
+a mode with no matching recipe does not invent a custom response. Current live
+Auto react has six events, no `auto_grab`, and no live legacy priority list.
+
+Diagnostic-only rows include Perf and latency tests. Silent excludes diagnostic
+`test...` IDs and `[TEST]` labels at startup; diagnostic retains them. Both builds
+share input grammar and Training save/editor semantics. A release artifact name
+alone is not proof that diagnostic features are enabled; use its feature/build
+configuration. Diagnostics can provide timing/evidence, not guaranteed native
+acceptance, hit confirmation or a measured cure for a hardware crash.
+
+The lightweight menu starts visible on ledge choices at non-Training battle entry. It contains option rows only: no character/menu heading or control-hint footer. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. The former L+R3 binding is removed. While
 visible in Training, **Up/Down** selects a row and **Left/Right** changes its choice.
 Minus always opens the ledge home from hidden and closes from any page.
 Outside Training, Minus opens only the five ledge choices. **R3** switches
@@ -50,11 +58,14 @@ then clears so it does not remain across unrelated screens.
 preserved through stocks, then reset to its normal startup setting next match. Minus does not
 change mash. Disabling mash releases its cached input without disabling tech.
 
-Hold the assigned ledge binding (**X** by default) for ledge autopilot (including Kirby in-range recovery cover),
-use the selected fighter-specific **X/Y/D-pad** bindings with the menu hidden.
-**Normal button** restores the physical button's ordinary game input. Built-in
-L is fixed walk/ledge assistance; customizable defaults are X short hop and L3 turbo. The Turbo t-bag built-in can be assigned to any button slot, and L3 is never remapped to the ledge-assist role. Directions held while closing must be released before gameplay
-uses them. Minus is reserved for the menu. Hold the assigned Turbo t-bag button for fast crouching.
+Default-layout **L** is fixed walk/ledge assistance, not an editable trigger row.
+Other button slots can select a saved recipe or supported built-in role.
+`builtin = normal` is labeled **Short hop**, not passthrough; `__normal_button`
+is its legacy internal ID, not a separate menu choice. Empty helper defaults are
+L3 Auto-defense, D-pad Down Turbo t-bag, other slots Short hop; supported Counter
+provides an empty R3 fallback on saved reload. Saved manual defaults/recipes can
+replace those fallback selections. A `short_hop:1` tape is a separate timed input. Release a navigation key
+before using it for gameplay. Minus is reserved for menu visibility.
 
 The menu uses a fixed-width dark rounded card, with a teal highlight and a
 separate navigation area. Silent stays at the **top left**; diagnostic stays at
@@ -65,8 +76,8 @@ steps, and highlights the exact selected value. The pinned header identifies
 expands the editor up to 32; reducing it removes only unused trailing slots.
 No images, animation, font loading or additional UI library is used.
 
-It begins hidden each battle, stays through stock loss until hidden, and closes
-outside battle. In Training, editing also works during entry/countdown once your fighter is
+Training begins hidden; non-Training begins visible. Visibility persists through
+stock loss and closes outside battle. In Training, editing also works during entry/countdown once your fighter is
 known. Lines are rebuilt only on selection revisions. No emoji font, texture,
 asset loading, animation or live gameplay read was added; actual rendering cost
 still needs device measurement. The diagnostic result card retains its own dark
@@ -89,7 +100,7 @@ The five ledge lists remain fighter-specific. Onstage
 Roll list. The old
 Y native combo/Finisher selector and binding remain removed. The compact selector
 and editor use directly linked pages: five ledge lists, fighter-specific X/Y/D-pad
-bindings, and available mode ON/OFF settings. Button bindings select only input sequences or Normal button; hard-coded D-pad B-reverse/Down-trump are removed.
+bindings, and available mode ON/OFF settings. Button choices include saved inputs and supported built-in roles. The editable B-reverse starter is an input tape, not a hidden D-pad command; ledge trump is a selectable built-in role.
 No universal button recipes or shared edit cache remain. Menus are available
 only in battle; arena/character-select editing and its SDK capture hooks are removed.
 Automatic whiff punishing and auto-duck have been removed.
@@ -144,9 +155,11 @@ are not measured hitboxes. Silent builds exclude this feature.
 
 Minus close requests update a separate visibility flag before attempting the cached-text lock, so the next draw skips the menu even if its previous snapshot is still in use. Closing preserves selections; release Minus before pressing it again to reopen.
 
-Kirby additionally has **Idle crouch**; all fighters have a **Tilt face** mode
-and independently configurable move settings. Both modes start ON; down tilt
-is selected by default only for Kirby/Yoshi. Holding L suspends idle crouch
+Kirby additionally has **Idle crouch**; supported Kirby/Yoshi/Lucina fighters have a **Tilt face** row
+and independently configurable move settings. Menu construction initializes
+these switches ON; live configuration and fighter overrides still determine
+actual activation. Down tilt is selected by the resolver by default for
+Kirby/Yoshi/Lucina; the supplied Lucina file explicitly disables all three tilts. Holding L suspends idle crouch
 until release. The A+B
 jab-to-grab helper and its row are removed; A/B keep normal game behavior. The
 [posture/input guide](INPUT_RECIPES.md) explains their priorities.
@@ -175,7 +188,7 @@ would exceed 512 KiB; formatting does not reject an otherwise valid edit.
 
 In **Step tools → Recipe options → Save as startup default**, the current recipe is saved and its category
 gets exactly one `default = true`; other choices in that fighter/category become
-nondefault. This works for ledge and button recipes. The permanent Normal button
+nondefault. This works for ledge and button recipes. The permanent Short hop built-in
 and untouched empty Custom template cannot be saved this way. See
 [save safety](SEQUENCE_FILES.md#in-game-save-safety).
 
@@ -198,6 +211,49 @@ recipe on failure. A true check continues on the same update. These use copied
 facts without new native queries; enemy checks require a fresh observation of the
 same target. See [checks and button holds](SEQUENCE_FILES.md#editing-button-holds-and-checks).
 
+
+## Beginner walkthrough: create, test, name and save
+
+1. Enter actual Training and press Minus. Pick an opponent ledge situation or a
+   manual Button recipe row. R3 opens its editor; editing the built-in opens a separate
+   Custom draft rather than destroying the permanent built-in.
+2. Up/Down focuses an action. A → Choose action opens the picker; Left/Right
+   changes group, Up/Down highlights, A applies, B cancels. New actions preserve
+   compatible settings/delay, but Short/Full hop choose their 1/4-frame presets.
+   Imported inputs retain original payloads and can be selected again.
+3. Adjust **Delay before**, **Hold input for**, axes/direction and other fields
+   with Left/Right. Delay is neutral time before the action; hold is its input
+   time. Grow Action slots only as needed; delete unused Empty slots before Save.
+4. X tests explicitly. In compact Training L3 tests/stops; R3 edits. Preview is
+   not automatic ledge trapping and does not turn a mode ON. Native acceptance
+   can still fail; stop the test before changing context.
+5. A → Recipe options → Rename edits the label. **Alphabet**: Left/Right moves
+   the cursor, Up/Down changes a character, X inserts a space after it, A erases
+   a whole character, ZL switches to predefined terms. **Terms**: Up/Down replaces
+   the label with a term. Y accepts the name **in memory**, B cancels. Then Y
+   again in the editor saves. Unicode is retained/edited on character boundaries;
+   the limit is 64 UTF-8 bytes, not 64 arbitrary non-ASCII characters.
+6. Y **alone** saves; release other buttons. Wait for success/error. One exact
+   validated snapshot is written; busy requests are not queued. Undo changes
+   memory, not a completed save: Save again to persist the undone version.
+7. Manual Recipe options → Save as startup default saves the draft and clears
+   other defaults in that fighter/slot. Active assist rules cannot use it. Add
+   makes a blank draft, Duplicate a separate identity; neither persists until
+   Save. Delete requires A confirmation then starts its write; B cancels first.
+
+Copying keeps destination name/reaction/activation, but source actions, holds,
+start/timeouts and `ground_only` can come with the tape. Review safety after copy.
+Step clipboard carries one action and before-delay. One Undo snapshot is not a
+multi-step history. No cross-fighter copy is implicit. Release menu command keys
+before gameplay; their quarantine prevents a held navigation key replaying.
+
+### Example: two distinct presses in the editor
+
+Choose Neutral A / Nair in step 1 with hold 1. Insert another Neutral A / Nair
+with hold 1 and Delay before 2; set start delay 2. File equivalent:
+`start_delay = 2` and `actions = press:a:1, wait:2, press:a:1`. The release gap
+creates another edge; adjacent A steps merely hold A. Test, name, Save and wait.
+This schedules inputs, not a promise that two native jabs occur.
 
 ## Faster recipe editing
 
@@ -243,7 +299,7 @@ action keeps the selected step’s delay and, where compatible, its hold duratio
 Short/Full hop explicitly choose 1/4-frame pulses. Selecting a saved imported
 input restores that saved payload, including its hold duration.
 **B** returns to the parent tools or editor; from editor fields it returns to
-the selector. Onstage reaction pickers omit actions requiring a ledge anchor.
+the selector. Onstage reaction pickers omit actions requiring a ledge anchor. Opponent-facing blocks remain available; ledge-facing blocks do not.
 Save/Test rejects incomplete conditional blocks and invalid reactions without
 starting playback or writing a file; an incomplete draft suspends only its own
 automatic rule. Rename preserves existing Unicode characters and edits whole
@@ -284,7 +340,7 @@ Copies include all actions, before-delays, sequence start delay, timeout and
 spatial timeout. Unsaved source edits are used. The source recipe is untouched;
 the destination keeps its name, identity/default selection and independent Run
 once / Loop while held setting. A ledge destination never gains button looping.
-Normal button, empty templates, deleted entries and the destination itself are
+Short hop built-in, empty templates, deleted entries and the destination itself are
 excluded. Sources are limited to this fighter; no cross-fighter lookup occurs.
 
 Only source identities/names are collected when explicitly opening the chooser.
@@ -325,15 +381,18 @@ compilation or host tests alone.
 ## Reaction recipe settings
 
 Current automatic recipes are grouped under **Assist modes → Auto react →
-L3/R3**, including enemy roll/spot/air dodge, unshielded and shielded grab,
-after dodging enemy grab, and shield backup. Automatic grabs and Grab avoidance
-rows open subsets of the same cached recipes. There is one sequence per event;
-legacy priority lists remain separate. A/R3 edits, X adds, Y manages and B/L3 returns.
-See [rule setup](REACTION_RULES.md#configure-in-training).
+L3/R3**: enemy roll, spot dodge, air dodge, shield Grab, assisted-grab-dodge
+follow-up and shield backup. Automatic grabs and Grab avoidance open subsets of
+those same recipes. One saved recipe per event; + Add chooses only a missing
+event. Current automatic grabs start only while shielding, not an unshielded
+approach. A/R3 edits, X adds, Y manages and B/L3 returns. The simple editor exposes
+maximum X and height, not legacy priorities/state/side/toggle fields.
+See [current rule setup](REACTION_RULES.md#configure-in-training).
 
 ### Reaction activation groups
 
-New rules use their assist's Menu ON/OFF control. Existing saved roll rules may
+
+Current simple events use their assist's Menu ON/OFF control. The following toggle-group discussion is legacy core/editor compatibility, not current live unified admission. Existing saved roll rules may
 still use a Toggle X/Y/D-pad control group; those groups reserve that button and
 start OFF each match. This legacy reaction metadata is different from the
 retired `mode = ...` button binding. Defensive rules use their own mode ON/OFF.
@@ -532,9 +591,9 @@ do not change saved recipes or automation.
 
 Diagnostic save statistics report active workers and their peak; obsolete save-queue counters were removed because Training saves use one immediate worker rather than a queue.
 
-### Legacy separate assist rule lists
+### Legacy separate assist rule lists (not current live unified lists)
 
-The current seven-event Auto react list is described above. Older files and
+The current six-event Auto react list is described above. Older files and
 legacy tools retain the following separate rule-list vocabulary.
 
 Sequence-driven assists have their own lists: Roll reactions, Out of shield,
@@ -574,7 +633,7 @@ including what increasing each value does and how acquire/follow differ.
 
 The fixed legacy Roll read row and its seven punish/roll estimate settings are
 retired and hidden. Old keys still parse; they cannot activate automation or
-affect custom rule timings. See [retired settings](FIGHTER_SETTINGS.md#retired-fixed-punish-settings).
+affect custom rule timings. See the [accepted-key reference and compatibility status](FIGHTER_SETTINGS.md#all-83-accepted-keys).
 
 ## Non-Training selector refresh and switching
 
@@ -600,9 +659,9 @@ work, not the cost of the enabled gameplay modes, and are not proof of a specifi
 FPS or temperature improvement on hardware.
 
 In the Training compact selector, L3 tests/stops the hovered recipe and R3
-opens editing. X retains its saved choice (short hop when unconfigured). L is the fixed
+opens editing. X retains its saved selection; do not infer its role from the editor Test key. L is the fixed
 walk/ledge trigger and has no editable binding row. Full-editor
-X Test is unchanged. Hidden-menu L3 defaults to turbo t-bag; unassigned D-pad Down is Normal.
+X Test is unchanged. Hidden-menu L3 defaults to Auto-defense unless a saved selection replaces it; D-pad Down falls back to Turbo t-bag.
 
 
 ## Menu maintenance checks

@@ -27,25 +27,55 @@ The header shows the current `Cargo.toml` version, the **Ship** tab shows the
 last verified upload for each Switch, and the output console stays visible at
 the bottom of every tab.
 
+## Choose the workflow before pressing a button
+
+This is host tooling, not a Rust gameplay module. Opening the GUI does not build
+or connect, but explicit reads of Switch files do contact FTP; previews can also
+run the host Rust sequence parser. `--dry-run` means no FTP only where the exact
+helper promises it. For the beginner runtime/tutorial use
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md` and [Development](DEVELOPMENT.md).
+
+| Workflow | Configuration authority | Writes / limit |
+| --- | --- | --- |
+| Build only | Current repository split sources | Version/build outputs; no guided upload |
+| Guided Ship / Upload built | Validated Silent active snapshot | Imports repository sources and replaces selected active Switch files |
+| Direct `upload_switch.py` default | Current repository sources | Stages inactive `sequences.upload.txt` alongside release payload |
+| Transfer whole file | Explicit reviewed source | Replaces all destination recipes/settings |
+| Transfer one fighter | Explicit reviewed source fighter | Preserves other fighters; destination merge requires existing file |
+| Verify installed | Expected selected payload | Reads remote bytes; not a gameplay or compatibility test |
+
+Do not mix these workflows assuming all uploads preserve active settings. Keep
+Smash closed for device writes and review both configuration scope and binary
+variant. A docs-only task must not launch any of these operations.
+
 ## Quick build and upload
 
 1. On **Ship**, enter the version or click **+1** to increase its last
    number. Select **Both switches** (default), **Silent only**, or **Diagnostic only**.
 2. Close Smash and open FTP on the selected Switches. Check the ready box once
    for this GUI session.
-3. Click **Build + Upload**, or press Enter in the version field. It updates only `[package].version` in `Cargo.toml`,
-   builds the selected variants, validates their upload payloads and uploads them
-   using the existing safe routes. A failed build prevents all uploads.
+3. Click **Build + Upload**, or press Enter in the version field. It updates
+   `[package].version`, temporarily stages the validated Silent configuration for
+   the build/preflight, then imports that configuration into split sources and
+   uploads selected variants with active sequence replacement. A failed build
+   prevents the guided upload stage; staging restoration is a separate local step.
 
-The default Cargo home is `/private/tmp/kirby-assist-build-cargo`; expand
-**Build & connection settings** to change it or the FTP ports. Settings are
+The tool's historical default Cargo home is
+`/private/tmp/kirby-assist-build-cargo`; before running it under a workflow that
+forbids temporary-directory writes, change **Build & connection settings** to an
+approved project-local cache such as `.cargo-home`. This documentation update
+does not run the tool or alter its default. The same panel controls FTP ports. Settings are
 remembered. **Build only**, **Upload built** and **Verify installed**
 are available without the terminal prompt sequence. Upload/verify actions use
 the entered built version without changing the source version. A source version
 selected before a failed build stays selected for retry; it is not marked shipped.
 
-Regular release uploads preserve active `sequences.txt`, staging a separate
-`sequences.upload.txt` as before. **History** retains logs and the last verified
+**Guided Ship and Upload built replace active `sequences.txt`.** They first read
+and validate Silent's active file as the authoritative configuration, stage that
+snapshot during build/upload preflight, then import it into repository split
+sources and replace active files on the chosen targets. Silent must be reachable
+for that guided synchronization even if only Diagnostic is selected. This differs
+from the direct upload helper's default inactive staging. **History** retains logs and the last verified
 upload for each Switch. A partial upload is reported as a failure with individual
 target results; the other Switch is still attempted.
 
@@ -115,7 +145,8 @@ replaces only that fighter's saved recipes/settings. Validation, backups,
 concurrent-edit checks and readback verification use the existing transfer helper.
 
 **Helpers** runs the original helper scripts with entered arguments; start with
-`--help`. Switch writes require the ready checkbox, and sequence writes also
+`--help`. This is explicit command execution, not a harmless documentation link;
+read the exact helper flags before authorizing builds or transfers. Switch writes require the ready checkbox, and sequence writes also
 require confirmation. `sequence_sources.py` is available here for assembling and
 checking the split sources; its `--import-file` rewrites the repository fighter
 files, so it is confirmed like other sequence writes while `--check` is not.
@@ -152,10 +183,12 @@ finish rather than interrupting a transfer. `--gui` explicitly selects the GUI;
 
 Preferences remember the local sequences path, edited file/fighter, FTP ports,
 cargo cache and last successfully built version. Enter keeps a displayed default;
-`-` clears the custom cargo cache. File fields default to the repository source
-`deployment/ultimate/kirby_assist/sequences.txt`. The fixed Switch addresses
-remain silent `192.168.1.106` and diagnostic `192.168.1.142`; the default FTP
-port is `5000`.
+`-` clears the custom cargo cache. The workbench's default file is the assembled bundle at
+`deployment/ultimate/kirby_assist/assembled/sequences.txt`; source-aware helpers
+resolve it through the split sources. Defaults select silent `192.168.1.106`
+and diagnostic `192.168.1.142`, with FTP port `5000`. Saved GUI preferences can
+change addresses/ports; the current code validates distinct IPv4 routes.
+Do not treat those local defaults as verified reachable devices.
 
 ## Sequence transfers
 
@@ -201,7 +234,13 @@ Local state lives in `.mod-workbench/`:
 - Preferences and a lock preventing concurrent workbenches using this directory.
 
 Guided uploads are marked shipped only after the original uploader reports full
-verification. Actual payload hashes are retained from its output. Advanced
+verification. During Silent synchronization, repository sources are backed up and
+staged for preflight, with restoration around that temporary stage. Failed guided
+uploads may attempt repository rollback when Silent was not successfully updated;
+inspect the reported per-target and rollback outcomes. These steps are not an
+atomic transaction across the repository and two consoles. Actual payload hashes are retained from its output. Hash equality proves byte
+identity for that payload/readback, not native input acceptance, compatibility or
+protection against later edits. Advanced
 helper runs are logged but do not populate the guided last-shipped summary.
 Manual commands run outside the workbench are not imported into history. A run
 without a completion record has unknown status; verify before retrying writes.

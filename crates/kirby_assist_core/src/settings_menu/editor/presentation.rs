@@ -408,6 +408,7 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
 pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     match action {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
+        Action::Input { frames: 0, .. } => None,
         Action::Empty
         | Action::Range(RangeCheck::Ignore)
         | Action::Check { wait: 0, .. }

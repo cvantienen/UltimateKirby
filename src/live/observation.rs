@@ -91,6 +91,7 @@ struct ObservationPolicySnapshot {
     automatic_suspended: bool,
     /// Whether this fighter has an enabled melee counter.
     counter_enabled: bool,
+    held_defense_enabled: bool,
     /// Whether a trip follow-up is queued.
     trip_queued: bool,
     /// Whether grab dodge is enabled.
@@ -266,6 +267,9 @@ fn snapshot_observation_policy(
                 .and_then(|menu| menu.for_fighter(fighter_kind));
             let committed_automatic = state.action_owner.automatic_active();
             let automatic_suspended = state.fighter_kind != Some(fighter_kind)
+                || menu.is_some_and(|menu| {
+                    menu.defensive_owner().is_some() || menu.auto_spacing_held()
+                })
                 || !committed_automatic
                     && (state.ledge_active
                         || menu.is_some_and(|menu| menu.reserves_automatic_modes()));
@@ -276,13 +280,8 @@ fn snapshot_observation_policy(
                 !automatic_suspended && menu.is_some_and(|menu| menu.grab_dodge_enabled());
             let grabs_enabled =
                 !automatic_suspended && menu.is_some_and(|menu| menu.out_of_shield_enabled());
-            let event_mask = if rules.is_some() { 0b111 } else { 0 }
-                | if grabs_enabled {
-                    (1 << 3) | (1 << 4) | (1 << 6)
-                } else {
-                    0
-                }
-                | if dodge_enabled { 1 << 5 } else { 0 };
+            let event_mask = kirby_assist_core::reaction_rules::AutomaticEvent::enabled_mask(
+                rules.is_some(), grabs_enabled, dodge_enabled);
             let cached_rules = (!automatic_suspended)
                 .then(|| menu.and_then(|menu| menu.automatic_rules()))
                 .flatten();
@@ -371,6 +370,7 @@ fn snapshot_observation_policy(
                     .is_none_or(|(_, observed_tick)| observed_tick != state.raw_tick),
                 counter_enabled: menu
                     .is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
+                held_defense_enabled: menu.is_some_and(|menu| menu.auto_defense_held()),
                 oos_enabled: grabs_enabled,
                 oos_target: if automatic_suspended {
                     None
@@ -466,6 +466,8 @@ unsafe fn refresh_observation_roster(
         flags.scope.acquire && (policy.rules_on || policy.oos_enabled) || flags.scope.follow;
     let requested = discover_roster
         || needs.observe_spacing
+        || policy.held_defense_enabled
+        || policy.counter_enabled
         || needs.preview_start
         || policy.roster_missing
             && (policy.rules_on || defense || policy.posture_modes.1 || policy.counter_enabled);
@@ -477,6 +479,7 @@ unsafe fn refresh_observation_roster(
         || policy.posture_modes.1
         || policy.posture_modes.0
         || defense && flags.scope.acquire
+        || policy.held_defense_enabled
         || policy.counter_enabled;
     if !requested || !active_consumer {
         return;
@@ -662,6 +665,7 @@ struct NativeObservationBasics {
     motion_rate: f32,
     /// Explicit queue compensation for file sequence playback.
     sequence_input_delay: f32,
+    shield_stun_frames: Option<i32>,
     /// Whether damage-stop state is active.
     damage_stop: bool,
 }
@@ -677,6 +681,7 @@ impl NativeObservationBasics {
             motion_frame: self.motion_frame,
             motion_rate: self.motion_rate,
             sequence_input_delay: self.sequence_input_delay,
+            shield_stun_frames: self.shield_stun_frames,
             ..GameplayContext::default()
         }
     }
@@ -697,6 +702,12 @@ unsafe fn observe_native_basics(
         sequence_input_delay: f32::from(config.sequence_input_delay_frames),
         ..NativeObservationBasics::default()
     };
+    if basics.status == kirby_assist_core::native_states::GUARD_DAMAGE {
+        basics.shield_stun_frames = Some(game::work_int(
+            object,
+            kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_GUARD_DAMAGE_WORK_INT_STIFF_FRAME,
+        ));
+    }
     basics.damage_stop = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED
         && (config.auto_sdi || config.auto_di.enabled)
         && (kirby_assist_core::native_states::status::DAMAGE
@@ -712,6 +723,7 @@ unsafe fn observe_tech_state(
     object: *mut game::Object,
     stopped: bool,
     config: &Config,
+    tuning: kirby_assist_core::fighter_tuning::Tuning,
 ) -> TechObservation {
     // Hitstop freezes native action progress. It differs from cancellation:
     // keep remembered cooldowns/plans while withholding new mash/tech requests.
@@ -731,6 +743,7 @@ unsafe fn observe_tech_state(
         auto_tech_enabled,
         (config.lookahead + tech::TECH_INPUT_DELAY_FRAMES).min(5.0),
         stopped,
+        tuning.tech_body(),
     );
     let tech = !clatter && assessment.contact_in.is_some();
     let (native_guard, reaction_remaining) = tech::input_feedback(object, assessment.status);
@@ -889,7 +902,9 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     }
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::FullObservation);
-    let tech_obs = observe_tech_state(&reads, object, own.stopped, &config);
+    let tech_obs = observe_tech_state(
+        &reads, object, own.stopped, &config, policy.analysis_settings,
+    );
     let pass = Pass {
         reads: &reads,
         object,
@@ -1053,6 +1068,11 @@ struct Collected {
     reflect_observation: Option<ReflectObservation>,
     /// Optional configured melee counter.
     counter_observation: Option<CounterObservation>,
+    held_defense_observation: Option<(
+        kirby_assist_core::defense_response::Context,
+        Option<kirby_assist_core::defense_response::Contact>,
+        f32,
+    )>,
     counter_attacker_poses: [Option<(u32, i32, u64, f32)>; 16],
     spacing_observation: Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)>,
     #[cfg(feature = "diagnostic-logging")]
@@ -1085,6 +1105,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     let Pass {
         reads,
         object,
+        object_id,
         own,
         tech_obs: TechObservation { clatter, .. },
         policy:
@@ -1104,10 +1125,29 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     // Read native data outside STATE's mutex to avoid re-entrant deadlocks.
     // One bounded roster pass, only while custom rules are enabled. Follow the
     // locked target through recovery without a second scan or stale position.
-    let rule_observation = collect_rule_observation(p);
+    let mut rule_observation = collect_rule_observation(p);
     let simple_readiness = collect_simple_readiness(p, rule_observation);
     let oos_readiness = collect_oos_readiness(p, rule_observation);
-    let ledge = collect_ledge(p);
+    let mut ledge = collect_ledge(p);
+    let shield_threat = ledge.guard_threat
+        || !ledge.guard_ready
+            && !own.stopped
+            && matches!(own.status, kirby_assist_core::native_states::GUARD_ON
+                | kirby_assist_core::native_states::GUARD
+                | kirby_assist_core::native_states::GUARD_DAMAGE)
+            && (rule_observation.is_some() || ledge.observation.is_some())
+            && observations::incoming_fighter_attack(
+                reads, object, object_id,
+                [reads.pos_x(object), reads.pos_y(object)],
+                [reads.speed_x(object), reads.speed_y(object)],
+                p.policy.analysis_settings.shield(),
+            );
+    if let Some((context, _, _)) = rule_observation.as_mut() {
+        context.shield_threat = shield_threat;
+    }
+    if let Some((context, _, _, _)) = ledge.observation.as_mut() {
+        context.shield_threat = shield_threat;
+    }
     let combat = collect_combat(p);
     let posture = collect_posture(p);
     let manual_context = ManualContext {
@@ -1159,6 +1199,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         oos_follow,
         reflect_observation,
         counter_observation,
+        held_defense_observation: collect_held_defense(p),
         counter_attacker_poses: if p.policy.counter_enabled {
             counter::attacker_poses(p.reads, p.object, p.object_id)
         } else { [None; 16] },
@@ -1169,9 +1210,9 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
 }
 
 unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)> {
-    use kirby_assist_core::native_states::{situation, status};
+    use kirby_assist_core::native_states::situation;
     let held = STATE.lock().ok()?.settings_menu.as_ref()
-        .is_some_and(|menu| menu.auto_spacing_held());
+        .is_some_and(|menu| menu.auto_spacing_held() || menu.auto_defense_held());
     if !held {
         return None;
     }
@@ -1182,19 +1223,23 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
     let velocity = [reads.speed_x(object), reads.speed_y(object)];
     let controllable = !p.tech_obs.clatter && !reads.capture_link(object)
         && !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status);
-    let grounded_ready = matches!(own.status, status::WAIT | status::WALK | status::SQUAT_WAIT)
-        || game::cancel_enabled(object);
-    let airborne_ready = matches!(own.status, status::JUMP | status::JUMP_AERIAL | status::FALL)
-        || game::cancel_enabled(object);
+    let attack_ready = kirby_assist_core::auto_spacing::attack_ready(
+        own.status, own.situation, game::cancel_enabled(object));
     let context = GameplayContext {
         held: true,
         can_control: controllable,
-        can_act: own.situation == situation::GROUND && grounded_ready && !own.stopped,
-        can_air_attack: own.situation == situation::AIR && airborne_ready && !own.stopped,
+        can_act: own.situation == situation::GROUND && attack_ready && !own.stopped,
+        can_air_attack: own.situation == situation::AIR && attack_ready && !own.stopped,
         position,
         velocity,
         facing: reads.facing(object),
         ground_brake: reads.ground_brake(object),
+        walk_stick: kirby_assist_core::native_input::fastest_walk_stick(
+            game::param_float(object, kirby_assist_core::timing::motion_hash("common"),
+                kirby_assist_core::timing::motion_hash("walk_stick_x")),
+            game::param_float(object, kirby_assist_core::timing::motion_hash("common"),
+                kirby_assist_core::timing::motion_hash("dash_stick_x")),
+        ),
         air_physics: (own.situation == situation::AIR)
             .then(|| observations::native_air_physics(object)).flatten(),
         safe_ground: if own.situation == situation::GROUND {
@@ -1207,12 +1252,24 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
 }
 
 fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
+    state.held_walk_cap = c.spacing_observation
+        .filter(|(context, _)| context.can_control
+            && context.situation == kirby_assist_core::native_states::situation::GROUND)
+        .map(|(context, _)| context.walk_stick.unwrap_or(0.));
     let held = state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
         && state.action_owner.allows(Owner::Spacing);
-    if let Some((context, target)) = c.spacing_observation.filter(|_| held) {
-        let config = state.settings_menu.as_ref()
+    if let Some((mut context, target)) = c.spacing_observation.filter(|_| held) {
+        let settings = state.settings_menu.as_ref().map_or_else(
+            || settings_for_fighter(Some(p.fighter_kind), p.config.assist),
+            |menu| menu.settings(Some(p.fighter_kind), &p.config.assist),
+        );
+        let mut config = state.settings_menu.as_ref()
             .map_or(Default::default(), |m| m.fighter_tuning(p.fighter_kind))
             .auto_spacing(p.fighter_kind);
+        // Manual movement is limited only by dash entry, not a gentle-walk setting.
+        config.ground_speed = context.walk_stick.unwrap_or_else(||
+            kirby_assist_core::manual_controls::ledge_walk_stick([1.0, 0.0], settings.walk_strength)[0]);
+        context.walk_stick = Some(config.ground_speed);
         state.spacing_output = state.spacing.get_or_insert_with(Default::default)
             .sample(tick, true, config, context, target);
     } else {
@@ -2126,17 +2183,34 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
     )
 }
 
+unsafe fn collect_held_defense(p: &Pass) -> Option<(
+    kirby_assist_core::defense_response::Context,
+    Option<kirby_assist_core::defense_response::Contact>,
+    f32,
+)> {
+    let (tuning, allowed) = {
+        let state = STATE.lock().ok()?;
+        let menu = state.settings_menu.as_ref()?;
+        if !menu.auto_defense_held() { return None; }
+        (menu.fighter_tuning(p.fighter_kind),
+            !p.tech_obs.clatter && state.action_owner.allows(Owner::HeldDefense))
+    };
+    let lead = tuning.get(kirby_assist_core::fighter_tuning::AUTO_DEFENSE_LEAD_FRAMES);
+    let (context, contact) = counter::observe_defense(
+        p.reads, p.object, p.object_id, p.fighter_kind, tuning, lead,
+        f32::from(p.config.sequence_input_delay_frames), allowed,
+    );
+    Some((context, contact, lead))
+}
+
 unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
     let (configured, allowed) = STATE.lock().ok().map_or((None, false), |s| {
         (
             s.settings_menu
                 .as_ref()
-                .and_then(|menu| menu.counter_config(p.fighter_kind))
-                .map(|mut config| {
-                    config.input_delay = f32::from(p.config.sequence_input_delay_frames);
-                    config
-                }),
-            !p.policy.automatic_suspended
+                // Counter input is immediate, not a delayed sequence action.
+                .and_then(|menu| menu.counter_config(p.fighter_kind)),
+            s.settings_menu.as_ref().is_some_and(|m| m.counter_held())
                 && !p.tech_obs.clatter
                 && s.action_owner.allows(Owner::Counter),
         )
@@ -2264,6 +2338,15 @@ fn publish_observation(
     sample_spacing(state, p, c, tick);
     sample_reflect(state, p, c);
     sample_counter(state, p, c);
+    let defense_held = state.settings_menu.as_ref().is_some_and(|m| m.auto_defense_held())
+        && state.action_owner.allows(Owner::HeldDefense) && !p.tech_obs.clatter;
+    state.held_defense_output = if let Some((context, contact, lead)) = c.held_defense_observation {
+        state.held_defense.sample(tick, defense_held, context, contact, lead,
+            f32::from(p.config.sequence_input_delay_frames))
+    } else {
+        state.held_defense.reset();
+        ControllerOutput::default()
+    };
     state.mash_stick = if policy_tick.is_none() {
         None
     } else {
@@ -2993,7 +3076,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
         .get_or_insert_with(TechInput::default)
         .sample_with_native_delivery(
             config.controls.enabled && auto_tech_enabled,
-            true,
+            config.controls.takeover,
             config.controls.tech_cooldown,
             TechContext {
                 object: object_id,
@@ -3604,24 +3687,13 @@ fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
     for pose in c.counter_attacker_poses.into_iter().flatten() {
         state.counter.observe_attacker_pose(pose);
     }
-    let allowed = (!state.ledge_active
-        || state.action_owner.current_owner() == Some(Owner::Counter))
+    let allowed = state.settings_menu.as_ref().is_some_and(|m| m.counter_held())
         && state.action_owner.allows(Owner::Counter)
-        && !p.tech_obs.clatter
-        && state.oos_output.owned == 0
-        && !state.oos.grab_delivery_pending()
-        && state.roll_read_output.owned == 0
-        && state.spot_output.owned == 0
-        && state.trip_output.owned == 0
-        && state.fair_output.owned == 0
-        && state.trump_output.owned == 0
-        && state.reflect_output.owned == 0;
+        && !p.tech_obs.clatter;
     state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
         state.counter.sample(allowed, Some(config), context, threat)
     } else {
-        if !allowed || !state.counter.awaiting_receipt() {
-            state.counter.cancel();
-        }
+        state.counter.cancel();
         ControllerOutput::default()
     };
 }

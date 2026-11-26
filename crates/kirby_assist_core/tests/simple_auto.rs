@@ -216,14 +216,14 @@ fn committed_response_ignores_new_events_and_does_not_queue_them() {
     );
 }
 #[test]
-fn fixed_grab_mode_only_sends_standing_grab_inside_close_range() {
+fn shield_grab_mode_only_sends_standing_grab_inside_close_range() {
     use kirby_assist_core::out_of_shield::{Context, OutOfShield};
     for distance in [22., 35.] {
         let mut a = OutOfShield::new();
         let native = Context {
             object: 1,
             kind: kirby_assist_core::fighter_kinds::BOWSER,
-            status: kirby_assist_core::native_states::status::WAIT,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -243,7 +243,14 @@ fn fixed_grab_mode_only_sends_standing_grab_inside_close_range() {
             ..t(0x1c, distance, 0.)
         });
         let out = a.sample_simple(true, native, c(0.), targets, None, 22., 35.);
-        assert_eq!(out.requested, if distance <= 22. { MAPPER_R } else { 0 });
+        assert_eq!(
+            out.requested,
+            if distance <= 22. {
+                MAPPER_R | MAPPER_ZR
+            } else {
+                0
+            }
+        );
         assert_eq!(
             out.stick,
             if distance <= 22. { Some([0.; 2]) } else { None }
@@ -415,7 +422,17 @@ fn shield_grab_readiness_uses_guard_even_when_ordinary_catch_term_is_disabled() 
         "held guard needs no ground-catch query"
     )));
     assert!(!automatic_grab_ready(0, |_| false));
-    assert!(automatic_grab_ready(0, |_| true));
+    assert!(!automatic_grab_ready(0, |_| panic!(
+        "idle cannot admit shield grab"
+    )));
+    assert!(automatic_grab_ready(
+        kirby_assist_core::native_states::GUARD_ON,
+        |term| term == kirby_assist_core::native_states::transition_terms::CONT_CATCH
+    ));
+    assert!(!automatic_grab_ready(
+        kirby_assist_core::native_states::GUARD_ON,
+        |_| false
+    ));
 }
 
 #[test]
@@ -770,7 +787,7 @@ fn damage_and_knockdown_do_not_admit_an_abort_then_neutral_mask() {
 }
 
 #[test]
-fn moving_reactions_must_begin_with_up_b_not_a_grab_or_approach() {
+fn controllable_grounded_movement_admits_authored_reactions() {
     for actions in [
         "grab:4",
         "drift:opponent:1:10,up_b:4",
@@ -802,11 +819,7 @@ fn moving_reactions_must_begin_with_up_b_not_a_grab_or_approach() {
                     ..c(0.)
                 },
             );
-            assert_eq!(
-                out.owned != 0,
-                actions.starts_with("up_b"),
-                "{own:#x} {actions}"
-            );
+            assert_ne!(out.owned, 0, "{own:#x} {actions}");
         }
     }
 }

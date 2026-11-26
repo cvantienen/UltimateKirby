@@ -265,6 +265,10 @@ pub(super) struct SettingsMenu {
     diagnostics: DiagnosticState,
 }
 impl SettingsMenu {
+    #[cfg(test)]
+    pub(super) fn test_view_revision(&self) -> Option<(u64, u64)> {
+        self.current().map(|s| (s.revision, s.content_revision))
+    }
     /// Returns the selection for the currently selected fighter.
     fn current(&self) -> Option<&MenuSelection> {
         self.kind.and_then(|kind| self.selections.get(&kind))
@@ -420,6 +424,15 @@ impl SettingsMenu {
     pub fn auto_spacing_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::auto_spacing_held)
     }
+    pub fn defensive_owner(&self) -> Option<kirby_assist_core::action_owner::Owner> {
+        self.scoped().and_then(MenuSelection::defensive_owner)
+    }
+    pub fn auto_defense_held(&self) -> bool {
+        self.scoped().is_some_and(MenuSelection::auto_defense_held)
+    }
+    pub fn counter_held(&self) -> bool {
+        self.scoped().is_some_and(MenuSelection::counter_held)
+    }
     /// Copies independent damage-stick preferences for the observed fighter.
     pub fn damage_sticks(&self, kind: i32, defaults: [bool; 2]) -> [bool; 2] {
         self.selections.get(&kind).map_or(defaults, |s| {
@@ -488,7 +501,7 @@ impl SettingsMenu {
     /// Builds an enabled counter from this fighter's saved settings.
     pub fn counter_config(&self, kind: i32) -> Option<kirby_assist_core::auto_counter::Config> {
         let selection = self.for_fighter(kind)?.live()?;
-        if !selection.auto_counter {
+        if !selection.counter_held() {
             return None;
         }
         kirby_assist_core::auto_counter::Config::for_fighter(kind, selection.tuning)
@@ -657,7 +670,10 @@ impl SettingsMenu {
         let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
             self.invalidate();
+            self.observe_passthrough(physical, layout);
             self.consumed = 0;
+            self.builtin_consumed = 0;
+            self.native_buttons = buttons;
             return false;
         };
         if self.kind != Some(kind) {
@@ -670,8 +686,12 @@ impl SettingsMenu {
         self.scope = gameplay;
         let selection = self.selections.get_mut(&kind).unwrap();
         selection.y_fighter_kind = kind;
+        let damage_before = selection.damage_sticks();
         selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_DI_DEFAULT] = f32::from(damage_defaults[0]);
         selection.tuning_values[kirby_assist_core::fighter_tuning::AUTO_SDI_DEFAULT] = f32::from(damage_defaults[1]);
+        if selection.damage_sticks() != damage_before {
+            bump_content(selection);
+        }
         // Apply after new-profile/reset_inputs, which deliberately disarms L.
         if let Some((buttons, layout)) = self.passthrough_buttons.take() {
             selection.observe_physical_passthrough(buttons, layout);
@@ -785,6 +805,10 @@ fn new_selection(
         let catalog = library.for_fighter(kind);
         s.load_saved_recipes(&profile.menu_options, &catalog, kind);
         s.tuning = library.tuning.get(&kind).copied().unwrap_or_default();
+    } else if kirby_assist_core::auto_counter::supports(kind) {
+        let slot = kirby_assist_core::fighter_profiles::presets::PresetSlot::R3;
+        s.choices[slot as usize] = profile.menu_options.list(slot).options.len()
+            + kirby_assist_core::button_bindings::Builtin::Counter.visible_template_offset().unwrap();
     }
     s.tuning_values = kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
     s.tuning_values[11] = if grab_default { 1.0 } else { 0.0 };

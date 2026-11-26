@@ -1,17 +1,50 @@
 # Ness
 
+## Configure Ness
+
+This page belongs to profile **`ness`** (`fighter_kinds::NESS`), not a
+roster-position index. Use `[ness.settings]` for overrides and
+`[ness.neutral.my_response]` (or jump/roll/attack/drop) for an authored option.
+Existing choices, supplied defaults and literal inputs are shown in the generated
+snapshot below. Your installed file and unsaved Training draft may differ.
+
+Start with [the complete fighter configuration walkthrough](../FIGHTER_CONFIGS.md),
+then use [all 83 tuning keys](../FIGHTER_SETTINGS.md) and
+[execution/calibration](../FIGHTER_EXECUTION.md). These shared guides explain
+units, ranges, current versus startup effects, save/restart, and cancellation.
+Choose or edit this fighter's row in Training; activate its configured Ledge
+Assist binding to run it. A missing selected timeline produces no fallback move.
+
+### Supplied fighter overrides
+
+No `[fighter.settings]` overrides are supplied in this fighter file. Shared
+settings and exact-kind reference facts remain the baseline; this does not mean
+every assist is active or every recipe is populated.
+
+### Support and extension boundary
+
+Yo-yo or charged-smash coverage requires explicit hold/release actions. A Down Smash label alone does not place a charging yo-yo at the ledge or model its charge hitboxes.
+
+To expand this fighter, add a uniquely named option under **`ness`** using
+existing actions first. Keep all waits, directional inputs, range checks and
+resource assumptions explicit. Do not change `fighter_kind` to another fighter
+to borrow a move. New primitives require a reviewed shared executor change;
+new character-specific prediction needs a verified native adapter, not only
+more sliders. [Rust extension contracts](../FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain registration, `Option`, validation and focused tests.
+
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
 Native fighter kind **10** (`ness`). This reference follows the canonical fighter data;
-it is not a device-calibration result. No fighter-specific file loads during a match.
+it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
-The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.
 Up/Down selects a row; Left/Right cycles its
-choices. Hold **L** to run the selected responses. Defaults are bold.
+choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
@@ -27,14 +60,13 @@ Selecting a choice never changes native moves, hitboxes, physics or animation sp
 
 ## Saved assist rules
 
-These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+These are saved configuration records, not proof that a trigger is currently admitted.
 they are not selected ledge/button recipes. Auto react has one sequence per event;
-priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.
 
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge > Neutral Air | `ness.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `ness.roll.auto_grab` |
 | `auto_grab_dodged` | — | Dodged grab > Neutral Air | `ness.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll > Neutral Air | `ness.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield backup > Neutral Air | `ness.roll.auto_shield_backup` |
@@ -147,13 +179,3 @@ Rust/reference-data changes need a separately authorized build/install.
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
-
-> Historical implementation notes: the old conditional fighter engines described below have been retired. Current options and exact input delays are the file-authored schedules above and in `sequences.txt`; native reference facts do not add scheduling.
-
-
-## Yo-yo choice
-
-Yo-yo sweep is an uncharged down-smash attempt. It does not pre-position a
-charging yo-yo at ledge or guarantee a reaction punish on every drop. Hop aerials
-stay near the player unless their handler explicitly adds drift. Height,
-protection and native action readiness remain relevant.

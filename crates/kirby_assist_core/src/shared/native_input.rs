@@ -195,7 +195,7 @@ pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[
 
 /// Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
 pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
-    bits_if(fully_owned(owned) && walking, MAPPER_LEFT_STICK_HORIZONTAL)
+    bits_if(owned & MAPPER_LEFT_STICK_HORIZONTAL != 0 && walking, MAPPER_LEFT_STICK_HORIZONTAL)
 }
 
 /// Raw source buttons/axes were already masked before native mapping. Preserve
@@ -271,6 +271,26 @@ pub fn mapped_stick_axis(axis: f32) -> i8 {
     } else {
         0
     }
+}
+
+/// Select the largest signed-byte stick value strictly below native dash entry.
+/// Unknown thresholds must not be replaced by an assumed walking strength.
+pub fn fastest_walk_stick(walk_threshold: f32, dash_threshold: f32) -> Option<f32> {
+    if !walk_threshold.is_finite()
+        || !dash_threshold.is_finite()
+        || !(0.0..dash_threshold).contains(&walk_threshold)
+        || dash_threshold > 1.0
+    {
+        return None;
+    }
+    // Packets use 127, but native movement normalizes their bytes by 120.
+    // Comparing the pre-map float with dash_stick_x permits dash-sized packets.
+    (1..=120).rev()
+        .find(|&byte| {
+            let native = byte as f32 / 120.0;
+            native < dash_threshold && native >= walk_threshold
+        })
+        .map(|byte| byte as f32 / 127.0)
 }
 
 /// Drop every `sources` bit, then add each pair's destination when any of its
@@ -425,21 +445,43 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
     }
 }
 
-/// Suppress physical attack and tilt-stick output during a manual turn, or
-/// deliver the one buffered A without clearing unrelated mapped controls.
-pub fn mapped_posture_attack(buttons: u32, requested: bool) -> u32 {
-    mapped_attack_hold(
-        buttons & !(MAPPED_ATTACK_HOLD_BITS | MAPPED_CSTICK_BUTTON),
-        requested,
-    )
-}
-
 /// Spacing owns attacks but deliberately preserves the player's mapped jump.
 /// C-stick attacks retain their direction source independently of retreat drift.
 pub fn mapped_spacing_attack(buttons: u32, attack: bool, cstick: bool) -> u32 {
     let clean = buttons & !(MAPPED_ATTACK_HOLD_BITS | MAPPED_CSTICK_BUTTON
         | MAPPED_SPECIAL | MAPPED_GUARD | MAPPED_GUARD_HOLD | MAPPED_CATCH);
     mapped_attack_hold(clean, attack) | bits_if(attack && cstick, MAPPED_CSTICK_BUTTON)
+}
+
+/// Final spacing packet, applied after movement caps and native mapping.
+/// Directional ground C-stick requests use the existing A + 0.6 tilt-stick
+/// mechanism so a neutral main stick cannot turn them into jabs. Clear C-stick
+/// flags/axes to avoid inheriting the player's Smash/Attack C-stick mapping.
+/// Aerial selection already owns the main stick; neutral attacks stay neutral.
+/// `left` and `right` must be the selected spacing packet, not physical axes.
+pub fn mapped_spacing_input(
+    buttons: u32,
+    attack: bool,
+    left: [f32; 2],
+    right: [f32; 2],
+) -> (u32, [f32; 2], [f32; 2]) {
+    let tilt = attack && right.iter().all(|v| v.is_finite())
+        && right.iter().any(|v| v.abs() > 0.5);
+    let left = if tilt {
+        if right[1].abs() > right[0].abs() {
+            [0., right[1].signum() * 0.6]
+        } else {
+            [right[0].signum() * 0.6, 0.]
+        }
+    } else {
+        left
+    };
+    (mapped_spacing_attack(buttons, attack, false), left, [0.; 2])
+}
+
+/// Clear stale shield history only after the caller verifies no guard request remains.
+pub fn mapped_guard_release(buttons: u32) -> u32 {
+    buttons & !(MAPPED_GUARD | MAPPED_GUARD_HOLD)
 }
 
 /// Final literal controller actions, after raw-source/history filtering. The

@@ -1,33 +1,64 @@
-# Kirby forward-air first-hit landing follow-up
+# Kirby fair first-hit landing follow-up
 
-A fresh hurtbox hit before **fair frame 17** arms the follow-up. The observer
-allows a small timing margin after the first hit's active frames so a delayed
-poll does not lose the confirmation. This uses
-`AttackModule::is_infliction(HIT)`, not the persistent infliction-status flag.
-Shield-only contact, nair and fair's later hits cannot arm it. The route is the
-fast-fall first-hit landing confirm: land before fair reaches its second hit
-(frame 17). There is no additional fast-fall flag, percent, spacing, DI, opponent
-status or target scan required after first-hit confirmation.
+This Kirby-only tool watches a **fresh hurtbox hit before fair motion frame17**,
+then attempts the fast-fall first-hit landing route into an upward-angled forward
+smash. Shield-only contact, another aerial and fair's later hits cannot arm it.
+It observes fresh hit infliction, not a persistent historical hit flag.
 
-After recognition, the tool owns competing gameplay inputs. It waits for landing
-before sending forward+A at `[facing, 0.5]`, giving an upward angle. Pulses enter
-the game's ordinary landing-lag buffer; this cannot bypass airborne restrictions
-or landing lag. A is released when native forward-smash startup is observed,
-while the angle is kept through startup until attack selection. It then hands
-back control without charging the smash.
+## Activate and understand the defaults
 
-Reaching fair's second hit before landing, damage, unrelated actions, a malformed
-clock, excessive delay or a higher-priority tech/mash interruption cancels the
-follow-up. A confirmed hit is not a guarantee that forward smash will connect;
-spacing, DI, percentage and input delivery still matter.
+`kirby_fair1_smash = true` is the Rust startup fallback. It is independent of
+trip follow-up and does not require a ledge hold, but selected human controller,
+mode/global enabled and native safety/owner admission still apply. Disable the
+startup key or relevant current mode through [Controls](CONTROLS.md); startup
+file precedence is explained in [Settings reference](SETTINGS_REFERENCE.md).
 
-`kirby_fair1_smash = true` enables it at startup (default and supplied config).
-Set it to false and reload the plugin/game to disable it independently of the
-existing down-tilt trip -> forward-smash tool. The reader adds one fresh collision
-query only during Kirby's first fair active interval, with no additional roster
-scan, game-state write or live GUI activity.
+```ini
+[universal.settings]
+kirby_fair1_smash = false
+```
 
-Regression fixtures cover first-hit confirmation, shield/late-hit rejection,
-landing buffering, both facing directions, angle retention, release on acceptance,
-and interruption. They have not been compiled or executed in this source-only
-revision. No build or upload was performed.
+Merge into your existing section and use its documented reload path; a file edit
+is not an immediate native-state write. Fair route internals are compiled policy,
+not editable arbitrary follow-up actions. A saved button recipe is a separate
+literal tape and cannot register a fresh-hit observer.
+
+## Recognition, input and native timing
+
+A landing-fair observation can preserve an earlier first-hit frame through a late
+poll. Once armed, the tool owns competing gameplay inputs. It requests downward
+stick only after finite vertical velocity is below-0.05: it does not force descent
+or fast-fall physics. Landing must occur before fair reaches its second hit.
+The queued air phase has a short16-update bound; a wider total age bound also
+prevents permanently queued input.
+
+On landing, it alternates ordinary releases and **facing+A with upward angle
+`[facing, 0.5]`**, buffering through native landing lag. This does not make the
+smash actionable early. Native forward-smash startup releases A while preserving
+angle; charge/selected attack ends ownership. No percent, opponent range/DI or
+additional target scan is required after first-hit confirmation. That absence
+of checks is not a promise the smash will connect.
+
+Native progress spends timing; duplicate observations reuse output and stop
+does not create extra pulses. Reach/frame17 before landing, damage/capture,
+unrelated action, invalid clock/identity, route disable, queued expiry and
+stronger safety/explicit Held Defense/Counter admission cancel. Ordinary physical
+input does not automatically cancel an already-owned route. The underlying move
+may continue after assist hands back; only requested controls are removed.
+
+## Practice and Rust extension
+
+Test fresh first-hit versus shield and late-hit cases, descent versus ascent,
+landing versus staying airborne, both facings and manual control after smash
+startup. Delivery can miss native acceptance; spacing, DI, percent and queues
+still determine outcome. No on-device success or zero-miss certification is
+implied.
+
+Rust beginners can follow `src/live/kirby_followups.rs::fair_hit_window`,
+`fair_context` and `fair`: the adapter only admits/read-copies the hit facts;
+`FairFollowup` in the Kirby policy owns progression. `Option<FairFollowup>` is
+created only while enabled and cleared when disabled. Add focused fresh-hit,
+late-hit, landing, velocity, duplicate/stop and interruption tests when extending
+this route. Do not alter animations, hitboxes, physics or status to force it.
+See [Trip follow-up](TRIP_AND_SDI.md) for the different confirmed-trip route and
+[Input recipes](INPUT_RECIPES.md) for literal versus native-confirmed playback.

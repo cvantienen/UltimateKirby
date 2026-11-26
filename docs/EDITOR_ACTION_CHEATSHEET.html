@@ -5,7 +5,7 @@ examples, use the <a href="SEQUENCE_SYNTAX_CHEATSHEET.md">sequence syntax cheat 
 <p>For automatic mode conditions and triggers, see the
 <a href="REACTION_RULE_CHEATSHEET.md">reaction-rule cheat sheet</a> and its
 <a href="REACTION_RULE_CHEATSHEET.html">styled searchable table</a>.</p>
-<p>All <strong>52 unique fixed editor entries</strong>, plus dynamic saved inputs and timing/activation settings. <a href="EDITOR_ACTION_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
+<p>All fixed editor entries, including opponent-facing branches, ledge positioning and conditional chasing, plus dynamic saved inputs and timing/activation settings. <a href="EDITOR_ACTION_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
 <p>All actions simulate inputs/check observations; they do not edit physics, hitboxes or move data. FRAMES is input-hold duration, not move startup or animation length. Every example uses explicit hold duration; do not assume a :1 is replaced by the editor’s 4-frame initial value. Strength accepts decimals (0.5) or percentages (50%) and is stick magnitude, not guaranteed movement speed. X/Y are left-stick axes except cstick, which is the right stick. +X is right for input, forward relative to step-start facing for facing_input; +Y is up. DIR: opponent, away_from_opponent, ledge, inward, outward, facing, backward, saved_ledge, away_from_ledge. Ledge directions need a usable ledge anchor. Check WAIT=0 requires the condition immediately; positive WAIT waits up to that many frames, then ends the remaining sequence on failure. Movement/range steps also respect spatial_timeout and safety checks.</p>
 <p>Duplicate input aliases have been consolidated: Forward A covers Fair/Fsmash (and an A input while already dashing), Up A covers Uair/Usmash, Down A covers Dair/Dsmash, and Neutral A covers jab/Nair/continuous A hold. The picker has one category per fixed action. To build a dash attack, choose <strong>Dash</strong> with a 1-frame duration, then <strong>Forward A</strong>; a simultaneous full-stick+A input alone does not insert a dash first. Native state determines the resulting move.</p>
 <p><strong>Controller input</strong> combines any of A/B/X/Y/L/R/ZL/ZR and both sticks in one frame. Select <strong>Buttons → A</strong> to open eight independent toggles (A or Left/Right toggles; B returns). Set left and right X references independently to <strong>screen</strong>, <strong>facing</strong>, or <strong>opponent</strong>, then configure both sticks and hold frames. Opponent references require an observed target; their horizontal direction is captured at step entry. A facing change/crossing during that hold does not flip the input. Vertical axes remain screen up/down.</p>
@@ -272,13 +272,25 @@ actions = face:opponent, wait:2, down_tilt:4
 <td>Run distance</td>
 <td>Uses running movement in DIR until UNITS of horizontal displacement. Distance is not a fixed number of frames.</td>
 <td><code>run:DIR:UNITS</code></td>
-<td><code>actions = run:ledge:8</code></td>
+<td><code>actions = run:opponent:8</code></td>
 </tr>
 <tr>
 <td>Drift</td>
 <td>Holds a horizontal analog direction for FRAMES. It is a timed stick action, not a distance target.</td>
 <td><code>drift:DIR:STRENGTH:FRAMES</code></td>
 <td><code>actions = drift:opponent:25%:20</code></td>
+</tr>
+<tr>
+<td>Run to ledge offset</td>
+<td>Uses stick input to approach a position OFFSET inward from the saved ledge. Tolerance is allowed position error; Brake distance anticipates stopping; Max frames bounds the attempt. Requires a ledge anchor. New preset: offset 12, strength 100%, tolerance 1, brake 6, maximum 180 frames.</td>
+<td><code>run_to_ledge:OFFSET:STRENGTH:TOLERANCE:BRAKE:MAX_FRAMES</code></td>
+<td><code>actions = run_to_ledge:12:1:1:6:180</code></td>
+</tr>
+<tr>
+<td>Chase only if outside range</td>
+<td>Skip if the target is already within GAP; otherwise send opponent-directed stick for FRAMES. This is a timed chase, not a promise to reach GAP. New preset: gap 30, strength 100%, 14 frames.</td>
+<td><code>chase_if_far:GAP:STRENGTH:FRAMES</code></td>
+<td><code>actions = chase_if_far:30:1:14</code></td>
 </tr>
 </tbody>
 </table>
@@ -322,7 +334,7 @@ actions = face:opponent, wait:2, down_tilt:4
 <td>If facing ledge</td>
 <td>Run the block only if facing the saved ledge at sequence start. Close with End facing block.</td>
 <td><code>if_facing_ledge, ..., end_facing</code></td>
-<td><code>actions = if_facing_ledge, grab:4, end_facing</code></td>
+<td><code>actions = if_facing_ledge, press:r:4, end_facing</code></td>
 </tr>
 <tr>
 <td>If back to ledge</td>
@@ -331,10 +343,28 @@ actions = face:opponent, wait:2, down_tilt:4
 <td><code>actions = if_back_to_ledge, short_hop_nair:4, end_facing</code></td>
 </tr>
 <tr>
+<td>If facing opponent</td>
+<td>Select the block using the current observed opponent side; does not turn or wait. Works without a ledge anchor.</td>
+<td><code>if_facing_opponent, ..., end_facing</code></td>
+<td><code>actions = if_facing_opponent, press:r:4, end_facing</code></td>
+</tr>
+<tr>
+<td>If back to opponent</td>
+<td>Select the block when facing away from the observed opponent. A fresh usable opponent reference is needed.</td>
+<td><code>if_back_to_opponent, ..., end_facing</code></td>
+<td><code>actions = if_back_to_opponent, bair:4, end_facing</code></td>
+</tr>
+<tr>
+<td>Otherwise (facing block)</td>
+<td>Optional alternate branch inside an open facing block; at most one. Only the selected branch runs.</td>
+<td><code>else_facing</code></td>
+<td><code>actions = if_facing_opponent, press:r:4, else_facing, up_b:4, end_facing</code></td>
+</tr>
+<tr>
 <td>End facing block</td>
 <td>Ends a facing block; adds no input or wait. Blocks cannot nest.</td>
 <td><code>end_facing</code></td>
-<td><code>actions = if_facing_ledge, grab:4, end_facing</code></td>
+<td><code>actions = if_facing_ledge, press:r:4, end_facing</code></td>
 </tr>
 <tr>
 <td>Wait for shield hit</td>
@@ -550,7 +580,10 @@ actions = face:opponent, wait:2, down_tilt:4
 <p>Built from the actual editor presets and checked against the Rust parser/serializer. Spatial and input actions still follow native game eligibility; these examples do not guarantee a hit or a legal tech.</p>
 <h2>Automatic reaction settings</h2>
 <p>These are recipe properties below the action list, not extra move choices.
-See <a href="REACTION_RULES.md">reaction rules</a> for all seven fields and priorities.</p>
+The live simple Auto react editor exposes only maximum X distance and maximum
+height difference for its fixed event. Seven/eight-field settings belong to the
+retained legacy builder; they do not prioritize current simple Auto react events.
+See <a href="REACTION_RULES.md">reaction rules</a>.</p>
 <table>
 <thead>
 <tr>
@@ -562,14 +595,20 @@ See <a href="REACTION_RULES.md">reaction rules</a> for all seven fields and prio
 </thead>
 <tbody>
 <tr>
+<td>Max X distance / Max height difference</td>
+<td>Current simple Auto react recipe's two admission limits, 0–100 world units. Event is selected when adding the recipe; ordinary manual editors do not expose reaction tagging.</td>
+<td><code>reaction = EVENT:MAX_X:MAX_Y</code></td>
+<td><code>reaction = auto_roll:30:12</code></td>
+</tr>
+<tr>
 <td>Stop if airborne</td>
-<td>Optional sequence safety switch, exposed for assist recipes. Stops pending/held inputs after leaving the ground. Defaults OFF so existing jump recipes are unchanged.</td>
+<td>Optional saved safety flag; defaults false. The legacy editor exposes it, but the current simple Auto react editor does not offer this field. This is distinct from grounded admission.</td>
 <td><code>ground_only = true</code></td>
 <td><code>ground_only = true</code> followed by <code>actions = check:self_grounded:0, up_b:3</code></td>
 </tr>
 <tr>
 <td>Auto reaction / My state / Min-max X distance / Height / Enemy side / Priority</td>
-<td>Available in separate Assist rule editors, not ordinary ledge/button recipes. Roll variants choose their condition; shield-hit, grab-dodged and ledge-regrab rules keep their own event family. Each assist has its ON/OFF control.</td>
+<td>Retained legacy Assist editor fields, not current unified event arbitration. Do not use these to add a live simple response. Ledge-regrab punishment is inert.</td>
 <td><code>reaction = TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY</code></td>
 <td><code>reaction = roll_cross_vulnerable:grounded:0:14:10:any:1</code></td>
 </tr>
@@ -580,9 +619,11 @@ explicit anchor-only movement. <code>walk:away_from_ledge:4:50%</code> moves fou
 away; <code>run:saved_ledge:8</code> runs eight units toward it;
 <code>drift:away_from_ledge:25%:20</code> sends that stick direction for twenty frames.
 No known anchor means these new actions stop the sequence; legacy <code>ledge</code>
-retains its existing opponent fallback. Facing blocks use sequence-start facing,
-not the opponent's side, and cannot nest. Only the selected block's waits/inputs
-consume time. They need a known ledge; on-stage reaction rules cannot use them.
+retains its existing opponent fallback. Ledge-facing blocks use sequence-start
+facing; opponent-facing blocks evaluate the observed opponent when encountered.
+Blocks cannot nest. Only the selected branch's waits/inputs consume time.
+Ledge-facing blocks require a known ledge and are unavailable to onstage reactions;
+opponent-facing blocks do not require that anchor.
 See <a href="SEQUENCE_FILES.md#facing-dependent-ledge-recipes">facing-dependent recipes</a>.</p>
 <h2>Movement direction choices</h2>
 <p>These are the <strong>Direction</strong> settings on Face, Walk distance, Run distance and Drift, not separate move-picker entries. Walk/Run distances are world units; Drift duration is frames.</p>
@@ -651,4 +692,90 @@ See <a href="SEQUENCE_FILES.md#facing-dependent-ledge-recipes">facing-dependent 
 <td><code>actions = drift:backward:25%:20</code></td>
 </tr>
 </tbody>
-</table></main><script>const input=document.getElementById('query'),rows=[...document.querySelectorAll('tbody tr')],count=document.getElementById('count');function filter(){const terms=input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);let visible=0;for(const row of rows){const text=row.textContent.toLowerCase();row.hidden=!terms.every(term=>text.includes(term));if(!row.hidden)visible++;}count.textContent=visible+' / '+rows.length+' rows';}input.addEventListener('input',filter);filter();</script></body></html>
+</table>
+<h2>Every field: how to interpret an editor number</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequence start delay</td>
+<td>Neutral frames before steps; 0–3600</td>
+</tr>
+<tr>
+<td>Delay before</td>
+<td>Neutral frames before this slot; saving inserts <code>wait:N</code>, counting toward expanded capacity</td>
+</tr>
+<tr>
+<td>Hold input: For frames / Until manual takeover</td>
+<td>Finite duration versus explicit unlimited nonempty-button hold; Controller/opponent input has no unlimited variant</td>
+</tr>
+<tr>
+<td>Hold input for</td>
+<td>Native-progress input duration, normally 1–255; not startup/recovery</td>
+</tr>
+<tr>
+<td>Buttons</td>
+<td>Eight canonical toggles; none means stick-only, not cancel</td>
+</tr>
+<tr>
+<td>Stick X/Y; Right stick X/Y</td>
+<td>Signed −100%..100% axes; Y positive up; references mirror horizontal sign only</td>
+</tr>
+<tr>
+<td>Left/Right stick X reference</td>
+<td>Screen right, step-start facing forward or step-start opponent side</td>
+</tr>
+<tr>
+<td>Direction</td>
+<td>Target/anchor-relative movement direction, not a separate button</td>
+</tr>
+<tr>
+<td>Stick strength</td>
+<td>Analog magnitude within action bounds, not native speed multiplication</td>
+</tr>
+<tr>
+<td>Distance/range</td>
+<td>World units; not frames, pixels, percent damage or guaranteed hitbox reach</td>
+</tr>
+<tr>
+<td>Minimum gap / approach gap / chase range</td>
+<td>Horizontal stopping/skip threshold depending on action</td>
+</tr>
+<tr>
+<td>Arrival tolerance</td>
+<td>Allowed error around inward ledge-offset destination; 0–20 units</td>
+</tr>
+<tr>
+<td>Braking distance</td>
+<td>Ledge-position stopping allowance; 0–100, 0 disables it</td>
+</tr>
+<tr>
+<td>Movement timeout</td>
+<td><code>run_to_ledge</code> budget 1–3600 frames, separate from whole-tape timeout</td>
+</tr>
+<tr>
+<td>Check wait limit</td>
+<td>0 checks now; positive 0–255 waits deliberately, cancels on failure</td>
+</tr>
+<tr>
+<td>Maximum wait</td>
+<td>Shield-until-block bound, 1–255 frames, not unlimited shield</td>
+</tr>
+<tr>
+<td>Tap input / Delay between taps / Repeat for</td>
+<td>Preset button+stick pulse, released gap and whole block budget; interval includes hold plus gap</td>
+</tr>
+<tr>
+<td>Action slots</td>
+<td>Up to 32 displayed slots; only unused trailing slots shrink; expanded waits/checks must fit too</td>
+</tr>
+</tbody>
+</table>
+<p><a href="LEDGE_MENU.md#beginner-walkthrough-create-test-name-and-save">Beginner walkthrough, naming and saving</a>
+explains commands. Uppercase <code>FRAMES</code> is a placeholder, not a literal token;
+<code>[optional]</code> means optional suffix notation, not brackets pasted into an action.</p></main><script>const input=document.getElementById('query'),rows=[...document.querySelectorAll('tbody tr')],count=document.getElementById('count');function filter(){const terms=input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);let visible=0;for(const row of rows){const text=row.textContent.toLowerCase();row.hidden=!terms.every(term=>text.includes(term));if(!row.hidden)visible++;}count.textContent=visible+' / '+rows.length+' rows';}input.addEventListener('input',filter);filter();</script></body></html>

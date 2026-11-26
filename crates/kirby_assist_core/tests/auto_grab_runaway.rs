@@ -69,156 +69,41 @@ fn sample(
     )
 }
 #[test]
-fn close_idle_grab_does_not_create_a_run_on_any_fighter() {
-    for kind in [
-        kirby_assist_core::fighter_kinds::BOWSER,
-        kirby_assist_core::fighter_kinds::KIRBY,
-        kirby_assist_core::fighter_kinds::YOSHI,
-        kirby_assist_core::fighter_kinds::WARIO,
-        kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
-        kirby_assist_core::fighter_kinds::PYRA,
-        kirby_assist_core::fighter_kinds::MYTHRA,
-    ] {
-        let mut o = OutOfShield::new();
-        let out = sample(&mut o, kind, 0, 10.);
-        assert_eq!(out.requested, MAPPER_R, "kind {kind}");
-        assert_eq!(out.stick, Some([0.; 2]));
-        assert!(!o.approach_pending());
-    }
-}
-#[test]
-fn failed_idle_dash_cannot_restart_forever_against_the_same_shield() {
-    let mut o = OutOfShield::new();
-    for tick in 0..4 {
-        let out = sample(&mut o, 15, 0, 30.);
-        assert_eq!(out.requested, 0);
-        assert_eq!(out.stick, Some([1., 0.]));
-        o.mapped_approach(tick, 2);
-    }
-    assert_eq!(sample(&mut o, 15, 0, 30.).owned, 0);
-    for _ in 0..100 {
-        assert_eq!(
-            sample(&mut o, 15, 0, 30.).owned,
-            0,
-            "failed approach must not rearm itself"
-        );
-    }
-}
-#[test]
-fn delivered_grab_cannot_keep_forcing_run_or_override_opposite_manual_input() {
-    let mut o = OutOfShield::new();
-    sample(&mut o, 15, 0, 30.);
-    o.mapped_approach(0, 2);
-    let grab = sample(&mut o, 15, 3, 30.);
-    assert_eq!(grab.requested, MAPPER_R);
-    assert_eq!(o.with_grab_movement(grab, [0.; 2]).stick, Some([0., 0.]));
-    o.mapped_grab(1, 2);
-    let tail = sample(&mut o, 15, 3, 30.);
-    assert_eq!(o.with_grab_movement(tail, [0.; 2]).stick, Some([0.; 2]));
-    assert_eq!(o.with_grab_movement(tail, [-0.7, 0.]).stick, None);
-}
-
-#[test]
-fn lost_dash_and_grab_acknowledgements_are_bounded_even_when_native_animation_is_frozen() {
-    for phase in [0, 1] {
-        let mut o = OutOfShield::new();
-        if phase == 1 {
-            sample(&mut o, 15, 0, 30.);
-            o.mapped_approach(-1, 2);
-        }
-        let status = if phase == 0 {
-            kirby_assist_core::native_states::status::WAIT
-        } else {
-            kirby_assist_core::native_states::status::DASH
-        };
-        for tick in 0..4 {
-            let out = sample(&mut o, 15, status, 30.);
-            assert_ne!(out.owned, 0);
-            if phase == 1 && tick > 0 {
-                assert_eq!(o.with_grab_movement(out, [0.; 2]).stick, Some([0.; 2]));
+fn automatic_grabs_never_start_runs_or_unshielded_inputs_for_any_fighter() {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
+        let mut tool = OutOfShield::new();
+        for status in [0, 1, 3, 4] {
+            for x in [10., 30.] {
+                for tick in 0..100 {
+                    assert_eq!(
+                        sample(&mut tool, kind, status, x),
+                        Default::default(),
+                        "kind {kind} status {status} tick {tick}"
+                    );
+                    tool.delivery_tick(tick);
+                    assert!(tool.target().is_none());
+                }
             }
-            // The original mapper completed, but no request receipt arrived.
-            o.delivery_tick(tick);
-            o.delivery_tick(tick);
-        }
-        assert_eq!(sample(&mut o, 15, status, 30.).owned, 0);
-        for _ in 0..50 {
-            assert_eq!(sample(&mut o, 15, 0, 30.).owned, 0);
         }
     }
 }
 #[test]
-fn failed_dash_rearms_only_on_new_manual_intent_or_a_positive_end_of_enemy_shield() {
-    for rearm in [0, 1] {
-        let mut o = OutOfShield::new();
-        for tick in 0..4 {
-            sample(&mut o, 22, 0, 30.);
-            o.mapped_approach(tick, 2);
-        }
-        assert_eq!(sample(&mut o, 22, 0, 30.).owned, 0);
-        o.observe_statuses(&[None; 16]);
-        for _ in 0..20 {
-            assert_eq!(sample(&mut o, 22, 0, 30.).owned, 0);
-        }
-        let mut c = context(0);
-        if rearm == 0 {
-            c.manual_input_epoch = 1;
-        } else {
-            o.observe_statuses(&[Some((2, 0))]);
-        }
-        assert_ne!(
-            o.sample_automatic(
-                true,
-                own(22, 0),
-                c,
-                target(30.),
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.)
-            )
-            .owned,
-            0
-        );
-    }
-}
-#[test]
-fn a_new_fighter_using_the_same_object_id_does_not_inherit_pending_grabs_or_failures() {
-    let mut o = OutOfShield::new();
-    sample(&mut o, 15, 0, 30.);
-    o.mapped_approach(0, 2);
-    let out = o.sample_automatic(
-        true,
-        own(22, 0),
-        context(0),
-        [None; 8],
-        None,
-        false,
-        22.,
-        35.,
-        Some(8.),
+fn shield_grab_does_not_leave_run_input_after_native_catch_or_actor_replacement() {
+    let mut tool = OutOfShield::new();
+    let guard = kirby_assist_core::native_states::GUARD;
+    let out = sample(&mut tool, 15, guard, 10.);
+    assert_eq!(
+        out.requested,
+        MAPPER_R | kirby_assist_core::native_input::MAPPER_ZR
     );
-    assert_eq!(out.owned, 0);
-    assert!(!o.approach_pending());
-    assert!(o.target().is_none());
-    assert_eq!(sample(&mut o, 22, 0, 10.).requested, MAPPER_R);
-}
-#[test]
-fn aborting_an_assisted_dash_for_manual_movement_cannot_admit_a_competing_throw_packet() {
-    let mut o = OutOfShield::new();
-    let approach = sample(&mut o, 15, 0, 30.);
-    assert_eq!(o.with_grab_movement(approach, [-1., 0.]).owned, 0);
-    assert!(o.target().is_none());
-    sample(&mut o, 15, 0, 30.);
-    o.mapped_approach(0, 2);
-    let grab = sample(&mut o, 15, 3, 30.);
-    o.mapped_grab(1, 2);
-    assert_eq!(o.with_grab_movement(grab, [-1., 0.]).owned, 0);
-    assert!(
-        o.grab_delivery_pending(),
-        "keep only the inert receipt against a competing Up-B"
+    assert_eq!(out.stick, Some([0.; 2]));
+    tool.mapped_grab(0, 2);
+    assert_eq!(
+        sample(&mut tool, 15, kirby_assist_core::native_states::CATCH, 10.),
+        Default::default()
     );
+    assert_eq!(sample(&mut tool, 22, 0, 10.), Default::default());
+    assert!(tool.target().is_none());
 }
 #[test]
 fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {

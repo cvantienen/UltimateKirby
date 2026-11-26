@@ -257,6 +257,28 @@ fn grab_backup_and_grab_dodge_floor_requirements_are_independent_of_auto_react()
 }
 
 #[test]
+fn enabled_families_request_only_their_own_backup_and_dodge_observations() {
+    use kirby_assist_core::reaction_rules::AutomaticEvent;
+    for (event, shield, dodge) in [
+        ("auto_shield_backup", true, false),
+        ("auto_grab_dodged", false, true),
+    ] {
+        let movement = rules(&[(event, "walk:opponent:4:50%,a:1")]);
+        let special = rules(&[(event, "up_b:4")]);
+        for reactions in [false, true] {
+            for shield_enabled in [false, true] {
+                for dodge_enabled in [false, true] {
+                    let mask = AutomaticEvent::enabled_mask(reactions, shield_enabled, dodge_enabled);
+                    let enabled = shield && shield_enabled || dodge && dodge_enabled;
+                    assert_eq!(special.automatic_needs_up_special(mask), enabled, "{event}");
+                    assert_eq!(movement.automatic_ground_watch(mask), enabled.then_some((20., 8.)), "{event}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn unconfigured_fighters_do_not_construct_or_retain_a_roll_engine_during_grab_observations() {
     let grabs = rules(&[
         ("auto_shield_grab", "input:r:0:0:4"),

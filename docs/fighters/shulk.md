@@ -1,17 +1,50 @@
 # Shulk
 
+## Configure Shulk
+
+This page belongs to profile **`shulk`** (`fighter_kinds::SHULK`), not a
+roster-position index. Use `[shulk.settings]` for overrides and
+`[shulk.neutral.my_response]` (or jump/roll/attack/drop) for an authored option.
+Existing choices, supplied defaults and literal inputs are shown in the generated
+snapshot below. Your installed file and unsaved Training draft may differ.
+
+Start with [the complete fighter configuration walkthrough](../FIGHTER_CONFIGS.md),
+then use [all 83 tuning keys](../FIGHTER_SETTINGS.md) and
+[execution/calibration](../FIGHTER_EXECUTION.md). These shared guides explain
+units, ranges, current versus startup effects, save/restart, and cancellation.
+Choose or edit this fighter's row in Training; activate its configured Ledge
+Assist binding to run it. A missing selected timeline produces no fallback move.
+
+### Supplied fighter overrides
+
+No `[fighter.settings]` overrides are supplied in this fighter file. Shared
+settings and exact-kind reference facts remain the baseline; this does not mean
+every assist is active or every recipe is populated.
+
+### Support and extension boundary
+
+This identity uses the shared file-authored runner, not a dedicated compiled move routine. No standalone Lucina counter, Game & Watch reflector or Kirby-specific follow-up is inherited. Universal held tools have their own eligibility gates; registering a fighter does not bypass them.
+
+To expand this fighter, add a uniquely named option under **`shulk`** using
+existing actions first. Keep all waits, directional inputs, range checks and
+resource assumptions explicit. Do not change `fighter_kind` to another fighter
+to borrow a move. New primitives require a reviewed shared executor change;
+new character-specific prediction needs a verified native adapter, not only
+more sliders. [Rust extension contracts](../FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain registration, `Option`, validation and focused tests.
+
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
 Native fighter kind **57** (`shulk`). This reference follows the canonical fighter data;
-it is not a device-calibration result. No fighter-specific file loads during a match.
+it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
-The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.
 Up/Down selects a row; Left/Right cycles its
-choices. Hold **L** to run the selected responses. Defaults are bold.
+choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
@@ -27,14 +60,13 @@ Selecting a choice never changes native moves, hitboxes, physics or animation sp
 
 ## Saved assist rules
 
-These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+These are saved configuration records, not proof that a trigger is currently admitted.
 they are not selected ledge/button recipes. Auto react has one sequence per event;
-priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.
 
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge > Up B | `shulk.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `shulk.roll.auto_grab` |
 | `auto_grab_dodged` | — | Dodged grab > Up B | `shulk.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll > Up B | `shulk.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield backup > Up B | `shulk.roll.auto_shield_backup` |

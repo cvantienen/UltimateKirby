@@ -24,125 +24,70 @@ fn context() -> ManualContext {
 }
 
 #[test]
-fn manual_up_tilt_never_attacks_sideways_and_releases_after_one_delivery() {
-    use kirby_assist_core::native_input::{
-        mapped_posture_attack, MapperButtonOverlay, MAPPED_ATTACK_HOLD_BITS, MAPPER_RIGHT_STICK_UP,
-    };
-    for c_stick in [false, true] {
-        for facing in [-1.0, 1.0] {
-            let mut posture = Posture::default();
-            let mut overlay = MapperButtonOverlay::default();
-            let settings = TiltSettings {
-                up: true,
-                ..Default::default()
-            };
-            let buttons = if c_stick {
-                MAPPER_RIGHT_STICK_UP
-            } else {
-                MAPPER_A
-            };
-            let left = if c_stick { [0.0; 2] } else { [0.0, 1.0] };
-            let right = if c_stick { [0.0, 1.0] } else { [0.0; 2] };
-            assert!(Posture::any_tilt_intent(buttons, left, right));
-            for (tick, native_facing, attack) in [
-                (1, facing, false),
-                (2, facing, false),
-                (3, -facing, true),
-                (4, -facing, false),
-            ] {
-                let out = posture
-                    .sample_manual_up_turn(
-                        tick,
-                        true,
-                        settings,
-                        !c_stick,
-                        buttons,
-                        left,
-                        right,
-                        Some(-facing),
-                        ManualContext {
-                            facing: native_facing,
-                            ..context()
-                        },
-                    )
-                    .unwrap();
-                let packet = overlay.apply_raw(
-                    ButtonTrace {
-                        held: buttons,
-                        pressed: buttons,
-                        ..Default::default()
-                    },
-                    out.requested,
-                    out.owned,
-                );
-                assert_eq!(packet.held & MAPPER_A != 0, attack);
-                assert_eq!(packet.held & MAPPER_RIGHT_STICK_UP, 0);
-                let mapped = mapped_posture_attack(MAPPED_ATTACK_HOLD_BITS | 0x80, attack);
-                assert_eq!(mapped & MAPPED_ATTACK_HOLD_BITS != 0, attack);
-                assert_eq!(mapped & 0x80, 0);
-                if attack {
-                    assert_eq!(out.stick, Some([0.0, 0.6]));
-                } else if tick < 3 {
-                    assert_eq!(out.stick, Some([-facing * 0.8, 0.0]));
+fn vertical_c_stick_tilts_stay_vertical_and_clear_side_aliases() {
+    use kirby_assist_core::native_input::{MAPPER_RIGHT_STICK_UP, MAPPER_RIGHT_STICK_DOWN, mapped_stick_axis};
+    let settings = TiltSettings { down: true, up: true, forward: true };
+    for facing in [-1.0, 1.0] {
+        for toward in [-1.0, 1.0] {
+            for y in [-1.0, 1.0] {
+                let vertical = if y > 0.0 { MAPPER_RIGHT_STICK_UP } else { MAPPER_RIGHT_STICK_DOWN };
+                let physical = ButtonTrace { held: vertical | MAPPER_RIGHT_STICK_LEFT,
+                    pressed: vertical | MAPPER_RIGHT_STICK_LEFT,
+                    previous: vertical | MAPPER_RIGHT_STICK_RIGHT,
+                    released: MAPPER_RIGHT_STICK_RIGHT };
+                for x in [-0.7, 0.0, 0.7] {
+                    let left = [0.4, 0.0];
+                    let c = ManualContext { facing, ..context() };
+                    let (movement, right) = Posture::configured_c_stick(settings, physical.held,
+                        left, [x, y], Some(toward), c).unwrap();
+                    assert_eq!(movement, left);
+                    assert_eq!(right, [toward * 0.2, y * 0.8]);
+                    assert!(mapped_stick_axis(right[0]).abs() < 30);
+                    assert!(mapped_stick_axis(right[1]).abs() > 63);
+                    let trace = TiltSideAliases::default().apply_vertical(physical);
+                    assert_eq!(trace.held, vertical);
+                    assert_eq!(trace.pressed, vertical);
+                    assert_eq!(trace.previous, vertical);
+                    assert_eq!(trace.released, 0);
+                    let out = Posture::default().sample_configured(true, false, true, settings,
+                        physical.held, left, [x, y], Some(toward), c);
+                    assert_eq!(out.stick, Some(left));
+                    assert_eq!((out.owned, out.requested), (0, 0));
                 }
             }
-            assert!(posture
-                .sample_manual_up_turn(
-                    5,
-                    true,
-                    settings,
-                    false,
-                    0,
-                    [0.0; 2],
-                    [0.0; 2],
-                    Some(-facing),
-                    context()
-                )
-                .is_none());
         }
     }
 }
 
 #[test]
-fn tilt_stick_release_or_owner_loss_cancels_deferred_attack() {
-    for owner_lost in [false, true] {
-        let mut posture = Posture::default();
-        let settings = TiltSettings {
-            up: true,
-            ..Default::default()
-        };
-        let start = posture
-            .sample_manual_up_turn(
-                1,
-                true,
-                settings,
-                false,
-                0,
-                [0.0; 2],
-                [0.0, 1.0],
-                Some(-1.0),
-                context(),
-            )
-            .unwrap();
-        assert_eq!(start.requested, 0);
-        if owner_lost {
-            posture.cancel_up_turn();
+fn stick_plus_a_keeps_native_tilts_and_smash_flicks() {
+    use kirby_assist_core::{manual_controls::{ManualOverlay, TurboOutput},
+        native_input::{MAPPER_LEFT_STICK_DIRECTIONS, MAPPER_RIGHT_STICK_DOWN}};
+    let settings = TiltSettings { down: true, up: true, forward: true };
+    for stick in [[0.0, -1.0], [0.0, 1.0], [-1.0, 0.0], [1.0, 0.0], [0.6, -0.8]] {
+        let buttons = MAPPER_A | MAPPER_LEFT_STICK_DIRECTIONS;
+        let physical = ButtonTrace { held: buttons, pressed: buttons, ..Default::default() };
+        let out = Posture::default().sample_configured(true, false, true, settings,
+            buttons, stick, [0.0; 2], Some(-1.0), context());
+        assert_eq!(out, Default::default());
+        let frame = ManualOverlay::default().apply_controls(physical, stick,
+            TurboOutput { stick: out.stick }, 0, out.requested, out.owned);
+        assert_eq!(frame.stick, stick);
+        assert_eq!(frame.buttons.held, physical.held);
+        assert_eq!(frame.buttons.pressed, physical.pressed);
+        assert_eq!(Posture::configured_c_stick(settings, buttons | MAPPER_RIGHT_STICK_DOWN,
+            stick, [0.0, -1.0], Some(-1.0), context()), None);
+    }
+}
+
+#[test]
+fn forward_c_stick_correction_keeps_requested_tilt_height() {
+    let settings = TiltSettings { down: true, up: true, forward: true };
+    for left in [[-1.0, 0.0], [0.2, -0.8], [0.0, 0.0], [1.0, 0.0]] {
+        for y in [-0.4, 0.0, 0.4] {
+            assert_eq!(Posture::configured_c_stick(settings, 0, left, [1.0, y],
+                Some(-1.0), context()), Some((left, [-1.0, y])));
         }
-        let next = posture.sample_manual_up_turn(
-            2,
-            true,
-            settings,
-            false,
-            0,
-            [0.0; 2],
-            if owner_lost { [0.0, 1.0] } else { [0.0; 2] },
-            Some(-1.0),
-            ManualContext {
-                facing: -1.0,
-                ..context()
-            },
-        );
-        assert_eq!(next.map_or(0, |out| out.requested), 0);
     }
 }
 
@@ -246,7 +191,7 @@ fn selected_c_stick_tilts_aim_without_creating_attack_buttons() {
                     ..Default::default()
                 },
                 [0.0, 1.0],
-                [0.0, 1.0],
+                [-facing * 0.2, 0.8],
             ),
             (
                 TiltSettings {
@@ -271,11 +216,7 @@ fn selected_c_stick_tilts_aim_without_creating_attack_buttons() {
             );
             assert_eq!(
                 out.stick,
-                Some(if settings.up {
-                    [0.0; 2]
-                } else {
-                    [-facing * 0.8, 0.0]
-                })
+                Some([0.0; 2])
             );
             assert_eq!((out.requested, out.owned), (0, 0));
             assert_eq!(
@@ -346,7 +287,6 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
     for (buttons, left, right, target, c) in [
         (MAPPER_A, [0.0, 1.0], [0.0, 0.0], Some(-1.0), context()),
         (MAPPER_B, [0.0, 0.0], [1.0, 0.0], Some(-1.0), context()),
-        (0, [0.5, 0.0], [1.0, 0.0], Some(-1.0), context()),
         (0, [0.0, 0.0], [f32::NAN, 1.0], Some(-1.0), context()),
         (0, [0.0, 0.0], [0.0, 0.0], Some(-1.0), context()),
         (
@@ -480,7 +420,7 @@ fn side_aliases_keep_physical_press_and_release_without_extra_attack_edges() {
 }
 
 #[test]
-fn down_setting_preserves_legacy_aim_and_can_be_disabled() {
+fn down_setting_converts_to_c_stick_and_can_be_disabled() {
     let mut posture = Posture::default();
     let down = TiltSettings {
         down: true,
@@ -497,7 +437,7 @@ fn down_setting_preserves_legacy_aim_and_can_be_disabled() {
         Some(-1.0),
         context(),
     );
-    assert_eq!(enabled.stick, Some([-0.8, -1.0]));
+    assert_eq!(enabled.stick, None);
     assert_eq!(enabled.requested, 0);
     let disabled = posture.sample_configured(
         true,

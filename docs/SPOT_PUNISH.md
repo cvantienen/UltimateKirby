@@ -1,66 +1,72 @@
-# Configured Spot punish
+# Enemy Spot punish
 
-**Spot punish** reacts to an opponent's ordinary grounded spot dodge. It is
-separate from **Grab dodge + punish**, which dodges an incoming grab and follows
-up afterward. Both use their own ON/OFF rows and saved rule lists.
+Spot punish responds to the opponent's ordinary grounded spot dodge. It does
+not dodge an incoming grab: that is [Grab avoidance](GRAB_DODGE.md). The detailed
+Spot punish family and simplified **Auto react → Enemy spot dodge** are also
+different configuration paths; select the one exposed in your current menu.
 
-## Configure in Training
-
-1. Open Assist modes, highlight **Spot punish**, and press **L3 or R3**.
-2. Press X to add a rule, or A/R3 to edit an existing one.
-3. Set your state, minimum/maximum X distance, height, opponent side and priority.
-   Priority 1 is considered first; up to eight rules belong to this assist.
-4. Choose response actions and delays. Press Y in the editor to save, then wait
-   for the save result. R3/L3 returns to the list; B/L3 returns to Assist modes.
-5. Enable Spot punish. It retains its existing ON/OFF default, but without a
-   matching saved rule there is no response or compiled smash fallback.
+## Detailed example and simple counterpart
 
 ```ini
-[bowser.attack.spot_grab]
-name = Spot dodge grab
+[bowser.attack.practice_spot]
+name = Vulnerable spot-dodge grab
 start_delay = 0
-timeout = 180
-spatial_timeout = 30
-default = false
+timeout = 120
 reaction = spot_dodge:grounded:0:12:18:front:1
-actions = face:opponent, input:r:0:0:4
+actions = input:r:0:0:4
 ```
 
-This is a starting example, not calibrated grab reach. `input:r:0:0:4` holds the
-Grab button for four input frames. `grab:NUMBER` instead means a range check;
-use the editor's Hold buttons setting or explicit input syntax for duration.
-Legacy storage headers such as `bowser.attack` remain compatible, but this
-reaction-tagged recipe appears only in Spot punish's list, never Get-up attack.
+This detailed example is not calibrated reach. `input:r:0:0:4` requests mapped
+Grab for four input frames; `grab:NUMBER` is a range check, not button duration.
+Detailed rules use state, X minimum/maximum, height, side and priority. See
+[Sequence files](SEQUENCE_FILES.md) and [Reaction rules](REACTION_RULES.md) for
+syntax/current list availability and [Controls](CONTROLS.md) for activation.
 
-## Trigger and timing
+The simplified counterpart uses `reaction = auto_spot_dodge:25:10`: only maximum
+X and height. The supplied Bowser automatic event currently has X25/Y10, but its
+full saved action tape should be inspected in the fighter guide, not inferred
+from this example. The simple event does not wait for vulnerability or apply
+detailed priority/side metadata. Its switch is Auto react; retained detailed
+Spot punish has its own family. No compiled smash fallback is supplied when a
+matching configured response is absent.
 
-The `spot_dodge` event waits until the existing native dodge-window observation
-reports that invulnerability has ended and recovery remains. Unknown windows,
-non-spot-dodge states, range/side/height mismatches and invalid observations do
-not start a response. There is one attempt per observed spot dodge; cancelling
-an already started sequence does not retry the same dodge. A later genuine dodge
-can qualify again. Move startup still occurs after the configured input starts.
+## What recognition means
 
-A protected ledge setup and native safety retain their ownership. Spot punish
-does not run stale events later. The configured timeline can continue after the
-opponent's dodge ends; spatial steps require a fresh locked-target observation.
-Unchanged native jump, shield, recovery and attack rules determine acceptance.
+Detailed `spot_dodge` requires native ordinary `ESCAPE`, a valid motion/rate,
+observed end of invulnerability and remaining recovery. `spot_dodge_any` can
+match the same ordinary dodge before vulnerability or without a known recovery
+forecast. It does not turn air dodge or unknown invalid clocks into spot dodge.
+A lower-priority any-dodge rule can win **now** before a later vulnerability
+rule becomes eligible; priority does not reserve a future opportunity.
 
-Detection reuses the existing bounded recovery scan. Following an active target
-uses its validated identity directly. Floor support is queried only for relevant
-configured ground movement, not idle Spot punish watching. There are no new
-hooks, hitbox scans, worker threads or match-time file reads.
+Each observed dodge motion is answered once on commitment. Cancelling that tape
+does not retry the same event; a genuine later motion can qualify. The detailed
+selector uses the best currently matching priority across bounded candidates.
+The simple automatic selector instead commits the first ready unconsumed event.
+These differences are intentional, not alternative descriptions of one scheduler.
 
-## Immediate spot-dodge variant
+## Ownership, timing and cancellation
 
-`spot_dodge_any` belongs to the same Spot punish list and switch. It can select a
-response before the opponent becomes vulnerable, or when the native dodge-window
-forecast is unavailable, provided the validated ordinary spot-dodge status/motion
-is observed. It still respects own hitstop, ground/state conditions, ownership
-and one attempt per dodge. The older `spot_dodge` event keeps its vulnerability
-and remaining-recovery checks. Unknown forecast candidates are only retained by
-the native observer when an explicit any-spot rule is configured.
+Own native readiness, mode admission, controller scope and nonstopped play still
+apply. Grounded is not permission to cancel arbitrary recovery. Protected ledge
+and committed/safety owners can prevent selection; Held Defense/Counter explicitly
+preempt nonsafety owners. Authored playback masks competing gameplay input;
+stop pauses its native-progress clock and duplicate mapper polls do not spend
+holds. Target-dependent steps need a fresh valid locked target, not a substitute
+nearby opponent. Damage/capture, mode/scope loss, clock/timeout and target loss
+cancel. Delivered Grab hands back native catches/throws rather than appending B.
 
-A priority grab using `spot_dodge` can lose to a lower-priority `spot_dodge_any`
-Up-B **before** vulnerability opens. That immediate response does not turn into a
-grab later. This is the requested Bowser broad-chase behavior, not a timing guarantee.
+## Rust walkthrough and player tests
+
+`policies/spot_punish.rs::Punisher` remembers target motion identity and `used`,
+constructs copied recovery facts, selects a configured `Response` and plays it.
+`option_read.rs` retains a portable recovery-punish helper and observation types;
+its presence does not establish a live hard-coded smash fallback. Players edit
+rule conditions and actions; developers must update event parsing/observation/
+selection and focused tests when adding behavior.
+
+Test vulnerable and any-dodge rules separately, both sides and just outside range,
+then interrupt playback with damage and manual capture. A detected recovery
+window or mapped Grab is not proof of a guaranteed hit. Native invulnerability,
+move startup, spacing and online queues remain limits; no physics/status writes
+or new device certification result from this documentation.

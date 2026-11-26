@@ -30,7 +30,7 @@ fn sequence(actions: &str) -> kirby_assist_core::sequence_config::Sequence {
         .sequence
 }
 #[test]
-fn block_to_down_smash_releases_neutral_until_guard_off_ends_then_holds_full_duration() {
+fn block_to_down_smash_releases_shield_then_buffers_during_guard_off_with_full_duration() {
     let mut t = InputTimeline::new(
         sequence("shield_until_block:30,down_smash:4"),
         Opponent::default(),
@@ -58,8 +58,22 @@ fn block_to_down_smash_releases_neutral_until_guard_off_ends_then_holds_full_dur
         (kirby_assist_core::native_states::GUARD_OFF, 4.),
     ] {
         let o = sample(&mut t, status, frame);
-        assert_eq!(o.requested, 0);
-        assert_eq!(o.stick, Some([0.; 2]));
+        assert_eq!(
+            o.requested,
+            if status == kirby_assist_core::native_states::GUARD_OFF {
+                MAPPER_A
+            } else {
+                0
+            }
+        );
+        assert_eq!(
+            o.stick,
+            Some(if status == kirby_assist_core::native_states::GUARD_OFF {
+                [0., -1.]
+            } else {
+                [0.; 2]
+            })
+        );
         assert_eq!(t.right_stick(), [0.; 2]);
         assert!(!t.finished());
     }
@@ -307,9 +321,14 @@ fn shared_response_and_movement_cannot_feed_directions_into_shield() {
                 context(status, frame),
                 Some(enemy),
             );
-            assert_eq!(o.requested, 0, "{action}");
-            assert_eq!(o.stick, Some([0.; 2]));
-            assert_eq!(r.right_stick(), Some([0.; 2]));
+            let buffers = status == kirby_assist_core::native_states::GUARD_OFF
+                && matches!(action, "down_smash:4" | "side_b:4" | "cstick:0:-1:4");
+            assert_eq!(o.requested != 0, buffers, "{action}");
+            assert_eq!(o.requested & SEQUENCE_GUARD_INPUTS, 0, "{action}");
+            if !buffers {
+                assert_eq!(o.stick, Some([0.; 2]));
+                assert_eq!(r.right_stick(), Some([0.; 2]));
+            }
         }
     }
 }

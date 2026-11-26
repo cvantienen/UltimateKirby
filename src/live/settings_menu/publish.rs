@@ -41,7 +41,13 @@ pub(super) fn publish(
     crate::performance::health::event(crate::performance::health::Event::MenuPublish);
     LIGHTWEIGHT_REQUESTED.store(selection.lightweight, Ordering::Release);
     REQUESTED_FIGHTER.store(profile.fighter_kind, Ordering::Release);
-    REQUESTED_REVISION.store(selection.revision, Ordering::Release);
+    // Training input is frozen during a save, and the save gate prevents
+    // replacing its text. Keep the last published revision drawable until
+    // completion; layout, fighter and generation checks still reject stale
+    // cards when the scene or session changes.
+    if selection.lightweight || !super::save::busy() {
+        REQUESTED_REVISION.store(selection.revision, Ordering::Release);
+    }
     let was_visible = MENU_VISIBLE.swap(!selection.menu_hidden, Ordering::AcqRel);
     if selection.menu_hidden {
         // Hidden binding/preview changes do not need snapshot/save locks once

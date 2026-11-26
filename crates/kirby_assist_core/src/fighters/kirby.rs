@@ -252,351 +252,7 @@ mod fair_followup {
     }
 
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        /// Regression test for `later_contact_cancels_first_hit_followup_even_during_hitstop`.
-        #[test]
-        fn later_contact_cancels_first_hit_followup_even_during_hitstop() {
-            let mut tool = FairFollowup::default();
-            tool.sample(true, fair(10.0));
-            let later = FairContext {
-                stopped: true,
-                ..fair(17.0)
-            };
-            assert_eq!(tool.sample(true, later).requested, 0);
-            assert!(!tool.queued);
-            let landing = FairContext {
-                grounded: true,
-                status: crate::native_states::status::LANDING_ATTACK_AIR,
-                motion: 4,
-                frame: 0.0,
-                hit_now: false,
-                ..fair(10.0)
-            };
-            assert_eq!(tool.sample(true, landing).requested, 0);
-        }
-        /// Builds a forward-air observation for follow-up regression tests.
-        fn fair(frame: f32) -> FairContext {
-            FairContext {
-                object: 1,
-                kirby: true,
-                status: crate::native_states::status::ATTACK_AIR,
-                motion: FAIR,
-                frame,
-                rate: 1.0,
-                grounded: false,
-                stopped: false,
-                facing: 1.0,
-                hit_now: true,
-            }
-        }
-        /// Regression test for `manual_first_hit_survives_late_fair_skipped_frames_and_falling_until_grounded_smash`.
-        #[test]
-        fn manual_first_hit_survives_late_fair_skipped_frames_and_falling_until_grounded_smash() {
-            for facing in [-1.0, 1.0] {
-                let mut tool = FairFollowup::default();
-                tool.sample(
-                    true,
-                    FairContext {
-                        facing,
-                        ..fair(10.0)
-                    },
-                );
-                for frame in [11.0, 13.0, 15.0, 17.0] {
-                    let c = FairContext {
-                        facing,
-                        frame,
-                        hit_now: false,
-                        ..fair(10.0)
-                    };
-                    assert_eq!(
-                        tool.sample_with_velocity(true, c, -1.0).stick,
-                        Some([0.0, -1.0])
-                    );
-                    assert!(tool.queued);
-                }
-                for frame in [0.0, 2.0, 0.0] {
-                    let c = FairContext {
-                        status: crate::native_states::status::FALL,
-                        motion: 3,
-                        frame,
-                        facing,
-                        hit_now: false,
-                        ..fair(10.0)
-                    };
-                    assert_eq!(tool.sample_with_velocity(true, c, -1.0).requested, 0);
-                    assert!(tool.queued);
-                }
-                let landing = FairContext {
-                    grounded: true,
-                    status: crate::native_states::status::LANDING_ATTACK_AIR,
-                    motion: 4,
-                    frame: 0.0,
-                    facing,
-                    hit_now: false,
-                    ..fair(10.0)
-                };
-                assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
-                assert_eq!(tool.output.stick, Some([facing, UP_ANGLE]));
-                for _ in 0..50 {
-                    assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
-                }
-                for frame in 1..12 {
-                    let out = tool.sample(
-                        true,
-                        FairContext {
-                            frame: frame as f32,
-                            ..landing
-                        },
-                    );
-                    assert_eq!(out.requested, if frame % 2 == 0 { MAPPER_A } else { 0 });
-                }
-                let accepted = tool.sample(
-                    true,
-                    FairContext {
-                        status: crate::native_states::status::ATTACK_S4_START,
-                        motion: 5,
-                        ..landing
-                    },
-                );
-                assert_eq!(accepted.requested, 0);
-                assert_eq!(accepted.stick, Some([facing, UP_ANGLE]));
-            }
-        }
-        /// Regression test for `first_hit_with_mixed_landing_flag_is_latched_without_sending_a_second_aerial`.
-        #[test]
-        fn first_hit_with_mixed_landing_flag_is_latched_without_sending_a_second_aerial() {
-            let mut tool = FairFollowup::default();
-            let contact = FairContext {
-                grounded: true,
-                ..fair(11.0)
-            };
-            assert_eq!(tool.sample(true, contact).requested, 0);
-            assert!(tool.queued);
-            let landing = FairContext {
-                status: crate::native_states::status::LANDING_ATTACK_AIR,
-                motion: 2,
-                frame: 0.0,
-                hit_now: false,
-                ..contact
-            };
-            assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
-        }
-        /// A delayed observation of the first-hit contact still arms the landing smash.
-        #[test]
-        fn delayed_first_hit_observation_arms_before_the_second_hit() {
-            let mut tool = FairFollowup::default();
-            let delayed_hit = FairContext {
-                frame: 13.0,
-                ..fair(10.0)
-            };
-            assert_eq!(tool.sample(true, delayed_hit).requested, 0);
-            assert!(tool.queued);
-        }
-        /// Regression test for `fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not`.
-        #[test]
-        fn fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not() {
-            for previous_frame in [11.0, 17.0] {
-                let mut tool = FairFollowup::default();
-                tool.sample(
-                    true,
-                    FairContext {
-                        hit_now: false,
-                        ..fair(previous_frame)
-                    },
-                );
-                let landing = FairContext {
-                    status: crate::native_states::status::LANDING_ATTACK_AIR,
-                    motion: crate::timing::motion_hash("landing_air_f"),
-                    frame: 0.0,
-                    grounded: true,
-                    ..fair(10.0)
-                };
-                tool.sample(true, landing);
-                let out = tool.sample(
-                    true,
-                    FairContext {
-                        frame: 1.0,
-                        hit_now: false,
-                        ..landing
-                    },
-                );
-                assert_eq!(
-                    out.requested,
-                    if previous_frame == 11.0 { MAPPER_A } else { 0 }
-                );
-            }
-        }
-        /// Regression test for `landing_hit_flag_changes_cannot_create_another_smash_input_frame`.
-        #[test]
-        fn landing_hit_flag_changes_cannot_create_another_smash_input_frame() {
-            let mut tool = FairFollowup::default();
-            tool.sample(true, fair(10.0));
-            let landing = FairContext {
-                grounded: true,
-                status: crate::native_states::status::LANDING_ATTACK_AIR,
-                motion: 2,
-                frame: 0.0,
-                hit_now: false,
-                ..fair(10.0)
-            };
-            let press = tool.sample(true, landing);
-            assert_eq!(press.requested, MAPPER_A);
-            for hit_now in [true, false, true] {
-                assert_eq!(tool.sample(true, FairContext { hit_now, ..landing }), press);
-            }
-            assert_eq!(
-                tool.sample(
-                    true,
-                    FairContext {
-                        frame: 1.0,
-                        ..landing
-                    }
-                )
-                .requested,
-                0
-            );
-        }
-        /// Regression test for `first_hit_waits_for_landing_then_buffers_upward_smash_without_charging`.
-        #[test]
-        fn first_hit_waits_for_landing_then_buffers_upward_smash_without_charging() {
-            for facing in [-1.0, 1.0] {
-                let mut tool = FairFollowup::default();
-                let hit = FairContext {
-                    facing,
-                    stopped: true,
-                    ..fair(10.0)
-                };
-                let armed = tool.sample(true, hit);
-                assert_ne!(armed.owned, 0);
-                assert_eq!(armed.requested, 0);
-                assert_eq!(tool.sample(true, hit), armed);
-                assert_eq!(
-                    tool.sample(
-                        true,
-                        FairContext {
-                            stopped: false,
-                            hit_now: false,
-                            ..hit
-                        }
-                    )
-                    .requested,
-                    0
-                );
-                let landing = FairContext {
-                    grounded: true,
-                    status: crate::native_states::status::LANDING_ATTACK_AIR,
-                    motion: 2,
-                    frame: 0.0,
-                    hit_now: false,
-                    stopped: false,
-                    ..hit
-                };
-                let out = tool.sample(true, landing);
-                assert_eq!(out.requested, MAPPER_A);
-                assert_eq!(out.stick, Some([facing, UP_ANGLE]));
-                assert_eq!(
-                    tool.sample(
-                        true,
-                        FairContext {
-                            frame: 1.0,
-                            ..landing
-                        }
-                    )
-                    .requested,
-                    0
-                );
-                assert_eq!(
-                    tool.sample(
-                        true,
-                        FairContext {
-                            frame: 2.0,
-                            ..landing
-                        }
-                    )
-                    .requested,
-                    MAPPER_A
-                );
-                let startup = FairContext {
-                    status: crate::native_states::status::ATTACK_S4_START,
-                    motion: 3,
-                    frame: 0.0,
-                    ..landing
-                };
-                let accepted = tool.sample(true, startup);
-                assert_eq!(accepted.requested, 0);
-                assert_eq!(accepted.stick, Some([facing, UP_ANGLE]));
-                let attack = FairContext {
-                    status: crate::native_states::status::ATTACK_S4,
-                    motion: 4,
-                    frame: 0.0,
-                    ..landing
-                };
-                assert_eq!(tool.sample(true, attack).requested, 0);
-                assert_eq!(
-                    tool.sample(
-                        true,
-                        FairContext {
-                            frame: 1.0,
-                            ..attack
-                        }
-                    )
-                    .owned,
-                    0,
-                    "acceptance must not leave a permanent release takeover"
-                );
-            }
-        }
-        /// Regression test for `shield_stale_or_later_hits_and_other_moves_cannot_arm`.
-        #[test]
-        fn shield_stale_or_later_hits_and_other_moves_cannot_arm() {
-            for c in [
-                FairContext {
-                    hit_now: false,
-                    ..fair(10.0)
-                },
-                fair(17.0),
-                fair(25.0),
-                FairContext {
-                    kirby: false,
-                    ..fair(10.0)
-                },
-                FairContext {
-                    motion: 0xc3a4e2597,
-                    ..fair(10.0)
-                },
-            ] {
-                assert_eq!(
-                    FairFollowup::default().sample(true, c),
-                    ControllerOutput::default()
-                );
-            }
-        }
-        /// Regression test for `damage_still_cancels_the_confirm`.
-        #[test]
-        fn damage_still_cancels_the_confirm() {
-            for changed in [FairContext {
-                status: crate::native_states::status::DAMAGE_FLY,
-                motion: 5,
-                frame: 0.0,
-                ..fair(10.0)
-            }] {
-                let mut tool = FairFollowup::default();
-                tool.sample(true, fair(10.0));
-                assert_eq!(tool.sample(true, changed).requested, 0);
-                assert!(!tool.queued);
-                let ground = FairContext {
-                    grounded: true,
-                    status: crate::native_states::status::WAIT,
-                    motion: 6,
-                    frame: 1.0,
-                    hit_now: false,
-                    ..changed
-                };
-                assert_eq!(tool.sample(true, ground).owned, 0);
-            }
-        }
-    }
+    include!("../../tests/unit/fighter_kirby_fair_followup.rs");
 }
 mod trip_followup {
     //! Kirby tilt-trip recognition and buffered forward-smash inputs.
@@ -614,6 +270,20 @@ mod trip_followup {
         pub status: i32,
         /// Opponent's immediately preceding native status.
         pub previous_status: i32,
+        /// Opponent position relative to Kirby.
+        pub relative_position: [f32; 2],
+        /// Whether the opponent is grounded.
+        pub grounded: bool,
+        /// Current Kirby hit corroborated by the victim's recorded attacker entry.
+        /// This is not a collision-level hit-object ID.
+        pub hit_confirmed: bool,
+    }
+    impl TripTarget {
+        fn nearby(self, facing: f32) -> bool {
+            let [dx, dy] = self.relative_position;
+            self.grounded && dx.is_finite() && dy.is_finite()
+                && (0.0..=18.0).contains(&(dx * facing.signum())) && dy.abs() <= 8.0
+        }
     }
     /// Whether Kirby is performing a tilt capable of feeding the trip follow-up.
     fn trip_tilt(status: i32) -> bool {
@@ -659,6 +329,9 @@ mod trip_followup {
         spent: bool,
         /// Facing captured when the trip armed the follow-up.
         facing: f32,
+        target: Option<u32>,
+        attempts: u8,
+        progress: u8,
     }
     impl TripFollowup {
         /// Cancels the armed trip follow-up and releases its controller output.
@@ -674,17 +347,19 @@ mod trip_followup {
         pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
             // Invalid/changed identity resets the tool. An identical observation
             // reuses output, so repeated mapper polls do not manufacture new pulses.
+            if self.last.is_some_and(|last| last.object != ctx.object) {
+                *self = Self::default();
+            }
             if !enabled
                 || !ctx.kirby
                 || !ctx.frame.is_finite()
                 || ctx.frame < 0.0
                 || !valid_facing(ctx.facing)
             {
-                *self = Self::default();
-                return ControllerOutput::default();
-            }
-            if self.last.is_some_and(|last| last.object != ctx.object) {
-                *self = Self::default();
+                self.finish();
+                self.last = Some(ctx);
+                self.output = ControllerOutput::default();
+                return self.output;
             }
             if self.last == Some(ctx) {
                 return self.output;
@@ -695,11 +370,19 @@ mod trip_followup {
                         || ctx.motion != last.motion
                         || ctx.frame != last.frame
                 });
+            if self.spent && !self.queued && !native_progress {
+                self.last = Some(ctx);
+                return self.output;
+            }
             let recognized = self.recognize(ctx);
             let mut out = ControllerOutput::default();
             let was_queued = self.queued;
             if self.queued {
-                if ctx.tilt_ended() {
+                let target_valid = ctx.targets.iter().flatten().any(|target| {
+                    Some(target.id) == self.target && target.nearby(self.facing)
+                        && tripping(target.status)
+                });
+                if ctx.tilt_ended() || ctx.facing.signum() != self.facing || !target_valid {
                     self.finish();
                 } else if !recognized && !native_progress {
                     // Changed target facts are evidence, not another input frame.
@@ -718,9 +401,7 @@ mod trip_followup {
             self.output = out;
             out
         }
-        /// Rearm on a new tilt, then latch a current trip or grounded re-hit
-        /// damage whose immediate previous state was a trip. No new-trip
-        /// transition or hit flag required.
+        /// Requires an observed non-trip to trip transition during this tilt.
         fn recognize(&mut self, ctx: TripContext) -> bool {
             let new_tilt = trip_tilt(ctx.status)
                 && self.last.is_none_or(|last| {
@@ -729,35 +410,45 @@ mod trip_followup {
             if new_tilt && !self.queued {
                 self.spent = false;
             }
-            let recognized = !self.queued
-                && !self.spent
-                && trip_tilt(ctx.status)
-                && ctx.targets.iter().flatten().any(|enemy| {
-                    tripping(enemy.status)
-                        || tripping(enemy.previous_status)
-                            && matches!(enemy.status, status::DAMAGE | status::DOWN_DAMAGE)
-                });
-            if recognized {
+            if self.queued || self.spent || !ctx.grounded || !trip_tilt(ctx.status) {
+                return false;
+            }
+            let target = ctx.targets.iter().flatten().find(|enemy| {
+                enemy.hit_confirmed && enemy.nearby(ctx.facing) && tripping(enemy.status)
+                    && self.last.is_some_and(|last| {
+                        last.status == ctx.status && last.motion == ctx.motion
+                            && last.targets.iter().flatten().any(|old| {
+                                old.id == enemy.id && !tripping(old.status)
+                            })
+                    })
+            });
+            if let Some(target) = target {
                 self.queued = true;
+                self.target = Some(target.id);
                 self.facing = ctx.facing.signum();
-            }
-            recognized
-        }
-        /// Buffers forward smash through the remaining tilt lag.
-        fn tilt_lag_output(&self, ctx: TripContext, recognized: bool) -> ControllerOutput {
-            // Own every competing gameplay button and both sticks from
-            // recognition onward, including tilt lag and release gaps. First
-            // release the physical tilt/A. Then keep sending fresh directional+A
-            // flicks into the game's normal buffer until smash startup is
-            // observed. No readiness gate or six-pulse cutoff.
-            if !recognized && !ctx.stopped && self.output.requested & MAPPER_A == 0 {
-                press_a(crate::move_input::smash_stick(
-                    crate::move_input::Smash::Forward,
-                    self.facing,
-                ))
+                self.attempts = 0;
+                self.progress = 0;
+                true
             } else {
-                hold([0.0, 0.0])
+                false
             }
+        }
+        /// Releases between at most six smash flicks, counting native progress only.
+        fn tilt_lag_output(&mut self, ctx: TripContext, recognized: bool) -> ControllerOutput {
+            if !recognized && !ctx.stopped {
+                self.progress += 1;
+                if self.progress >= 18 || (self.attempts >= 6 && self.output.requested & MAPPER_A == 0) {
+                    self.finish();
+                    return hold([0.0, 0.0]);
+                }
+                if self.output.requested & MAPPER_A == 0 {
+                    self.attempts += 1;
+                    return press_a(crate::move_input::smash_stick(
+                        crate::move_input::Smash::Forward, self.facing,
+                    ));
+                }
+            }
+            hold([0.0, 0.0])
         }
         /// Completes the active operation and records its final state.
         fn finish(&mut self) {
@@ -775,335 +466,9 @@ mod trip_followup {
         }
     }
 
+
     #[cfg(test)]
-    mod tests {
-        use super::*;
-        use crate::kirby::FOLLOWUP_BUTTONS;
-        /// Builds a Kirby trip observation for follow-up regression tests.
-        fn ctx(status: i32, target_status: i32) -> TripContext {
-            TripContext {
-                object: 1,
-                kirby: true,
-                status,
-                motion: 1,
-                frame: 1.0,
-                grounded: true,
-                facing: 1.0,
-                stopped: false,
-                targets: [
-                    Some(TripTarget {
-                        id: 2,
-                        status: target_status,
-                        previous_status: crate::native_states::status::WAIT,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-            }
-        }
-        /// Regression test for `trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks`.
-        #[test]
-        fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks() {
-            let mut state = TripFollowup::default();
-            let trip = TripContext {
-                stopped: true,
-                ..ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::SLIP,
-                )
-            };
-            let prepare = state.sample(true, trip);
-            assert_eq!(prepare.requested, 0);
-            assert_eq!(prepare.owned, FOLLOWUP_BUTTONS);
-            assert_eq!(prepare.stick, Some([0.0, 0.0]));
-            assert!(state.watching());
-            assert_eq!(state.sample(true, trip), prepare);
-            // A latched trip is not cancelled by missing targets or their recovery.
-            // There is no can_smash input: requests start while tilt lag remains.
-            for frame in 2..=31 {
-                let out = state.sample(
-                    true,
-                    TripContext {
-                        frame: frame as f32,
-                        stopped: false,
-                        targets: [None; 8],
-                        ..trip
-                    },
-                );
-                assert_eq!(out.owned, FOLLOWUP_BUTTONS);
-                assert_eq!(out.requested, if frame % 2 == 0 { MAPPER_A } else { 0 });
-                assert_eq!(
-                    out.stick,
-                    Some(if frame % 2 == 0 {
-                        [1.0, 0.0]
-                    } else {
-                        [0.0, 0.0]
-                    })
-                );
-            }
-            // A transition to idle still receives a forward-smash request at once.
-            let ready = TripContext {
-                status: crate::native_states::status::WAIT,
-                frame: 0.0,
-                targets: [None; 8],
-                ..trip
-            };
-            let ready = TripContext {
-                stopped: false,
-                ..ready
-            };
-            assert_eq!(state.sample(true, ready).requested, MAPPER_A);
-            let accepted = TripContext {
-                status: crate::native_states::status::ATTACK_S4_START,
-                frame: 1.0,
-                ..ready
-            };
-            let released = state.sample(true, accepted);
-            assert_eq!(released.requested, 0);
-            assert_eq!(released.stick, Some([0.0, 0.0]));
-            assert!(!state.watching());
-            assert_eq!(
-                state
-                    .sample(
-                        true,
-                        TripContext {
-                            frame: 2.0,
-                            ..accepted
-                        }
-                    )
-                    .owned,
-                0
-            );
-        }
-        /// Regression test for `either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms`.
-        #[test]
-        fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
-            for status in [
-                crate::native_states::status::ATTACK_S3,
-                crate::native_states::status::ATTACK_LW3,
-            ] {
-                for facing in [-1.0, 1.0] {
-                    for trip_status in [
-                        crate::native_states::status::SLIP,
-                        crate::native_states::status::SLIP_DAMAGE,
-                        crate::native_states::status::SLIP_WAIT,
-                    ] {
-                        let mut state = TripFollowup::default();
-                        let trip = TripContext {
-                            facing,
-                            ..ctx(status, trip_status)
-                        };
-                        assert_eq!(state.sample(true, trip).requested, 0);
-                        let attack = state.sample(true, TripContext { frame: 2.0, ..trip });
-                        assert_eq!(attack.requested, MAPPER_A);
-                        assert_eq!(attack.stick, Some([facing, 0.]));
-                        state.sample(
-                            true,
-                            TripContext {
-                                status: crate::native_states::status::ATTACK_S4_START,
-                                ..trip
-                            },
-                        );
-                        state.sample(
-                            true,
-                            TripContext {
-                                status: crate::native_states::status::WAIT,
-                                ..trip
-                            },
-                        );
-                        state.sample(true, trip);
-                        assert!(state.watching());
-                        assert_eq!(
-                            state
-                                .sample(true, TripContext { frame: 2.0, ..trip })
-                                .requested,
-                            MAPPER_A
-                        );
-                    }
-                }
-            }
-        }
-        /// Regression test for `trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_gaps`.
-        #[test]
-        fn trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_gaps() {
-            use crate::manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS};
-            use crate::native_input::ButtonTrace;
-            let mut state = TripFollowup::default();
-            let mut overlay = ManualOverlay::default();
-            let human = ButtonTrace {
-                held: FOLLOWUP_BUTTONS | LEFT_STICK_DIRECTIONS,
-                ..ButtonTrace::default()
-            };
-            for frame in 1..=5 {
-                let out = state.sample(
-                    true,
-                    TripContext {
-                        frame: frame as f32,
-                        ..ctx(
-                            crate::native_states::status::ATTACK_LW3,
-                            crate::native_states::status::SLIP,
-                        )
-                    },
-                );
-                let mapped = overlay.apply_controls(
-                    human,
-                    [-1.0, -1.0],
-                    TurboOutput { stick: out.stick },
-                    0,
-                    out.requested,
-                    out.owned,
-                );
-                assert_eq!(mapped.buttons.held & FOLLOWUP_BUTTONS, out.requested);
-                assert_eq!(mapped.stick, out.stick.unwrap());
-                assert_eq!(mapped.buttons.pressed & MAPPER_A, out.requested);
-            }
-            let off = state.sample(
-                false,
-                ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::SLIP,
-                ),
-            );
-            let restored = overlay.apply_controls(
-                human,
-                [-1.0, -1.0],
-                TurboOutput { stick: off.stick },
-                0,
-                off.requested,
-                off.owned,
-            );
-            assert_eq!(
-                restored.buttons.held & FOLLOWUP_BUTTONS,
-                human.held & FOLLOWUP_BUTTONS
-            );
-            assert_eq!(restored.stick, [-1.0, -1.0]);
-        }
-        /// Regression test for `no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel`.
-        #[test]
-        fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
-            for sample in [
-                ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::WAIT,
-                ),
-                ctx(
-                    crate::native_states::status::WAIT,
-                    crate::native_states::status::SLIP,
-                ),
-                TripContext {
-                    kirby: false,
-                    ..ctx(
-                        crate::native_states::status::ATTACK_LW3,
-                        crate::native_states::status::SLIP,
-                    )
-                },
-                // An unreadable facing must not guess "forward = right".
-                TripContext {
-                    facing: 0.0,
-                    ..ctx(
-                        crate::native_states::status::ATTACK_LW3,
-                        crate::native_states::status::SLIP,
-                    )
-                },
-                TripContext {
-                    facing: f32::NAN,
-                    ..ctx(
-                        crate::native_states::status::ATTACK_LW3,
-                        crate::native_states::status::SLIP,
-                    )
-                },
-            ] {
-                let mut state = TripFollowup::default();
-                assert_eq!(state.sample(true, sample), ControllerOutput::default());
-                assert!(!state.watching());
-            }
-            for terminal in [
-                TripContext {
-                    grounded: false,
-                    ..ctx(
-                        crate::native_states::status::JUMP,
-                        crate::native_states::status::SLIP,
-                    )
-                },
-                ctx(
-                    crate::native_states::status::DAMAGE,
-                    crate::native_states::status::SLIP,
-                ),
-            ] {
-                let mut state = TripFollowup::default();
-                state.sample(
-                    true,
-                    ctx(
-                        crate::native_states::status::ATTACK_LW3,
-                        crate::native_states::status::SLIP,
-                    ),
-                );
-                assert_eq!(state.sample(true, terminal).requested, 0);
-                assert!(!state.watching());
-                assert_eq!(
-                    state
-                        .sample(
-                            true,
-                            TripContext {
-                                frame: 2.0,
-                                ..terminal
-                            }
-                        )
-                        .owned,
-                    0
-                );
-            }
-            let mut state = TripFollowup::default();
-            state.sample(
-                true,
-                ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::SLIP,
-                ),
-            );
-            assert_eq!(
-                state
-                    .sample(
-                        false,
-                        ctx(
-                            crate::native_states::status::ATTACK_LW3,
-                            crate::native_states::status::SLIP,
-                        )
-                    )
-                    .owned,
-                0
-            );
-            assert!(!state.watching());
-            state.sample(
-                true,
-                ctx(
-                    crate::native_states::status::ATTACK_LW3,
-                    crate::native_states::status::SLIP,
-                ),
-            );
-            assert_eq!(
-                state
-                    .sample(
-                        true,
-                        TripContext {
-                            object: 3,
-                            ..ctx(
-                                crate::native_states::status::WAIT,
-                                crate::native_states::status::WAIT,
-                            )
-                        }
-                    )
-                    .owned,
-                0
-            );
-            assert!(!state.watching());
-        }
-    }
+    include!("../../tests/unit/fighter_kirby_trip_followup.rs");
 }
 
 pub use fair_followup::{FairContext, FairFollowup};

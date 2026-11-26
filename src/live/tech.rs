@@ -6,8 +6,8 @@
 
 use crate::game_ffi as game;
 use kirby_assist_core::tech_prediction::{
-    first_contact_in, late_damage_stop_prediction, prediction_velocity, tech_gate_with_floor,
-    TechGate,
+    first_contact_with_body, grounded_ganon_contact_in, grounded_ganon_release,
+    late_damage_stop_prediction, prediction_velocity, tech_gate_with_floor, Body, TechGate,
 };
 
 /// One mapper/controller frame accounts for the live callback and overlay
@@ -58,6 +58,7 @@ pub(super) unsafe fn assess_tech(
     enabled: bool,
     horizon: f32,
     stopped: bool,
+    body: Body,
 ) -> TechAssessment {
     let status = reads.status_kind(object);
     let situation = reads.situation_kind(object);
@@ -112,6 +113,67 @@ pub(super) unsafe fn assess_tech(
             reason: "tech_status_observed",
         };
     }
+    if status == kirby_assist_core::native_states::status::CATCHED_GANON {
+        let contact_in = if situation == kirby_assist_core::native_states::situation::GROUND
+            && !stopped
+            && game::is_link(object, 0)
+        {
+            u32::try_from(game::link_node_object_id(object, 0))
+                .ok()
+                .filter(|id| {
+                    *id >> 28 == 0
+                        && *id != game::battle_object_id(object)
+                        && game::is_active(*id)
+                })
+                .and_then(|id| {
+                    let captor = game::module_accessor(id);
+                    if captor.is_null()
+                        || game::battle_object_id(captor) != id
+                        || reads.situation_kind(captor)
+                            != kirby_assist_core::native_states::situation::GROUND
+                        || reads.is_stop(captor)
+                    {
+                        return None;
+                    }
+                    grounded_ganon_contact_in(
+                        status,
+                        game::fighter_kind(id),
+                        reads.status_kind(captor),
+                        reads.motion_frame(captor),
+                        reads.motion_rate(captor),
+                    )
+                })
+        } else {
+            None
+        };
+        return TechAssessment {
+            status,
+            situation,
+            contact_in,
+            remaining_stop,
+            reason: if contact_in.is_some() {
+                "grounded_ganon_capture"
+            } else {
+                "unverified_ganon_capture"
+            },
+        };
+    }
+    if status == kirby_assist_core::native_states::status::CATCHED_AIR_END_GANON
+        && grounded_ganon_release(status, game::previous_status(object, 0))
+    {
+        let contact_in = (situation == kirby_assist_core::native_states::situation::GROUND
+            && floor_enabled
+            && !passive_disabled
+            && !stopped)
+            .then_some(0.0);
+        return TechAssessment {
+            status,
+            situation,
+            contact_in,
+            remaining_stop,
+            reason: "grounded_ganon_release",
+        };
+    }
     let native_contact = kirby_assist_core::tech_input::native_contact_due(
         status,
         situation,
@@ -157,7 +219,7 @@ pub(super) unsafe fn assess_tech(
     let [vx, vy] = prediction_velocity(current_velocity, reserved_velocity);
     let horizon = horizon.clamp(1.0, 20.0);
     let contact_in = if [x, y, vx, vy].iter().all(|v| v.is_finite()) {
-        first_contact_in(x, y, vx, vy, horizon, |probe| {
+        first_contact_with_body(x, y, vx, vy, horizon, 0.0, body, |probe| {
             let origin = game::Vector2 {
                 x: probe.origin[0],
                 y: probe.origin[1],

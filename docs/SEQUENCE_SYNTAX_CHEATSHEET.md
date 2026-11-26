@@ -4,6 +4,20 @@
 Checked against the current source parser. These are controller inputs and
 observation checks; they do not change native physics, hitboxes or move data.
 
+## Read this notation first
+
+Uppercase `F`, `DIR` and `BUTTONS` are placeholders: replace with real values.
+Square brackets in syntax rows mean optional suffixes, not action characters;
+actual section headers do use brackets. Colons divide parameters, commas divide
+actions, `+` forms one simultaneous chord. Actions execute in order. Ordinary
+property order is independent except legacy `activation` must follow `mode`.
+Save UTF-8 plain text. `#` comments always win over quoting.
+
+Start with [the beginner sequence guide](SEQUENCE_FILES.md#your-first-edit-without-learning-rust).
+Your saved file may differ from repository values and Rust defaults. The supplied
+universal source enables tech/DI/SDI; omitted Rust defaults are OFF. Universal
+settings replace config.txt entirely, not merge with it.
+
 ## Most-used copy/paste examples
 
 | Want to… | Paste into the sequence |
@@ -73,11 +87,11 @@ actions = shield:4, grab:fighter_range_instant
 | `while_held` | `true` / `false`; false | Supported held-button playback; Auto-react responses are one committed execution |
 | `auto_tilt` | Legacy recipe compatibility key; ignored for tilt-turn behavior | Move tilt directions to `[fighter.settings]` instead of a ledge response |
 | `reaction` | Short or long form below; omit for no automatic trigger | Observation trigger and distance limits |
-| `builtin` | `normal`, `short_hop`, `ledge_assist`, `turbo_teabag` | Built-in button role; no actions, reaction, loop, ground-only flag or nonzero delay |
+| `builtin` | See built-in roles below | Select a native input helper on a button row; no actions, active reaction, loop, ground-only flag or nonzero delay |
 | `mode`, `activation` | Compatibility-only; see final section | Not a current way to bind automatic helpers to gameplay buttons |
 
 Do not repeat properties in one section. Builtins do not require `start_delay`;
-if supplied it must be 0. The file limit is 512 KiB; the catalog limit is 2112
+if supplied it must be 0. The file limit is 512 KiB; the catalog limit is 2432
 parsed sequence/template entries, including at most 64 generic templates. Menu capacity is bounded per fighter/slot;
 validate the assembled file before uploading.
 An editor Empty step has no text execution token; remove unused steps.
@@ -129,6 +143,11 @@ inside onstage reaction recipes. Opponent/facing directions are suitable there.
 
 `wait_4`, `wait_4_frame`, `wait_4_frames` are aliases for `wait:4`.
 Unlimited hold syntax is separate: `input:...:0` and `shield:0` are invalid.
+`hold:BUTTONS` without F also parses as a one-frame hold; write F explicitly for
+clarity. Frame compatibility spellings include `4_frames` / `4_frame` and
+`until_motion_frame_4`, but these still mean a duration, not an absolute animation
+frame deadline. Float compatibility suffixes include `_units`/`_unit` and
+`_percent`; prefer plain distances and `50%` strengths so units stay obvious.
 
 ## Attack, special, jump and dodge shortcuts
 
@@ -249,7 +268,6 @@ MAX_Y=0 does not prove that either fighter is grounded.
 | `auto_roll` | `reaction = auto_roll:40:12` | Auto react; enemy forward/back roll |
 | `auto_spot_dodge` | `reaction = auto_spot_dodge:35:12` | Auto react; enemy spot dodge |
 | `auto_air_dodge` | `reaction = auto_air_dodge:40:24` | Auto react; enemy air dodge |
-| `auto_grab` | `reaction = auto_grab:35:24` | Automatic grabs; unshielded approach requires shielding opponent |
 | `auto_shield_grab` | `reaction = auto_shield_grab:25:10` | Automatic grabs; shielded front grab against vulnerable/grabbable target |
 | `auto_grab_dodged` | `reaction = auto_grab_dodged:35:12` | Grab avoidance; follow-up after the assisted grab dodge |
 | `auto_shield_backup` | `reaction = auto_shield_backup:25:15` | Automatic grabs; configured shield backup when the grab does not qualify |
@@ -263,6 +281,10 @@ reaction = auto_roll:40:12
 actions = up_b:4, drift:opponent:1:69
 ```
 
+`auto_grab` is retired and is not an accepted reaction event. Automatic grabs
+start only while shielding (`GUARD_ON` with grab readiness, or `GUARD`) against
+a qualifying front target; no unshielded approach is started.
+
 Only one recipe per automatic event per fighter. The slot stores the recipe;
 the reaction field establishes its trigger. Other fighters need their own
 roll/spot/air-dodge and grab-dodge follow-up recipes; no Bowser template is
@@ -273,7 +295,7 @@ Raw recipe inputs retain their native character/move restrictions.
 
 ## Legacy reaction grammar: accepted does not mean active
 
-The current unified in-game controller uses the seven `auto_*` events above.
+The current unified in-game controller uses the six `auto_*` events above.
 Older priority-rule tokens below remain parseable for compatibility and older
 core consumers; they are **not executed by the unified Auto-react list**.
 Do not use them to add a new current automatic punish.
@@ -303,7 +325,7 @@ All retained TRIGGER tokens: `off`, `roll`, `roll_cross`, `roll_vulnerable`,
 `ledge_regrab` is inert compatibility syntax. To omit a trigger, omit `reaction`;
 bare `reaction = off` is **not valid**. Its full compatibility form is
 `reaction = off:grounded:0:0:0:any:1`.
-The seven automatic events also parse in the long format, but normalize to their
+The six automatic events also parse in the long format, but normalize to their
 short semantics: grounded admission, zero minimum, either side, Menu control and
 priority 1. Extra legacy fields do not customize those automatic events.
 
@@ -328,8 +350,31 @@ actions = short_hop:1
 default = true
 ```
 
-Builtins: `normal`, `ledge_assist`, `turbo_teabag`, `ledge_trump`. Use a recipe
-action such as `short_hop:1` for short-hop input. Ledge trump starts only when
+Current menu has nine built-in choices: Short hop, Turbo t-bag, Ledge trump,
+Auto-spacing, Counter, Auto-defense and the three helpers' Toggle variants.
+`normal` means **Short hop**, not passthrough; `__normal_button` is its stable
+internal ID. Legacy `ledge_assist` is accepted but not offered in the current
+nine-choice picker.
+
+| Built-in menu choice | Meaning / activation distinction |
+| --- | --- |
+| Short hop (`normal`) | Current short-hop helper, not physical passthrough; stable ID remains `__normal_button` |
+| Turbo t-bag (`turbo_teabag`) | Held input helper; its crouching is controller input, not animation-rate editing |
+| Ledge trump (`ledge_trump`) | Explicit button-started ledge attempt, not an always-ON mode or automatic attack |
+| Auto-spacing | Held spacing helper; uses its own fighter settings and native admission, not an authored action tape |
+| Counter | Held counter helper for a supported fighter; selecting a label cannot supply missing native move support |
+| Auto-defense | Held defensive helper, separate from ordinary recipe playback and fixed OOS grabs |
+| Auto-spacing Toggle | Fresh press toggles spacing activation; holding is not repeated toggle presses |
+| Counter Toggle | Toggle activation variant of the counter helper, still subject to fighter/native support |
+| Auto-defense Toggle | Toggle activation variant of the defense helper, not a legacy `mode = ...` section |
+
+The editor writes canonical built-in tokens for these choices; use
+[current controls](CONTROLS.md) and the individual feature guides for admission,
+cancellation and exact helper configuration. A helper choice does not embed or
+inherit another fighter's action tape. Source `Builtin::MENU` defines visible
+choices; `Builtin::ALL` also retains legacy parsing identities.
+
+Use a recipe action such as `short_hop:1` for explicit short-hop input. Ledge trump starts only when
 assigned to and pressed from a button slot.
 Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.
 
@@ -337,7 +382,8 @@ Compatibility-only mode values: `ledge_trap`, `auto_tech`,
 `auto_mash`, `idle_crouch`, `tilt_turn`, `spot_punish`, `out_of_shield`.
 The parser accepts `mode = VALUE` followed by `activation = hold` or
 `activation = toggle`, with no actions/nonzero delay, only on supported fighter
-button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi.
+button rows. Idle crouch is Kirby-only; other retained Mode values report general support.
+That compatibility support does not make them current live button choices.
 These legacy bindings are not the current assist ON/OFF controls. Use the
 `builtin = ledge_trump` button action for a button-mapped ledge trump.
 
@@ -399,8 +445,8 @@ out_of_shield_default = true
 | `crouch_height` | 0–100 | Kirby crouch: proximity Y — Kirby only |
 | `shield_scan_x` | 1–300 | Shield: scan X cutoff |
 | `shield_scan_y` | 1–300 | Shield: scan Y cutoff |
-| `auto_grab_close_range` | 0–150 | Automatic grab: shielded range — legacy fallback; 0 means unavailable/disabled |
-| `auto_grab_dash_range` | 0–150 | Automatic grab: approach range — legacy fallback; 0 means unavailable/disabled |
+| `auto_grab_close_range` | 0–150 | Active fixed-grab close-range estimate while shielding; 0 disables this range |
+| `auto_grab_dash_range` | 0–150 | Retained range used by fixed-grab core consumers; resolved far range is at least close. Current live shield-only admission does not start an unshielded chase |
 | `reflect_default` | `true` / `false` | Auto-reflect at startup — explicit reflector configuration; currently Game & Watch only |
 | `reflect_startup` | 6–30 | Reflect/absorb startup in frames; Game & Watch's native minimum is 6 |
 | `reflect_margin` | 0–8 | Early activation allowance before predicted projectile contact |
@@ -411,6 +457,35 @@ out_of_shield_default = true
 | `tilt_turn_down` | `true` / `false` | Aim down tilts; defaults ON for Kirby/Yoshi/Lucina, OFF for others |
 | `tilt_turn_forward` | `true` / `false` | Aim side C-stick tilts; requires Tilt Attack mapping; defaults OFF |
 | `tilt_turn_up` | `true` / `false` | Aim up C-stick tilts; requires Tilt Attack mapping; defaults OFF |
+| `counter_default` | `true` / `false` | Auto-counter at startup; currently Lucina only |
+| `counter_startup` | 1–30 | Counter startup estimate in frames |
+| `counter_margin` | 0–10 | Early activation margin in frames |
+| `counter_half_width` | 1–30 | Body half-width for melee prediction |
+| `counter_height` | 1–60 | Body height for melee prediction |
+| `counter_half_depth` | 1–30 | Body half-depth for melee prediction |
+| `auto_spacing_minimum_distance` | 0–150 | Compatibility minimum-spacing distance |
+| `auto_spacing_ground_move` | 0–5 | Integer ground move selector |
+| `auto_spacing_ground_startup` | 1–300 | Ground move startup in frames |
+| `auto_spacing_ground_active_frames` | 1–300 | Ground move active duration in frames |
+| `auto_spacing_ground_reach` | 0–150 | Ground move reach estimate |
+| `auto_spacing_ground_height` | 0–100 | Ground move height tolerance |
+| `auto_spacing_ground_commitment` | 1–300 | Ground move commitment in frames |
+| `auto_spacing_aerial_move` | 0–5 | Integer aerial move selector |
+| `auto_spacing_aerial_startup` | 1–300 | Aerial move startup in frames |
+| `auto_spacing_aerial_active_frames` | 1–300 | Aerial move active duration in frames |
+| `auto_spacing_aerial_reach` | 0–150 | Aerial move reach estimate |
+| `auto_spacing_aerial_height` | 0–100 | Aerial move height tolerance |
+| `auto_spacing_aerial_commitment` | 1–300 | Aerial move commitment in frames |
+| `auto_di_default` | `true` / `false` | Auto-DI at startup |
+| `auto_sdi_default` | `true` / `false` | Auto-SDI at startup |
+| `auto_spacing_engagement_range` | 0–150 | Compatibility engagement-range setting |
+| `auto_spacing_ground_speed` | 0–1 | Retained, ignored compatibility key |
+| `auto_spacing_maximum_drift` | 0–1 | Retained, ignored compatibility key |
+| `auto_spacing_minimum_drift` | 0–1 | Retained, ignored compatibility key |
+| `auto_spacing_ground_braking` | `true` / `false` | Retained, ignored compatibility key |
+| `auto_spacing_air_braking` | `true` / `false` | Retained, ignored compatibility key |
+| `auto_spacing_braking_distance` | 0–150 | Retained, ignored compatibility key |
+| `auto_defense_lead_frames` | 0–30 | Defensive input lead time in frames |
 
 Put tilt directions in the fighter's settings section, independently of the selected
 ledge response. The existing Tilt Turn menu toggle still controls activation:
@@ -460,6 +535,7 @@ auto_tech = true
 | `turbo_walk_strength` | Finite 0.05–0.6; horizontal creep amount for the selected Turbo t-bag built-in |
 | `dpad_b_reverse`, `dpad_slide` | `true` / `false`; accepted for old-file compatibility but have no effect |
 | `kirby_auto_duck` | `true` / `false`; accepted for old-file compatibility but has no effect |
+
 Accepted legacy no-effect Turbo keys: `r3_turbo`, `l3_turbo`, `dpad_turbo` and
 `turbo_phase_frames`. Boolean values are validated but cannot activate the
 helper; `turbo_phase_frames` is range-checked to 1–10 but no longer changes its

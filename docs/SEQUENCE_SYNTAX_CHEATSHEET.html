@@ -3,6 +3,17 @@
 <p><a href="SEQUENCE_SYNTAX_CHEATSHEET.html">Open the searchable / printable HTML version</a>.
 Checked against the current source parser. These are controller inputs and
 observation checks; they do not change native physics, hitboxes or move data.</p>
+<h2>Read this notation first</h2>
+<p>Uppercase <code>F</code>, <code>DIR</code> and <code>BUTTONS</code> are placeholders: replace with real values.
+Square brackets in syntax rows mean optional suffixes, not action characters;
+actual section headers do use brackets. Colons divide parameters, commas divide
+actions, <code>+</code> forms one simultaneous chord. Actions execute in order. Ordinary
+property order is independent except legacy <code>activation</code> must follow <code>mode</code>.
+Save UTF-8 plain text. <code>#</code> comments always win over quoting.</p>
+<p>Start with <a href="SEQUENCE_FILES.md#your-first-edit-without-learning-rust">the beginner sequence guide</a>.
+Your saved file may differ from repository values and Rust defaults. The supplied
+universal source enables tech/DI/SDI; omitted Rust defaults are OFF. Universal
+settings replace config.txt entirely, not merge with it.</p>
 <h2>Most-used copy/paste examples</h2>
 <table>
 <thead>
@@ -181,8 +192,8 @@ actions = shield:4, grab:fighter_range_instant
 </tr>
 <tr>
 <td><code>builtin</code></td>
-<td><code>normal</code>, <code>short_hop</code>, <code>ledge_assist</code>, <code>turbo_teabag</code></td>
-<td>Built-in button role; no actions, reaction, loop, ground-only flag or nonzero delay</td>
+<td>See built-in roles below</td>
+<td>Select a native input helper on a button row; no actions, active reaction, loop, ground-only flag or nonzero delay</td>
 </tr>
 <tr>
 <td><code>mode</code>, <code>activation</code></td>
@@ -192,7 +203,7 @@ actions = shield:4, grab:fighter_range_instant
 </tbody>
 </table>
 <p>Do not repeat properties in one section. Builtins do not require <code>start_delay</code>;
-if supplied it must be 0. The file limit is 512 KiB; the catalog limit is 2112
+if supplied it must be 0. The file limit is 512 KiB; the catalog limit is 2432
 parsed sequence/template entries, including at most 64 generic templates. Menu capacity is bounded per fighter/slot;
 validate the assembled file before uploading.
 An editor Empty step has no text execution token; remove unused steps.</p>
@@ -340,7 +351,12 @@ inside onstage reaction recipes. Opponent/facing directions are suitable there.<
 </tbody>
 </table>
 <p><code>wait_4</code>, <code>wait_4_frame</code>, <code>wait_4_frames</code> are aliases for <code>wait:4</code>.
-Unlimited hold syntax is separate: <code>input:...:0</code> and <code>shield:0</code> are invalid.</p>
+Unlimited hold syntax is separate: <code>input:...:0</code> and <code>shield:0</code> are invalid.
+<code>hold:BUTTONS</code> without F also parses as a one-frame hold; write F explicitly for
+clarity. Frame compatibility spellings include <code>4_frames</code> / <code>4_frame</code> and
+<code>until_motion_frame_4</code>, but these still mean a duration, not an absolute animation
+frame deadline. Float compatibility suffixes include <code>_units</code>/<code>_unit</code> and
+<code>_percent</code>; prefer plain distances and <code>50%</code> strengths so units stay obvious.</p>
 <h2>Attack, special, jump and dodge shortcuts</h2>
 <p>Unless stated otherwise, append <code>[:F[:S]]</code>; default F=1 and S=1, S range 0–1.
 Directional shortcuts use facing-relative X. Native game state and input mapping
@@ -716,11 +732,6 @@ MAX_Y=0 does not prove that either fighter is grounded.</p>
 <td>Auto react; enemy air dodge</td>
 </tr>
 <tr>
-<td><code>auto_grab</code></td>
-<td><code>reaction = auto_grab:35:24</code></td>
-<td>Automatic grabs; unshielded approach requires shielding opponent</td>
-</tr>
-<tr>
 <td><code>auto_shield_grab</code></td>
 <td><code>reaction = auto_shield_grab:25:10</code></td>
 <td>Automatic grabs; shielded front grab against vulnerable/grabbable target</td>
@@ -744,6 +755,9 @@ timeout = 240
 reaction = auto_roll:40:12
 actions = up_b:4, drift:opponent:1:69
 </code></pre>
+<p><code>auto_grab</code> is retired and is not an accepted reaction event. Automatic grabs
+start only while shielding (<code>GUARD_ON</code> with grab readiness, or <code>GUARD</code>) against
+a qualifying front target; no unshielded approach is started.</p>
 <p>Only one recipe per automatic event per fighter. The slot stores the recipe;
 the reaction field establishes its trigger. Other fighters need their own
 roll/spot/air-dodge and grab-dodge follow-up recipes; no Bowser template is
@@ -752,7 +766,7 @@ Ledge-trap activation disables ordinary automatic punishes. Safety, native
 readiness, target validity and the single committed-input owner still apply.
 Raw recipe inputs retain their native character/move restrictions.</p>
 <h2>Legacy reaction grammar: accepted does not mean active</h2>
-<p>The current unified in-game controller uses the seven <code>auto_*</code> events above.
+<p>The current unified in-game controller uses the six <code>auto_*</code> events above.
 Older priority-rule tokens below remain parseable for compatibility and older
 core consumers; they are <strong>not executed by the unified Auto-react list</strong>.
 Do not use them to add a new current automatic punish.</p>
@@ -804,7 +818,7 @@ actions = press:r:4
 <code>ledge_regrab</code> is inert compatibility syntax. To omit a trigger, omit <code>reaction</code>;
 bare <code>reaction = off</code> is <strong>not valid</strong>. Its full compatibility form is
 <code>reaction = off:grounded:0:0:0:any:1</code>.
-The seven automatic events also parse in the long format, but normalize to their
+The six automatic events also parse in the long format, but normalize to their
 short semantics: grounded admission, zero minimum, either side, Menu control and
 priority 1. Extra legacy fields do not customize those automatic events.</p>
 <h2>Generic Training templates and built-in button roles</h2>
@@ -822,15 +836,71 @@ start_delay = 0
 actions = short_hop:1
 default = true
 </code></pre>
-<p>Builtins: <code>normal</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>, <code>ledge_trump</code>. Use a recipe
-action such as <code>short_hop:1</code> for short-hop input. Ledge trump starts only when
+<p>Current menu has nine built-in choices: Short hop, Turbo t-bag, Ledge trump,
+Auto-spacing, Counter, Auto-defense and the three helpers' Toggle variants.
+<code>normal</code> means <strong>Short hop</strong>, not passthrough; <code>__normal_button</code> is its stable
+internal ID. Legacy <code>ledge_assist</code> is accepted but not offered in the current
+nine-choice picker.</p>
+<table>
+<thead>
+<tr>
+<th>Built-in menu choice</th>
+<th>Meaning / activation distinction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Short hop (<code>normal</code>)</td>
+<td>Current short-hop helper, not physical passthrough; stable ID remains <code>__normal_button</code></td>
+</tr>
+<tr>
+<td>Turbo t-bag (<code>turbo_teabag</code>)</td>
+<td>Held input helper; its crouching is controller input, not animation-rate editing</td>
+</tr>
+<tr>
+<td>Ledge trump (<code>ledge_trump</code>)</td>
+<td>Explicit button-started ledge attempt, not an always-ON mode or automatic attack</td>
+</tr>
+<tr>
+<td>Auto-spacing</td>
+<td>Held spacing helper; uses its own fighter settings and native admission, not an authored action tape</td>
+</tr>
+<tr>
+<td>Counter</td>
+<td>Held counter helper for a supported fighter; selecting a label cannot supply missing native move support</td>
+</tr>
+<tr>
+<td>Auto-defense</td>
+<td>Held defensive helper, separate from ordinary recipe playback and fixed OOS grabs</td>
+</tr>
+<tr>
+<td>Auto-spacing Toggle</td>
+<td>Fresh press toggles spacing activation; holding is not repeated toggle presses</td>
+</tr>
+<tr>
+<td>Counter Toggle</td>
+<td>Toggle activation variant of the counter helper, still subject to fighter/native support</td>
+</tr>
+<tr>
+<td>Auto-defense Toggle</td>
+<td>Toggle activation variant of the defense helper, not a legacy <code>mode = ...</code> section</td>
+</tr>
+</tbody>
+</table>
+<p>The editor writes canonical built-in tokens for these choices; use
+<a href="CONTROLS.md">current controls</a> and the individual feature guides for admission,
+cancellation and exact helper configuration. A helper choice does not embed or
+inherit another fighter's action tape. Source <code>Builtin::MENU</code> defines visible
+choices; <code>Builtin::ALL</code> also retains legacy parsing identities.</p>
+<p>Use a recipe action such as <code>short_hop:1</code> for explicit short-hop input. Ledge trump starts only when
 assigned to and pressed from a button slot.
 Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
 <p>Compatibility-only mode values: <code>ledge_trap</code>, <code>auto_tech</code>,
 <code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>out_of_shield</code>.
 The parser accepts <code>mode = VALUE</code> followed by <code>activation = hold</code> or
 <code>activation = toggle</code>, with no actions/nonzero delay, only on supported fighter
-button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi.
+button rows. Idle crouch is Kirby-only; other retained Mode values report general support.
+That compatibility support does not make them current live button choices.
 These legacy bindings are not the current assist ON/OFF controls. Use the
 <code>builtin = ledge_trump</code> button action for a button-mapped ledge trump.</p>
 <h2>Fighter-setting keys</h2>
@@ -1065,12 +1135,12 @@ out_of_shield_default = true
 <tr>
 <td><code>auto_grab_close_range</code></td>
 <td>0–150</td>
-<td>Automatic grab: shielded range — legacy fallback; 0 means unavailable/disabled</td>
+<td>Active fixed-grab close-range estimate while shielding; 0 disables this range</td>
 </tr>
 <tr>
 <td><code>auto_grab_dash_range</code></td>
 <td>0–150</td>
-<td>Automatic grab: approach range — legacy fallback; 0 means unavailable/disabled</td>
+<td>Retained range used by fixed-grab core consumers; resolved far range is at least close. Current live shield-only admission does not start an unshielded chase</td>
 </tr>
 <tr>
 <td><code>reflect_default</code></td>
@@ -1121,6 +1191,151 @@ out_of_shield_default = true
 <td><code>tilt_turn_up</code></td>
 <td><code>true</code> / <code>false</code></td>
 <td>Aim up C-stick tilts; requires Tilt Attack mapping; defaults OFF</td>
+</tr>
+<tr>
+<td><code>counter_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Auto-counter at startup; currently Lucina only</td>
+</tr>
+<tr>
+<td><code>counter_startup</code></td>
+<td>1–30</td>
+<td>Counter startup estimate in frames</td>
+</tr>
+<tr>
+<td><code>counter_margin</code></td>
+<td>0–10</td>
+<td>Early activation margin in frames</td>
+</tr>
+<tr>
+<td><code>counter_half_width</code></td>
+<td>1–30</td>
+<td>Body half-width for melee prediction</td>
+</tr>
+<tr>
+<td><code>counter_height</code></td>
+<td>1–60</td>
+<td>Body height for melee prediction</td>
+</tr>
+<tr>
+<td><code>counter_half_depth</code></td>
+<td>1–30</td>
+<td>Body half-depth for melee prediction</td>
+</tr>
+<tr>
+<td><code>auto_spacing_minimum_distance</code></td>
+<td>0–150</td>
+<td>Compatibility minimum-spacing distance</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_move</code></td>
+<td>0–5</td>
+<td>Integer ground move selector</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_startup</code></td>
+<td>1–300</td>
+<td>Ground move startup in frames</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_active_frames</code></td>
+<td>1–300</td>
+<td>Ground move active duration in frames</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_reach</code></td>
+<td>0–150</td>
+<td>Ground move reach estimate</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_height</code></td>
+<td>0–100</td>
+<td>Ground move height tolerance</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_commitment</code></td>
+<td>1–300</td>
+<td>Ground move commitment in frames</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_move</code></td>
+<td>0–5</td>
+<td>Integer aerial move selector</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_startup</code></td>
+<td>1–300</td>
+<td>Aerial move startup in frames</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_active_frames</code></td>
+<td>1–300</td>
+<td>Aerial move active duration in frames</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_reach</code></td>
+<td>0–150</td>
+<td>Aerial move reach estimate</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_height</code></td>
+<td>0–100</td>
+<td>Aerial move height tolerance</td>
+</tr>
+<tr>
+<td><code>auto_spacing_aerial_commitment</code></td>
+<td>1–300</td>
+<td>Aerial move commitment in frames</td>
+</tr>
+<tr>
+<td><code>auto_di_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Auto-DI at startup</td>
+</tr>
+<tr>
+<td><code>auto_sdi_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Auto-SDI at startup</td>
+</tr>
+<tr>
+<td><code>auto_spacing_engagement_range</code></td>
+<td>0–150</td>
+<td>Compatibility engagement-range setting</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_speed</code></td>
+<td>0–1</td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_spacing_maximum_drift</code></td>
+<td>0–1</td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_spacing_minimum_drift</code></td>
+<td>0–1</td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_spacing_ground_braking</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_spacing_air_braking</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_spacing_braking_distance</code></td>
+<td>0–150</td>
+<td>Retained, ignored compatibility key</td>
+</tr>
+<tr>
+<td><code>auto_defense_lead_frames</code></td>
+<td>0–30</td>
+<td>Defensive input lead time in frames</td>
 </tr>
 </tbody>
 </table>
@@ -1237,24 +1452,12 @@ auto_tech = true
 <td><code>kirby_auto_duck</code></td>
 <td><code>true</code> / <code>false</code>; accepted for old-file compatibility but has no effect</td>
 </tr>
-<tr>
-<td>Accepted legacy no-effect Turbo keys: <code>r3_turbo</code>, <code>l3_turbo</code>, <code>dpad_turbo</code> and</td>
-<td></td>
-</tr>
-<tr>
-<td><code>turbo_phase_frames</code>. Boolean values are validated but cannot activate the</td>
-<td></td>
-</tr>
-<tr>
-<td>helper; <code>turbo_phase_frames</code> is range-checked to 1–10 but no longer changes its</td>
-<td></td>
-</tr>
-<tr>
-<td>cadence.</td>
-<td></td>
-</tr>
 </tbody>
 </table>
+<p>Accepted legacy no-effect Turbo keys: <code>r3_turbo</code>, <code>l3_turbo</code>, <code>dpad_turbo</code> and
+<code>turbo_phase_frames</code>. Boolean values are validated but cannot activate the
+helper; <code>turbo_phase_frames</code> is range-checked to 1–10 but no longer changes its
+cadence.</p>
 <p>Other accepted <strong>ignored</strong> compatibility keys: <code>combo_enabled</code>, <code>combo_starter</code>,
 <code>combo_max_start_percent</code>, <code>combo_grab_range</code>, <code>combo_fair_range</code>, <code>mash_interval_frames</code>, <code>alternate_mash</code>,
 <code>mash_buttons_per_frame</code>, <code>ledge_nair_hit_lead_frames</code>,

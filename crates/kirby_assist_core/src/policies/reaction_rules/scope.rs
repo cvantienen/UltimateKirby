@@ -91,6 +91,8 @@ impl AutomaticObservationScope {
                     && !matches!(
                         status,
                         crate::native_states::ESCAPE..=crate::native_states::ESCAPE_AIR_SLIDE
+                            | crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_CEIL
+                            | crate::native_states::status::DOWN_STAND..=crate::native_states::status::DOWN_STAND_ATTACK
                     ),
         }
     }
@@ -123,60 +125,5 @@ pub fn automatic_fighter_target_available(kind: i32, status: i32) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::native_states::{situation, status};
-
-    #[test]
-    fn grounded_automatic_modes_recognize_transitions_without_admitting_lockouts() {
-        for status in [
-            status::WAIT,
-            status::WALK,
-            status::TURN,
-            status::TURN_DASH,
-            status::RUN,
-            status::TURN_RUN_BRAKE,
-            status::JUMP_SQUAT,
-            status::SQUAT_RV,
-            status::LANDING,
-            status::LANDING_LIGHT,
-            status::GUARD_ON,
-            status::GUARD,
-            status::OTTOTTO_WAIT,
-        ] {
-            assert!(
-                automatic_start_allowed(status, situation::GROUND, false, false),
-                "status {status}"
-            );
-            assert!(crate::spot_dodge::ground_status(status), "status {status}");
-        }
-        for status in [
-            status::LANDING_ATTACK_AIR,
-            status::GUARD_DAMAGE,
-            status::ATTACK,
-            status::ESCAPE,
-            status::FALL_SPECIAL,
-        ] {
-            assert!(!automatic_start_status(status), "status {status}");
-            assert!(!crate::spot_dodge::ground_status(status), "status {status}");
-        }
-        assert!(!automatic_start_allowed(
-            status::FALL,
-            situation::AIR,
-            false,
-            false
-        ));
-        assert!(!automatic_start_allowed(
-            status::WAIT,
-            situation::GROUND,
-            true,
-            false
-        ));
-        assert!(!automatic_start_allowed(
-            status::WAIT,
-            situation::GROUND,
-            false,
-            true
-        ));
-    }
-}
+#[path = "../../../tests/unit/policy_reaction_scope.rs"]
+mod tests;

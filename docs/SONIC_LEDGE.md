@@ -1,33 +1,38 @@
-# Sonic ledge options
+# Sonic: explicit input schedules, not fallback engines
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+Sonic is native kind 41 (`0x29`) and profile `sonic`, not Kirby fallback.
+The file supplies current choices/defaults; no compiled forward-tilt phase
+selection, roll navigation, Spring damaging-coverage filter or charge-release
+routine is hidden behind their labels.
 
+Nair's qualitative mid-range hint is display metadata, not a distance gate.
+Separate multihit phases when planning contact; a charge special needs explicit
+hold/release and state assumptions. Spring/recovery inputs do not guarantee a
+hit or safe offstage return. Configure button roles through the current menu;
+old Y-reserved/unbound-B-reverse claims are not universal current defaults.
 
-Sonic has a compiled profile (native kind `0x29`) instead of Kirby fallback.
-Controls and the five-row menu are unchanged; see [menu controls](LEDGE_MENU.md).
+## Configure, save and expand
 
-| Row | Saved choices | Default |
-| --- | --- | --- |
-| Neutral | Nair, down tilt, forward tilt | Nair |
-| Jump | Nair | Nair |
-| Roll | Down-smash, grab | Down-smash |
-| Attack | Shield → nair, grab / rear nair | Shield → nair |
-| Drop | Shield, down tilt → shield | Shield |
+Read the current generated reference for [Sonic](fighters/sonic.md). Its tables are repository
+snapshots, not your installed file or unsaved Training draft. Follow
+[the full configuration walkthrough](FIGHTER_CONFIGS.md) to choose/edit the exact
+fighter row, set explicit start delay/actions, save with Y alone and wait for
+success. External file edits require restart; current mode activation is separate
+from saved startup preference. Use [all 83 tuning keys](FIGHTER_SETTINGS.md) for
+valid ranges, units, menu visibility and active/legacy effects.
 
-The canonical [Fighter Data catalog](FIGHTER_DATA.md) supplies Sonic's nair 6–38, down tilt
-6–7, down-smash 12–13 and grab startup 7/10/11 (standing/dash/pivot), with
-11-frame shield grab. Forward tilt schedules its continuous second hit at 8–11,
-not the inactive gap after its frame-6 first hit. Grounded Spring Jump has no
-damaging hitbox, so it is excluded from shield punishes. Spin Charge is also
-excluded because it needs a separate charge/release implementation.
+New choices should reuse existing input primitives under the exact profile prefix.
+New native behavior requires an explicitly reviewed shared adapter; profile
+registration or extra sliders alone cannot implement it. Keep all assistance
+input-only. [Rust extension contracts](FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain the stable schema, exact-kind validation and focused tests.
 
-Nair uses the existing paired X+A delivery. Roll uses the shared locked coverage
-point and braking logic; a successful grab hands control back for pummels/throws.
-Y is reserved for configured held modes; B-reverse is unbound. Integrated held-L
-recovery cover is Kirby-only; Sonic has no live
-two-frame-cover binding. These are punish
-attempts, not guaranteed contact: spacing and online delivery still matter.
+## Verify the intended outcome
 
-Only this fighter's selected response executes. No combo engine, background
-scan, dependency or network code was added. Source formatting/static checks only;
-no build, upload, Rust tests or Switch measurements were performed.
+Check label versus actual action, facing on both sides, grounded/airborne state,
+resource setup, emitted press/release and native acceptance separately. Move-frame
+facts are [canonical reference data](FIGHTER_DATA.md), not timing commands.
+Then [calibrate](FIGHTER_EXECUTION.md) from repeatable positions, including
+hitstop, target loss, interruption and online play. No asset table or host check
+proves contact, safety or optimal timing. This documentation update does not
+build/upload to Switch, alter canonical assets or change executable Rust.

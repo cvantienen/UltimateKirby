@@ -211,7 +211,13 @@ impl MenuSelection {
             }
             self.choices[slot as usize] = selected
                 .or(first)
-                .unwrap_or_else(|| slot.default_index(options.len()));
+                .unwrap_or_else(|| {
+                    if slot == PresetSlot::R3 && crate::auto_counter::supports(kind) {
+                        options.len() + crate::button_bindings::Builtin::Counter.visible_template_offset().unwrap()
+                    } else {
+                        slot.default_index(options.len())
+                    }
+                });
         }
         if !records.drafts.is_empty() {
             self.catalog = Some(Box::new(records));
@@ -419,11 +425,9 @@ impl MenuSelection {
                 if source.id() == Builtin::Normal.choice_id() {
                     continue;
                 }
-                let sequence = self
-                    .editor
-                    .as_ref()
-                    .and_then(|e| e.compiled((slot as usize, index)))
-                    .unwrap_or_else(|| source.sequence());
+                let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                    continue;
+                };
                 if sequence.mode.is_none() && !is_blank(&sequence) {
                     sources.push(editor::CopySource {
                         slot,
@@ -506,6 +510,9 @@ impl MenuSelection {
         forward: bool,
         missing_index: usize,
     ) -> usize {
+        if visible.is_empty() {
+            return current;
+        }
         let index = visible
             .iter()
             .position(|choice| *choice == current)
@@ -813,12 +820,13 @@ impl MenuSelection {
         let next = self.choice_end(presets, slot);
         let (id, serial) = self.fresh_choice_id(presets, slot, next);
         let mut sequence = if copy {
-            self.editor
-                .as_ref()
-                .and_then(|e| e.compiled((slot as usize, index)))
-                .unwrap_or(current.sequence)
-        } else if current.id == "universal_b_reverse" {
-            current.sequence
+            let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                self.save_status = Some(
+                    "Cannot duplicate: Too many expanded steps; remove a step or delay".into(),
+                );
+                return;
+            };
+            sequence
         } else {
             editor::RecipeEditor::custom()
         };

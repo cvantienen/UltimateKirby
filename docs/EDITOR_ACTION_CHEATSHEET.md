@@ -7,7 +7,7 @@ For automatic mode conditions and triggers, see the
 [reaction-rule cheat sheet](REACTION_RULE_CHEATSHEET.md) and its
 [styled searchable table](REACTION_RULE_CHEATSHEET.html).
 
-All **52 unique fixed editor entries**, plus dynamic saved inputs and timing/activation settings. [Open the styled, searchable table](EDITOR_ACTION_CHEATSHEET.html).
+All fixed editor entries, including opponent-facing branches, ledge positioning and conditional chasing, plus dynamic saved inputs and timing/activation settings. [Open the styled, searchable table](EDITOR_ACTION_CHEATSHEET.html).
 
 All actions simulate inputs/check observations; they do not edit physics, hitboxes or move data. FRAMES is input-hold duration, not move startup or animation length. Every example uses explicit hold duration; do not assume a :1 is replaced by the editor’s 4-frame initial value. Strength accepts decimals (0.5) or percentages (50%) and is stick magnitude, not guaranteed movement speed. X/Y are left-stick axes except cstick, which is the right stick. +X is right for input, forward relative to step-start facing for facing_input; +Y is up. DIR: opponent, away_from_opponent, ledge, inward, outward, facing, backward, saved_ledge, away_from_ledge. Ledge directions need a usable ledge anchor. Check WAIT=0 requires the condition immediately; positive WAIT waits up to that many frames, then ends the remaining sequence on failure. Movement/range steps also respect spatial_timeout and safety checks.
 
@@ -84,8 +84,10 @@ actions = face:opponent, wait:2, down_tilt:4
 | Walk to opponent | Walks toward the opponent for at most FRAMES, stopping at the requested horizontal GAP. Strength is analog input, not a speed percentage. | `walk_to_opponent:STRENGTH:FRAMES:GAP` | `actions = walk_to_opponent:0.8:30:10` |
 | Air approach | Timed horizontal air approach toward the opponent, stopping at GAP when reached. | `drift_to_opponent:STRENGTH:FRAMES:GAP` | `actions = drift_to_opponent:0.5:12:3` |
 | Walk distance | Walks UNITS from the step starting position in DIR at STRENGTH. Optional GAP applies only to opponent direction. Units are distance, not frames. | `walk:DIR:UNITS:STRENGTH[:GAP]` | `actions = walk:opponent:8:50%:1` |
-| Run distance | Uses running movement in DIR until UNITS of horizontal displacement. Distance is not a fixed number of frames. | `run:DIR:UNITS` | `actions = run:ledge:8` |
+| Run distance | Uses running movement in DIR until UNITS of horizontal displacement. Distance is not a fixed number of frames. | `run:DIR:UNITS` | `actions = run:opponent:8` |
 | Drift | Holds a horizontal analog direction for FRAMES. It is a timed stick action, not a distance target. | `drift:DIR:STRENGTH:FRAMES` | `actions = drift:opponent:25%:20` |
+| Run to ledge offset | Uses stick input to approach a position OFFSET inward from the saved ledge. Tolerance is allowed position error; Brake distance anticipates stopping; Max frames bounds the attempt. Requires a ledge anchor. New preset: offset 12, strength 100%, tolerance 1, brake 6, maximum 180 frames. | `run_to_ledge:OFFSET:STRENGTH:TOLERANCE:BRAKE:MAX_FRAMES` | `actions = run_to_ledge:12:1:1:6:180` |
+| Chase only if outside range | Skip if the target is already within GAP; otherwise send opponent-directed stick for FRAMES. This is a timed chase, not a promise to reach GAP. New preset: gap 30, strength 100%, 14 frames. | `chase_if_far:GAP:STRENGTH:FRAMES` | `actions = chase_if_far:30:1:14` |
 
 ## Buttons / combinations
 
@@ -98,9 +100,12 @@ actions = face:opponent, wait:2, down_tilt:4
 
 | Menu name | Description | File syntax | File example |
 | --- | --- | --- | --- |
-| If facing ledge | Run the block only if facing the saved ledge at sequence start. Close with End facing block. | `if_facing_ledge, ..., end_facing` | `actions = if_facing_ledge, grab:4, end_facing` |
+| If facing ledge | Run the block only if facing the saved ledge at sequence start. Close with End facing block. | `if_facing_ledge, ..., end_facing` | `actions = if_facing_ledge, press:r:4, end_facing` |
 | If back to ledge | Run the block only if facing away from the saved ledge at sequence start. | `if_back_to_ledge, ..., end_facing` | `actions = if_back_to_ledge, short_hop_nair:4, end_facing` |
-| End facing block | Ends a facing block; adds no input or wait. Blocks cannot nest. | `end_facing` | `actions = if_facing_ledge, grab:4, end_facing` |
+| If facing opponent | Select the block using the current observed opponent side; does not turn or wait. Works without a ledge anchor. | `if_facing_opponent, ..., end_facing` | `actions = if_facing_opponent, press:r:4, end_facing` |
+| If back to opponent | Select the block when facing away from the observed opponent. A fresh usable opponent reference is needed. | `if_back_to_opponent, ..., end_facing` | `actions = if_back_to_opponent, bair:4, end_facing` |
+| Otherwise (facing block) | Optional alternate branch inside an open facing block; at most one. Only the selected branch runs. | `else_facing` | `actions = if_facing_opponent, press:r:4, else_facing, up_b:4, end_facing` |
+| End facing block | Ends a facing block; adds no input or wait. Blocks cannot nest. | `end_facing` | `actions = if_facing_ledge, press:r:4, end_facing` |
 | Wait for shield hit | Holds shield until a block is observed and shield recovers. Ends the sequence if the FRAMES limit expires. | `shield_until_block:FRAMES` | `actions = shield_until_block:90, nair:4` |
 | Check opponent distance | Waits until the opponent is within RANGE horizontally, subject to spatial_timeout; sends no attack itself. | `range:RANGE` | `actions = range:10, grab` |
 | Check fighter grab reach | Waits until within this fighter’s configured standing-grab range. Does not press grab or guarantee a hit. | `range:fighter_range` | `actions = range:fighter_range, grab` |
@@ -155,21 +160,27 @@ Built from the actual editor presets and checked against the Rust parser/seriali
 ## Automatic reaction settings
 
 These are recipe properties below the action list, not extra move choices.
-See [reaction rules](REACTION_RULES.md) for all seven fields and priorities.
+The live simple Auto react editor exposes only maximum X distance and maximum
+height difference for its fixed event. Seven/eight-field settings belong to the
+retained legacy builder; they do not prioritize current simple Auto react events.
+See [reaction rules](REACTION_RULES.md).
 
 | Menu name | Description | File syntax | File example |
 | --- | --- | --- | --- |
-| Stop if airborne | Optional sequence safety switch, exposed for assist recipes. Stops pending/held inputs after leaving the ground. Defaults OFF so existing jump recipes are unchanged. | `ground_only = true` | `ground_only = true` followed by `actions = check:self_grounded:0, up_b:3` |
-| Auto reaction / My state / Min-max X distance / Height / Enemy side / Priority | Available in separate Assist rule editors, not ordinary ledge/button recipes. Roll variants choose their condition; shield-hit, grab-dodged and ledge-regrab rules keep their own event family. Each assist has its ON/OFF control. | `reaction = TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY` | `reaction = roll_cross_vulnerable:grounded:0:14:10:any:1` |
+| Max X distance / Max height difference | Current simple Auto react recipe's two admission limits, 0–100 world units. Event is selected when adding the recipe; ordinary manual editors do not expose reaction tagging. | `reaction = EVENT:MAX_X:MAX_Y` | `reaction = auto_roll:30:12` |
+| Stop if airborne | Optional saved safety flag; defaults false. The legacy editor exposes it, but the current simple Auto react editor does not offer this field. This is distinct from grounded admission. | `ground_only = true` | `ground_only = true` followed by `actions = check:self_grounded:0, up_b:3` |
+| Auto reaction / My state / Min-max X distance / Height / Enemy side / Priority | Retained legacy Assist editor fields, not current unified event arbitration. Do not use these to add a live simple response. Ledge-regrab punishment is inert. | `reaction = TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY` | `reaction = roll_cross_vulnerable:grounded:0:14:10:any:1` |
 
 Use movement **Direction → Toward saved ledge / Away from saved ledge** for
 explicit anchor-only movement. `walk:away_from_ledge:4:50%` moves four world units
 away; `run:saved_ledge:8` runs eight units toward it;
 `drift:away_from_ledge:25%:20` sends that stick direction for twenty frames.
 No known anchor means these new actions stop the sequence; legacy `ledge`
-retains its existing opponent fallback. Facing blocks use sequence-start facing,
-not the opponent's side, and cannot nest. Only the selected block's waits/inputs
-consume time. They need a known ledge; on-stage reaction rules cannot use them.
+retains its existing opponent fallback. Ledge-facing blocks use sequence-start
+facing; opponent-facing blocks evaluate the observed opponent when encountered.
+Blocks cannot nest. Only the selected branch's waits/inputs consume time.
+Ledge-facing blocks require a known ledge and are unavailable to onstage reactions;
+opponent-facing blocks do not require that anchor.
 See [facing-dependent recipes](SEQUENCE_FILES.md#facing-dependent-ledge-recipes).
 
 ## Movement direction choices
@@ -187,3 +198,30 @@ These are the **Direction** settings on Face, Walk distance, Run distance and Dr
 | Outward | Opposite the retained inward stage direction. | `outward` | `actions = drift:outward:25%:20` |
 | Facing | Along the fighter’s facing direction. | `facing` | `actions = walk:facing:4:50%` |
 | Backward | Opposite facing; backward drift retains its step-start direction. | `backward` | `actions = drift:backward:25%:20` |
+
+## Every field: how to interpret an editor number
+
+| Field | Interpretation |
+| --- | --- |
+| Sequence start delay | Neutral frames before steps; 0–3600 |
+| Delay before | Neutral frames before this slot; saving inserts `wait:N`, counting toward expanded capacity |
+| Hold input: For frames / Until manual takeover | Finite duration versus explicit unlimited nonempty-button hold; Controller/opponent input has no unlimited variant |
+| Hold input for | Native-progress input duration, normally 1–255; not startup/recovery |
+| Buttons | Eight canonical toggles; none means stick-only, not cancel |
+| Stick X/Y; Right stick X/Y | Signed −100%..100% axes; Y positive up; references mirror horizontal sign only |
+| Left/Right stick X reference | Screen right, step-start facing forward or step-start opponent side |
+| Direction | Target/anchor-relative movement direction, not a separate button |
+| Stick strength | Analog magnitude within action bounds, not native speed multiplication |
+| Distance/range | World units; not frames, pixels, percent damage or guaranteed hitbox reach |
+| Minimum gap / approach gap / chase range | Horizontal stopping/skip threshold depending on action |
+| Arrival tolerance | Allowed error around inward ledge-offset destination; 0–20 units |
+| Braking distance | Ledge-position stopping allowance; 0–100, 0 disables it |
+| Movement timeout | `run_to_ledge` budget 1–3600 frames, separate from whole-tape timeout |
+| Check wait limit | 0 checks now; positive 0–255 waits deliberately, cancels on failure |
+| Maximum wait | Shield-until-block bound, 1–255 frames, not unlimited shield |
+| Tap input / Delay between taps / Repeat for | Preset button+stick pulse, released gap and whole block budget; interval includes hold plus gap |
+| Action slots | Up to 32 displayed slots; only unused trailing slots shrink; expanded waits/checks must fit too |
+
+[Beginner walkthrough, naming and saving](LEDGE_MENU.md#beginner-walkthrough-create-test-name-and-save)
+explains commands. Uppercase `FRAMES` is a placeholder, not a literal token;
+`[optional]` means optional suffix notation, not brackets pasted into an action.

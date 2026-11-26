@@ -1,11 +1,10 @@
 //! Configuration parity and safety for file-authored automatic responses.
 use kirby_assist_core::{
-    action_owner::{ActionOwnership, Intent, Owner},
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, MotionTiming, Opponent},
     native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
-    reaction_rules::{Candidate, Engine, Resolved, Trigger},
+    reaction_rules::{Candidate, Resolved, Trigger},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
     settings::AssistSettings,
@@ -90,16 +89,15 @@ fn settings(kind: i32) -> AssistSettings {
         ..Default::default()
     }
 }
-fn config<'a>(g: &'a Sequence, s: &'a Sequence, b: &'a Sequence) -> AutomaticConfig<'a> {
+fn config<'a>(_g: &'a Sequence, s: &'a Sequence, b: &'a Sequence) -> AutomaticConfig<'a> {
     AutomaticConfig {
-        grab: Some(g),
-        shield_grab: Some(s),
+        shield_grab: Some(&s),
         backup: Some(b),
     }
 }
 
 #[test]
-fn all_seven_events_roundtrip_and_reject_duplicate_recipes_in_any_slot() {
+fn all_current_events_roundtrip_and_reject_duplicate_recipes_in_any_slot() {
     let mut rules = Resolved::default();
     for (i, t) in Trigger::AUTO_EVENTS.into_iter().enumerate() {
         let s = recipe(t.token(), 35., 12., "up_b:4");
@@ -121,197 +119,94 @@ fn all_seven_events_roundtrip_and_reject_duplicate_recipes_in_any_slot() {
             })
             .is_err());
     }
-    assert_eq!(rules.len, 7);
+    assert_eq!(rules.len, 6);
 }
 
 #[test]
-fn canonical_grab_recipes_preserve_generic_grab_outputs_for_every_fighter() {
+fn configured_shield_grabs_admit_immediately_and_keep_inert_delivery_receipts() {
     let profiles = FighterProfiles::default();
     for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
-        let Some(p) = profiles.profile(kind) else {
+        let Some(profile) = profiles.profile(kind) else {
             continue;
         };
-        let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
-            .auto_grab_ranges(kind, p.grab.grab.standing_range);
-        let g = recipe("auto_grab", far, 24., "input:r:0:0:4");
-        let s = recipe("auto_shield_grab", close, 24., "input:r:0:0:4");
+        let close = profile.grab.grab.standing_range;
+        let sequence = recipe("auto_shield_grab", close, 24., "input:r:0:0:4");
         for status in [
-            kirby_assist_core::native_states::status::WAIT,
-            kirby_assist_core::native_states::status::WALK,
-            kirby_assist_core::native_states::status::DASH,
-            kirby_assist_core::native_states::status::RUN,
             kirby_assist_core::native_states::GUARD_ON,
             kirby_assist_core::native_states::GUARD,
         ] {
-            for enemy in [
-                0,
-                kirby_assist_core::native_states::GUARD,
-                kirby_assist_core::native_states::ESCAPE_F,
-            ] {
-                for x in [-far, -1., 1., close, close + 0.1, far, far + 0.1] {
-                    for y in [0., 24., 24.1] {
-                        let mut old = OutOfShield::new();
-                        let mut new = OutOfShield::new();
-                        let shielded = matches!(
-                            status,
-                            kirby_assist_core::native_states::GUARD_ON
-                                | kirby_assist_core::native_states::GUARD
-                        );
-                        let ts = targets(enemy, x, y);
-                        for tick in 0..6 {
-                            let c = own(kind, status, tick as f32);
-                            let a = old.sample_automatic(
-                                true,
-                                c,
-                                lc(c),
-                                ts,
-                                None,
-                                shielded,
-                                close,
-                                far,
-                                Some(12.),
-                            );
-                            let b = new.sample_automatic_configured(
-                                true,
-                                c,
-                                lc(c),
-                                ts,
-                                None,
-                                shielded,
-                                close,
-                                far,
-                                Some(12.),
-                                settings(kind),
-                                AutomaticConfig {
-                                    grab: Some(&g),
-                                    shield_grab: Some(&s),
-                                    backup: None,
-                                },
-                            );
-                            assert_eq!(a,b,"kind {kind} own {status:#x} enemy {enemy:#x} x {x} y {y} tick {tick}");
-                            assert_eq!(old.target(), new.target());
-                            assert_eq!(old.approach_pending(), new.approach_pending());
-                            assert_eq!(old.shield_up_b_pending(), new.shield_up_b_pending());
-                            assert_eq!(
-                                old.with_grab_movement(a, [0.7, 0.]),
-                                new.with_grab_movement(b, [0.7, 0.])
-                            );
-                            for tool in [&mut old, &mut new] {
-                                if a.requested & MAPPER_R != 0 {
-                                    tool.mapped_grab(tick, 2);
-                                } else if a.stick.is_some_and(|s| s[0] != 0.) {
-                                    tool.mapped_approach(tick, 2);
-                                }
-                                if a.requested & MAPPER_B != 0 {
-                                    tool.mapped_up_special(tick, 2);
-                                }
-                                tool.delivery_tick(tick);
-                            }
-                        }
-                    }
-                }
+            let mut tool = OutOfShield::new();
+            let c = own(kind, status, 0.);
+            let cfg = AutomaticConfig {
+                shield_grab: Some(&sequence),
+                backup: None,
+            };
+            let target = targets(0, close * 0.5, 0.);
+            let first = tool.sample_automatic_configured(
+                true,
+                c,
+                lc(c),
+                target,
+                None,
+                true,
+                close,
+                close * 100.,
+                Some(12.),
+                settings(kind),
+                cfg,
+            );
+            if close <= 0. {
+                assert_eq!(first, Default::default());
+                continue;
             }
+            assert_eq!(
+                first.requested,
+                MAPPER_R | MAPPER_ZR,
+                "kind {kind} status {status:#x}"
+            );
+            assert_eq!(first.stick, Some([0.; 2]));
+            tool.mapped_grab(0, 2);
+            for frame in 1..6 {
+                let next = own(kind, status, frame as f32);
+                let out = tool.sample_automatic_configured(
+                    true,
+                    next,
+                    lc(next),
+                    target,
+                    None,
+                    true,
+                    close,
+                    close * 100.,
+                    Some(12.),
+                    settings(kind),
+                    cfg,
+                );
+                assert_eq!(
+                    out.requested, 0,
+                    "delivered grab cannot queue another action"
+                );
+                assert!(tool.grab_delivery_pending());
+                tool.delivery_tick(frame);
+            }
+            let caught = own(kind, kirby_assist_core::native_states::CATCH, 6.);
+            assert_eq!(
+                tool.sample_automatic_configured(
+                    true,
+                    caught,
+                    lc(caught),
+                    target,
+                    None,
+                    true,
+                    close,
+                    close * 100.,
+                    Some(12.),
+                    settings(kind),
+                    cfg
+                ),
+                Default::default()
+            );
+            assert!(tool.target().is_none());
         }
-    }
-}
-
-#[test]
-fn an_edited_grab_recipe_replaces_the_final_input_without_an_extra_grab_or_up_b() {
-    let g = recipe("auto_grab", 35., 24., "input:a:0:0:2");
-    let mut o = OutOfShield::new();
-    let c = own(15, 3, 0.);
-    let first = o.sample_automatic_configured(
-        true,
-        c,
-        lc(c),
-        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
-        None,
-        false,
-        20.,
-        35.,
-        Some(8.),
-        settings(15),
-        AutomaticConfig {
-            grab: Some(&g),
-            ..Default::default()
-        },
-    );
-    assert_eq!(first.requested, MAPPER_A);
-    assert!(o.configured_committed());
-    assert!(!o.automatic_grab_pending());
-    let mut owner = ActionOwnership::new();
-    owner.select(
-        true,
-        &[Intent::input_sequence(Owner::OutOfShield, first.owned)],
-    );
-    let mut rules = Resolved::default();
-    rules
-        .add(Candidate {
-            slot: 2,
-            index: 0,
-            sequence: recipe("auto_roll", 40., 12., "up_b:4"),
-        })
-        .unwrap();
-    assert!(!Engine::default().preempt_automatic_grab(
-        true,
-        &rules,
-        lc(c),
-        &targets(kirby_assist_core::native_states::ESCAPE_F, 10., 0.),
-        None,
-        &mut o,
-        &mut owner
-    ));
-    let caught = own(15, kirby_assist_core::native_states::CATCH, 1.);
-    let out = o.sample_automatic_configured(
-        true,
-        caught,
-        lc(caught),
-        targets(kirby_assist_core::native_states::CAPTURE_PULLED, 10., 0.),
-        None,
-        false,
-        20.,
-        35.,
-        Some(8.),
-        settings(15),
-        AutomaticConfig {
-            grab: Some(&g),
-            ..Default::default()
-        },
-    );
-    assert_eq!(out.owned, 0);
-    assert!(o.target().is_none());
-}
-
-#[test]
-fn configured_unshielded_grab_neutralizes_direction_without_changing_other_buttons() {
-    for (actions, button, expected_stick) in [
-        ("input:r:0.75:0.5:2", MAPPER_R, [0., 0.]),
-        ("input:a:0.75:0.5:2", MAPPER_A, [0.75, 0.5]),
-    ] {
-        let sequence = recipe("auto_grab", 35., 24., actions);
-        let mut o = OutOfShield::new();
-        let c = own(15, kirby_assist_core::native_states::status::DASH, 0.);
-        let raw = o.sample_automatic_configured(
-            true,
-            c,
-            lc(c),
-            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
-            None,
-            false,
-            20.,
-            35.,
-            Some(8.),
-            settings(15),
-            AutomaticConfig {
-                grab: Some(&sequence),
-                ..Default::default()
-            },
-        );
-        assert_eq!(raw.requested, button);
-        assert_eq!(raw.stick, Some([0.75, 0.5]));
-        let delivered = o.with_grab_movement(raw, [0.7, 0.]);
-        assert_eq!(delivered.requested, button);
-        assert_eq!(delivered.stick, Some(expected_stick));
     }
 }
 
@@ -385,11 +280,11 @@ fn edited_grab_inputs_cannot_fall_through_to_a_throw_producing_follow_up() {
 
 #[test]
 fn configurable_grab_and_backup_heights_keep_front_shield_and_vulnerability_gates() {
-    let g = recipe("auto_grab", 35., 2., "input:r:0:0:4");
+    let g = recipe("auto_shield_grab", 35., 2., "input:r:0:0:4");
     let s = recipe("auto_shield_grab", 10., 4., "input:r:0:0:4");
     let b = recipe("auto_shield_backup", 20., 3., "up_b:4,drift:opponent:1:69");
     for (shield, status, x, y, expected) in [
-        (false, 0x1c, 10., 2., MAPPER_R),
+        (false, 0x1c, 10., 2., 0),
         (false, 0x1c, 10., 2.01, 0),
         (false, 0, 10., 0., 0),
         (false, 0x1c, -10., 0., 0),
@@ -576,15 +471,15 @@ fn supplied_catalog_exposes_native_grab_modes_and_configured_entries() {
                 .entries()
                 .iter()
                 .filter(|e| e.fighter_kind == kind)
-                .all(|e| !matches!(
-                    e.sequence.reaction.trigger,
-                    Trigger::AutoGrab | Trigger::AutoShieldGrab
-                ) && (kind == kirby_assist_core::fighter_kinds::MIN_MIN
-                    || e.sequence.reaction.trigger != Trigger::AutoShieldBackup)));
+                .all(
+                    |e| !matches!(e.sequence.reaction.trigger, Trigger::AutoShieldGrab)
+                        && (kind == kirby_assist_core::fighter_kinds::MIN_MIN
+                            || e.sequence.reaction.trigger != Trigger::AutoShieldBackup)
+                ));
             continue;
         }
         if p.profile(kind).is_some() {
-            for trigger in [Trigger::AutoGrab, Trigger::AutoShieldGrab] {
+            for trigger in [Trigger::AutoShieldGrab] {
                 let count = c
                     .entries()
                     .iter()
@@ -829,4 +724,38 @@ fn confirmed_dodge_followup_keeps_ownership_through_recovery_and_ignores_manual_
     assert!(!d.punish_pending());
     owners.release(Owner::OptionRead);
     assert!(owners.allows(Owner::Ledge));
+}
+#[test]
+fn configured_shield_recipes_cannot_enable_unshielded_native_automatic_inputs() {
+    for actions in [
+        "input:r:0.75:0.5:2",
+        "input:a:0:0:2",
+        "wait:10,input:r:0:0:4",
+    ] {
+        let authored = recipe("auto_shield_grab", 35., 24., actions);
+        assert_eq!(authored.reaction.trigger, Trigger::AutoShieldGrab);
+        for status in [0, 3, 4] {
+            let mut tool = OutOfShield::new();
+            let c = own(15, status, 0.);
+            let out = tool.sample_automatic_configured(
+                true,
+                c,
+                lc(c),
+                targets(kirby_assist_core::native_states::GUARD, 10., 0.),
+                None,
+                false,
+                20.,
+                35.,
+                Some(8.),
+                settings(15),
+                AutomaticConfig {
+                    shield_grab: Some(&authored),
+                    backup: None,
+                },
+            );
+            assert_eq!(out, Default::default());
+            assert!(!tool.configured_committed());
+            assert!(tool.target().is_none());
+        }
+    }
 }

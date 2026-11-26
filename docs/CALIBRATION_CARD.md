@@ -11,6 +11,25 @@ selected fighter's saved response. Silent builds exclude the recorder, core
 telemetry and card. This is a viewer, not automatic tuning: it changes no move,
 input priority, spacing decision or response timing.
 
+## Source and evidence boundaries
+
+The live recorder is `src/diagnostics/calibration.rs`, the numeric ledge telemetry
+contract is core `diagnostics.rs`, and queue/publication handling is
+`src/diagnostics/logging.rs`. Private recorder tests live in
+`tests/unit/diagnostics/calibration.rs`; core diagnostic tests live in
+`crates/kirby_assist_core/tests/unit/diagnostics.rs` and `diagnostics_modes.rs`.
+They are included under the production test scopes, not separate standalone
+integration targets. Health cancellation/rate counters now live in
+`src/diagnostics/performance/health.rs` through `performance::health`.
+
+Read a card as three separate questions: **requested? mapped? native state
+observed?** A mapped acknowledgment belongs to our hook and its publication
+fence; it is not proof that a later external delay queue or another hook has
+already delivered the same input to simulation. `Option`-valued unknown timings
+are deliberately not zero. The beginner explanation of these contracts is in
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md` and the
+[development workflow](DEVELOPMENT.md#beginner-guide-follow-the-code-before-changing-it).
+
 ## Use it
 
 1. Use a newly built diagnostic NRO with `imgui-menu` and its matching ImGui host.
@@ -95,12 +114,15 @@ separate navigation, readiness and timing. Change one parameter, then repeat.
 Use the [individual fighter page](FIGHTERS.md),
 [execution guide](FIGHTER_EXECUTION.md) and
 [response implementation guide](FIGHTER_CONFIGS.md) to locate the setting or
-hardcoded sequence. The card does not write settings or edit functions.
+file-authored sequence. Historical move-model fields may be unavailable for raw
+recipes; that is not permission to dispatch an old compiled response. The card does not write settings or edit functions.
 
 ## Cost and validation
 
-Gameplay callbacks retain one fixed-size numeric report, copying facts already
-used by the ledge engine. Completion allocates one queued report. The existing
+Gameplay callbacks retain one fixed-size numeric report, principally copying
+facts already used by the ledge engine. Eligible Neutral diagnostic attempts also
+perform the bounded native attack-active reads described below; there is no
+additional roster or stage scan. Completion allocates one queued report. The existing
 bounded, nonblocking logger queue handles it; a full queue can drop a result.
 The background logger formats the full log and compact card once per completion.
 Rendering reads cached text with a nonblocking lock; it performs no fighter

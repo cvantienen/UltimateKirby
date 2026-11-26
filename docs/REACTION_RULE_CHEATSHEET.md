@@ -1,13 +1,59 @@
 # Reaction-rule cheat sheet
 
 **Legacy priority-builder reference.** The current unified Auto-react controller
-uses seven `auto_*:MAX_X:MAX_Y` events. Start with the
+uses six `auto_*:MAX_X:MAX_Y` events. `auto_grab` is retired/rejected; `ledge_regrab` is inert. Start with the
 [current sequence syntax cheat sheet](SEQUENCE_SYNTAX_CHEATSHEET.md); accepted
 legacy triggers below are not active in that unified controller.
 
-Settings, choices and feedback entries for the reaction builder. [Open the styled, searchable table](REACTION_RULE_CHEATSHEET.html).
+The tables below describe retained legacy grammar/core/editor consumers, not current live controls. Legacy feedback labels are not proof that the unified live controller uses these conditions. [Open the styled, searchable table](REACTION_RULE_CHEATSHEET.html).
 
 [Setup guide](REACTION_RULES.md) · [Editor actions](EDITOR_ACTION_CHEATSHEET.md)
+
+## Current live event quick reference
+
+| Event | Mode / scope | Example |
+| --- | --- | --- |
+| `auto_roll` | Auto react; opponent ordinary roll | `reaction = auto_roll:30:12` |
+| `auto_spot_dodge` | Auto react; opponent spot dodge | `reaction = auto_spot_dodge:30:12` |
+| `auto_air_dodge` | Auto react; opponent air dodge | `reaction = auto_air_dodge:40:20` |
+| `auto_shield_grab` | Automatic grabs; you shield, target vulnerable/grabbable/front | `reaction = auto_shield_grab:25:10` |
+| `auto_grab_dodged` | Grab avoidance; after confirmed assisted dodge recovery | `reaction = auto_grab_dodged:25:10` |
+| `auto_shield_backup` | Automatic grabs; configured response when no legal grab wins | `reaction = auto_shield_backup:25:15` |
+
+Each event has at most one saved sequence per fighter. X/Y are maximum absolute
+root-position separations, 0–100 world units. No minimum distance, numeric
+priority, own-state selector, enemy-side selector or button-toggle control is
+offered in the simple editor. Those legacy fields are not current live arbitration.
+Native grounded/readiness gates still apply. A check inside the selected tape
+can cancel it but does not choose a different response for that consumed event.
+
+Training: Minus → Assist modes → Auto react → L3/R3. Select → A/R3 edits;
++ Add → Left/Right chooses a missing event → A/R3/X creates its draft. The
+Automatic grabs and Grab avoidance rows open subsets of that same catalog.
+Y alone saves; wait for the result. B/L3 returns to the same assist row.
+Start delays/holds/actions are edited normally; saving does not enable a mode.
+Current live automatic grabs are shield-only; the fixed fallback is not an
+unshielded `auto_grab` recipe. Missing custom follow-up/backup means no such
+attack. [Complete current setup and handoff](REACTION_RULES.md).
+
+```ini
+[yoshi.roll.roll_starter]
+name = Roll starter, not a supplied default
+start_delay = 0
+timeout = 180
+reaction = auto_roll:30:12
+actions = check:enemy_in_front:0, range:fighter_range_instant, press:r:4
+```
+
+This valid example requests Grab only if its in-tape checks pass. Native input
+acceptance and reach still decide the outcome. It does not turn the mode ON.
+Do not add it alongside another `auto_roll` for the same fighter.
+
+## Legacy grammar below — not the unified live event editor
+
+This is **grammar notation, not a valid standalone recipe**. Replace uppercase
+placeholders and omit the notation brackets around an optional control; put the
+result inside a complete section with `start_delay` and `actions`.
 
 ```ini
 reaction = TRIGGER:STATE:MIN_X:MAX_X:MAX_HEIGHT:SIDE:PRIORITY[:CONTROL]
@@ -17,18 +63,18 @@ reaction = TRIGGER:STATE:MIN_X:MAX_X:MAX_HEIGHT:SIDE:PRIORITY[:CONTROL]
 - Events cover opponent shields/shield-origin rolls, ordinary rolls, confirmed shield hits, assisted grab-dodge recovery. Auto-tech and missed-tech branches remain separate. Defensive events use their own ON/OFF mode, not Roll rules or button groups.
 - Priority compares conditions matching now. A plain roll rule can fire before a higher-priority rule becomes true later. Use roll_vulnerable and roll_cross_vulnerable together when comparing those outcomes at vulnerability.
 - One response at a time; one attempt per enemy roll. Once playback starts, it does not switch to a different rule mid-response. A cancellation does not rearm that same roll.
-- Eight rules per assist family, up to 48 per fighter. Ranges are world units, not hitbox reach. Every action remains simulated input governed by native game rules.
+- Retained legacy builders permit eight rules per assist family; current simple events additionally enforce one recipe per event/fighter. Ranges are world units, not hitbox reach. Every action is input-only under native rules.
 - Requires the updated mod on every Switch loading reaction metadata. Older builds cannot parse the new property. This reference changes no Switch files and adds no runtime load.
 
 Defensive startup switches and the 1–8 frame grab forecast are saved in **Fighter settings**. Defensive recipes must use Menu control; that field names their specific ON/OFF mode.
 
-In Training: Assist modes → highlight the assist → L3/R3 opens its separate priority list. A/R3 edits, X adds, Y manages, B/L3 returns. In the editor, Y saves and R3/L3 returns to the list. Activate the assist with its ON/OFF row. Outside Training the switch is on Buttons / Assists, reached with R3 from the ledge selector.
+In the retained legacy editor: Assist modes → highlight the assist → L3/R3 opens its separate priority list. A/R3 edits, X adds, Y manages, B/L3 returns. In the editor, Y saves and R3/L3 returns to the list. Activate the assist with its ON/OFF row. Outside Training the switch is on Buttons / Assists, reached with R3 from the ledge selector.
 
 ## Editor settings
 
 | Menu name / choice | Description | Corresponding file syntax | Example |
 | --- | --- | --- | --- |
-| Auto reaction | In a separate Assist rule editor, choose a roll variant or one of seven Shield pressure events; other defensive assists keep their own event. Ordinary ledge/button editors do not expose this setting. | `Field 1 · TRIGGER` | `reaction = roll_vulnerable:grounded:0:20:12:any:1` |
+| Auto reaction | In a separate Assist rule editor, choose a roll variant or one of the retained Shield pressure events; other defensive assists keep their own event. Ordinary ledge/button editors do not expose this setting. | `Field 1 · TRIGGER` | `reaction = roll_vulnerable:grounded:0:20:12:any:1` |
 | Stop if airborne | Opt-in throughout-playback safety; cancels if your situation becomes airborne. Different from My state, which filters startup. Existing recipes default OFF. | `ground_only = true` | `ground_only = true` |
 | My state | Your state must match when the response starts. This does not force your fighter into that state. | `Field 2 · STATE` | `reaction = roll_vulnerable:walking:0:20:12:any:1` |
 | Min X distance | Inclusive minimum absolute horizontal separation. World units, not frames or a percentage of the opponent’s hitbox. | `Field 3 · MIN_X · 0–100` | `reaction = roll_vulnerable:grounded:8:24:12:any:1` |
@@ -95,13 +141,13 @@ An immediate fallback can start before a future vulnerable-grab rule qualifies.
 
 | Menu name / choice | Description | Corresponding file syntax | Example |
 | --- | --- | --- | --- |
-| Mode control → Menu | Follow the Roll rules Menu ON/OFF switch. This is the default for older seven-field rules. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `menu` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:menu` |
-| Mode control → Toggle X | Fresh X presses toggle this group. X is reserved instead of jumping or playing its selected sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_x` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_x` |
-| Mode control → Toggle Y | Fresh Y presses toggle this group. Y is reserved instead of its ordinary action/sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_y` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_y` |
-| Mode control → Toggle D-pad Up | Fresh D-pad Up presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_up` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_up` |
-| Mode control → Toggle D-pad Down | Fresh D-pad Down presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_down` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_down` |
-| Mode control → Toggle D-pad Left | Fresh D-pad Left presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_left` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_left` |
-| Mode control → Toggle D-pad Right | Fresh D-pad Right presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_right` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_right` |
+| Mode control → Menu | Follow the Roll rules Menu ON/OFF switch. This is the default for older seven-field rules. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `menu` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:menu` |
+| Mode control → Toggle X | Fresh X presses toggle this group. X is reserved instead of jumping or playing its selected sequence. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_x` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_x` |
+| Mode control → Toggle Y | Fresh Y presses toggle this group. Y is reserved instead of its ordinary action/sequence. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_y` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_y` |
+| Mode control → Toggle D-pad Up | Fresh D-pad Up presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_up` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_up` |
+| Mode control → Toggle D-pad Down | Fresh D-pad Down presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_down` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_down` |
+| Mode control → Toggle D-pad Left | Fresh D-pad Left presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_left` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_left` |
+| Mode control → Toggle D-pad Right | Fresh D-pad Right presses toggle this group with the menu closed. Legacy button groups start OFF each match; holding does not repeat. Navigation/chords do not toggle. | `toggle_right` | `reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_right` |
 
 ## Response and timing
 
@@ -120,13 +166,13 @@ An immediate fallback can start before a future vulnerable-grab rule qualifies.
 
 | Menu name / choice | Description | Corresponding file syntax | Example |
 | --- | --- | --- | --- |
-| Roll rules → ON / OFF | Controls Menu-tagged recipes only. Button groups have independent states shown on this row. All groups start OFF; acquired ledge setups and native safety retain priority. | `Menu group: Assist modes. Button group: assigned button.` | `Training: Minus → Assist modes → Roll rules → ON` |
+| Roll rules → ON / OFF | Controls Menu-tagged recipes only. Button groups have independent states shown on this row. Legacy button groups start OFF; acquired ledge setups and native safety retain priority. | `Menu group: Assist modes. Button group: assigned button.` | `Training: Minus → Assist modes → Roll rules → ON` |
 | Y Save | Save this recipe and its conditions immediately in Training using the existing single worker. Wait for the result before another save. No pending-save queue. | `Stored together in sequences.txt` | `reaction = roll_vulnerable:grounded:0:20:12:any:1`<br>`actions = face:opponent, grab` |
 | Recipe name | Use the existing list manager to name each response. The label identifies the saved recipe, not a new event type. | `name = LABEL` | `name = Cross roll down smash` |
 | Recipe category / identity | Choose a unique recipe ID within a fighter/category. Categories do not constrain which reaction condition can be attached. | `[FIGHTER.CATEGORY.ID]` | `[yoshi.roll.cross_smash_rule]` |
 | Copy recipe as template | Copies actions/timings and preserves destination reaction conditions. It does not silently clone the source’s automatic rule. | `Destination reaction line remains unchanged` | `Copy source inputs → keep destination reaction conditions` |
 | Duplicate recipe | The existing Duplicate command copies the recipe. Review its reaction conditions/priority and save deliberately; eight rules per assist family maximum. | `Unique new section with its own reaction line` | `[yoshi.roll.cross_smash_variant]` |
-| Save as startup default | Selects the recipe for ordinary manual button/ledge startup selection. It does NOT turn Roll rules ON. | `default = true` | `default = true` |
+| Save as startup default | Not allowed for active assist rules: persistence rejects it. Use the mode ON/OFF control, not a manual startup default. | `default = true` is for manual recipes only | `No active reaction default` |
 | Loop while held | Controls manual button activation only. Automatic reactions run a single pass regardless of this setting. | `while_held = true / false` | `while_held = false` |
 | Match end / unsaved edits | Transient menu/rule state is discarded at confirmed match end. Saved recipe conditions survive. Save before leaving Training. | `Saved recipe persists; mode switch resets OFF` | `Save → wait for success → leave Training` |
 
@@ -146,9 +192,9 @@ An immediate fallback can start before a future vulnerable-grab rule qualifies.
 | target lost | A spatial part of the response no longer had a fresh locked target; playback was cancelled. | `Display only — not a file setting` | `No reaction property is written for feedback` |
 | finished | The response ended. There is no second attempt for the same roll. This is not hit confirmation. | `Display only — not a file setting` | `No reaction property is written for feedback` |
 
-## Complete Yoshi examples
+## Complete legacy Yoshi examples (parseable, not live unified starters)
 
-These ranges and delays are starting examples to tune, not calibrated guarantees. If more than one rule matches now, the lower priority number wins.
+These examples document legacy consumers only. Use the simple event example above for current live behavior; these ranges/delays are not calibrated guarantees. If more than one rule matches now, the lower priority number wins.
 
 ```ini
 # reaction = TRIGGER:MY_STATE:MIN_X:MAX_X:MAX_HEIGHT:ENEMY_SIDE:PRIORITY[:CONTROL]

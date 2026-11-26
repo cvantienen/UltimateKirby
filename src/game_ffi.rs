@@ -245,6 +245,9 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind24LinkModule__is_link_implEPNS_26BattleObjectModuleAccessorEi"]
     /// Tests whether the object has a native link of the requested kind.
     pub fn is_link(module_accessor: *mut Object, link_kind: i32) -> bool;
+    #[link_name = "\u{1}_ZN3app8lua_bind35LinkModule__get_node_object_id_implEPNS_26BattleObjectModuleAccessorEi"]
+    /// Reads the linked object's ID from a native capture link.
+    pub fn link_node_object_id(module_accessor: *mut Object, link_kind: i32) -> u64;
     // Identity, state, and timers used to decide whether assistance applies.
     #[link_name = "\u{1}_ZN3app8lua_bind36ControlModule__get_clatter_time_implEPNS_26BattleObjectModuleAccessorEi"]
     /// Reads the native clatter timer for a specified clatter kind.

@@ -10,7 +10,9 @@
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi::{self as game};
 /// Maximum number of attack-geometry entries scanned in one frame.
-const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
+const ATTACK_GEOMETRY_SCAN_BUDGET: usize =
+    (kirby_assist_core::battle_objects::FIGHTER_CAPACITY
+        + kirby_assist_core::projectile_reflect::SOURCE_CAPACITY) * 8;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;
@@ -27,11 +29,10 @@ pub(super) fn within_observation_range(
     (target[0] - origin[0]).abs() <= limits[0] && (target[1] - origin[1]).abs() <= limits[1]
 }
 
-/// returns `true` if it’s yours or its category is not an allowed one.
-/// blocks fighter, weapon, and item categories that are not allowed.
+/// Rejects self, unsupported object categories, and inactive attack sources.
 /// # Safety
 /// The native game API must be available when this function is called.
-unsafe fn non_valid_id(id: u32, own_id: u32) -> bool {
+unsafe fn should_skip_attack_source_id(id: u32, own_id: u32) -> bool {
     if id == own_id
         || !matches!(
             id >> 28,
@@ -72,10 +73,10 @@ fn is_within_attack_scan_range(
     (target[0] - position[0]).abs() <= x_limit && (target[1] - position[1]).abs() <= y_limit
 }
 
-/// Returns true when this object should be skipped.
+/// Rejects missing, recycled, or friendly attack-source accessors.
 /// # Safety
 /// If `enemy` is non-null, it must point to a live game object for these reads.
-unsafe fn non_valid_enemy(
+unsafe fn should_skip_attack_source(
     reads: &super::frame::FrameReads,
     enemy: *mut game::Object,
     id: u32,
@@ -187,13 +188,11 @@ pub(super) unsafe fn incoming_fighter_attack(
         .chain(super::attack_sources::sources())
         .flatten()
     {
-        // skip self and invalid IDs
-        if unsafe { non_valid_id(id, own_id) } {
+        if unsafe { should_skip_attack_source_id(id, own_id) } {
             continue;
         }
-        // Skip enemies that should be ignored based on team and validity checks.
         let enemy = game::module_accessor(id);
-        if unsafe { non_valid_enemy(reads, enemy, id, team) } {
+        if unsafe { should_skip_attack_source(reads, enemy, id, team) } {
             continue;
         }
         // Skip targets that are outside the attack scan range.
@@ -414,8 +413,8 @@ pub(super) unsafe fn spacing_opponent(
                 .then(|| native_air_physics(enemy)).flatten(),
             ..Default::default()
         };
-        let distance = kirby_assist_core::battle_objects::distance_squared(position, target.position);
-        if distance.is_finite() && target.velocity.iter().all(|v| v.is_finite())
+        let distance = (target.position[0] - position[0]).abs();
+        if distance.is_finite() && target.position.iter().chain(target.velocity.iter()).all(|v| v.is_finite())
             && nearest.is_none_or(|(old, _)| distance < old)
         {
             nearest = Some((distance, target));
@@ -438,6 +437,9 @@ pub(super) unsafe fn combat_targets(
     let _performance = crate::performance::Scope::new(crate::performance::Part::Trip);
     let roster = reads.roster();
     let own_x = reads.pos_x(own);
+    let own_y = reads.pos_y(own);
+    let own_entry = if watch_trip { game_entry_id(own_id) } else { -1 };
+    let trip_hit = watch_trip && game::attack_infliction_now(own, game::COLLISION_KIND_MASK_HIT);
     let mut outward = 0.0;
     let mut opposing_count = 0;
     let mut sole_opponent_direction = 0.0;
@@ -487,6 +489,12 @@ pub(super) unsafe fn combat_targets(
                     status: reads.status_kind(enemy),
                     previous_status: reads
                         .previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
+                    relative_position: [reads.pos_x(enemy) - own_x, reads.pos_y(enemy) - own_y],
+                    grounded: reads.situation_kind(enemy) == kirby_assist_core::native_states::situation::GROUND,
+                    // Victim-side last-attacker evidence corroborates HIT, but is not
+                    // an exact collision recipient. Core also requires a fresh trip.
+                    hit_confirmed: trip_hit && own_entry >= 0 && game::work_int(enemy,
+                        kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID) == own_entry,
                 });
             }
         }

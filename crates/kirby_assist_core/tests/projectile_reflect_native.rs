@@ -340,44 +340,105 @@ fn counter_pose_tracking_rearms_same_move_after_recovery_while_own_special_is_lo
 }
 
 #[test]
-fn counter_withholds_for_non_nominal_defender_size() {
-    for scale in [0.5, 2., f32::NAN] {
+fn counter_scales_finite_defender_sizes_and_rejects_invalid_scale() {
+    for (scale, expected) in [
+        (0.5, false),
+        (2., true),
+        (f32::NAN, false),
+        (0., false),
+        (f32::INFINITY, false),
+    ] {
         let mut own = reset();
         own.scale = scale;
         counter_enemy(|_| {});
         let (_, _, threat) = unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap();
-        assert!(threat.is_none());
-        assert_eq!(GEOMETRY.with(Cell::get), 0);
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap();
+        assert_eq!(threat.is_some(), expected, "scale {scale}");
+        assert_eq!(
+            GEOMETRY.with(Cell::get),
+            if scale == 0.5 || scale == 2. { 8 } else { 0 }
+        );
     }
 }
 
 #[test]
-fn counter_native_permission_is_required_in_movement_and_air() {
-    use kirby_assist_core::native_states::{status, situation};
-    for (state, air) in [(status::WAIT, false), (status::WALK, false),
-        (status::DASH, false), (status::RUN, false), (status::TURN_RUN_BRAKE, false),
-        (status::JUMP_SQUAT, false), (status::LANDING, false),
-        (status::JUMP, true), (status::FALL, true)] {
+fn counter_movement_and_air_accept_input_fallback_but_landing_requires_native_permission() {
+    use kirby_assist_core::native_states::{situation, status};
+    for (state, air) in [
+        (status::WAIT, false),
+        (status::WALK, false),
+        (status::DASH, false),
+        (status::RUN, false),
+        (status::TURN_RUN_BRAKE, false),
+        (status::JUMP_SQUAT, false),
+        (status::LANDING, false),
+        (status::JUMP, true),
+        (status::FALL, true),
+    ] {
         let mut own = reset();
         own.status = state;
-        own.situation = if air { situation::AIR } else { situation::GROUND };
+        own.situation = if air {
+            situation::AIR
+        } else {
+            situation::GROUND
+        };
         own.ready = false;
         counter_enemy(|_| {});
         let (_, context, threat) = unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap();
-        assert!(!context.can_special);
-        assert!(threat.is_none());
-        assert_eq!(GEOMETRY.with(Cell::get), 0);
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap();
+        let expected = state != status::LANDING;
+        assert_eq!(context.can_special, expected);
+        assert_eq!(threat.is_some(), expected);
+        assert_eq!(GEOMETRY.with(Cell::get), if expected { 8 } else { 0 });
     }
 }
 #[test]
-fn counter_observation_requires_live_geometry_not_a_catalog_window() {
-    for scenario in 0..7 {
+fn counter_normal_attacks_do_not_depend_on_unverified_capability_bytes() {
+    use kirby_assist_core::{auto_counter::Counter, native_states::{status, situation}, native_input::MAPPER_B};
+    for direct in [0, 1, 255] {
+        for (height, mask, expected) in [(0., situation::ATTACK_GROUND_MASK, true),
+            (40., situation::ATTACK_GROUND_MASK, false), (0., situation::ATTACK_AIR_MASK, false)] {
+            let mut own = reset();
+            counter_enemy(|e| {
+                e.status = status::ATTACK_S3;
+                e.situation = situation::GROUND;
+                e.motion = kirby_assist_core::timing::motion_hash("attack_s3_s");
+                e.position = [4., height, 0.];
+                e.velocity = [0.; 2];
+                e.geometry.situation = mask;
+                e.geometry.direct = direct;
+            });
+            let (config, context, threat) = unsafe { counter::observe(
+                &frame::FrameReads, &mut *own, 1,
+                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true,
+            ) }.unwrap();
+            let out = Counter::new().sample(true, Some(config), context, threat);
+            assert_eq!(out.requested == MAPPER_B, expected, "direct={direct}, height={height}, mask={mask}");
+        }
+    }
+}
+
+#[test]
+fn counter_accepts_live_geometry_or_verified_catalog_startup_but_rejects_unknown_facts() {
+    for scenario in 0..9 {
         let mut own = reset();
         counter_enemy(|e| match scenario {
             1 => e.attacks = false,
@@ -386,25 +447,73 @@ fn counter_observation_requires_live_geometry_not_a_catalog_window() {
             4 => e.geometry.size = f32::NAN,
             5 => e.motion = 0,
             6 => e.active = false,
-            _ => {},
+            7 => {
+                e.attacks = false;
+                e.motion = 999;
+            }
+            8 => {
+                e.attacks = false;
+                e.stopped = true;
+            }
+            _ => {}
         });
         let (_, _, threat) = unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap();
-        assert_eq!(threat.is_some(), matches!(scenario, 0 | 3), "scenario {scenario}: {threat:?}");
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap();
+        assert_eq!(
+            threat.is_some(),
+            matches!(scenario, 0 | 1 | 3),
+            "scenario {scenario}: {threat:?}"
+        );
     }
 }
 #[test]
-fn truncated_counter_scan_withholds_instead_of_claiming_safe_contact() {
-    let mut own = reset();
-    for id in 7..10 { counter_enemy(|e| e.id = id); }
-    let (_, _, threat) = unsafe {
-        counter::observe(&frame::FrameReads, &mut *own, 1,
-            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-    }.unwrap();
-    assert!(threat.is_none());
-    assert_eq!(GEOMETRY.with(Cell::get), 16);
+fn full_roster_counter_scan_keeps_close_contact_and_stays_bounded() {
+    for missing in [false, true] {
+        let mut own = reset();
+        for id in 7..23 {
+            counter_enemy(|e| {
+                e.id = id;
+                if id == 22 {
+                    e.position[0] = 0.;
+                }
+            });
+        }
+        if missing {
+            MISSING_GEOMETRY.with(|v| v.set(21));
+        }
+        let (_, context, threat) = unsafe {
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap();
+        assert_eq!(GEOMETRY.with(Cell::get), 16 * 8);
+        {
+            assert_eq!(threat.unwrap().id, 22);
+            assert_eq!(threat.unwrap().in_frames, 0.);
+            let output = kirby_assist_core::auto_counter::Counter::new().sample(
+                true,
+                Some(counter_config()),
+                context,
+                threat,
+            );
+            assert_eq!(output.requested, kirby_assist_core::native_input::MAPPER_B);
+        }
+    }
 }
 #[test]
 fn imminent_attacker_is_selected_for_best_effort_counter_before_later_candidate() {
@@ -424,7 +533,7 @@ fn unknown_catalog_timing_keeps_observed_melee_contact() {
     counter_enemy(|e| {
         e.id = 8;
         e.motion = 999;
-        e.position[0] = 8.;
+        e.position[0] = 4.;
     });
     let (_, _, threat) = unsafe {
         counter::observe(&frame::FrameReads, &mut *own, 1,
@@ -434,22 +543,51 @@ fn unknown_catalog_timing_keeps_observed_melee_contact() {
 }
 
 #[test]
-fn unreadable_competing_geometry_withholds_timed_specials() {
+fn unreadable_competitors_preserve_known_counter_but_withhold_projectile_reflection() {
     let mut own = reset();
     counter_enemy(|_| {});
-    counter_enemy(|e| { e.id = 8; e.geometry.x = f32::NAN; });
-    assert!(unsafe {
-        counter::observe(&frame::FrameReads, &mut *own, 1,
-            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-    }.unwrap().2.is_none());
+    counter_enemy(|e| {
+        e.id = 8;
+        e.geometry.x = f32::NAN;
+    });
+    assert_eq!(
+        unsafe {
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap()
+        .2
+        .unwrap()
+        .id,
+        7
+    );
 
     let mut own = reset();
     projectile(|_| {});
-    projectile(|p| { p.id += 1; p.geometry.x = f32::NAN; });
+    projectile(|p| {
+        p.id += 1;
+        p.geometry.x = f32::NAN;
+    });
     assert!(unsafe {
-        reflect::observe(&frame::FrameReads, &mut *own, 1, 28,
-            Some(config()), None, true)
-    }.unwrap().2.is_none());
+        reflect::observe(
+            &frame::FrameReads,
+            &mut *own,
+            1,
+            28,
+            Some(config()),
+            None,
+            true,
+        )
+    }
+    .unwrap()
+    .2
+    .is_none());
 }
 
 #[test]
@@ -522,7 +660,6 @@ fn movement_prediction_reaches_counter_delivery_in_running_and_falling_states() 
         own.position[1] = if mode == 0 { 0.0 } else { 14.0 };
         own.velocity = match mode { 0 => [2.0, 0.0], 2 => [0.0, -8.0], 3 => [-4.0, 0.0], _ => [0.0; 2] };
         counter_enemy(|e| {
-            e.motion = 999;
             e.position[0] = if mode == 0 { 18.0 } else { 0.0 };
             e.velocity = [0.0; 2];
         });
@@ -543,24 +680,43 @@ fn movement_prediction_reaches_counter_delivery_in_running_and_falling_states() 
 }
 
 #[test]
-fn projectile_counter_withholds_even_when_team_owner_looks_like_a_nearby_fighter() {
+fn projectile_counter_uses_hostile_geometry_independently_of_unverified_owner_distance() {
     for scenario in 0..7 {
         let mut own = reset();
         counter_enemy(|e| {
             e.attacks = false;
             e.position[0] = if scenario == 1 { 200.0 } else { 70.0 };
             e.active = scenario != 3;
-            if scenario == 4 { e.team = 3; }
+            if scenario == 4 {
+                e.team = 3;
+            }
         });
         projectile(|p| {
-            p.owner = match scenario { 2 => u64::MAX, 5 => 1, _ => 7 };
+            p.owner = match scenario {
+                2 => u64::MAX,
+                5 => 1,
+                _ => 7,
+            };
             p.geometry.power = 10.0;
             p.position[0] = if scenario == 6 { 400.0 } else { 4.0 };
             p.velocity = [0.0; 2];
         });
-        let (_, _, threat) = unsafe { counter::observe(&frame::FrameReads, &mut *own, 1,
-            kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true) }.unwrap();
-        assert!(threat.is_none(), "unverified ownership scenario {scenario}: {threat:?}");
+        let (_, _, threat) = unsafe {
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap();
+        assert_eq!(
+            threat.map(|t| t.id),
+            (scenario != 6).then_some(0x10000002),
+            "scenario {scenario}"
+        );
     }
 }
 
@@ -649,7 +805,10 @@ fn busy_captured_full_unready_and_shielding_states_never_read_projectile_geometr
         match case {
             0 => own.gauge = 3.,
             1 => own.linked = true,
-            _ => own.ready = false,
+            _ => {
+                own.ready = false;
+                own.status = kirby_assist_core::native_states::status::LANDING;
+            }
         };
         projectile(|_| {});
         assert!(unsafe {
@@ -858,7 +1017,7 @@ fn tracked_target_does_not_bypass_later_geometry_budget_or_invalid_competitors()
 }
 
 #[test]
-fn unresolved_projectile_can_veto_an_earlier_or_simultaneous_melee_counter() {
+fn hostile_projectile_geometry_can_replace_melee_without_owner_identity() {
     for x in [4., 41.] {
         let mut own = reset();
         counter_enemy(|_| {});
@@ -868,15 +1027,23 @@ fn unresolved_projectile_can_veto_an_earlier_or_simultaneous_melee_counter() {
             p.geometry.power = 10.;
         });
         let threat = unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap().2;
-        assert_eq!(threat.is_some(), x == 41.);
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap()
+        .2;
+        assert_eq!(threat.unwrap().id, if x == 4. { 0x10000002 } else { 7 });
     }
 }
 
 #[test]
-fn stopped_or_invalid_clock_contact_vetoes_counter_without_forecasting_frozen_motion() {
+fn frozen_geometry_remains_observable_but_nearer_invalid_clocks_block_counter_selection() {
     for scenario in 0..4 {
         let mut own = reset();
         counter_enemy(|_| {});
@@ -891,35 +1058,80 @@ fn stopped_or_invalid_clock_contact_vetoes_counter_without_forecasting_frozen_mo
             }
         });
         let threat = unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap().2;
-        assert_eq!(threat.is_some(), scenario == 3, "scenario {scenario}");
+            counter::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                kirby_assist_core::fighter_kinds::LUCINA,
+                Some(counter_config()),
+                true,
+            )
+        }
+        .unwrap()
+        .2;
+        assert_eq!(
+            threat.map(|t| t.id),
+            match scenario {
+                0 => Some(8),
+                3 => Some(7),
+                _ => None,
+            },
+            "scenario {scenario}"
+        );
     }
 }
 
 #[test]
-fn stale_accessors_and_missing_active_records_withhold_competing_specials() {
+fn stale_competitors_preserve_known_counter_but_withhold_reflection() {
     for missing in [false, true] {
         let mut own = reset();
         counter_enemy(|_| {});
         counter_enemy(|e| e.id = 8);
-        if missing { MISSING_GEOMETRY.with(|v| v.set(8)); }
-        else { STALE_ACCESSOR.with(|v| v.set(8)); }
-        assert!(unsafe {
-            counter::observe(&frame::FrameReads, &mut *own, 1,
-                kirby_assist_core::fighter_kinds::LUCINA, Some(counter_config()), true)
-        }.unwrap().2.is_none());
+        if missing {
+            MISSING_GEOMETRY.with(|v| v.set(8));
+        } else {
+            STALE_ACCESSOR.with(|v| v.set(8));
+        }
+        assert_eq!(
+            unsafe {
+                counter::observe(
+                    &frame::FrameReads,
+                    &mut *own,
+                    1,
+                    kirby_assist_core::fighter_kinds::LUCINA,
+                    Some(counter_config()),
+                    true,
+                )
+            }
+            .unwrap()
+            .2
+            .unwrap()
+            .id,
+            7
+        );
 
         let mut own = reset();
         projectile(|_| {});
         projectile(|p| p.id += 1);
-        if missing { MISSING_GEOMETRY.with(|v| v.set(0x10000003)); }
-        else { STALE_ACCESSOR.with(|v| v.set(0x10000003)); }
+        if missing {
+            MISSING_GEOMETRY.with(|v| v.set(0x10000003));
+        } else {
+            STALE_ACCESSOR.with(|v| v.set(0x10000003));
+        }
         assert!(unsafe {
-            reflect::observe(&frame::FrameReads, &mut *own, 1, 28,
-                Some(config()), None, true)
-        }.unwrap().2.is_none());
+            reflect::observe(
+                &frame::FrameReads,
+                &mut *own,
+                1,
+                28,
+                Some(config()),
+                None,
+                true,
+            )
+        }
+        .unwrap()
+        .2
+        .is_none());
     }
 }
 

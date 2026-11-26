@@ -10,12 +10,11 @@ use kirby_assist_core::{
     tech_input::TechOutput,
 };
 
-const SEQUENCES: [Owner; 11] = [
+const SEQUENCES: [Owner; 10] = [
     Owner::Safety,
     Owner::GrabDodge,
     Owner::OptionRead,
     Owner::Trip,
-    Owner::Fair,
     Owner::Fair,
     Owner::Trump,
     Owner::Ledge,

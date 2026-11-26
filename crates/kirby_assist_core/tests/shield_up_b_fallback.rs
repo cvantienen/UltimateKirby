@@ -134,7 +134,7 @@ fn front_grab_wins_and_close_ungrabbable_targets_receive_up_b_in_the_same_observ
         (10., true, 0., MAPPER_R | MAPPER_ZR),
         (-10., true, 0., MAPPER_B | MAPPER_ZR),
         (0., true, 0., MAPPER_B | MAPPER_ZR),
-        (10., false, 0., MAPPER_B | MAPPER_ZR),
+        (10., false, 0., MAPPER_R | MAPPER_ZR),
         (20., true, 2., MAPPER_B | MAPPER_ZR),
     ] {
         let mut o = OutOfShield::new();
@@ -174,7 +174,7 @@ fn shieldstun_hitstop_and_unready_states_do_not_queue_or_neutralize_manual_contr
         let mut context = c(0.);
         let mut own = lc(0.);
         match case {
-            0 => context.status = kirby_assist_core::native_states::GUARD_DAMAGE,
+            0 => context.status = kirby_assist_core::native_states::GUARD_OFF,
             1 => context.stopped = true,
             2 => own.stopped = true,
             3 => context.can_up_special = false,
@@ -223,6 +223,7 @@ fn fallback_range_vulnerability_and_status_are_current_and_bound_on_both_sides()
             true,
             Context {
                 can_grab: false,
+                status: kirby_assist_core::native_states::GUARD_ON,
                 ..c(0.)
             },
             lc(0.),
@@ -293,7 +294,7 @@ fn fallback_is_bounded_by_delivered_packets_and_releases_on_native_start_or_manu
         kirby_assist_core::native_states::status::WAIT,
         kirby_assist_core::native_states::status::DASH,
         kirby_assist_core::native_states::GUARD_OFF,
-        kirby_assist_core::native_states::GUARD_DAMAGE,
+        kirby_assist_core::native_states::GUARD_OFF,
         kirby_assist_core::native_states::CATCH,
         kirby_assist_core::native_states::status::DAMAGE,
     ] {
@@ -581,13 +582,17 @@ fn shielded_up_b_fallback_does_not_create_implicit_follow_through() {
 }
 
 #[test]
-fn supplied_bowser_dodge_sequences_have_only_the_requested_69_frame_drift_change() {
+fn supplied_bowser_dodge_sequences_keep_independent_authored_drift_durations() {
     use kirby_assist_core::sequence_config::{Action, Direction};
     let catalog = Catalog::parse(include_str!(
         "../../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
     ))
     .unwrap();
-    for id in ["auto_roll", "auto_spot_dodge", "auto_air_dodge"] {
+    for (id, frames) in [
+        ("auto_roll", 50),
+        ("auto_spot_dodge", 10),
+        ("auto_air_dodge", 69),
+    ] {
         let e = catalog
             .entries()
             .iter()
@@ -600,7 +605,7 @@ fn supplied_bowser_dodge_sequences_have_only_the_requested_69_frame_drift_change
             Action::Drift {
                 direction: Direction::Opponent,
                 strength: 1.,
-                frames: 69
+                frames
             }
         );
     }

@@ -387,6 +387,9 @@ mod save {
     };
     pub static BUSY: AtomicBool = AtomicBool::new(false);
     static GATE: Mutex<()> = Mutex::new(());
+    pub fn busy() -> bool {
+        BUSY.load(Ordering::Acquire)
+    }
     pub fn try_ui_edit() -> Option<MutexGuard<'static, ()>> {
         if BUSY.load(Ordering::Acquire) {
             None
@@ -499,6 +502,35 @@ mod publisher {
         assert!(publish(p, &m, false));
         assert!(!MENU_VISIBLE.load(Ordering::Acquire));
         assert!(VIEW.lock().unwrap().is_none());
+
+        input(&mut m, p, 0, true);
+        input(&mut m, p, MAPPER_MINUS, true);
+        assert!(!m.lightweight && !m.menu_hidden);
+        assert!(publish(p, &m, false));
+        super::save::BUSY.store(true, Ordering::Release);
+        m.save_status = Some("Saving now; keep Smash open until complete".into());
+        m.revision += 1;
+        assert!(!publish(p, &m, false));
+        {
+            let locked = VIEW.lock().unwrap();
+            let v = locked.as_ref().unwrap();
+            assert!(v.matches_request(
+                false,
+                REQUESTED_FIGHTER.load(Ordering::Acquire),
+                REQUESTED_REVISION.load(Ordering::Acquire),
+                VIEW_GENERATION.load(Ordering::Acquire),
+            ), "an active Training save must retain its last published card");
+        }
+        input(&mut m, p, 0, false);
+        assert!(!publish(p, &m, false));
+        {
+            let locked = VIEW.lock().unwrap();
+            assert!(!locked.as_ref().unwrap().matches_request(
+                true, p.fighter_kind, REQUESTED_REVISION.load(Ordering::Acquire), 0,
+            ), "save-time retention must not leak Training cards into matches");
+        }
+        super::save::BUSY.store(false, Ordering::Release);
+        assert!(publish(p, &m, false));
     }
 }
 

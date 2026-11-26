@@ -152,6 +152,20 @@ fn a_deadline_displaces_di_and_keeps_tech_release_neutral() {
     );
 }
 #[test]
+fn additive_tech_release_does_not_displace_di_or_own_guard() {
+    let (packet, ack) = safety_output_with_deadline(
+        TechOutput { press: false, owns_guard: false },
+        None,
+        Some([-1., 0.]),
+        Some([1., 0.]),
+        true,
+    );
+    assert_eq!(packet.requested, 0);
+    assert_eq!(packet.stick, Some([-1., 0.]));
+    assert_eq!(ack, None);
+}
+
+#[test]
 fn no_contact_recovery_disable_and_cancel_invalidate_the_delivery_receipt() {
     let c = context();
     for next in [

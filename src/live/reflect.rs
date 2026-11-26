@@ -96,8 +96,8 @@ pub(super) unsafe fn observe(
     }
     let team = reads.team(own);
     let mut best: Option<Threat> = None;
-    let mut geometry = 0;
-    let mut exhausted = false;
+    let mut geometry_reads = 0;
+    let mut scan_incomplete = false;
     'sources: for source in sources.into_iter().flatten() {
         let id = source.id;
         // `attack_sources` admits only weapon and item IDs, so each snapshot
@@ -114,7 +114,7 @@ pub(super) unsafe fn observe(
         }
         let object = game::module_accessor(id);
         if object.is_null() || game::battle_object_id(object) != id {
-            exhausted = true;
+            scan_incomplete = true;
             continue;
         }
         if reads.team(object) == team || reads.is_stop(object) {
@@ -122,7 +122,7 @@ pub(super) unsafe fn observe(
         }
         let speed = [reads.speed_x(object), reads.speed_y(object)];
         if !speed.iter().all(|v| v.is_finite()) {
-            exhausted = true;
+            scan_incomplete = true;
             continue;
         }
         if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
@@ -149,14 +149,14 @@ pub(super) unsafe fn observe(
                 continue;
             }
             // Bound expensive native geometry even with many overlapping articles.
-            if geometry >= 16 {
-                exhausted = true;
+            if geometry_reads >= 16 {
+                scan_incomplete = true;
                 break 'sources;
             }
-            geometry += 1;
+            geometry_reads += 1;
             let data = game::attack_geometry(object, slot, false);
             if data.is_null() {
-                exhausted = true;
+                scan_incomplete = true;
                 continue;
             }
             let data = data.read();
@@ -164,7 +164,7 @@ pub(super) unsafe fn observe(
                 continue;
             };
             if data.direct > 1 || data.reflectable > 1 || data.absorbable > 1 {
-                exhausted = true;
+                scan_incomplete = true;
                 continue;
             }
             if data.direct != 0
@@ -175,7 +175,7 @@ pub(super) unsafe fn observe(
             }
             let scale = *scale.get_or_insert_with(|| game::scale(object));
             let Some(hitbox) = super::hitboxes::world_geometry(object, data, scale, speed) else {
-                exhausted = true;
+                scan_incomplete = true;
                 continue;
             };
             let candidate = policy::predict(
@@ -198,7 +198,7 @@ pub(super) unsafe fn observe(
             }
         }
     }
-    if exhausted {
+    if scan_incomplete {
         best = None;
     }
     // Projectile progress also advances bounded delivery/hold accounting when

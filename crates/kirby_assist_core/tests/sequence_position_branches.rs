@@ -358,7 +358,10 @@ fn new_tokens_roundtrip_and_reject_malformed_blocks_and_unsafe_parameters() {
         "run_to_ledge:12:1:1:6:0",
     ] {
         assert!(
-            Catalog::parse(&format!("[bowser.attack.test]\nactions={actions}\n")).is_err(),
+            Catalog::parse(&format!(
+                "[bowser.attack.test]\nstart_delay=0\nactions={actions}\n"
+            ))
+            .is_err(),
             "{actions}"
         );
     }
@@ -412,7 +415,7 @@ fn zero_ledge_offset_already_at_the_anchor_is_an_immediate_noop_without_guessing
 }
 #[test]
 fn native_poll_gaps_do_not_abort_waiting_reach_or_confirmed_shield_hit_checks() {
-    let mut t = InputTimeline::new(recipe("range:10,input:a:0:0:3"), enemy(0., 30.));
+    let mut t = InputTimeline::new(recipe("range:fighter_range,input:a:0:0:3"), enemy(0., 30.));
     assert_eq!(sample(&mut t, own(0., 0., 1.), 30., None, 0.).requested, 0);
     for frame in 3..6 {
         assert_eq!(

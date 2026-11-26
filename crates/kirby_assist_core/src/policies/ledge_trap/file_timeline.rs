@@ -15,7 +15,14 @@ use crate::sequence_config::{
     Action, Condition, Direction, InputReference, RangeCheck, Sequence, MAX_ACTIONS,
 };
 
-/// Runtime Smash data carried by `Timeline`.
+/// Plays one saved sequence as an ordered controller-input tape.
+///
+/// A tape is a list of steps plus a cursor (the index of the current step).
+/// `sample` advances from copied native animation progress, not the number of
+/// controller polls. Ordinary button steps are literal: they do not prove a
+/// move started. Explicit spatial/predicate steps may inspect supplied facts.
+/// Ground-action guards and late Up-B receipts are opt-in automatic-response
+/// behavior; they are not hidden timing added to every saved ledge sequence.
 pub struct Timeline {
     /// Runtime sequence value used by Timeline..
     sequence: Sequence,
@@ -316,7 +323,7 @@ impl Timeline {
         // literal controls must not retain an injected guard after a status
         // change/takeoff on a duplicate clock sample. No retry or extra frame.
         if ctx.situation == situation::GROUND {
-            crate::out_of_shield::direct_shield_input(ctx.status, out, self.right_stick)
+            crate::out_of_shield::direct_shield_input(shield_input_status(ctx), out, self.right_stick)
         } else {
             out
         }
@@ -538,11 +545,10 @@ impl Timeline {
             if let Some(reason) = self.invalid_step(action, &f) {
                 return self.finish(reason);
             }
-            let handoff = shield_handoff_needed(action, f.ctx.status, f.ctx.situation);
+            let handoff = shield_handoff_needed(action, shield_input_status(f.ctx), f.ctx.situation);
             if self.shield_handoff && self.entered {
                 if handoff {
-                    if self.continuous_progress
-                        && f.ctx.status == GUARD_OFF
+                    if f.ctx.status == GUARD_OFF
                         && buffers_after_shield_release(action)
                     {
                         return self.output;
@@ -562,11 +568,9 @@ impl Timeline {
                     self.next(f.now);
                     continue;
                 }
-                // Release shield neutrally first. Automatic attack tapes may then
-                // hold a buffer during guard-off, but keep their full authored
-                // duration for when recovery ends. Movement/ledge tapes stay strict.
+                // Release shield neutrally first, then buffer attacks during
+                // guard-off without spending their authored action duration.
                 let buffer = handoff
-                    && self.continuous_progress
                     && f.ctx.status == GUARD_OFF
                     && buffers_after_shield_release(action);
                 if handoff {
@@ -724,11 +728,12 @@ impl Timeline {
             Action::ShieldUntilManual if !f.grounded() => Step::Release("shield_requires_ground"),
             Action::ShieldUntilManual => Step::Output(guard_hold()),
             Action::ShieldUntilBlock(frames) => {
-                // A shield hit is the completion event. Do not wait for the
-                // online shield-recovery status, which may be skipped or held
-                // across polls and can otherwise retain guard until break.
                 self.blocked |= f.ctx.status == GUARD_DAMAGE;
-                if self.blocked && matches!(f.ctx.status, GUARD_ON | GUARD) {
+                if self.blocked
+                    && !f.ctx.shield_threat
+                    && (f.ctx.status != GUARD_DAMAGE
+                        || f.ctx.shield_stun_frames.is_some_and(|frames| frames <= 0))
+                {
                     Step::Advance(f.now)
                 } else if !self.blocked && f.elapsed >= f32::from(frames) {
                     Step::End("shield_wait_timeout")
@@ -847,7 +852,10 @@ impl Timeline {
         let phase = f.elapsed.floor() as u16 % period;
         Step::Output(if phase < u16::from(hold) {
             stick[0] *= self.direction;
-            shield_grab_input(f.ctx.status, controls(stick, buttons), [0.; 2])
+            let mut output = shield_grab_input(f.ctx.status, controls(stick, buttons), [0.; 2]);
+            output.native_short_hop = buttons & SEQUENCE_JUMP_BUTTONS != 0
+                && (hold == 1 || buttons & MAPPER_A != 0);
+            output
         } else {
             neutral()
         })
@@ -867,11 +875,14 @@ impl Timeline {
         stick[0] *= self.direction;
         cstick[0] *= self.cstick_direction;
         self.right_stick = cstick;
-        Step::Output(shield_grab_input(
+        let mut output = shield_grab_input(
             f.ctx.status,
             controls(stick, buttons | cstick_buttons(cstick)),
             cstick,
-        ))
+        );
+        output.native_short_hop = buttons & SEQUENCE_JUMP_BUTTONS != 0
+            && (frames == 1 || buttons & MAPPER_A != 0);
+        Step::Output(output)
     }
     /// Returns the `step_run` result.
     fn step_run(&self, units: f32, f: &Frame) -> Step {
@@ -1402,7 +1413,19 @@ fn buffers_after_shield_release(action: Action) -> bool {
     })
 }
 
-// Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
+// Normalize only the copied input decision; never change native fighter status.
+fn shield_input_status(ctx: GameplayContext) -> i32 {
+    if ctx.status == GUARD_DAMAGE
+        && !ctx.stopped
+        && ctx.shield_stun_frames.is_some_and(|frames| frames <= 0)
+    {
+        GUARD
+    } else {
+        ctx.status
+    }
+}
+
+// Native statuses: guard-on, guard, guard-off, guard-damage.
 /// Determines whether the `shield_handoff_needed` condition holds.
 /// Checks whether shield handoff needed.
 fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
@@ -1437,13 +1460,7 @@ fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
     if matches!(status, GUARD_OFF | GUARD_DAMAGE) {
         return true;
     }
-    // Direct OOS grab, jump, Up-B and up-smash inputs do not pay shield drop.
-    let direct = buttons & MAPPER_R != 0 && stick[1] >= 0.
-        || buttons & SEQUENCE_JUMP_BUTTONS != 0 && stick[1] >= 0.
-        || buttons & MAPPER_A != 0 && stick[1] >= 0.95
-        || buttons & MAPPER_B != 0 && stick[1] > 0.5
-        || cstick[1] > 0.5;
-    !direct
+    !crate::out_of_shield::is_direct_shield_cancel(buttons, stick, cstick)
 }
 /// Returns the `cstick_buttons` result.
 /// Gets the cstick buttons result.

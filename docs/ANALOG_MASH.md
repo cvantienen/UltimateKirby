@@ -1,44 +1,67 @@
 # Analog-stick auto mash
 
-Live automatic mash uses a full-strength left-stick cycle. It runs for the selected human fighter while the native clatter timer is positive and the game is not stopped. It generates no automated action-button presses for mash.
+A **clatter** state is a native mashable capture/bury state with a positive
+escape timer. Live auto mash requests a full-strength **left-stick cycle**, not
+automatic action-button presses and not direct timer edits.
 
-| Mashable input update | Left stick |
+| Distinct eligible update | Stick |
 | --- | --- |
-| 0 | Right: `(1.0, 0.0)` |
-| 1 | Up: `(0.0, 1.0)` |
-| 2 | Left: `(-1.0, 0.0)` |
-| 3 | Down: `(0.0, -1.0)` |
-| 4 | Right again |
+| 0 | Right `(1, 0)` |
+| 1 | Up `(0, 1)` |
+| 2 | Left `(-1, 0)` |
+| 3 | Down `(0, -1)` |
+| 4 | Repeat Right |
 
-Each distinct update advances one direction, without neutral gaps or an additional interval. Repeated observations of the same update reuse the result. A new mashable episode, fighter replacement, or reversed input clock restarts at Right. Hitstop publishes no automated mash stick and pauses progression. Progress is deduplicated from native observations rather than raw mapper-poll
-counts; it is not a verified global simulation-frame clock.
+## Activation and settings
 
-## Settings and control
+Auto mash is independent of ledge holds. Enable its menu row or startup setting;
+selected human controller, global enabled and valid session/native observation
+still matter. Rust fallback and supplied universal `auto_mash` are **false**.
 
-Auto-mash starts OFF. Enable it from the Auto-mash menu row, or change the
-startup setting to true. The bundled settings are:
-
-```text
-auto_mash = false
+```ini
+[universal.settings]
+auto_mash = true
 takeover = true
 ```
 
-`takeover = true` suppresses physical A/B/X/Y/L/R/ZL/ZR, stick clicks, and C-stick input only during active analog mashing. This keeps physical action inputs from being mixed with the left-stick cycle. Plus retains its cancellation path; Auto-mash is changed from its menu row. With takeover false, physical action buttons/C-stick pass through while the automated left stick still runs.
+Merge these keys into the existing section; do not erase other settings. Rust
+fallback takeover is false; the supplied universal file uses true. With takeover
+true, competing physical action buttons, stick clicks and C-stick are suppressed
+only during active mashing. Without it they pass through, while mash still owns
+the left-stick override. Refer to [Controls](CONTROLS.md),
+[Fighter settings](FIGHTER_SETTINGS.md) and [Sequence files](SEQUENCE_FILES.md)
+for mode admission, mapping and actual startup/saved precedence.
 
-The mapper uses the current physical controls as soon as the mashable state ends; it does not force a neutral frame after escape. Disabling the tool, stale requests, menu cancellation, disconnect, and controller reassignment also remove its stick override. The native controller memory is restored after every mapper call. Turbo and ledge stick requests cannot override an active mash cycle. Tech retains its existing priority, ZR button, and cooldown.
+## Clock and handback
 
-The old `alternate_mash`, `mash_buttons_per_frame`, and `mash_interval_frames` settings are ignored for SD-config compatibility. There is no button-mash fallback in the live plugin. The generic `AutoMash` preset remains a button-pulse teaching example; live translation emits the stick instead.
+Each distinct native-derived update advances one direction, without neutral gaps
+or another interval. Duplicate observations reuse output; mapper polls are not a
+verified global simulation-frame clock. Hitstop sends no new mash stick and
+pauses progression. A new mashable episode, fighter replacement or reversed
+input clock restarts Right.
 
-## Code walkthrough
+Capture mash has first safety priority, above DI/SDI and ordinary ledge/turbo
+stick requests. Losing clatter, disabling the tool, stale requests, controller
+reassignment/disconnect, menus and session cancellation remove its override.
+Physical controls return immediately on escape rather than receiving a forced
+extra neutral frame. The mapper restores original physical controller storage
+after its call; generated input is an overlay, not permanent controller mutation.
 
-`RawAutoControls` in `crates/kirby_assist_core/src/live_input.rs` advances the clatter counter and caches `mash_stick: Option<[f32; 2]>`. `Some([x, y])` proposes a normalized stick position; `None` means no override. Only tech emits HID button requests.
+## Legacy and extension
 
-`src/live.rs` publishes the stick alongside the existing request timestamp, so it expires with stale observations. The mapper gives it priority over D-pad stick controls and uses `ManualOverlay` to produce consistent analog values and left-stick direction-bit history. Takeover clears competing physical action/C-stick inputs only while the mash proposal is active. Physical floats, button words, and repeat metadata are saved/restored around the original mapper.
+`alternate_mash`, `mash_buttons_per_frame` and `mash_interval_frames` remain old
+compatibility settings, not live cadence controls. `policies/tools.rs::AutoMash`
+is a generic button-pulse preset whose minimum interval leaves a release gap.
+The live adapter translates clatter to analog mash instead: changing that preset's
+button interval cannot speed up the live stick cycle.
 
-Host tests cover the direction cycle, duplicate-update caching, exit/reentry, disable/reassignment/clock reset, physical button/stick restoration, stick-only overlay without D-pad ownership, legacy configs, and existing tech release/cooldown behavior. Ledge/turbo regressions remain in the suite.
+For Rust beginners, `RawAutoControls` stores `Option<[f32; 2]>`: `Some` proposes
+normalized stick axes, `None` means no override. Output must still pass freshness,
+safety arbitration and mapping. Add tests for duplicate/stop/episode reset and
+physical handback when changing cadence; do not change clatter timers or native
+escape rules. A player wanting a different button tape should use
+[Sequence files](SEQUENCE_FILES.md), not assume that tape becomes native mash.
 
-## Device comparison
-
-This is implemented and compiler-checked, but faster escape time has not been measured on a Switch. Controlled [Ultimate input tests](https://hyperts.net/smashsp/rebagacha/) found that simultaneous button presses do not stack and that left-stick movement is effective. That motivates this implementation; it does not establish its optimal cadence on your device/version.
-
-Rebuild and install the new plugin before testing; existing ZIPs were not rebuilt. Compare a repeatable grab or bury at the same damage, characters, and positions across builds. Measure gameplay frames from the start of the mashable state to escape, rather than counting generated inputs. Repeat the test, then check neutral movement, physical input restoration, held D-pad triggers, and tech behavior immediately after escape. The mod leaves native clatter timers and escape rules to Smash.
+For a controlled Training comparison, repeat the same grab/bury, damage and
+positions, and measure gameplay time to escape rather than generated-input count.
+Optimal cadence and actual faster escape are not established by this document.

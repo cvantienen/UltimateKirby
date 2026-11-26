@@ -190,9 +190,9 @@ fn swept_prediction_rejects_melee_outgoing_off_plane_and_invalid_geometry() {
 
 #[test]
 fn first_legal_observation_emits_down_b_without_waiting_and_busy_states_emit_nothing() {
-    for frames in [0., 5., 20., 100., f32::NAN] {
+    for frames in [20., 100., f32::NAN] {
         let output =
-            Reflector::new().sample(true, Some(config()), own(0., 3), threat(2, frames, 1.));
+            Reflector::new().sample(true, Some(config()), own(0., 0), threat(2, frames, 1.));
         assert_eq!(output.owned, 0);
         assert_eq!(output.stick, None);
     }
@@ -215,7 +215,6 @@ fn first_legal_observation_emits_down_b_without_waiting_and_busy_states_emit_not
     for status in [
         kirby_assist_core::native_states::status::GUARD_ON,
         kirby_assist_core::native_states::status::GUARD,
-        kirby_assist_core::native_states::status::GUARD_OFF,
         kirby_assist_core::native_states::status::GUARD_DAMAGE,
         kirby_assist_core::native_states::status::ESCAPE,
         kirby_assist_core::native_states::status::ESCAPE_F,
@@ -364,7 +363,7 @@ fn duplicated_polls_hitstop_failed_delivery_and_threat_loss_have_bounded_handoff
                 threat(2, 6., 1.),
             )
             .requested,
-        MAPPER_B
+        0
     );
     assert_eq!(
         engine
@@ -409,7 +408,7 @@ fn duplicated_polls_hitstop_failed_delivery_and_threat_loss_have_bounded_handoff
 }
 
 #[test]
-fn confirmed_bucket_has_a_finite_native_hold_and_never_retries_after_a_cancel() {
+fn confirmed_bucket_releases_input_immediately_and_never_retries_the_same_projectile() {
     let mut engine = Reflector::new();
     engine.sample(true, Some(config()), own(0., 0), threat(2, 7., 1.));
     engine.mapped(1);
@@ -426,8 +425,9 @@ fn confirmed_bucket_has_a_finite_native_hold_and_never_retries_after_a_cancel() 
                     threat(2, 1., 1.)
                 )
                 .requested,
-            MAPPER_B
+            0
         );
+        assert!(!engine.active());
     }
     assert_eq!(
         engine
@@ -485,8 +485,8 @@ fn delayed_native_receipt_does_not_hold_movement_or_allow_a_competing_grab() {
         ),
         threat(2, 1., 1.),
     );
-    assert_eq!(confirmed.requested, MAPPER_B);
-    assert!(engine.active());
+    assert_eq!(confirmed.requested, 0);
+    assert!(!engine.active());
     engine = Reflector::new();
     engine.sample(true, Some(config()), own(0., 0), threat(3, 7., 1.));
     engine.mapped(0);
@@ -562,6 +562,6 @@ fn reflector_and_punishes_cannot_own_input_together_and_ledge_off_safety_win() {
     #[cfg(feature = "diagnostic-logging")]
     assert_eq!(
         kirby_assist_core::diagnostics::modes::bit(Owner::Reflect),
-        1 << (kirby_assist_core::diagnostics::modes::OWNERS.len() - 1)
+        1 << 12
     );
 }

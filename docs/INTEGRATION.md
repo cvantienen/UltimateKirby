@@ -16,8 +16,13 @@ are preserved; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md).
 This build contains actual Switch hooks and raw controller-memory stick/button writes. It is no longer the empty plugin shell described in the project's first version.
 
 **Read the current package version from Cargo.toml; source edits can be newer than a same-version artifact.**
-Supplied diagnostic logs confirm native grab startup and some captures, but
-the latest approach changes have not been compiled or Switch-validated. A successful build cannot verify the latest executable's internal layouts, actual controller routing, or auto-tech timing. The diagnostic build's status log makes the next verification concrete. The silent build intentionally has no plugin log.
+The recent readability/test-organization refactor passed the core default and
+all-feature host suites and all-target lint. Those checks validate portable
+logic and the existing exact-source native host harnesses, not current Switch
+runtime behavior. A successful host or plugin build cannot verify the installed
+executable's internal layouts, controller routing, collision timing or online
+compatibility. Use diagnostic evidence and a repeatable device test when runtime
+verification is needed; the silent variant intentionally has no plugin log.
 
 This is a direct on-Switch mod. No extra controller hardware, Wi-Fi transport, or computer during play is required.
 
@@ -89,11 +94,13 @@ The filename is checked once, not every frame.
 
 In diagnostic Training compatibility, **Minus toggles Kirby Assist’s menu**.
 D-pad Up/Down selects a row and Left/Right changes it while visible. Minus creates
-only an internal menu event: it never fabricates a real Minus or L button for
-Training. **L** remains ledge autopilot; **Y** remains its selected held mode;
-**X** remains the paired short hop. Mash, tech, SDI, teabag, slides, follow-ups,
-Roll read and Kirby recovery cover retain their normal startup/menu settings.
-The former held-R3 requirement and reduced ledge-only settings are removed.
+an internal menu event; it does not fabricate a gameplay Minus or L press for
+Training. **L** retains its fixed ledge/walk role in the default layout. X, Y,
+D-pad and stick-click behavior comes from the fighter's current saved binding or
+built-in choice, not a universal old finisher/slide mapping. Mash, tech, damage
+sticks and supported follow-ups keep their independent settings and admission
+checks. See [Controls](CONTROLS.md) for current defaults and
+[Ledge menu](LEDGE_MENU.md) for page-specific testing/editing.
 
 Real **Plus** and the known **B/ZL/ZR + D-pad Up/Down** Training chords
 cancel pending assist inputs and hand the untouched controller to Training.
@@ -101,8 +108,9 @@ Default **ZL+Up load / ZL+Down save** is momentary: our panel stays visible,
 saved selections remain intact and held-L practice resumes on release without
 a Minus press. For the other chords, handoff persists after release because a Training menu
 or recording can remain active. Finish/close Training's menu or recording, then
-**tap Minus** to resume Kirby Assist with its menu visible. Tap Minus again to hide it
-before using hidden-pad slides/trump. Normal L/Y/X actions need no R3 hold.
+**tap Minus** to resume Kirby Assist with its menu visible. Tap Minus again to
+hide it before using a D-pad binding that would otherwise be menu navigation.
+Normal configured L/Y/X behavior needs no R3 hold.
 
 Physical releases and controller freshness are still observed during handoff;
 this preserves release-to-arm protection after resets. The observer does not
@@ -126,8 +134,11 @@ Assist needs a future rebuild/install for these source changes.
 Edit `[universal.settings]` at the top of
 `SD:/ultimate/kirby_assist/sequences.txt`, then restart Smash. This section takes
 precedence over `config.txt`; the latter is read only for legacy files without
-universal settings. The supplied master is
-`deployment/ultimate/kirby_assist/sequences.txt`.
+universal settings. The repository's supplied master is
+`deployment/ultimate/kirby_assist/sequences.txt`; your installed file can differ.
+The [complete settings reference](SETTINGS_REFERENCE.md) distinguishes Rust
+fallbacks from supplied values and explains every accepted shared key,
+compatibility-only key, unit, range and editing workflow.
 
 | Setting | Supplied value | Meaning |
 | --- | --- | --- |
@@ -151,7 +162,11 @@ separate from move data and input timings.
 
 ## Directional turbo control
 
-Hold the button assigned to Built-in: Turbo t-bag (L3 by default) for fast crouching with slight facing-direction creep. Press X for a X short-hop tap (X mapped to Jump). Releasing the assigned button stops Turbo t-bag. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
+Hold the button currently assigned to Built-in: Turbo t-bag for crouching with
+slight facing creep; D-pad Down is the built-in fallback, not a guarantee about
+saved fighter choices. Use the current Short hop binding or explicit short-hop
+recipe for that input. Releasing the assigned turbo button stops the helper. Turbo runs only during supported grounded movement for the selected fighter;
+controller association, manual input and competing ownership checks still apply. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
 
 ## What each tool does
 
@@ -236,7 +251,11 @@ measurement. These observed updates are not a verified global simulation clock.
 
 Player routing follows configured physical controller → actual mapper slot →
 human fighter ownership chain. CPU fighters are excluded. Character and battle
-mode do not gate activation. Current move timings and ranges remain tuned for Kirby.
+mode do not gate activation. Fighter profiles/tuning provide character-specific facts and limits. Unsupported
+or missing identities do not silently inherit Kirby's native stats. Consult
+[Fighter settings](FIGHTER_SETTINGS.md), [Fighter execution](FIGHTER_EXECUTION.md)
+and the supported-helper guides rather than assuming every feature applies to
+every fighter.
 
 ## Read the status log before changing code
 
@@ -264,7 +283,8 @@ SD:/ultimate/kirby_assist/status.log
 | `raw controller mapper button overlay confirmed` | The raw button trace was changed before mapping. This does not prove the game accepted an action. |
 
 The first line identifies `Kirby Assist diagnostic build <version>`, using the
-Cargo package version (currently 1.5.3). The version alone cannot distinguish
+Cargo package version from the installed build. Read the current source version
+from root `Cargo.toml` rather than relying on an older number in a guide. The version alone cannot distinguish
 later edits built without a version bump; compare the intended package and
 installed artifact. Silent does not create or update this file.
 
@@ -326,6 +346,33 @@ In the diagnostic build with `tech_debug = true`, the mod queues state-change di
 
 If an airborne collision that you can tech manually still fails, provide the full log plus the stage, percent, attack, and whether Kirby was grounded or airborne when hit. Do not shorten the cooldown blindly: additional shield presses can interact with native lockouts. To stop the extra logging after testing, set `tech_debug = false` and restart.
 
+## A beginner's configuration verification checklist
+
+Before diagnosing Rust code, check the configuration layers in order:
+
+1. **Installed variant:** one plugin NRO, with the expected silent/diagnostic
+   build. An existing old log is not proof the new silent build writes logs.
+2. **Shared settings source:** `[universal.settings]` shadows `config.txt`;
+   omitted keys use Rust defaults, not the rest of an older file.
+3. **Fighter section:** the correct native fighter name, valid tuning bounds and
+   supported helper. A range estimate changes decisions, not native reach.
+4. **Current menu:** startup defaults, match ON/OFF switches and selected recipes
+   are different states. A recipe-less reaction cannot invent an attack tape.
+5. **Physical mapping:** canonical assisted buttons must map to intended game
+   actions. Tilt-facing requires the appropriate C-stick game setting.
+6. **Admission and ownership:** grounded/readiness, target evidence, native
+   progress, threat range and competing owners can correctly suppress requests.
+7. **Outcome:** distinguish proposal, mapped button, native startup and actual
+   hit/capture/tech. A log showing one does not establish the others.
+8. **Persistence:** save success must complete before restart or external file
+   replacement. A computer-side edit must not race an in-game save.
+
+For a first configuration-only edit, use
+[Settings and modes](SETTINGS_REFERENCE.md#2-make-a-first-safe-text-edit).
+For a code change, use [Development](DEVELOPMENT.md): update the typed setting,
+parser, validation, consumer, menu/save wiring and focused tests together. Do not
+add native status writes to make an input request appear successful.
+
 ## On-device acceptance checks still required
 
 First verify mash with a normal mashable grab/bury state while not physically holding A. Compare escape behavior with `auto_mash = false` and `true`, restarting for each configuration. Check the status log for both scenario detection and raw mapper button overlay.
@@ -356,13 +403,14 @@ above and remain a compatibility risk until checked on the target executable.
 
 ## Build from source
 
-Run from the project root (the folder containing the main `Cargo.toml`). The Skyline CLI and its Switch toolchain must already be configured. The default silent build command is `cargo skyline build --release`. Add `--features diagnostic-logging` for diagnostic. Use `python3 tools/build_variants.py` to build/package both separately; see [BUILD_VARIANTS.md](BUILD_VARIANTS.md).
+Run from the project root (the folder containing the main `Cargo.toml`). The Skyline CLI and its Switch toolchain must already be configured. The explicit silent build command is `cargo skyline build --release --no-default-features --features imgui-menu`. The diagnostic variant adds `diagnostic-logging` alongside `imgui-menu`; use the build-variant guide to avoid accidentally mixing features. Use `python3 tools/build_variants.py` to build/package both separately; see [BUILD_VARIANTS.md](BUILD_VARIANTS.md).
 
 ```sh
-cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
-cargo clippy --manifest-path crates/kirby_assist_core/Cargo.toml --all-targets -- -D warnings
-cargo skyline clippy
-cargo skyline build --release
+cargo test --offline --manifest-path crates/kirby_assist_core/Cargo.toml --no-fail-fast
+cargo test --offline --manifest-path crates/kirby_assist_core/Cargo.toml --all-features --no-fail-fast
+cargo clippy --offline --manifest-path crates/kirby_assist_core/Cargo.toml --all-features --all-targets
+# Only when a Switch build is deliberately requested:
+cargo skyline build --release --no-default-features --features imgui-menu
 ```
 
 The release plugin is `target/aarch64-skyline-switch/release/libkirby_assist.nro`. If the user's existing Cargo cache has permission errors, an isolated `CARGO_HOME` in a writable temporary directory can be used for these Skyline commands; changing the project source is not needed to work around that cache problem.
@@ -375,16 +423,21 @@ Use the helper so one build does not overwrite the other variant's release files
 python3 tools/build_variants.py
 ```
 
-It builds both optimized variants and produces `releases/kirby_assist-silent.zip` and `releases/kirby_assist-diagnostic.zip`, plus separate copyable folders. For one variant use `--variant silent` or `--variant diagnostic`. Both install to the same plugin path; replace rather than rename/load both. The helper checks binary logging markers and package contents and never installs to your Switch.
+It builds both optimized variants and produces `releases/kirby_assist-silent.zip` and `releases/kirby_assist-diagnostic.zip`, plus separate copyable folders. For one variant use `--variant silent` or `--variant diagnostic`. Both install to the same plugin path; replace rather than rename/load both. The default build/package workflow does not upload. The helper also has an
+explicit upload workflow for the supported all-variant selection; do not use
+that option unless deployment is intended. See [Build variants](BUILD_VARIANTS.md)
+for exact flags, sequence preservation and active-file replacement risks.
 
 See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optional isolated Cargo cache, exact logging scope, and hardware checks. The old numbered candidate ZIPs are previous builds, not the new dual-variant outputs.
 
 ## Opponent ledge observations
 
 Ledge tracking uses the existing bounded fighter observations and native option
-states. Saved sequences define all get-up responses. The separate vulnerable-hang
-/regrab assist uses the tracked opponent's actual vulnerability, not a fixed
-invulnerability timer, and takes priority over drop defense when a rule matches.
+states. Saved sequences define all get-up responses. Current ledge/regrab reactions use the tracked opponent's observed state and
+saved supported rule. Historical vulnerable-hang/regrab modes and tokens must
+not be treated as active merely because old files or docs mention them; use
+[Reaction rules](REACTION_RULES.md) and [Vulnerable ledge and regrabs](TWO_FRAME.md)
+for the current accepted/live distinction.
 The embedded [Fighter Data catalog](FIGHTER_DATA.md) is shared across fighter
 roles without match-time SD-card or network reads.
 

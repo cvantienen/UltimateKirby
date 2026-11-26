@@ -285,7 +285,8 @@ pub(crate) fn finite_positions(a: [f32; 2], b: [f32; 2]) -> bool {
 /// Gets the output result.
 pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOutput {
     crate::gameplay::ControllerOutput {
-        owned: crate::native_input::ASSIST_BUTTONS,
+        owned: crate::native_input::ASSIST_BUTTONS
+            | crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS,
         requested,
         stick: Some(stick),
         consume_trigger: false,

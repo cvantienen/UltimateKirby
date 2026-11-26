@@ -44,9 +44,17 @@ settings, ledge/button recipes, and separate assist-rule sections. `config.txt`
 is a compatibility fallback for older sequence files that do not contain
 `[universal.settings]`. External file edits take effect after restarting Smash.
 Training saves are a separate in-session path and update the live configuration
-through the serialized save worker. The exact editor controls and fields are in
+through the serialized save worker. A completed file write and consumption of its
+live result are separate stages; neither promises an atomic transaction across
+all files, runtime state, or an external editor. The exact editor controls and fields are in
 [fighter settings](FIGHTER_SETTINGS.md) and the
 [sequence syntax reference](SEQUENCE_FILES.md).
+
+Rust fallback values are not necessarily the shipped universal settings.
+For example, fallback auto-tech/DI/SDI/takeover are OFF, while the currently
+verified supplied universal source turns them ON. Universal settings take
+precedence over legacy `config.txt` as a section, and fighter overrides remain
+separate. See [the complete settings reference](SETTINGS_REFERENCE.md).
 
 ## One frame: observation to controller input
 
@@ -158,7 +166,11 @@ then arbitrates its controller recipe against current human input. A missing
 prerequisite leaves human input intact. Rule storage is fixed-size
 (`MAX_SCENARIO_RULES = 11`); a defined scenario or future playback slot is not
 by itself a wired gameplay feature. See `crates/kirby_assist_core/src/shared/observations.rs`,
-`assist.rs`, and `config.rs`.
+`policies/assist.rs`, and `config.rs`. The generic runner reads human input first.
+If human input is unavailable it returns `None` without writing; if context or
+observation is unavailable but human input exists, it writes that physical frame
+and returns `None`. Retaining adapters therefore need their own missing-input
+watchdog; `None` does not always mean no write.
 
 The live plugin also coordinates stateful features that produce their own
 controller outputs. Those outputs join the same ownership/arbitration path;
@@ -221,6 +233,39 @@ Feature-specific delays, thresholds, toggles, and supported actions belong in
 those individual guides and in the active configuration reference. Do not copy
 old values into a new overview; update the canonical feature page when behavior
 changes.
+
+## Lock scope, publication, and failure behavior
+
+A lock guard protects only the state accessed while it is held. Observation
+setup copies settings/fences, releases `STATE` for native reads, then reacquires
+it to publish. Native queries can re-enter hooks; the sequence/tick/session checks
+are necessary precisely because a mutex is not an atomic native-game snapshot.
+`FrameReads` uses callback-local interior mutation for copied facts, not a
+cross-thread lock or permanent cache.
+
+Mapper preparation updates input/menu state, refreshes the recently discovered
+fighter outside the composing lock, then composes and commits the temporary input
+overlay under `STATE`. The original native mapper runs after that guard is
+dropped. Finalization reacquires state and checks the captured publication
+(sequence, tick, object, controller and ticket) before post-map adjustments and
+receipt recording; raw physical input is restored on both current and rejected
+publication paths. A rejected post-map publication is not proof that a native
+mapper call never occurred. Restoration is explicit control flow, not a
+`ControllerRestore::Drop` rollback guarantee after a crash or invalid native ABI.
+
+Most callbacks handle poisoned locks by withholding work. `Mutex::lock()` can
+still wait for contention; this is not a wholly lock-free or nonblocking runtime.
+The diagnostic queue separately uses `try_send`, which avoids waiting for its
+writer but can drop evidence. `OnceLock<Mutex<SequenceLibrary>>` allows deliberate
+catalog replacement; do not call all startup state permanently immutable.
+
+For saves, keep ordering local and explicit: capture a save request, process
+validated persistence on the single save worker, and consume its result through
+the existing menu/library update path. Settings epochs and cancellation fences
+stop old observations from publishing over a new choice. They are not disk
+locking, crash recovery, an all-files transaction, or protection against an
+external editor writing the same file. See [sequence saves](SEQUENCE_FILES.md)
+and [workbench transfers](WORKBENCH.md) for those distinct workflows.
 
 ## Timing and reset model
 

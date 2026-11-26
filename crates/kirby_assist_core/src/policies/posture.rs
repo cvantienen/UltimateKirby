@@ -70,6 +70,16 @@ impl TiltSideAliases {
         Self { previous: None }
     }
 
+    pub fn apply_vertical(&mut self, mut trace: ButtonTrace) -> ButtonTrace {
+        let side = MAPPER_RIGHT_STICK_LEFT | MAPPER_RIGHT_STICK_RIGHT;
+        trace.held &= !side;
+        trace.previous &= !side;
+        trace.pressed &= !side;
+        trace.released &= !side;
+        self.previous = None;
+        trace
+    }
+
     /// Applies the supplied configuration or action.
     pub fn apply(&mut self, mut trace: ButtonTrace, direction: Option<f32>) -> ButtonTrace {
         let current = direction.map(|x| {
@@ -98,18 +108,7 @@ impl TiltSideAliases {
 
 /// Runtime Smash data carried by `Posture`.
 #[derive(Default)]
-pub struct Posture {
-    up_turn: Option<UpTurn>,
-    up_spent: bool,
-}
-
-struct UpTurn {
-    toward: f32,
-    polls: u8,
-    last_tick: i64,
-}
-
-const UP_TURN_LIMIT: u8 = 8;
+pub struct Posture;
 impl Posture {
     /// Determines whether the `opponent_near` condition holds.
     pub fn opponent_near(offset: Option<[f32; 2]>) -> bool {
@@ -163,7 +162,7 @@ impl Posture {
         c: ManualContext,
     ) -> Option<([f32; 2], [f32; 2])> {
         if !Self::needs_configured_target(c.status, c.situation, c.stopped)
-            || !left.iter().all(|v| v.is_finite() && v.abs() <= 0.2)
+            || !left.iter().all(|v| v.is_finite())
             || !right.iter().all(|v| v.is_finite())
             || !c.facing.is_finite()
             || c.facing.abs() < 0.5
@@ -172,203 +171,17 @@ impl Posture {
             return None;
         }
         let toward = target.filter(|v| v.is_finite() && v.abs() > 0.5)?.signum();
-        let x = if c.facing * toward < 0.0 {
-            toward * 0.8
-        } else {
-            0.0
-        };
+        let x = toward * 0.2;
         if settings.up && right[1] > 0.5 && right[1].abs() > right[0].abs() {
-            // Reversal is handled by sample_manual_up_turn, never by combining
-            // a horizontal left stick with a live tilt-stick attack.
-            Some(([0.0, 0.0], [0.0, 1.0]))
+            Some((left, [x, 0.8]))
         } else if settings.down && right[1] < -0.5 && right[1].abs() > right[0].abs() {
-            Some(([x, 0.0], [x, -1.0]))
+            Some((left, [x, -0.8]))
         } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
-            Some(([x, 0.0], [toward, 0.0]))
+            Some((left, [toward * right[0].abs(), right[1]]))
         } else {
             None
         }
     }
-    /// Aims an A-button tilt without changing its requested tilt direction or adding frames.
-    fn configured_a_tilt(
-        settings: TiltSettings,
-        buttons: u32,
-        stick: [f32; 2],
-        target: Option<f32>,
-        c: ManualContext,
-    ) -> Option<[f32; 2]> {
-        if !Self::needs_configured_target(c.status, c.situation, c.stopped)
-            || buttons & MAPPER_A == 0
-            || !stick.iter().all(|v| v.is_finite())
-            || !c.facing.is_finite()
-            || c.facing.abs() < 0.5
-        {
-            return None;
-        }
-        let toward = target.filter(|v| v.is_finite() && v.abs() > 0.5)?.signum();
-        let x = if c.facing * toward < 0.0 {
-            toward * 0.8
-        } else {
-            0.0
-        };
-        if settings.down && stick[1] < -0.5 && stick[1].abs() > stick[0].abs() {
-            Some([x, -1.0])
-        } else if settings.up && stick[1] > 0.5 && stick[1].abs() > stick[0].abs() {
-            Some([0.0, 0.6])
-        } else if settings.forward && stick[0].abs() > 0.5 && stick[0].abs() > stick[1].abs() {
-            Some([toward * 0.6, 0.0])
-        } else {
-            None
-        }
-    }
-    /// Drop a pending Up Tilt when another owner wins arbitration. The held
-    /// physical A can pass through to that owner; never deliver a deferred A.
-    pub fn cancel_up_turn(&mut self) {
-        self.up_spent |= self.up_turn.is_some();
-        self.up_turn = None;
-    }
-
-    /// Share the turn-before-attack handshake between manual A+Up and tilt stick.
-    /// Never call this with authored sequence input.
-    pub fn sample_manual_up_turn(
-        &mut self,
-        tick: i64,
-        enabled: bool,
-        settings: TiltSettings,
-        physical_a: bool,
-        buttons: u32,
-        left: [f32; 2],
-        right: [f32; 2],
-        target: Option<f32>,
-        c: ManualContext,
-    ) -> Option<ControllerOutput> {
-        let stick_up = right.iter().all(|v| v.is_finite())
-            && right[1] > 0.5
-            && right[1] > right[0].abs()
-            && left.iter().all(|v| v.is_finite() && v.abs() <= 0.2);
-        let mut output = self.sample_up_turn(
-            tick,
-            enabled,
-            settings,
-            physical_a || stick_up,
-            if stick_up {
-                (buttons & !RIGHT_STICK_DIRECTIONS) | MAPPER_A
-            } else {
-                buttons
-            },
-            if stick_up { [0.0, 1.0] } else { left },
-            target,
-            c,
-        )?;
-        // Digital aliases can trigger Tilt Attack even when its axes are zero.
-        output.owned |= RIGHT_STICK_DIRECTIONS;
-        Some(output)
-    }
-
-    /// A physical A/Up intent is held only while native facing turns. Once
-    /// facing confirms, deliver one A edge with a gentle Up stick, then wait
-    /// for physical A release before accepting another intent.
-    pub fn sample_up_turn(
-        &mut self,
-        tick: i64,
-        enabled: bool,
-        settings: TiltSettings,
-        physical_a: bool,
-        buttons: u32,
-        stick: [f32; 2],
-        target: Option<f32>,
-        c: ManualContext,
-    ) -> Option<ControllerOutput> {
-        if !physical_a || !enabled || !settings.up {
-            self.up_turn = None;
-            self.up_spent = false;
-            return None;
-        }
-        if self.up_spent {
-            return Some(ControllerOutput {
-                owned: MAPPER_A,
-                ..ControllerOutput::default()
-            });
-        }
-        if !Self::needs_target(c.status, c.situation, c.stopped)
-            || !stick.iter().all(|v| v.is_finite())
-            || stick[1] <= 0.5
-            || stick[1] <= stick[0].abs()
-            || buttons & MAPPER_A == 0
-            || buttons & !(MAPPER_A | LEFT_STICK_DIRECTIONS) != 0
-            || !c.facing.is_finite()
-            || c.facing.abs() < 0.5
-        {
-            let pending = self.up_turn.is_some();
-            self.cancel_up_turn();
-            return pending.then_some(ControllerOutput {
-                owned: MAPPER_A,
-                ..ControllerOutput::default()
-            });
-        }
-        let Some(toward) = target
-            .filter(|v| v.is_finite() && v.abs() > 0.5)
-            .map(f32::signum)
-        else {
-            let pending = self.up_turn.is_some();
-            self.cancel_up_turn();
-            return pending.then_some(ControllerOutput {
-                owned: MAPPER_A,
-                ..ControllerOutput::default()
-            });
-        };
-        let Some(turn) = self.up_turn.as_mut() else {
-            if c.facing * toward >= 0.0 {
-                return None;
-            }
-            self.up_turn = Some(UpTurn {
-                toward,
-                polls: 0,
-                last_tick: tick,
-            });
-            return Some(ControllerOutput {
-                owned: MAPPER_A,
-                stick: Some([toward * 0.8, 0.0]),
-                ..ControllerOutput::default()
-            });
-        };
-        if tick < turn.last_tick || turn.toward != toward || turn.polls >= UP_TURN_LIMIT {
-            self.up_turn = None;
-            self.up_spent = true;
-            return Some(ControllerOutput {
-                owned: MAPPER_A,
-                ..ControllerOutput::default()
-            });
-        }
-        if tick != turn.last_tick {
-            turn.last_tick = tick;
-            turn.polls += 1;
-        }
-        if turn.polls >= UP_TURN_LIMIT {
-            self.up_turn = None;
-            self.up_spent = true;
-            return Some(ControllerOutput {
-                owned: MAPPER_A,
-                ..ControllerOutput::default()
-            });
-        }
-        if c.facing * toward < 0.0 {
-            return Some(ControllerOutput {
-                owned: MAPPER_A,
-                stick: Some([toward * 0.8, 0.0]),
-                ..ControllerOutput::default()
-            });
-        }
-        self.up_turn = None;
-        self.up_spent = true;
-        Some(ControllerOutput {
-            owned: MAPPER_A,
-            requested: MAPPER_A,
-            stick: Some([0.0, 0.6]),
-            ..ControllerOutput::default()
-        })
-    }
-
     /// Samples the configured.
     pub fn sample_configured(
         &mut self,
@@ -383,12 +196,6 @@ impl Posture {
         c: ManualContext,
     ) -> ControllerOutput {
         if enabled && turn {
-            if let Some(left) = Self::configured_a_tilt(settings, buttons, stick, target, c) {
-                return ControllerOutput {
-                    stick: Some(left),
-                    ..ControllerOutput::default()
-                };
-            }
             if let Some((left, _)) =
                 Self::configured_c_stick(settings, buttons, stick, right, target, c)
             {
@@ -422,22 +229,6 @@ impl Posture {
     pub fn down_tilt_intent(buttons: u32, left: [f32; 2], right: [f32; 2]) -> bool {
         left[1] < -0.5 || Self::down_c_stick(buttons, right)
     }
-    /// Only the winning grounded facing helper may apply this. Down remains
-    /// the dominant C-stick axis; no attack button or fresh edge is generated.
-    pub fn aimed_c_stick(
-        buttons: u32,
-        right: [f32; 2],
-        prepared: Option<[f32; 2]>,
-    ) -> Option<[f32; 2]> {
-        // Do not turn a stale digital alias into a new physical stick stroke.
-        (Self::down_c_stick(buttons, right)
-            && right.iter().all(|v| v.is_finite())
-            && right[1] < -0.5)
-            .then_some(())?;
-        prepared
-            .filter(|s| s.iter().all(|v| v.is_finite()) && s[1] < -0.5)
-            .map(|s| [s[0], -1.0])
-    }
     /// Updates the toggle state from the current button sample and match state.
     pub fn sample(
         &mut self,
@@ -463,7 +254,6 @@ impl Posture {
         target: Option<f32>,
         c: ManualContext,
     ) -> ControllerOutput {
-        let c_down = Self::down_c_stick(buttons, right);
         let locomotion = matches!(c.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV);
         if !enabled || c.situation != crate::native_states::situation::GROUND
             || !(locomotion || c.status == crate::native_states::status::ATTACK_LW3) // Current down tilt may buffer the next.
@@ -472,38 +262,10 @@ impl Posture {
         {
             return ControllerOutput::default();
         }
-        // A held directional tilt may be buffered during its hitstop. Releasing
-        // its angle there lets buffered A select the old facing. This is only
-        // stick preparation; no attack edge or timer is generated while stopped.
-        if turn
-            && Self::needs_target(c.status, c.situation, c.stopped)
-            && Self::down_tilt_intent(buttons, stick, right)
-            && (c_down || right.iter().all(|v| v.is_finite() && v.abs() <= 0.2))
-            && buttons
-                & !(DTILT_INPUTS
-                    | MAPPER_L
-                    | LEFT_STICK_DIRECTIONS
-                    | if c_down { RIGHT_STICK_DIRECTIONS } else { 0 })
-                == 0
-        {
-            if let Some(toward) = target.filter(|v| v.is_finite() && v.abs() > 0.5) {
-                // Keep Down fully held. Angle toward the enemy only when a
-                // reversal is needed; never stand/walk first or manufacture A.
-                // Prepare the angle BEFORE A is pressed, including while
-                // crouching. Waiting for A can let native command buffering
-                // select the old facing before the turnaround is established.
-                // Re-evaluate during recovery so mashed inputs aim the next tilt.
-                let x = if c.facing * toward < 0.0 {
-                    toward.signum() * 0.8
-                } else {
-                    0.0
-                };
-                return ControllerOutput {
-                    // ManualOverlay owns stick axes itself. Do not mark this
-                    // as walking: that suppresses the horizontal reversal flick.
-                    stick: Some([x, -1.0]),
-                    ..ControllerOutput::default()
-                };
+        if turn {
+            let settings = TiltSettings { down: true, ..TiltSettings::default() };
+            if let Some((left, _)) = Self::configured_c_stick(settings, buttons, stick, right, target, c) {
+                return ControllerOutput { stick: Some(left), ..ControllerOutput::default() };
             }
         }
         // Hold through crouch animation loops; no animation timer can release it.
@@ -525,324 +287,5 @@ impl Posture {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::native_states::{situation, status};
-
-    fn grounded(facing: f32) -> ManualContext {
-        ManualContext {
-            status: status::WAIT,
-            situation: situation::GROUND,
-            motion: 0,
-            frame: 0.0,
-            rate: 1.0,
-            stopped: false,
-            facing,
-        }
-    }
-
-    #[test]
-    fn configured_forward_a_tilt_aims_without_a_smash_flick() {
-        let settings = TiltSettings {
-            forward: true,
-            ..TiltSettings::default()
-        };
-        let mut posture = Posture::default();
-        let output = posture.sample_configured(
-            true,
-            false,
-            true,
-            settings,
-            MAPPER_A,
-            [-1.0, 0.0],
-            [0.0; 2],
-            Some(1.0),
-            grounded(-1.0),
-        );
-        assert_eq!(output.stick, Some([0.6, 0.0]));
-        assert_eq!(output.requested, 0);
-        let reverse = posture.sample_configured(
-            true,
-            false,
-            true,
-            settings,
-            MAPPER_A,
-            [1.0, 0.0],
-            [0.0; 2],
-            Some(-1.0),
-            grounded(1.0),
-        );
-        assert_eq!(reverse.stick, Some([-0.6, 0.0]));
-    }
-
-    #[test]
-    fn configured_up_a_tilt_and_down_c_stick_keep_their_attack_directions() {
-        let mut posture = Posture::default();
-        let up = TiltSettings {
-            up: true,
-            ..TiltSettings::default()
-        };
-        for (facing, target, physical) in [
-            (1.0, -1.0, [0.0, 1.0]),
-            (-1.0, 1.0, [0.4, 0.9]),
-            (1.0, 1.0, [0.0, 1.0]),
-        ] {
-            let output = posture.sample_configured(
-                true,
-                false,
-                true,
-                up,
-                MAPPER_A,
-                physical,
-                [0.0; 2],
-                Some(target),
-                grounded(facing),
-            );
-            assert_eq!(output.stick, Some([0.0, 0.6]));
-            assert_eq!(output.requested, 0);
-        }
-        let down = TiltSettings {
-            down: true,
-            ..TiltSettings::default()
-        };
-        assert_eq!(
-            Posture::configured_c_stick(down, 0, [0.0; 2], [0.0, -1.0], Some(-1.0), grounded(1.0),),
-            Some(([-0.8, 0.0], [-0.8, -1.0]))
-        );
-    }
-
-    #[test]
-    fn up_turn_suppresses_a_until_native_facing_and_emits_one_edge() {
-        use crate::native_input::{
-            mapped_posture_attack, MapperButtonOverlay, MAPPED_ATTACK_HOLD_BITS,
-        };
-        let mut posture = Posture::default();
-        let mut mapper = MapperButtonOverlay::default();
-        let settings = TiltSettings {
-            up: true,
-            ..Default::default()
-        };
-        let physical = ButtonTrace {
-            held: MAPPER_A,
-            pressed: MAPPER_A,
-            ..Default::default()
-        };
-        let first = posture
-            .sample_up_turn(
-                1,
-                true,
-                settings,
-                true,
-                MAPPER_A,
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(1.0),
-            )
-            .unwrap();
-        assert_eq!(first.stick, Some([-0.8, 0.0]));
-        assert_eq!((first.owned, first.requested), (MAPPER_A, 0));
-        let raw = mapper.apply_raw(physical, first.requested, first.owned);
-        assert_eq!((raw.held & MAPPER_A, raw.pressed & MAPPER_A), (0, 0));
-        assert_eq!(
-            mapped_posture_attack(MAPPED_ATTACK_HOLD_BITS, false) & MAPPED_ATTACK_HOLD_BITS,
-            0
-        );
-        let waiting = posture
-            .sample_up_turn(
-                2,
-                true,
-                settings,
-                true,
-                MAPPER_A,
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(1.0),
-            )
-            .unwrap();
-        assert_eq!(waiting.requested, 0);
-        let confirmed = posture
-            .sample_up_turn(
-                3,
-                true,
-                settings,
-                true,
-                MAPPER_A,
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(-1.0),
-            )
-            .unwrap();
-        assert_eq!(confirmed.stick, Some([0.0, 0.6]));
-        assert_eq!((confirmed.owned, confirmed.requested), (MAPPER_A, MAPPER_A));
-        let raw = mapper.apply_raw(physical, confirmed.requested, confirmed.owned);
-        assert_eq!(
-            (raw.held & MAPPER_A, raw.pressed & MAPPER_A),
-            (MAPPER_A, MAPPER_A)
-        );
-        assert_eq!(
-            mapped_posture_attack(0, true) & MAPPED_ATTACK_HOLD_BITS,
-            MAPPED_ATTACK_HOLD_BITS
-        );
-        let spent = posture
-            .sample_up_turn(
-                4,
-                true,
-                settings,
-                true,
-                MAPPER_A,
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(-1.0),
-            )
-            .unwrap();
-        assert_eq!((spent.owned, spent.requested), (MAPPER_A, 0));
-        assert_eq!(
-            mapper
-                .apply_raw(physical, spent.requested, spent.owned)
-                .released
-                & MAPPER_A,
-            MAPPER_A
-        );
-        assert_eq!(
-            posture.sample_up_turn(
-                5,
-                true,
-                settings,
-                false,
-                0,
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(-1.0)
-            ),
-            None
-        );
-        assert_eq!(
-            posture
-                .sample_up_turn(
-                    6,
-                    true,
-                    settings,
-                    true,
-                    MAPPER_A,
-                    [0.0, 1.0],
-                    Some(1.0),
-                    grounded(-1.0)
-                )
-                .unwrap()
-                .requested,
-            0
-        );
-    }
-
-    #[test]
-    fn up_turn_cancels_on_owner_loss_target_change_and_timeout() {
-        let settings = TiltSettings {
-            up: true,
-            ..Default::default()
-        };
-        let mut posture = Posture::default();
-        let start = |p: &mut Posture, tick, target| {
-            p.sample_up_turn(
-                tick,
-                true,
-                settings,
-                true,
-                MAPPER_A,
-                [0.0, 1.0],
-                Some(target),
-                grounded(1.0),
-            )
-            .unwrap()
-        };
-        assert_eq!(start(&mut posture, 1, -1.0).requested, 0);
-        assert_eq!(
-            posture.sample_up_turn(2, false, settings, true, MAPPER_A, [0.0, 1.0], Some(-1.0), grounded(1.0)),
-            None
-        );
-        assert_eq!(start(&mut posture, 3, -1.0).stick, Some([-0.8, 0.0]));
-        posture.cancel_up_turn();
-        assert_eq!(
-            (
-                start(&mut posture, 2, -1.0).owned,
-                start(&mut posture, 3, -1.0).requested
-            ),
-            (MAPPER_A, 0)
-        );
-        posture.sample_up_turn(
-            4,
-            true,
-            settings,
-            false,
-            0,
-            [0.0, 1.0],
-            Some(-1.0),
-            grounded(1.0),
-        );
-        start(&mut posture, 5, -1.0);
-        assert_eq!(start(&mut posture, 6, 1.0).requested, 0);
-        posture.sample_up_turn(
-            7,
-            true,
-            settings,
-            false,
-            0,
-            [0.0, 1.0],
-            Some(-1.0),
-            grounded(1.0),
-        );
-        start(&mut posture, 8, -1.0);
-        for tick in 9..8 + i64::from(UP_TURN_LIMIT) {
-            assert_eq!(start(&mut posture, tick, -1.0).requested, 0);
-        }
-        assert_eq!(
-            start(&mut posture, 8 + i64::from(UP_TURN_LIMIT), -1.0).stick,
-            None
-        );
-        assert_eq!(
-            posture
-                .sample_up_turn(
-                    20,
-                    true,
-                    settings,
-                    true,
-                    MAPPER_A,
-                    [0.0, 1.0],
-                    Some(-1.0),
-                    grounded(-1.0)
-                )
-                .unwrap()
-                .requested,
-            0
-        );
-    }
-
-    #[test]
-    fn configured_up_c_stick_never_combines_attack_with_sideways_turn() {
-        let settings = TiltSettings {
-            up: true,
-            ..TiltSettings::default()
-        };
-        assert_eq!(
-            Posture::configured_c_stick(
-                settings,
-                0,
-                [0.0; 2],
-                [0.0, 1.0],
-                Some(-1.0),
-                grounded(1.0),
-            ),
-            Some(([0.0, 0.0], [0.0, 1.0]))
-        );
-        assert_eq!(
-            Posture::configured_c_stick(
-                settings,
-                0,
-                [0.0; 2],
-                [0.0, 1.0],
-                Some(1.0),
-                grounded(1.0),
-            ),
-            Some(([0.0, 0.0], [0.0, 1.0]))
-        );
-    }
-}
+#[path = "../../tests/unit/policy_posture.rs"]
+mod tests;

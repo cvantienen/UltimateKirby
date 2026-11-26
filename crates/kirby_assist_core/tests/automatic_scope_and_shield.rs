@@ -202,12 +202,8 @@ fn ledge_suspension_and_capture_links_disable_all_search_and_follow() {
             2,
         ),
     ] {
-        assert!(
-            !Scope::new(true, status, air, false, false, true, true).observe_targets()
-        );
-        assert!(
-            !Scope::new(false, status, air, false, true, true, true).observe_targets()
-        );
+        assert!(!Scope::new(true, status, air, false, false, true, true).observe_targets());
+        assert!(!Scope::new(false, status, air, false, true, true, true).observe_targets());
     }
     let spin = Scope::new(
         false,
@@ -454,7 +450,7 @@ fn captured_or_throwing_targets_cancel_punishes_but_grab_attempts_remain_defenda
 }
 #[test]
 fn suspension_keeps_only_a_bounded_inert_grab_receipt() {
-    let seq=Catalog::parse("[bowser.roll.test]\nstart_delay=0\ntimeout=180\nreaction=auto_grab:35:24\nactions=input:r:0:0:4,up_b:4\n").unwrap().entries()[0].sequence;
+    let seq=Catalog::parse("[bowser.roll.test]\nstart_delay=0\ntimeout=180\nreaction=auto_shield_grab:35:24\nactions=input:r:0:0:4,up_b:4\n").unwrap().entries()[0].sequence;
     let mut response = Response::new();
     let target = enemy(0., kirby_assist_core::native_states::GUARD);
     assert!(response.start_sequence(seq, own(0., 0), target));

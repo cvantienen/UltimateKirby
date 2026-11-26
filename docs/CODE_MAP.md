@@ -29,8 +29,11 @@ Core layout: `shared/` (controller, observation, native-input, timing and surviv
 contracts), `fighters/` (reference data, profiles, native states, fighter-specific
 rules), `policies/` (ledge, out-of-shield, reaction and other assistance policies),
 plus `config.rs`, `sequence_config.rs`, `settings_menu.rs`, `manual_controls.rs`,
-`runtime.rs`, `live_input.rs` and `diagnostics.rs`. Small helper modules are inline
-in their parent file; `lib.rs` re-exports every module at its original crate-root path.
+`runtime.rs`, `live_input.rs` and `diagnostics.rs`. Small helper modules may be inline
+in their parent file; `lib.rs` preserves selected compatibility re-exports.
+Recovery-punish logic now lives in `policies/option_read.rs`, with compatible
+`config::option_read` and root `option_read` imports. Re-exporting names does not
+copy a policy or create another instance.
 
 The Switch plugin keeps live adapters flat in `src/live/`, with menu rendering
 and persistence in `src/live/settings_menu/`, and diagnostic-only recording,
@@ -53,15 +56,15 @@ timing, menu text caching and health counters are grouped with their parents.
 | `src/live/tech.rs` / `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Native observations and adapters for collision-timed tech, Kirby follow-ups, and reflection. `tech.rs` supplies the bounded contact forecast; core `shared/survival/tech_input.rs` schedules acknowledged Guard delivery. |
 | `src/live/attack_sources.rs` | Skyline attack-callback hook over the portable `projectile_reflect::Sources` tracker, for ledge defense and projectile reflection. |
 | `src/game_ffi.rs` | Native Smash function declarations and ABI boundary. |
-| `src/diagnostics.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. |
+| Inline `diagnostics` module in `src/lib.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. `performance/health.rs` owns health counters; `performance.rs` exposes `performance::health`. |
 | `crates/kirby_assist_core/src/lib.rs` | Portable core modules and compatibility re-exports. |
 | Core `config.rs`, `live_input.rs` (also holds `LiveConfig`), and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
 | Core `settings_menu.rs` and `settings_menu/` | Portable menu state, choice navigation (`input.rs` input state machine, `panel.rs` recipe panel), recipe editor, commands, and presentation. |
 | Core `shared/controller.rs` / `shared/native_input.rs` | Logical controller actions, ownership, arbitration, and native-independent button translations. |
 | Core `shared/observations.rs` / `shared/timing.rs` / `shared/survival/` | Copied gameplay facts, timing contracts, and reusable survival policies. |
-| Core `fighters.rs` and `fighters/` | Fighter catalog, profile/tuning data, native status tables, and fighter-specific policies. |
+| Inline core `fighters` module in `lib.rs` and `fighters/` | Fighter catalog, profile/tuning data, native status tables, and fighter-specific policies. |
 | Core `fighters/native_states/fighter_status.rs` | Fighter-specific native status IDs; classification uses the verified per-fighter tables in `native_states/kind_statuses.rs`. |
-| Core `policies.rs` and `policies/` | Assist policies, including ledge, reaction, out-of-shield, posture, dodge, and defense. |
+| Inline core `policies` module in `lib.rs` and `policies/` | Assist policies, including ledge, reaction, out-of-shield, posture, dodge, and defense; recovery punish uses the compatible `option_read` path. |
 | Core `policies/ledge_trap.rs` / `policies/ledge_trap/` | Ledge response selection, visit ownership, native-progress clocks, and file-authored timeline execution. |
 | Core `policies/out_of_shield.rs` / `policies/out_of_shield/` | Out-of-shield target validation, grab response, and shield Up-B fallback. |
 | Core `policies/autopilot_guard.rs` | Shared hitbox shape, incoming-attack envelope, and held-shield timing. |
@@ -117,7 +120,19 @@ and [assist rules](REACTION_RULES.md).
 
 ## Validation
 
-Run the portable core tests for policy and editor changes:
+The canonical Rust language/API walkthrough and worked extension live in
+`crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`; the
+[development workflow](DEVELOPMENT.md#beginner-guide-follow-the-code-before-changing-it)
+connects that tutorial to native wiring.
+
+Start with a library filter or named integration target rather than the full suite:
+
+```sh
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --lib runtime::tests
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline --test shared_observations
+```
+
+For a broader authorized core check:
 
 ```sh
 cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline

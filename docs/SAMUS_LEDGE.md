@@ -1,131 +1,54 @@
-# Samus ledge responses
+# Samus and Dark Samus: author tether and projectile inputs
 
-Current Samus and Dark Samus [chart-based files](FIGHTER_EXECUTION.md#chart-based-roster-configurations)
-select down tilt for normal getup, Nair for jump, a prepositioned range-checked
-grab for roll, shield into Up-B for getup attack, and shield for drop. Missiles
-and Zairs remain spacing alternatives requiring calibration. Shield Zair uses
-a neutral hop and an instant airborne check before R; it does not become a
-ground grab if takeoff fails. The historical forecasts below are not active
-text-file scheduling.
+Samus (`samus`, kind 3) and Dark Samus (`dark_samus`, kind 4) are separate
+profiles, settings and catalogs. They may contain similar recipes, but there is
+no runtime alias borrowing the other form's choices. Inspect each current
+snapshot before copying a script.
 
-> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+## Tether safety
 
+A ground R requests an ordinary grab; a tether recipe must actually hop and
+verify airborne state before R if failed takeoff must not become a ground grab.
+The supplied action table shows whether that check exists. Native zair motion,
+active spans and root geometry remain read-only references; the file does not
+inherit old AIR_LASSO acceptance loops or twelve-frame ownership schedules.
+Author explicit holds/releases and calibrate takeoff/input acceptance.
 
-These are compiled Samus functions, selected through the existing battle menu.
-Hold L to use the saved responses. No fighter files load during the match.
+## Missiles and Bomb
 
-| Row | Available responses | Default |
-| --- | --- | --- |
-| Neutral | Nair, Down tilt, Forward tilt, Short-hop zair, Homing missile, Super missile, Cannon f-smash | Down tilt |
-| Jump | Nair, Short-hop zair, Flame fair, Up air, Homing missile, Super missile | Nair |
-| Roll | Down smash, Grab, Move → zair, Homing (stay back), Super (stay back) | Grab |
-| Attack | Shield → nair, Grab / rear nair, Shield → Up-B, Shield → zair, Shield → fair, Shield → up air | Shield → Up-B |
-| Drop | Shield, Down tilt → shield, Immediate down-B, Short-hop zair, Homing missile, Super missile, Flame fair (stay back) | Immediate down-B |
+Homing/Super missile selection depends on actual directional B input and native
+state, not the saved name. Side-B strength, neutral primers and facing waits
+must be written explicitly. No hidden travel simulation predicts an arrival
+frame. Ground missiles can miss jumps/drops or be shielded/reflected; projectile
+limits, travel and stage geometry remain native.
 
-## Ranged coverage and extra aerials
+Bomb input requests Down+B, not an immediate explosion. Generation/fuse/collision
+are native properties and are not shortened by start_delay. A Drop or Roll row
+alone adds neither automatic chase nor recovery. Read the action column rather
+than historical compiled startup/release descriptions.
 
-Missiles are selectable in Neutral, Jump, Roll and Drop. Each starts one grounded
-side-B attempt at the first actionable opportunity after recognizing that option,
-aimed toward the opponent. Homing pairs **0.70 horizontal stick+B immediately**,
-including when facing away: it has no neutral primer, separate turn wait or
-vulnerability countdown gate. This replaces the shallow 0.45 input that could
-select Charge Shot. Super Missile keeps its separate turn and neutral primer
-before a full flick+B. The bounded native
-input path holds B with its direction through delivery and releases on generic
-side-special or the corresponding Samus grounded missile startup. It then hands
-control back, including on a whiff. Release/re-hold L to start a new attempt.
-Target loss after commitment doesn't drop the paired input. These options do
-not approach the roll endpoint, jump after the projectile, or fire a barrage.
+## Configure, save and expand
 
-Missile startup is **18** for homing and **21** for Super. Those values do not
-include flight time. Super Missile initially stalls before accelerating, and
-homing trajectories depend on the target. These choices therefore fire early
-for area denial rather than inventing a distance/speed calculation and promising
-a frame-perfect hit. No weapon scan, travel simulation, homing edits or new
-opponent search is added. The label `~ranged / travel` also appears in Roll,
-because these two roll choices remain stationary rather than chase.
+Read the current generated reference for [Samus](fighters/samus.md) and [Dark Samus](fighters/dark_samus.md). Its tables are repository
+snapshots, not your installed file or unsaved Training draft. Follow
+[the full configuration walkthrough](FIGHTER_CONFIGS.md) to choose/edit the exact
+fighter row, set explicit start delay/actions, save with Y alone and wait for
+success. External file edits require restart; current mode activation is separate
+from saved startup preference. Use [all 83 tuning keys](FIGHTER_SETTINGS.md) for
+valid ranges, units, menu visibility and active/legacy effects.
 
-Use missiles for distant pressure, zair for extended horizontal tether coverage,
-and nair for nearby melee coverage. Nair does not gain projectile range. Ground
-missiles can pass below jumps or above dropped opponents; stage geometry and
-projectile limits still apply. A reactive missile from far away can arrive after
-the opponent can shield, evade or reflect it. Existing tracking settings still
-apply if distance-agnostic tracking is disabled.
+New choices should reuse existing input primitives under the exact profile prefix.
+New native behavior requires an explicitly reviewed shared adapter; profile
+registration or extra sliders alone cannot implement it. Keep all assistance
+input-only. [Rust extension contracts](FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain the stable schema, exact-kind validation and focused tests.
 
-New jump choices use fair's first hit **6–7** or up-air's first hit **5**, with the
-existing adaptive hop policy. Shield versions wait for a witnessed block and
-shieldstun ending, using the profile's shield hop policy. Later multihits continue
-naturally but their inactive gaps aren't counted as continuous coverage. Drop
-fair immediately short-hops without post-acceptance forward drift; it doesn't
-chase below the ledge. Neutral forward-smash uses **10–11**, a facing correction
-and the existing flick primer/release-on-startup path. Existing defaults and
-choice indices remain unchanged.
+## Verify the intended outcome
 
-## Zair delivery and timing
-
-The canonical [Fighter Data catalog](FIGHTER_DATA.md) lists Samus's zair active on
-animation frames **8–15**, then **16–19**. Those are twelve consecutive animation
-frames across two phases with different hitbox geometry; a single point is not
-necessarily covered for all twelve.
-
-Neutral, Jump and Roll scheduling aims protection expiry near the middle of
-that span: nominally **five frames after the first active frame**, leaving six
-later frames. The forecast uses no learned live input-delay compensation and a four-frame
-takeoff/delivery allowance. Actual native acceptance, spacing and height can
-shift contact. Unknown protection/recovery timing does not become a guessed hit.
-
-The input sequence is X first, release X during observed jump squat, then R
-only after airborne state is observed. Grounded X+R is deliberately avoided.
-Airborne R stays held through native delivery until **AIR_LASSO (0xF8)** confirms
-zair, with a bounded native-progress timeout. Input-delay learning recognizes
-that status rather than expecting a ground grab. No extra air jump is issued.
-
-After acceptance, R releases and neutral drift remains through native frame 19
-without fast fall. Landing, damage, unexpected tether/recovery states, expiry
-or releasing L ends ownership. One attempt finishes with manual control; it
-does not chase a whiff, force recovery or extend the game's active frames.
-
-Shield → zair waits for a witnessed block and shieldstun ending. It requires
-the opponent in front; it keeps shielding when facing backward. Drop → zair
-starts immediately after a witnessed drop, with a bounded grounded turn if
-needed. It is horizontal coverage and can miss an opponent already too low.
-
-Roll → zair uses the existing locked roll endpoint and braking, with a compiled
-12-world-unit standoff from that endpoint. That offset is a coverage preset,
-not a universal measured hitbox distance. It faces the destination and does not
-chase the opponent's moving roll root.
-
-## Roll grab and drop Bomb
-
-Samus standing grab is active on **15–22**; dash grab **17–24**; pivot grab
-**18–25**. Roll → Grab approaches the committed roll point, releases movement,
-faces the opponent and schedules protection expiry roughly three frames into
-the real eight-frame grab window. Native capture immediately returns control
-for your pummels and throws.
-
-Drop → down-B requests down+B at the first native actionable opportunity after
-recognizing the drop. There is no facing, reach, vulnerability or explosion
-prediction gate. It preserves paired down+B through the existing bounded input
-delivery path, then hands back on generic down-special or Samus ground/air
-Bomb startup (**0x1DF / 0x1E6 / 0x1E7**).
-
-Bomb is generated on frame **11**, its collision begins on frame **33**, and its
-explosion timing depends on contact or the fuse. Immediate input cannot make
-that delayed attack hit immediately. Weapon lifetime and move properties are
-unchanged.
-
-## Verification limits
-
-Frame values were checked against Ultimate Frame Data and native status IDs
-against the pinned skyline-smash bindings. Regression source covers catalog
-dispatch, neutral/jump/drop/shield zair inputs, target-loss continuation,
-hitstop, full active-window ownership, roll destinations, Bomb startup and grab
-handoff. No Rust tests, build, upload or Switch match testing ran for this edit.
-Additional source fixtures cover distant missile dispatch in both directions,
-all four missile rows, immediate homing input versus Super neutral priming,
-target loss, frozen native clocks, and
-release/manual handback on missile startup. Formatting and static registration
-checks are separate from execution; missile type selection and actual contact
-still require device validation.
-Spacing, opponent DI and online timing still need device validation; these
-responses do not guarantee a punish.
+Check label versus actual action, facing on both sides, grounded/airborne state,
+resource setup, emitted press/release and native acceptance separately. Move-frame
+facts are [canonical reference data](FIGHTER_DATA.md), not timing commands.
+Then [calibrate](FIGHTER_EXECUTION.md) from repeatable positions, including
+hitstop, target loss, interruption and online play. No asset table or host check
+proves contact, safety or optimal timing. This documentation update does not
+build/upload to Switch, alter canonical assets or change executable Rust.

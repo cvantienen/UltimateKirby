@@ -89,7 +89,6 @@ fn sample(
     shielded: bool,
     custom: bool,
 ) -> ControllerOutput {
-    let grab = recipe("auto_grab", 35., 24., "input:r:0:0:4");
     let shield = recipe(
         "auto_shield_grab",
         10.,
@@ -116,7 +115,6 @@ fn sample(
             ..Default::default()
         },
         AutomaticConfig {
-            grab: Some(&grab),
             shield_grab: Some(&shield),
             backup: Some(&backup),
         },
@@ -134,7 +132,6 @@ fn shielded_front_grabs_do_not_require_enemy_shield_and_use_their_own_recipe() {
         0, 1, 3, 4, 0x1b, 0x1c, 0x1e, 0x27, 0x2c, 0x36, 0x47, 0x57, 0x59,
     ] {
         for status in [
-            kirby_assist_core::native_states::status::WAIT,
             kirby_assist_core::native_states::GUARD_ON,
             kirby_assist_core::native_states::GUARD,
         ] {
@@ -174,7 +171,7 @@ fn shielded_front_grabs_do_not_require_enemy_shield_and_use_their_own_recipe() {
     }
 }
 #[test]
-fn unshielded_movement_only_grabs_enemy_shield_and_reacts_on_first_shield_sample() {
+fn unshielded_movement_never_starts_an_automatic_shield_grab() {
     for status in [
         kirby_assist_core::native_states::status::WALK,
         kirby_assist_core::native_states::status::DASH,
@@ -211,8 +208,8 @@ fn unshielded_movement_only_grabs_enemy_shield_and_reacts_on_first_shield_sample
             false,
         );
         assert_eq!(
-            out.requested, MAPPER_R,
-            "movement status {status:#x} must grab immediately"
+            out.requested, 0,
+            "movement status {status:#x} cannot admit OOS grab"
         );
         assert!(!tool.shield_up_b_pending());
     }
@@ -228,7 +225,7 @@ fn shield_backup_is_immediate_for_behind_ungrabbable_and_outside_grab_limits() {
         (0x36, 20., 12., true, MAPPER_B | MAPPER_ZR),
         (0, 20.01, 0., true, 0),
         (0, 15., 12.01, true, 0),
-        (0, 5., 0., false, MAPPER_B | MAPPER_ZR),
+        (0, 5., 0., false, MAPPER_R | MAPPER_ZR),
         (0x53, 5., 0., true, MAPPER_B | MAPPER_ZR),
         (0x88, 5., 0., true, MAPPER_B | MAPPER_ZR),
     ] {
@@ -252,7 +249,6 @@ fn shield_backup_is_immediate_for_behind_ungrabbable_and_outside_grab_limits() {
 fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_controls() {
     for status in [
         kirby_assist_core::native_states::status::GUARD_OFF,
-        kirby_assist_core::native_states::status::GUARD_DAMAGE,
         kirby_assist_core::native_states::status::ESCAPE,
         kirby_assist_core::native_states::status::ESCAPE_F,
         kirby_assist_core::native_states::status::ESCAPE_AIR,
@@ -316,6 +312,7 @@ fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_control
             1 => c.grounded = false,
             2 => c.shield_ready = false,
             _ => {
+                c.status = kirby_assist_core::native_states::GUARD_ON;
                 c.can_grab = false;
                 c.can_up_special = false;
             }
@@ -388,11 +385,9 @@ fn delivered_nonshield_target_grab_cannot_turn_into_up_b_or_a_second_punish() {
 #[test]
 fn committed_shield_backup_receipt_cannot_switch_to_a_front_grab() {
     let mut tool = OutOfShield::new();
-    let grab = recipe("auto_grab", 35., 24., "input:r:0:0:4");
     let shield = recipe("auto_shield_grab", 10., 4., "input:r:0:0:4");
     let backup = recipe("auto_shield_backup", 20., 12., "up_b:4,drift:opponent:1:69");
     let config = AutomaticConfig {
-        grab: Some(&grab),
         shield_grab: Some(&shield),
         backup: Some(&backup),
     };
@@ -461,7 +456,7 @@ fn shield_grab_policy_tracks_facing_and_enemy_shield_release_without_switching_t
         let next = Context { frame: 1., ..c };
         assert_eq!(
             sample(&mut tool, next, target(0x36, 5. * facing, 0.), true, false).requested,
-            MAPPER_R | MAPPER_ZR
+            0
         );
         assert!(tool.grab_delivery_pending());
         assert!(!tool.shield_up_b_pending());

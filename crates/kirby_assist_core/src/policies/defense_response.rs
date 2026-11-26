@@ -1,4 +1,4 @@
-//! Event-triggered, file-authored defensive responses. No native calls or scans.
+//! Held universal defense and event-triggered defensive responses. No native calls or scans.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::InputTimeline,
@@ -7,6 +7,184 @@ use crate::{
     sequence_config::Sequence,
     settings::AssistSettings,
 };
+
+/// Native eligibility is read afresh; this policy never changes fighter state.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Context {
+    pub object: u32,
+    pub situation: i32,
+    pub allowed: bool,
+    pub stopped: bool,
+    pub guard_ready: bool,
+    pub air_dodge_ready: bool,
+    pub air_dodging: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Contact {
+    pub source: u32,
+    pub in_frames: f32,
+    pub projectile: bool,
+}
+
+pub fn native_allowed(kind: i32, status: i32, situation: i32, captured: bool, allowed: bool) -> bool {
+    allowed && !captured
+        && matches!(situation, crate::native_states::situation::GROUND | crate::native_states::situation::AIR)
+        && !crate::action_owner::native_grab_active(status)
+        && !crate::native_states::fighter_sequence_interrupted(kind, status)
+}
+
+/// Shared bounded lookahead for the native scan and held policy.
+pub fn defense_horizon(lead_frames: f32, input_delay: f32) -> Option<f32> {
+    if !(0.0..=30.0).contains(&lead_frames) || !(0.0..=120.0).contains(&input_delay) {
+        return None;
+    }
+    Some((lead_frames + input_delay).min(40.0))
+}
+
+/// Scale a root-relative body estimate without treating size changes as immunity.
+pub fn scaled_body(
+    mut body: crate::auto_counter::Config,
+    scale: f32,
+) -> Option<crate::auto_counter::Config> {
+    if !(0.01..=10.0).contains(&scale) {
+        return None;
+    }
+    body.half_width *= scale;
+    body.height *= scale;
+    body.half_depth *= scale;
+    [body.half_width, body.height, body.half_depth]
+        .into_iter()
+        .all(|value| value.is_finite() && value > 0.0)
+        .then_some(body)
+}
+
+#[derive(Default)]
+pub struct Defense {
+    object: Option<u32>,
+    pending_since: Option<i64>,
+    delivered: bool,
+    air_used: bool,
+    unavailable_seen: bool,
+}
+impl Defense {
+    pub const fn new() -> Self {
+        Self { object: None, pending_since: None, delivered: false,
+            air_used: false, unavailable_seen: false }
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
+    pub fn air_pending(&self) -> bool {
+        self.pending_since.is_some()
+    }
+
+    /// Call only after the selected air-Guard packet actually reaches the mapper.
+    /// The mapper must clear its cached requested bits after acknowledging it.
+    pub fn mapped_air_dodge(&mut self) {
+        if self.pending_since.is_some() {
+            self.delivered = true;
+        }
+    }
+
+    pub fn sample(
+        &mut self,
+        tick: i64,
+        held: bool,
+        c: Context,
+        contact: Option<Contact>,
+        lead_frames: f32,
+        input_delay: f32,
+    ) -> ControllerOutput {
+        use crate::native_states::situation::{AIR, GROUND};
+        if !held || !c.allowed || !matches!(c.situation, GROUND | AIR) {
+            self.reset();
+            return ControllerOutput::NONE;
+        }
+        if self.object != Some(c.object) {
+            self.reset();
+            self.object = Some(c.object);
+        }
+        let mut output = ControllerOutput {
+            owned: crate::native_input::SEQUENCE_GUARD_INPUTS,
+            ..ControllerOutput::NONE
+        };
+        let horizon = defense_horizon(lead_frames, input_delay);
+        let imminent = contact.zip(horizon).is_some_and(|(hit, horizon)| {
+            hit.in_frames.is_finite() && (0.0..=horizon).contains(&hit.in_frames)
+        });
+        if c.situation == GROUND {
+            self.pending_since = None;
+            self.delivered = false;
+            self.air_used = false;
+            self.unavailable_seen = false;
+            if imminent && c.guard_ready {
+                output.requested = crate::native_input::MAPPER_ZR;
+                output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
+                output.stick = Some([0.; 2]);
+            }
+            return output;
+        }
+        if c.air_dodging {
+            self.pending_since = None;
+            self.delivered = false;
+            self.air_used = true;
+            self.unavailable_seen = true;
+            return output;
+        }
+        if !c.air_dodge_ready {
+            self.pending_since = None;
+            if self.delivered {
+                self.air_used = true;
+            }
+            self.delivered = false;
+            if self.air_used {
+                self.unavailable_seen = true;
+            }
+            return output;
+        }
+        if self.unavailable_seen {
+            self.air_used = false;
+            self.unavailable_seen = false;
+        }
+        if !imminent {
+            self.pending_since = None;
+            self.delivered = false;
+            return output;
+        }
+        if c.stopped || self.air_used {
+            return output;
+        }
+        if self.delivered {
+            let start = self.pending_since.unwrap_or(tick);
+            let wait = 2 + input_delay.ceil() as i64;
+            if tick >= start && tick.saturating_sub(start) < wait {
+                return output;
+            }
+            // Delivery is not native acceptance. Release between attempts, then
+            // retry a still-incoming hit without latching the air dodge as used.
+            self.pending_since = None;
+            self.delivered = false;
+            return output;
+        }
+        let start = *self.pending_since.get_or_insert(tick);
+        let budget = 8 + input_delay.ceil() as i64;
+        if tick < start || tick.saturating_sub(start) > budget {
+            self.pending_since = None;
+            return output;
+        }
+        output.requested = crate::native_input::MAPPER_ZR;
+        output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
+        output.stick = Some([0.; 2]);
+        output
+    }
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/policy_defense_response.rs"]
+mod held_defense_tests;
 
 /// Runtime Smash data carried by `Response`.
 #[derive(Default)]

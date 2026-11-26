@@ -1,78 +1,146 @@
-# File-authored fighter ledge options
+# Configure and extend fighter responses
 
-`deployment/ultimate/kirby_assist/sequences.txt` is the sole ledge option catalog.
-It contains all five menus for each configured fighter, their labels/defaults,
-initial input delays, ordered actions and waits. Rust contains no fighter option
-tables or fallback response routines. Removing a section removes that option;
-a missing file leaves the ledge menus empty and ledge assist inactive.
+## The two layers
 
-All 90 registered identities now have a `fighters/<name>.txt` source. The DLC
-files (Piranha Plant through Sora) are starting baselines: leads are computed
-from the [Fighter Data catalog](FIGHTER_DATA.md) so each move's first active
-frame meets the normal-getup (F34), ledge-jump (F14) or ledge-roll (F31) target,
-and automatic-grab ranges use each fighter's native reach. They are not
-match-up-verified optimal timings; confirm and retune them in Training. Where
-the catalog records a compound window the leading startup frame is used, and
-moves a fighter does not have, such as Min Min's forward air, are omitted.
+`fighter_profiles.rs` registers 90 exact native identities. Each profile initially
+has **empty menus** and reference-derived grab facts. The startup sequence catalog
+supplies labels, order, selected defaults and literal controller timelines.
+There is no compiled fallback recipe; missing selected inputs produce no response.
+`fighter_tuning.rs` resolves policy overrides, not move definitions.
+
+Repository source files are `deployment/ultimate/kirby_assist/fighters/<name>.txt`
+and the shared master `sequences.txt`; assembly creates the active catalog. These
+are configuration assets, not Rust modules. The active SD path is
+`sd:/ultimate/kirby_assist/sequences.txt`. Reading a repository snapshot does not
+prove which catalog is installed. [Sequence workflow](SEQUENCE_FILES.md) explains
+safe staging/replacement and persistence; do not upload while editing a draft.
+
+## Change an existing option, step by step
+
+1. Find the fighter's registered **name**, not its display nickname. Captain
+   Falcon uses `captain_falcon`; DK uses `donkey_kong`; K. Rool uses `krool`;
+   Pac-Man uses `pacman`; Little Mac uses `littlemac`. Per-fighter pages print
+   the exact section prefix.
+2. In Training open Minus and choose the fighter/row or button binding. Select
+   the desired recipe. Read its **actions**, not just its label: a saved name
+   can intentionally differ from what the tape requests.
+3. Edit start delay and actions. `start_delay=0` starts immediately after
+   recognition; a wait belongs at the point where a release/delay is intended.
+   A move's native startup is not automatically inserted into the tape.
+4. Add range/facing/airborne guards only when required. A failed predicate may
+   wait or cancel according to its action; use the documented instant variant
+   when stale execution would be unsafe. An explicit `range:20` does not inherit
+   `grab_range`, and tuning cannot rewrite it.
+5. Save with Y alone and wait for success. A menu draft is not automatically
+   persistent. X reset uses the configured startup value. Changing external
+   text requires a restart; current in-menu edits and future startup defaults
+   are distinct. See [menu](LEDGE_MENU.md).
+6. Test from both sides at repeatable spacing. A one-frame button request is
+   not proof of native acceptance, and a projectile input is not projectile arrival.
 
 <a id="recipes-and-variants"></a>
 
+## Add a file option
+
+A small example, not a supplied default or guaranteed punish:
+
 ```ini
-[kirby.neutral.nair_wait]
-name = NAIR LATE
-start_delay = 0
+[kirby.neutral.my_nair]
+name = My delayed Nair
+start_delay = 2
 default = false
-timeout = 3600
+timeout = 240
 spatial_timeout = 60
-actions = Short Hop, wait:5, Neutral Air, Drift:Opponent:25%:20
+actions = Short Hop, wait:1, Neutral Air, Drift:Opponent:25%:8
 ```
 
-Every section requires `start_delay` (0–3600 native frames): zero means the first
-input starts immediately after recognition. Each bare input lasts one frame;
-`wait:N` inserts N released-input frames exactly where it appears. Durations can
-be authored as `move:N`, `hold:BUTTON:N` or a combined raw `input`. No fighter
-startup/active-window metadata or config.txt timing overrides schedule the inputs.
-The game still decides whether the requested physical input buffers or executes.
-Nothing here edits native move startup, animation speed, physics or hitboxes.
+Use a unique ID. `start_delay` is required (0–3600 native frames). File order is
+menu order; at most one **regular** recipe can be the default in a row. Without
+an explicit default, the first regular recipe wins. Active reaction records are
+not manual defaults. Each preset slot supports at most 32 regular choices;
+button slots append built-in/custom templates separately. Do not count those
+appended templates as file-authored ledge choices.
 
-`default = true` selects the initial choice for that fighter/situation. Use at
-most one default in each row; without it, the first file entry is selected.
-File order is menu order. Existing custom recipes are kept after the migrated
-roster recipes. IDs and defaults are validated before hooks install.
+For button defaults, an explicit saved selection wins, then the first manual
+recipe, then the builtin fallback. An empty L3 falls back to Auto Defense;
+D-pad Down to Turbo; other empty buttons to Short hop, except supported empty
+R3 uses Counter. The legacy serialized builtin value `normal` displays **Short
+hop**; it is not a separate passthrough option. Builtin roles and current bindings
+are documented in [Controls](CONTROLS.md) and the settings reference.
 
-The supplied roster entries are explicit input templates, not promises of
-identical behavior to the retired conditional engine. In particular, the file
-states the 30-frame down-tilt-to-shield template wait, the 22-unit cross-up walk,
-and every shield/block timeout. Tune these for your intended timing/spacing.
-Native block waiting is explicit as `shield_until_block:FRAMES`; no hidden
-fighter routine runs. `code:ID` entries have been removed.
+A bare move/button input lasts one frame; `wait:N` releases N frames. Adjacent
+inputs sharing a button keep it held, so insert a release for a new press edge.
+All hop, attack, drift and hold durations remain explicit and Smash decides
+whether inputs buffer or execute. Neither animation-rate edits nor native
+status/hitbox changes are permitted. [Syntax reference](SEQUENCE_FILES.md) covers
+raw controller axes, motion-relative directions, waits and bounded predicates.
 
-Rust retains shared opponent/ledge recognition, raw controller routing, native
-progress timing, optional spatial/block predicates, interruption handling and
-session reset. `fighter_profiles` contains fighter identities and independent
-reference facts needed by other tools; its move windows do not schedule ledge
-inputs. The old config.txt move choice/timing keys are ignored for compatibility.
+## Add a current automatic reaction
 
-Run `python3 tools/upload_sequences.py --dry-run` after edits. The SD path is
-`sd:/ultimate/kirby_assist/sequences.txt`; restart Smash after changing it. This
-migration needs an updated mod build installed before the new file is used.
-See [the complete action vocabulary and timing rules](SEQUENCE_FILES.md).
+Current simple events are enemy roll, spot dodge, air dodge, shield grab, shield
+backup and after dodging an enemy grab. There is one configured sequence per
+event/fighter, not a priority-ranked list of alternatives. `auto_grab` is retired
+and rejected; do not copy it from an old guide. Automatic-grab admission requires
+your shield; generic unshielded approach grabs are removed.
 
-## Defensive startup settings
+```ini
+[yoshi.roll.my_roll_response]
+name = Roll starter
+start_delay = 0
+reaction = auto_roll:30:12
+actions = check:enemy_in_front:0, range:fighter_range_instant, press:r:4
+```
 
-Training **Fighter settings** includes three additional saved input-policy values:
+30/12 are explicit horizontal/height limits. The example does not inherit a
+compiled roll destination or guarantee a catch. Current simple editor fields
+are max X and height; legacy rule metadata is not the same configuration model.
+Keep ledge Roll and ordinary onstage roll distinct. [Reactions](REACTION_RULES.md),
+[grab avoidance](GRAB_DODGE.md) and [automatic grabs](OUT_OF_SHIELD.md) document
+admission and ownership. Enabling a mode without a configured response cannot
+create an attack.
 
-| Menu setting | Text key | Meaning |
-| --- | --- | --- |
-| Grab dodge + punish at startup | `grab_dodge_default = true` | Start the mode ON/OFF for this fighter in a fresh match. Falls back to global `auto_spot_dodge`. |
-| Out of shield at startup | `out_of_shield_default = true` | Start OOS ON/OFF for this fighter; default ON. No configured response means no OOS observation work. |
-| Grab dodge forecast frames | `grab_dodge_lookahead = 6` | Contact forecast window, 1–8 frames; default 6. Larger can dodge earlier. |
+## Configure fighter policy
 
-Store these under `[bowser.settings]`, `[yoshi.settings]`, etc. Save in Training
-with Y and wait for completion. They affect controller policy only. Response
-range/height/side, priority, actions and delays belong to the recipe's Auto reaction
-settings, so different responses can use different ranges. These settings do not
-change native shieldstun, dodge intangibility, movement physics or grab hitboxes.
+Use `[fighter.settings]` for exactly the 83 accepted keys in
+[Fighter settings](FIGHTER_SETTINGS.md). Booleans are literal true/false;
+numbers must be finite/in bounds. Menu increments are not file quantization.
+Omitting a key means fallback; zero is not a general reset. Body/scan/probe
+values estimate observations, while a move selector selects an input pattern.
+Startup preferences and current switches are separate.
 
-See [every Fighter Settings option explained in simple terms](FIGHTER_SETTINGS.md),
-including what increasing each value does and how acquire/follow differ.
+## Extend the Rust code
+
+A Rust beginner can read `FighterProfile` as a struct bundling identity, grab
+facts and menu lists. `Option<T>` means present (`Some`) or unavailable (`None`);
+unknown data must remain unavailable, not guessed. `BTreeMap<i32,FighterProfile>`
+indexes by exact native kind; `SavedChoice` holds an ID/name and validated tape.
+The constructor macro creates the same profile shape for each registered fighter.
+
+For a genuinely new identity:
+
+1. Verify its pinned native kind and add an explicit constant/constructor entry.
+   The profile builder must not borrow another fighter's data or options.
+2. Coordinate the canonical data record and supported response implementation.
+   `validate()` checks exact identity/data agreement, registered implementation,
+   grab facts, choice IDs/defaults and list limits. Missing/mismatched facts fail.
+3. Add configuration under the exact profile name. A constructor alone leaves
+   all menus empty. Preserve form/partner selection isolation.
+4. Add focused profile/lookup/parser fixtures for known, unknown and swapped kinds.
+   Never change native physics, move definitions, animation rates or fighter status.
+
+For an existing fighter, prefer new recipes over new Rust handlers. A new shared
+input primitive belongs in the executor/parser/editor with matching tests and
+save/serialization support; a new counter/reflector needs a verified native
+move/resource adapter and eligibility/receipt/cancellation tests. A tuning key
+alone cannot implement it. Append stable tuning fields rather than reordering
+saved indices; see the schema extension checklist in Fighter settings.
+
+## Validation boundaries
+
+With authorized asset access, `python3 tools/update_fighter_docs.py` refreshes
+all generated snapshots and `--check` detects drift;
+`python3 tools/validate_fighter_data.py` checks the canonical data schema.
+The generator is static, does not execute Rust and is not a native-match validator.
+Use focused host parser/runner tests for behavior changes, not a Switch build
+unless separately requested. Device delivery, native acceptance, resource setup,
+spacing and online timing remain calibration work.

@@ -13,7 +13,27 @@ fn intent(owner: Owner, committed: bool) -> Intent {
 }
 
 #[test]
-fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() {
+fn held_spacing_reserves_modes_even_without_an_attack_packet() {
+    let mut control = ActionOwnership::new();
+    control.select(true, &[intent(Owner::Counter, true)]);
+    control.release(Owner::Counter);
+    control.set_automatic_suspended(true);
+    let spacing = intent(Owner::Spacing, true);
+    assert_eq!(control.select(true, &[spacing, intent(Owner::Counter, true)]), Some(Owner::Spacing));
+    for owner in [Owner::Counter, Owner::Reflect, Owner::RollRead, Owner::Ledge,
+        Owner::Turbo, Owner::Posture, Owner::Trump] {
+        assert!(!control.allows(owner));
+    }
+    assert!(control.allows(Owner::Safety));
+    control.release(Owner::Spacing);
+    control.set_automatic_suspended(false);
+    assert!(!control.allows(Owner::Counter));
+    control.set_defensive_hold(false, true);
+    assert!(control.allows(Owner::Counter));
+}
+
+#[test]
+fn counter_requires_hold_then_preempts_sequences_and_keeps_release_reservation() {
     for owner in [
         Owner::Ledge,
         Owner::RollRead,
@@ -27,8 +47,12 @@ fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() 
             control.select(true, &[intent(owner, true), intent(Owner::Counter, true)]),
             Some(owner)
         );
+        assert_eq!(control.set_defensive_hold(false, true), Some(owner));
+        assert_eq!(control.select(true, &[intent(owner, true), intent(Owner::Counter, true)]),
+            Some(Owner::Counter));
     }
     let mut control = ActionOwnership::new();
+    control.set_defensive_hold(false, true);
     control.select(true, &[intent(Owner::Counter, true)]);
     assert_eq!(
         control.select(
@@ -37,7 +61,7 @@ fn counter_cannot_steal_committed_sequences_and_keeps_its_release_reservation() 
         ),
         Some(Owner::Counter)
     );
-    control.release(Owner::Counter);
+    control.set_defensive_hold(false, false);
     assert_eq!(
         control.select(true, &[intent(Owner::RollRead, true)]),
         Some(Owner::RollRead)
@@ -197,6 +221,9 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
             id: 2,
             status: kirby_assist_core::native_states::status::SLIP_WAIT,
             previous_status: kirby_assist_core::native_states::status::SLIP,
+        relative_position: [facing * 8.0, 0.0],
+        grounded: true,
+        hit_confirmed: true,
         });
         let base = TripContext {
             object: 1,
@@ -209,6 +236,11 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
             stopped: false,
             targets,
         };
+        let mut before = base;
+        before.frame = 9.0;
+        before.targets[0].as_mut().unwrap().status = kirby_assist_core::native_states::status::WAIT;
+        before.targets[0].as_mut().unwrap().hit_confirmed = false;
+        trip.sample(true, before);
         for step in 0..6 {
             let out = trip.sample(
                 true,
@@ -388,6 +420,7 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         Owner::Fair,
     ] {
         let mut control = ActionOwnership::new();
+        control.set_defensive_hold(false, current == Owner::Counter);
         control.select(true, &[intent(current, true)]);
         for other in [
             Owner::GrabDodge,

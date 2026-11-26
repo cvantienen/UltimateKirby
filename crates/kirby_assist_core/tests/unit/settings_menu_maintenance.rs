@@ -73,6 +73,27 @@ fn first_saved_edit_survives_editor_release_reopen_and_next_session_in_every_slo
 }
 
 #[test]
+fn choice_cycling_keeps_selection_when_all_recipes_are_reaction_only() {
+    let p = MenuPresets::EMPTY;
+    let mut m = MenuSelection::new(&p);
+    let slot = PresetSlot::Neutral;
+    let key = (slot as usize, m.choices[slot as usize]);
+    let mut source = editor::RecipeEditor::custom();
+    source.reaction = crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
+    m.editor
+        .get_or_insert_with(Default::default)
+        .ensure(key, source);
+    for forward in [true, false] {
+        assert_eq!(m.cycle_choice(&p, slot, forward), key.1);
+        assert_eq!(m.cycle_quick_choice(&p, slot, forward), key.1);
+    }
+    assert_eq!(
+        m.recipe_snapshot(&p, slot, key.1).unwrap().reaction,
+        source.reaction
+    );
+}
+
+#[test]
 fn late_save_promotes_only_its_snapshot_and_preserves_newer_and_invalid_drafts() {
     let p = configured();
     let slot = PresetSlot::Roll;
@@ -334,6 +355,28 @@ fn tools_recipe_options_support_rename_duplicate_add_and_delete_through_controll
         .iter()
         .all(|a| *a == crate::sequence_config::Action::Empty));
 }
+#[test]
+fn add_blank_from_b_reverse_does_not_duplicate_the_template() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.show();
+    m.row = MenuRow::XSequence;
+    m.button_menu = true;
+    let slot = PresetSlot::X;
+    let original = p.list(slot).options.len() + PresetSlot::B_REVERSE_OFFSET;
+    m.choices[slot as usize] = original;
+    tap(&mut m, &p, MENU_STICK_CLICK);
+    audit_manage(&mut m, &p);
+    tap(&mut m, &p, DPAD_DOWN);
+    tap(&mut m, &p, MAPPER_A);
+    let added = m.choices[slot as usize];
+    assert_ne!(added, original);
+    assert!(m.choice(&p, slot, added).unwrap().allow_new);
+    assert!(m.recipe_snapshot(&p, slot, added).unwrap().actions().is_empty());
+    assert!(m.recipe_input_error(&p).is_some());
+    assert!(!m.recipe_snapshot(&p, slot, original).unwrap().actions().is_empty());
+}
+
 #[test]
 fn incomplete_editor_rule_cannot_save_or_test_and_only_suspends_its_own_reaction() {
     use crate::{

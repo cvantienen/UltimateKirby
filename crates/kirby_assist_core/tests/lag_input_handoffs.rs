@@ -389,7 +389,6 @@ fn committed_automatic_binding_locks_block_configured_short_hop_starts() {
         Owner::GrabDodge,
         Owner::Trip,
         Owner::Fair,
-        Owner::Fair,
     ] {
         let mut ownership = ActionOwnership::new();
         ownership.select(true, &[Intent::input_sequence(owner, 1)]);

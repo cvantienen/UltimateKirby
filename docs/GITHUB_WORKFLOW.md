@@ -1,8 +1,26 @@
 # Push changes and merge through a pull request
 
-The `main` branch is protected: GitHub rejects direct pushes to it. Push your
-work to a feature branch, open a pull request (PR) targeting `main`, and merge
-the PR after required checks and reviews pass.
+This page preserves the workflow for the reported protected-`main` setup.
+Branch protection is remote repository configuration, not something a local
+source checkout can certify; this documentation review did not query GitHub.
+When the repository requires PRs, push work to a feature branch, open a pull
+request (PR) targeting `main`, and merge after its required checks/reviews pass.
+Do not create branches, commits, PRs, or pushes merely to update documentation:
+those operations require explicit authorization.
+
+## Before publishing a Rust or documentation change
+
+Inspect the diff against your actual starting tree, preserving unrelated
+uncommitted changes. Documentation-only Rust edits must be doc comments, not
+attributes, derives, imports, signatures, or executable bodies. `cfg(test)` test
+moves and runtime refactors already present in the tree belong to their original
+work, not automatically to a docs PR. Record which focused tests ran and which
+checks were blocked or deliberately not run. Host success is not Switch evidence.
+
+For beginner crate/test selection see [Development](DEVELOPMENT.md#test-and-validate)
+and `crates/kirby_assist_core/docs/DEVELOPER_GUIDE.md`. For maintained Markdown
+links and generated pages see [Maintaining](MAINTAINING.md). Release building,
+version changes and device transfer are separate workflows.
 
 ## Move commits already on local `main` to a feature branch
 

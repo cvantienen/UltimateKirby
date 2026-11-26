@@ -1,17 +1,60 @@
 # Mr. Game & Watch
 
+## Configure Mr. Game & Watch
+
+This page belongs to profile **`mr_game_and_watch`** (`fighter_kinds::MR_GAME_AND_WATCH`), not a
+roster-position index. Use `[mr_game_and_watch.settings]` for overrides and
+`[mr_game_and_watch.neutral.my_response]` (or jump/roll/attack/drop) for an authored option.
+Existing choices, supplied defaults and literal inputs are shown in the generated
+snapshot below. Your installed file and unsaved Training draft may differ.
+
+Start with [the complete fighter configuration walkthrough](../FIGHTER_CONFIGS.md),
+then use [all 83 tuning keys](../FIGHTER_SETTINGS.md) and
+[execution/calibration](../FIGHTER_EXECUTION.md). These shared guides explain
+units, ranges, current versus startup effects, save/restart, and cancellation.
+Choose or edit this fighter's row in Training; activate its configured Ledge
+Assist binding to run it. A missing selected timeline produces no fallback move.
+
+### Supplied fighter overrides
+
+These are the current repository file values, **not schema fallbacks**.
+Omitted keys retain resolved shared/reference defaults; retired fields remain
+parseable but do not restore removed behavior.
+
+| Key | Supplied value |
+| --- | --- |
+| `reflect_default` | `true` |
+| `reflect_startup` | `15` |
+| `reflect_margin` | `8` |
+| `reflect_max_hold` | `45` |
+| `reflect_half_width` | `15` |
+| `reflect_height` | `16` |
+| `reflect_half_depth` | `15` |
+
+### Support and extension boundary
+
+The standalone projectile-defense adapter is Game & Watch-only. It requires explicit reflect configuration and a bucket gauge below 3. Mapped Down+B relinquishes input while awaiting native startup; bucket confirmation ends ownership. It never empties oil automatically. New projectile attack generations can rearm even when object IDs are reused.
+
+To expand this fighter, add a uniquely named option under **`mr_game_and_watch`** using
+existing actions first. Keep all waits, directional inputs, range checks and
+resource assumptions explicit. Do not change `fighter_kind` to another fighter
+to borrow a move. New primitives require a reviewed shared executor change;
+new character-specific prediction needs a verified native adapter, not only
+more sliders. [Rust extension contracts](../FIGHTER_CONFIGS.md#extend-the-rust-code)
+explain registration, `Option`, validation and focused tests.
+
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
 Native fighter kind **28** (`mr_game_and_watch`). This reference follows the canonical fighter data;
-it is not a device-calibration result. No fighter-specific file loads during a match.
+it is not a device-calibration result. The tables are a generated snapshot of repository assets, not your installed or unsaved menu state. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
-The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Training starts with the menu hidden; **Minus** opens it. Outside Training the lightweight selector starts visible.
 Up/Down selects a row; Left/Right cycles its
-choices. Hold **L** to run the selected responses. Defaults are bold.
+choices. Activate the configured Ledge Assist binding to run selected responses; consult Controls for your layout. Bold choices are supplied file defaults, not Rust defaults.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
@@ -27,14 +70,13 @@ Selecting a choice never changes native moves, hitboxes, physics or animation sp
 
 ## Saved assist rules
 
-These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+These are saved configuration records, not proof that a trigger is currently admitted.
 they are not selected ledge/button recipes. Auto react has one sequence per event;
-priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+priority numbers apply only to legacy rule lists. `auto_grab` is rejected by the current parser; current automatic grabs require your shield. Vulnerable-ledge punishment is retired.
 
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge > Up B | `mr_game_and_watch.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `mr_game_and_watch.roll.auto_grab` |
 | `auto_grab_dodged` | — | Dodged grab > Up B | `mr_game_and_watch.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll > Up B | `mr_game_and_watch.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield backup > Up B | `mr_game_and_watch.roll.auto_shield_backup` |
@@ -136,41 +178,3 @@ Rust/reference-data changes need a separately authorized build/install.
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
-
-## Automatic punish configuration
-
-All seven Auto-react events now have explicit recipes in this fighter's text file.
-The current saved roll and spot-dodge recipes use downward A for 4 frames within
-30 horizontal / 20 relative vertical units; the dodged-grab response uses the same
-input within 30 / 10. Their saved names still say Up B, but their action fields
-control delivery. Air-dodge punishment uses `input:b:0:1:4` within 30 / 30.
-Each starts without an authored delay and requires
-grounded admission. These are starting configuration limits, not measured hit guarantees.
-The existing automatic grabs and shield-backup Up-B retain their saved values.
-No Bowser spinning/drift sequence is added to Mr. Game & Watch.
-
-## Automatic Bucket defense
-
-The separate Auto-reflect Assist starts ON through this fighter's explicit
-`reflect_default = true`. It predicts eligible incoming projectiles and requests
-Down+B, with a six-frame startup estimate and two-frame early allowance. Energy
-shots may be absorbed rather than reflected. The mode pauses at a full bucket
-and never spends its oil automatically.
-
-Repeated Samus charge shots/missiles can reuse a projectile object ID. Each new
-native attack has its own duplicate guard, so a partially filled Bucket can react
-again as soon as the native move is available. No timed rearm cooldown is added;
-a full bucket still requires the player to empty it manually.
-
-Grounded ready movement can turn toward a rear shot before using Bucket.
-Ordinary airborne jump/fall can use it for front-facing shots only. Shield,
-recovery, capture, tumble, attacks and existing punish/grab ownership block a new
-attempt. Held/toggled ledge trapping, master OFF and spectating suspend the mode.
-No sequence wait or physics change is added. Geometry/trajectory prediction and
-native acceptance still need in-game calibration; this cannot guarantee every shot.
-
-Edit the `reflect_*` Fighter settings in Training or this fighter's settings
-section. The default prediction envelope is half-width 5, height 16 and depth 5;
-maximum native-progress hold is 45 frames. These are detection estimates, not
-native reflector/hurtbox modifications. See the
-[full configuration and limits](../SEQUENCE_FILES.md#automatic-projectile-reflection).
