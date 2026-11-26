@@ -51,9 +51,12 @@ impl MenuSelection {
                 _ => "Select a recipe to inspect its inputs, timing and conditions.",
             };
             return RecipePanel {
-                header: vec![self.row.label().into(), format!("Help: {help}")],
+                header: vec![self.row.label().into()],
                 body: vec![help.into()],
-                footer: vec!["Left/Right: adjust or toggle | R3: open | Minus: close".into()],
+                footer: vec![
+                    "Up/Down: select | Left/Right: adjust or toggle".into(),
+                    "ZL/ZR: category | R + D-pad: jump 8 | R3: open | Minus: close".into(),
+                ],
                 focus: None,
             };
         };
@@ -101,7 +104,8 @@ impl MenuSelection {
                 .map(|i| self.tuning_line(i, i == row))
                 .collect(),
             footer: [
-                Some("Up/Down: select | Left/Right: adjust".into()),
+                Some("Up/Down: select (hold) | Left/Right: adjust (hold numbers)".into()),
+                Some("ZL/ZR: category | R + Up/Down: jump 8 settings".into()),
                 Some("X: reset value | Y alone: save | R3: back | Minus: close".into()),
                 self.save_status.clone(),
             ]

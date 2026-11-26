@@ -326,7 +326,10 @@ impl MenuSelection {
         panel.focus = Some(self.mode_rule_cursor.min(entries.len()));
         panel
             .footer
-            .push("Up/Down: rule | A/R3: edit | X: add | Y: manage | B/L3: back".into());
+            .push("Up/Down: rule (hold) | ZL/ZR or R + Up/Down: jump 8".into());
+        panel
+            .footer
+            .push("A/R3: edit | X: add | Y: manage | B/L3: back".into());
         panel.footer.push(if simple {
             "Roll/spot/air: Auto react toggle; grabs/backup: Automatic grabs; grab-dodge follow-up: Grab avoidance".into()
         } else {
@@ -361,6 +364,13 @@ impl MenuSelection {
         if !self.mode_rule_list || self.managing() {
             return false;
         }
+        let pad = buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN);
+        let repeat = self.hold.step(if pad == DPAD_UP || pad == DPAD_DOWN {
+            pad
+        } else {
+            0
+        });
+        let pressed = pressed | if repeat { pad } else { 0 };
         if pressed
             & (A | B
                 | MAPPER_X
@@ -370,7 +380,9 @@ impl MenuSelection {
                 | DPAD_UP
                 | DPAD_DOWN
                 | DPAD_LEFT
-                | DPAD_RIGHT)
+                | DPAD_RIGHT
+                | MAPPER_ZL
+                | MAPPER_ZR)
             == 0
         {
             return true;
@@ -397,10 +409,20 @@ impl MenuSelection {
             self.restore_mode_choices();
             self.modes_menu = true;
             self.row = row;
-        } else if pressed & DPAD_DOWN != 0 {
-            self.mode_rule_cursor = (self.mode_rule_cursor + 1) % (entries.len() + 1);
-        } else if pressed & DPAD_UP != 0 {
-            self.mode_rule_cursor = (self.mode_rule_cursor + entries.len()) % (entries.len() + 1);
+        } else if pressed & (DPAD_DOWN | DPAD_UP | MAPPER_ZL | MAPPER_ZR) != 0 {
+            let forward = pressed & (DPAD_DOWN | MAPPER_ZR) != 0;
+            let steps = if buttons & (MAPPER_R | MAPPER_ZL | MAPPER_ZR) != 0 {
+                8
+            } else {
+                1
+            };
+            self.mode_rule_cursor = if steps == 1 {
+                cycle(self.mode_rule_cursor, entries.len() + 1, forward)
+            } else if forward {
+                (self.mode_rule_cursor + steps).min(entries.len())
+            } else {
+                self.mode_rule_cursor.saturating_sub(steps)
+            };
         } else if pressed & MAPPER_X != 0
             || pressed & (A | MENU_STICK_CLICK) != 0 && self.mode_rule_cursor == entries.len()
         {
@@ -415,7 +437,14 @@ impl MenuSelection {
                 }
             }
         }
-        self.pad_quarantine |= buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN | bindings::BUTTON_MASK);
+        self.pad_quarantine |= buttons
+            & (DPAD_SIDES
+                | DPAD_UP
+                | DPAD_DOWN
+                | bindings::BUTTON_MASK
+                | MAPPER_R
+                | MAPPER_ZL
+                | MAPPER_ZR);
         self.changed();
         true
     }

@@ -409,8 +409,8 @@ fn row_highlight() -> ImVec4_c {
 
 /// Draws the cached panel frame, heading, content, and status within display bounds.
 unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown: bool) {
-    // A fixed-width card shows only the focused row; never shrink text to fit
-    // the entire catalog or horizontally scroll the gameplay overlay.
+    // A fixed-width card shows a bounded option window; never shrink text to
+    // fit the entire catalog or horizontally scroll the gameplay overlay.
     let gap = 5.0 * scale;
     let compact = view.quick || view.modes;
     let width = (if compact { 390.0 } else { 560.0 } * scale)
@@ -418,7 +418,7 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown
         .min((display.x - 16.0 * scale).max(1.0));
     igPushFont(std::ptr::null_mut(), 15.0 * scale);
     for (slot, value) in [
-        (ImGuiCol_WindowBg, color(0.035, 0.047, 0.070, 0.96)),
+        (ImGuiCol_WindowBg, color(0.025, 0.033, 0.052, 0.86)),
         (ImGuiCol_Border, color(0.19, 0.25, 0.32, 0.70)),
         (ImGuiCol_Text, color(0.86, 0.90, 0.95, 1.0)),
     ] {
@@ -429,15 +429,15 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown
     igPushStyleVar_Vec2(
         ImGuiStyleVar_WindowPadding as _,
         ImVec2_c {
-            x: 12.0 * scale,
-            y: 10.0 * scale,
+            x: 10.0 * scale,
+            y: 8.0 * scale,
         },
     );
     igPushStyleVar_Vec2(
         ImGuiStyleVar_ItemSpacing as _,
         ImVec2_c {
             x: gap,
-            y: 5.0 * scale,
+            y: 3.0 * scale,
         },
     );
     // Anchor by the window's corner so auto-sized pages grow into the screen.
@@ -487,39 +487,48 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown
 
 /// Draws cached heading/body/footer content using the supplied scale and display size.
 unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
-    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
+    let (r, g, b) = view.accent_rgb();
+    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(r, g, b, 1.0));
+    card_text(if view.mode == 1 {
+        c"TRAINING / EDIT RECIPE"
+    } else if view.mode == 2 {
+        c"TRAINING / MANAGE RECIPES"
+    } else {
+        c"TRAINING / MENU CONTROLS"
+    });
+    igPopStyleColor(1);
+    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
     if let Some(navigation) = &view.navigation {
         card_text(navigation);
     }
     igPopStyleColor(1);
     if !view.lightweight && view.training_categories_active {
         igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.64, 0.72, 0.81, 1.0));
-        for (index, category) in
-            kirby_assist_core::settings_menu::MenuSelection::TRAINING_CATEGORIES
-                .iter()
-                .enumerate()
-        {
+        for (index, category) in view.categories.iter().enumerate() {
             if index > 0 {
                 igSameLine(0.0, 7.0 * scale);
             }
             let selected = index == view.training_category as usize;
-            igPushStyleColor_Vec4(
-                ImGuiCol_Text as _,
-                if selected {
-                    accent()
-                } else {
-                    color(0.64, 0.72, 0.81, 1.0)
-                },
-            );
-            card_text(&CString::new(*category).expect("static category label"));
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, {
+                let (r, g, b) = Snapshot::category_rgb(index as u8);
+                color(r, g, b, if selected { 1.0 } else { 0.68 })
+            });
+            card_text(category);
             igPopStyleColor(1);
         }
         igPopStyleColor(1);
         if view.training_tab_focus {
             card_text(c"Left/Right: change category | B: return to options");
         } else {
-            card_text(c"Up/Down: options | Up from first option: tabs | Left/Right: change value");
+            card_text(c"Up/Down: options | Left/Right: value");
         }
+    }
+    if view.category_controls {
+        card_text(if view.mode == 3 {
+            c"ZL/ZR: category | R + Up/Down: jump 8 settings"
+        } else {
+            c"ZL/ZR: category | R + D-pad: jump 8"
+        });
     }
     igSeparator();
     if super::save::busy() {
@@ -547,7 +556,7 @@ fn footer_tint(line: &CStr) -> ImVec4_c {
     if bytes.starts_with(b"Save failed") {
         color(1.0, 0.55, 0.45, 1.0)
     } else if bytes.starts_with(b"Saved") {
-        accent()
+        color(0.53, 0.87, 0.65, 1.0)
     } else if bytes.starts_with(b"Unsaved") {
         color(0.96, 0.77, 0.42, 1.0)
     } else {
@@ -557,20 +566,27 @@ fn footer_tint(line: &CStr) -> ImVec4_c {
 
 /// Draws cached selectable rows and updates focus only when its identity changes.
 unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
-    for value in view
-        .values
+    let (start, end, focus) = view.row_window();
+    let (r, g, b) = view.accent_rgb();
+    if let Some(context) = view.row_context.get(focus) {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+        card_text(context);
+        igPopStyleColor(1);
+    }
+    // Editors retain the focused option; navigation shows neighboring options.
+    for value in view.values[start..end]
         .iter()
-        .filter(|v| view.quick || view.modes || v.row == view.row)
+        .filter(|v| view.mode == 0 || v.row == view.row)
     {
         if MenuSelection::page_link(value.row) {
             igSeparator();
         }
         let selected = value.row == view.row;
         if selected {
-            draw_selected_row_backdrop(&value.line, scale);
+            draw_selected_row_backdrop(&value.line, scale, color(r, g, b, 1.0));
         }
         let tint = if selected {
-            accent()
+            color(r, g, b, 1.0)
         } else {
             match value.enabled {
                 Some(true) => color(0.50, 0.82, 0.70, 1.0),
@@ -585,7 +601,7 @@ unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
 }
 
 /// Tinted panel plus accent bar behind the focused row, sized to its wrapped text.
-unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32) {
+unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32, tint: ImVec4_c) {
     let p = igGetCursorScreenPos();
     let available = igGetContentRegionAvail().x.max(1.0);
     let height = igCalcTextSize(line.as_ptr(), std::ptr::null(), false, available).y;
@@ -614,7 +630,7 @@ unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32) {
             x: p.x - 5.0 * scale,
             y: p.y + height + 1.0 * scale,
         },
-        igGetColorU32_Vec4(accent()),
+        igGetColorU32_Vec4(tint),
         1.0 * scale,
         0 as _,
     );

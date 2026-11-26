@@ -269,8 +269,11 @@ fn visible_pad_edits_only_and_close_quarantines_held_directions() {
     menu.show();
     menu.input(0, p);
     let before = menu.choices;
-    assert_ne!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
+    assert_ne!(menu.input(DPAD_RIGHT, p) & DPAD_RIGHT, 0);
     assert_ne!(menu.choices, before);
+    menu.input(0, p);
+    menu.input(DPAD_DOWN, p);
+    assert_eq!(menu.row, MenuRow::Jump);
     menu.input(MAPPER_MINUS | DPAD_DOWN, p);
     assert!(menu.menu_hidden);
     assert_ne!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
@@ -286,10 +289,10 @@ fn stock_reset_preserves_choices_and_force_show_resumes_visible_menu() {
     let mut menu = MenuSelection::new(p);
     menu.show();
     menu.input(0, p);
-    menu.input(DPAD_RIGHT, p);
+    menu.input(DPAD_DOWN, p);
     assert_eq!(menu.row, MenuRow::Jump);
     menu.cancel_actions();
-    menu.input(DPAD_RIGHT, p);
+    menu.input(DPAD_DOWN, p);
     assert_eq!(menu.row, MenuRow::Jump);
     menu.input(MAPPER_MINUS, p);
     assert!(menu.menu_hidden);

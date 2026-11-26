@@ -11,6 +11,115 @@ fn presets(source: &str) -> MenuPresets {
 fn configured() -> MenuPresets {
     presets("[kirby.neutral.n]\nstart_delay=0\nactions=grab\n")
 }
+
+#[test]
+fn category_shortcuts_work_away_from_top_and_quarantine_shoulders() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.input(0, &p);
+    m.input(MAPPER_MINUS, &p);
+    m.input(0, &p);
+    m.input(DPAD_DOWN, &p);
+    let choices = m.choices;
+    m.input(0, &p);
+    assert_ne!(m.input(MAPPER_ZR, &p) & MAPPER_ZR, 0);
+    assert_eq!(m.training_category, 1);
+    assert_eq!(m.row, MenuRow::XSequence);
+    for _ in 0..100 {
+        m.input(MAPPER_ZR, &p);
+    }
+    assert_eq!(m.training_category, 1);
+    assert_eq!(m.choices, choices);
+    assert_ne!(m.input(0, &p) & MAPPER_ZR, 0);
+    assert_eq!(m.input(0, &p) & MAPPER_ZR, 0);
+    m.input(MAPPER_ZL, &p);
+    assert_eq!(m.training_category, 0);
+    m.input(0, &p);
+    m.input(MENU_STICK_CLICK, &p);
+    assert!(m.recipe_editing);
+    m.input(0, &p);
+    m.input(MAPPER_ZR, &p);
+    assert!(m.recipe_editing);
+    assert_eq!(
+        m.training_category, 0,
+        "editor shoulders remain step controls"
+    );
+    m.input(0, &p);
+    m.input(MENU_STICK_CLICK, &p);
+    assert!(!m.recipe_editing && m.quick_menu);
+    assert!(m.training_categories_active);
+    assert_eq!(m.display_rows(), &MenuSelection::TRAINING_LEDGE_ROWS);
+    m.input(0, &p);
+    m.input(DPAD_DOWN, &p);
+    assert_eq!(m.row, MenuRow::Jump);
+}
+
+#[test]
+fn long_list_choice_repeat_and_page_jump_preserve_single_press_toggles() {
+    let source = (0..20)
+        .map(|i| format!("[kirby.neutral.n{i}]\nstart_delay={i}\nactions=a\n"))
+        .collect::<String>();
+    let p = presets(&source);
+    let mut m = MenuSelection::new(&p);
+    m.input(0, &p);
+    m.input(MAPPER_MINUS, &p);
+    m.input(0, &p);
+    m.input(MAPPER_R | DPAD_RIGHT, &p);
+    assert_eq!(m.choices[0], 8);
+    for _ in 0..24 {
+        m.input(MAPPER_R | DPAD_RIGHT, &p);
+    }
+    assert_eq!(m.choices[0], 16);
+    assert_ne!(m.input(0, &p) & MAPPER_R, 0);
+    m.set_training_category(3);
+    m.row = MenuRow::AutoTech;
+    m.input(0, &p);
+    let initial = m.auto_tech;
+    m.input(DPAD_RIGHT, &p);
+    for _ in 0..120 {
+        m.input(DPAD_RIGHT, &p);
+    }
+    assert_eq!(m.auto_tech, !initial);
+}
+
+#[test]
+fn fighter_setting_navigation_repeats_and_jumps_only_visible_rows() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.show();
+    m.input(0, &p);
+    m.set_training_category(4);
+    let visible = (0..crate::fighter_tuning::COUNT)
+        .filter(|i| m.tuning_visible(*i))
+        .collect::<Vec<_>>();
+    let expected = visible[8 % visible.len()];
+    let first = m.tuning_row;
+    assert_ne!(m.input(MAPPER_R | DPAD_DOWN, &p) & MAPPER_R, 0);
+    assert_eq!(m.tuning_row, expected);
+    m.input(0, &p);
+    m.set_training_category(4);
+    m.input(DPAD_DOWN, &p);
+    let once = m.tuning_row;
+    for _ in 0..24 {
+        m.input(DPAD_DOWN, &p);
+    }
+    assert_ne!(m.tuning_row, once);
+    assert_ne!(m.tuning_row, first);
+    assert!(m.tuning_visible(m.tuning_row));
+    m.input(0, &p);
+    m.tuning_row = *visible.last().unwrap();
+    m.input(MAPPER_R | DPAD_DOWN, &p);
+    assert_eq!(
+        m.tuning_row,
+        *visible.last().unwrap(),
+        "page jumps stop at the end"
+    );
+    m.input(0, &p);
+    m.tuning_row = visible[0];
+    m.input(MAPPER_R | DPAD_UP, &p);
+    assert_eq!(m.tuning_row, visible[0], "page jumps stop at the beginning");
+}
+
 #[test]
 fn unconfigured_x_passes_through_and_short_hop_recipes_remain_available() {
     let p = configured();
@@ -61,7 +170,7 @@ fn compact_selector_preserves_unassigned_manual_buttons() {
     m.show_quick();
     m.input(0, &p);
     let mut overlay = crate::manual_controls::ManualOverlay::default();
-    for button in [MAPPER_A, MAPPER_B, MAPPER_Y, MAPPER_R, MAPPER_ZL, MAPPER_ZR] {
+    for button in [MAPPER_A, MAPPER_B, MAPPER_Y, MAPPER_R] {
         m.input(0, &p);
         let consumed = m.input(button, &p);
         let frame = overlay.apply_controls(

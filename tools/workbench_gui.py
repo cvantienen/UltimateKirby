@@ -119,14 +119,14 @@ class Controller:
                     "result": self.result, "result_id": self.result_id, "action": self.action,
                     "preview": self.preview, "plan_id": self.plan_id,
                     "editor": self.editor.metadata(), "editor_fighter": self.editor_fighter,
-                    "breakdown": self.breakdown_preview,
+                    "breakdown": self.breakdown_preview, "lan_editor": self.app.lan_editor_state(),
                     "history": [compact(r) for r in self.rows[-30:]], "shipped": shipped}
 
     def start(self, data):
         if not isinstance(data, dict) or data.get('action') not in {
             'ship', 'build', 'upload', 'verify', 'validate', 'preview', 'commit', 'helper',
             'editor-load', 'editor-fighter', 'editor-preview', 'editor-commit', 'editor-discard',
-            'breakdown-preview', 'breakdown-commit'}:
+            'breakdown-preview', 'breakdown-commit', 'lan-editor-configure'}:
             raise ValueError('Unknown operation')
         with self.lock:
             if self.busy:
@@ -173,6 +173,10 @@ class Controller:
 
     def perform(self, data):
         action = data['action']
+        if action == 'lan-editor-configure':
+            return self.app.configure_lan_editor(data.get('lan_host'), data.get('lan_port'))
+        if action.startswith('lan-editor-'):
+            raise ValueError('LAN transport is unavailable; only local endpoint setup is supported')
         if action in {'ship', 'upload'} and data.get('ready') is not True:
             raise ValueError('Close Smash and open FTP on the Silent Switch and selected targets, then check the ready box')
         for key in ('silent_port', 'diagnostic_port'):
@@ -385,7 +389,7 @@ def launch(app):
                'breakdown_destination': app.preferences.get('gui_breakdown_destination', str(sources.SOURCE)),
                'silent_port': app.port('silent'), 'diagnostic_port': app.port('diagnostic'),
                'silent_host': app.host('silent'), 'diagnostic_host': app.host('diagnostic'),
-               'helpers': list(HELPERS)}
+               'lan_editor': app.lan_editor_state(), 'helpers': list(HELPERS)}
     html = html.replace('__INITIAL__', json.dumps(initial).replace('<', '\\u003c'))
 
     class Handler(BaseHTTPRequestHandler):

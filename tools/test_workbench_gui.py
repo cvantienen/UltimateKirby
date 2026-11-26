@@ -21,6 +21,59 @@ class GuiTests(unittest.TestCase):
         self.app = workbench.Workbench(History(self.root / 'state'))
         self.gui = gui.Controller(self.app)
 
+    def test_lan_setup_is_local_only_persists_and_never_enables_transport(self):
+        with patch('socket.socket', side_effect=AssertionError('No network sockets')), \
+             patch('socket.getaddrinfo', side_effect=AssertionError('No DNS')), \
+             patch.object(self.app, 'host', side_effect=AssertionError('No FTP settings')), \
+             patch.object(self.app, 'run', side_effect=AssertionError('No helper execution')):
+            result = self.gui.perform({'action': 'lan-editor-configure',
+                                       'lan_host': '192.168.1.20', 'lan_port': '4242'})
+            self.assertEqual(result['host'], '192.168.1.20')
+            self.assertFalse(result['available'])
+            self.assertFalse(result['connected'])
+            self.assertFalse(result['listening'])
+            restarted = workbench.Workbench(self.app.history)
+            self.assertEqual(restarted.lan_editor_state(), result)
+            self.assertEqual(self.gui.snapshot()['lan_editor'], result)
+            self.assertEqual(self.app.history.rows(), [])
+
+    def test_invalid_lan_setup_cannot_change_saved_preferences(self):
+        self.app.configure_lan_editor('10.0.0.20', 4242)
+        saved = self.app.preferences_path.read_bytes()
+        for host, port in [('localhost', 4242), ('https://192.168.1.20', 4242),
+                           ('8.8.8.8', 4242), ('127.0.0.1', 4242), ('169.254.1.2', 4242),
+                           ('::ffff:192.168.1.20', 4242), ('192.168.1.20', 0),
+                           ('192.168.1.20', 65536), ('192.168.1.20', True),
+                           ('192.168.1.20', 42.5), ('192.168.1.20', '1e3')]:
+            with self.subTest(host=host, port=port), self.assertRaises(ValueError):
+                self.gui.perform({'action': 'lan-editor-configure', 'lan_host': host, 'lan_port': port})
+            self.assertEqual(self.app.preferences_path.read_bytes(), saved)
+        before = dict(self.app.preferences)
+        with patch.object(self.app, 'save_preferences', side_effect=OSError('disk full')):
+            with self.assertRaises(OSError):
+                self.app.configure_lan_editor('10.0.0.21', 4243)
+        self.assertEqual(self.app.preferences, before)
+
+    def test_lan_connect_and_write_operations_are_rejected_server_side(self):
+        with patch('socket.socket', side_effect=AssertionError('No network sockets')):
+            for operation in ['start', 'connect', 'pair', 'apply', 'save']:
+                data = {'action': f'lan-editor-{operation}'}
+                with self.assertRaises(ValueError):
+                    self.gui.start(data)
+                with self.assertRaisesRegex(ValueError, 'unavailable'):
+                    self.gui.perform(data)
+            self.assertFalse(self.gui.busy)
+            self.assertIsNone(self.gui.thread)
+
+    def test_terminal_lan_setup_uses_same_validation_without_transfer(self):
+        with patch.object(workbench, 'ask', side_effect=['172.16.1.20', '4242']), \
+             patch.object(workbench, 'confirm', return_value=True), \
+             patch('socket.socket', side_effect=AssertionError('No network sockets')), \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.app.lan_editor()
+        self.assertEqual(self.app.lan_editor_state()['host'], '172.16.1.20')
+        self.assertIn('remains unavailable', output.getvalue())
+
     def test_manifest_version_changes_only_requested_literal_and_is_atomic(self):
         manifest = self.root / 'Cargo.toml'
         original = b'[package]\nname="test"\nversion = "2.2.4" # retain comment\ndescription="version 2.2.4 remains here"\n[lib]\ncrate-type=["rlib"]\n'

@@ -61,22 +61,24 @@ pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
         flags as _,
     ) {
         igPushTextWrapPos(max_width - 16.0 * scale);
+        let (r, g, b) = view.accent_rgb();
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+        igTextUnformatted(c"MATCH / GAMEPLAY ACTIVE".as_ptr(), std::ptr::null());
+        igPopStyleColor(1);
         if let Some(label) = &view.lightweight_label {
-            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.62, 0.80, 0.88, 1.0));
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(r, g, b, 1.0));
             igTextUnformatted(label.as_ptr(), std::ptr::null());
             igPopStyleColor(1);
         }
-        let focus = view
-            .values
-            .iter()
-            .position(|v| v.row == view.row)
-            .unwrap_or(0);
-        let start = focus
-            .saturating_sub(4)
-            .min(view.values.len().saturating_sub(9));
-        for value in view.values.iter().skip(start).take(9) {
+        let (start, end, focus) = view.row_window();
+        if let Some(context) = view.row_context.get(focus) {
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+            igTextUnformatted(context.as_ptr(), std::ptr::null());
+            igPopStyleColor(1);
+        }
+        for value in &view.values[start..end] {
             if value.row == view.row {
-                igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.45, 0.86, 1.0, 1.0));
+                igPushStyleColor_Vec4(ImGuiCol_Text as _, color(r, g, b, 1.0));
                 igTextUnformatted(c">".as_ptr(), std::ptr::null());
                 igSameLine(0.0, 3.0 * scale);
                 igTextUnformatted(value.line.as_ptr(), std::ptr::null());
@@ -85,6 +87,16 @@ pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
                 igTextUnformatted(value.line.as_ptr(), std::ptr::null());
             }
         }
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+        igTextUnformatted(
+            c"Hold L + D-pad: select / change".as_ptr(),
+            std::ptr::null(),
+        );
+        igTextUnformatted(
+            c"Release L: gameplay | Minus: hide".as_ptr(),
+            std::ptr::null(),
+        );
+        igPopStyleColor(1);
         igPopTextWrapPos();
     }
     igEnd();

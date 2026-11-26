@@ -98,6 +98,9 @@ impl MenuSelection {
         if let Some(mask) = self.page_shortcuts(&s) {
             return mask;
         }
+        if s.editing && !self.lightweight && !self.recipe_editing && s.pad != 0 {
+            self.pad_quarantine |= s.buttons & MAPPER_R;
+        }
         if let Some(mask) = self.tuning_input(&s) {
             return mask;
         }
@@ -272,7 +275,7 @@ impl MenuSelection {
             return None;
         }
         if self.mode_list_input(presets, s.buttons, s.pressed) {
-            return Some(s.consume(s.buttons | MENU_L3));
+            return Some(s.consume(s.buttons | MENU_L3 | s.quarantined | self.pad_quarantine));
         }
         if s.pressed & (MENU_STICK_CLICK | MENU_L3) != 0
             && self.modes_menu
@@ -331,12 +334,22 @@ impl MenuSelection {
         }
         self.tuning_row = self.tuning_visible_index(self.tuning_row);
         self.trigger_ready &= !(MAPPER_L | bindings::BUTTON_MASK);
+        let repeat = self
+            .hold
+            .step(if s.pad.count_ones() == 1 { s.pad } else { 0 });
         if s.pressed & MENU_STICK_CLICK != 0 {
             self.open_page(MenuRow::LedgePage);
-        } else if s.pad_pressed() {
+        } else if !s.toggled && (s.pad_pressed() || repeat) {
             if s.pad & (DPAD_UP | DPAD_DOWN) != 0 {
-                self.tuning_row = self.next_tuning_row(s.pad == DPAD_DOWN);
-            } else {
+                let steps = Self::navigation_steps(s.buttons);
+                for _ in 0..steps {
+                    let next = self.next_tuning_row(s.pad == DPAD_DOWN);
+                    if steps > 1 && (next > self.tuning_row) != (s.pad == DPAD_DOWN) {
+                        break;
+                    }
+                    self.tuning_row = next;
+                }
+            } else if !repeat || !crate::fighter_tuning::Tuning::is_bool(self.tuning_row) {
                 self.adjust_tuning(s.pad == DPAD_RIGHT);
             }
             self.changed();
@@ -351,7 +364,11 @@ impl MenuSelection {
             }
             self.changed();
         }
-        Some(s.consume(MAPPER_L | MAPPER_X | MAPPER_Y))
+        Some(
+            s.consume(
+                MAPPER_L | MAPPER_X | MAPPER_Y | (self.pad_quarantine & EDITOR_OWNED_BUTTONS),
+            ),
+        )
     }
     /// Next visible fighter-setting row, wrapping; stays put when none is visible.
     fn next_tuning_row(&self, forward: bool) -> usize {
@@ -389,9 +406,18 @@ impl MenuSelection {
         }
     }
 
-    /// Up/Down hold-repeat on a compact row; true when a repeat is due.
+    fn navigation_steps(buttons: u32) -> usize {
+        if buttons & MAPPER_R != 0 {
+            8
+        } else {
+            1
+        }
+    }
+
+    /// Repeat rows and saved choices, but never repeatedly toggle an assist.
     fn row_repeat(&mut self, pad: u32) -> bool {
-        if pad.count_ones() == 1 && pad & (DPAD_UP | DPAD_DOWN) != 0 {
+        if pad.count_ones() == 1 && (pad & (DPAD_UP | DPAD_DOWN) != 0 || self.row.slot().is_some())
+        {
             self.hold.step(pad)
         } else {
             self.hold.reset();
@@ -448,10 +474,14 @@ impl MenuSelection {
         }
         if let Some(pad) = self.compact_direction(s) {
             if pad & (DPAD_UP | DPAD_DOWN) != 0 {
-                self.row = self.page_row_after(pad == DPAD_DOWN);
+                for _ in 0..Self::navigation_steps(s.buttons) {
+                    self.navigate_row(pad == DPAD_DOWN);
+                }
             } else if let Some(slot) = self.row.slot() {
-                self.choices[slot as usize] =
-                    self.cycle_quick_choice(presets, slot, pad == DPAD_RIGHT);
+                for _ in 0..Self::navigation_steps(s.buttons) {
+                    self.choices[slot as usize] =
+                        self.cycle_quick_choice(presets, slot, pad == DPAD_RIGHT);
+                }
             }
             self.changed();
         }
@@ -473,12 +503,6 @@ impl MenuSelection {
             | bound
             | s.consume(MENU_L3)
             | ((s.quarantined | self.pad_quarantine) & EDITOR_OWNED_BUTTONS)
-    }
-    /// Returns the `page_row_after` result.
-    fn page_row_after(&self, forward: bool) -> MenuRow {
-        let rows = self.page_rows();
-        let index = rows.iter().position(|r| *r == self.row).unwrap_or(0);
-        rows[cycle(index, rows.len(), forward)]
     }
     /// L3 starts, or stops, a test of the selected recipe without opening the editor.
     fn toggle_compact_test(&mut self, presets: &MenuPresets) {
@@ -631,6 +655,32 @@ impl MenuSelection {
         {
             return None;
         }
+        let shoulders = MAPPER_ZL | MAPPER_ZR;
+        if s.buttons & shoulders != 0
+            && (s.buttons & shoulders).count_ones() == 1
+            && s.pressed & shoulders != 0
+            && s.buttons & !(shoulders | MAPPER_MINUS) == 0
+        {
+            let current = if self.training_categories_active {
+                self.training_category as usize
+            } else if self.tuning_page {
+                4
+            } else if self.button_menu {
+                1
+            } else if self.modes_menu {
+                2
+            } else {
+                0
+            };
+            let next = cycle(
+                current,
+                Self::TRAINING_CATEGORIES.len(),
+                s.buttons & MAPPER_ZR != 0,
+            );
+            self.set_training_category(next as u8);
+            self.pad_quarantine |= s.buttons & shoulders;
+            return Some(s.consume(MAPPER_L | shoulders));
+        }
         if self.training_tab_focus {
             if s.pad_pressed() && s.pad & DPAD_SIDES != 0 {
                 let next = cycle(
@@ -649,7 +699,7 @@ impl MenuSelection {
             self.pad_quarantine |= s.pad | (s.buttons & (EDITOR_OWNED_BUTTONS | MENU_L3));
             return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS | MENU_L3));
         }
-        if !s.pad_pressed() || s.pad != DPAD_UP {
+        if !s.pad_pressed() || s.pad != DPAD_UP || s.buttons & MAPPER_R != 0 {
             return None;
         }
         let first = if self.tuning_page {
@@ -700,7 +750,7 @@ impl MenuSelection {
                 return mask;
             }
         }
-        let repeat = self.recipe_hold_repeat(s);
+        let repeat = self.recipe_editing && self.recipe_hold_repeat(s);
         let recipe_direction = s.editing
             && self.recipe_editing
             && !s.toggled
@@ -708,7 +758,7 @@ impl MenuSelection {
             && (s.pressed & s.pad != 0 || repeat);
         if recipe_direction {
             self.recipe_direction(s, repeat);
-        } else if s.editing && !s.toggled && s.pad_pressed() {
+        } else if s.editing && !self.recipe_editing && self.compact_direction(s).is_some() {
             self.page_direction(presets, s);
         }
         if let Some(mask) = self.test_press(presets, s) {
@@ -780,20 +830,17 @@ impl MenuSelection {
         self.trigger_ready &= !(MAPPER_L | MAPPER_Y);
         self.changed();
     }
-    /// Outside the editor one axis moves between rows and the other changes the
-    /// row's value; assist pages swap the axes.
+    /// Every selector uses Up/Down for rows and Left/Right for values.
     fn page_direction(&mut self, presets: &MenuPresets, s: &Sample) {
-        let vertical = s.pad & (DPAD_UP | DPAD_DOWN) != 0;
         let positive = s.pad & (DPAD_DOWN | DPAD_RIGHT) != 0;
-        let navigation = if self.training_categories_active {
-            vertical
-        } else {
-            vertical == self.modes_menu
-        };
-        if navigation {
-            self.navigate_row(positive);
+        if s.pad & (DPAD_UP | DPAD_DOWN) != 0 {
+            for _ in 0..Self::navigation_steps(s.buttons) {
+                self.navigate_row(positive);
+            }
         } else if let Some(slot) = self.row.slot() {
-            self.choices[slot as usize] = self.cycle_choice(presets, slot, positive);
+            for _ in 0..Self::navigation_steps(s.buttons) {
+                self.choices[slot as usize] = self.cycle_choice(presets, slot, positive);
+            }
         } else {
             self.adjust_mode(positive);
         }
@@ -866,7 +913,7 @@ impl MenuSelection {
             | editor_buttons
             | self.button_latch
             | MAPPER_MINUS
-            | (held & (MAPPER_X | MAPPER_A | MAPPER_B));
+            | (held & (MAPPER_X | MAPPER_A | MAPPER_B | MAPPER_R | MAPPER_ZL | MAPPER_ZR));
         if s.editing {
             mask |= s.directions | MAPPER_Y | MAPPER_L | MENU_STICK_CLICK;
             if self.row.slot().is_some() {

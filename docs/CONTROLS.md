@@ -36,8 +36,12 @@ controls responses to ledge roll get-ups.
 | Input | Action |
 | --- | --- |
 | Hold L | Fixed walk/ledge autopilot using the five saved response choices |
-| D-pad Up/Down, compact or modes page | Select the previous/next row |
-| D-pad Left/Right, compact or modes page | Change the hovered recipe or mode (Left previous, Right next; either toggles ON/OFF) |
+| D-pad Up/Down, any selector page | Select the previous/next visible row; holding repeats with acceleration |
+| D-pad Left/Right, any selector page | Change the hovered recipe or mode; hold to cycle recipes, but ON/OFF toggles change once per press |
+| ZL/ZR, Training selector or fighter settings | Previous/next grouped category: Ledge, Buttons, Reactions, Assists, Fighter; works without scrolling to the top |
+| Hold R + D-pad, Training selector | Jump eight rows with Up/Down or eight saved choices with Left/Right |
+| Hold R + Up/Down, fighter settings | Jump eight visible settings, stopping at the beginning/end; ordinary Up/Down still wraps |
+| ZL/ZR or hold R + Up/Down, Training rule list | Jump eight rules, stopping at the beginning/end; hold ordinary Up/Down to scroll |
 | D-pad, recipe editor | Up/Down selects a field; Left/Right adjusts its value. Choose a different recipe in compact |
 | D-pad, menu hidden | Current fighter's saved recipe/helper; D-pad Down fallback is Turbo, other empty slots use Short hop |
 | Minus | Open the ledge home from hidden; close from any page |
@@ -85,7 +89,7 @@ The old Y Finisher binding is retired; Y uses its selected saved recipe or
 current helper fallback. See [sequence files](SEQUENCE_FILES.md).
 
 Menus appear in the **top-left in silent builds** and **top-right in diagnostic
-builds**, using dark rounded panels and a teal selection highlight. Training edit/save control hints are visible; lightweight gameplay selectors
+builds**, using translucent dark rounded panels and distinct sky-blue, lavender, amber, rose and green category accents. Training edit/save control hints are visible; lightweight gameplay selectors
 remain compact. Save/error statuses, action-slot numbers and edited values remain
 visible.
 

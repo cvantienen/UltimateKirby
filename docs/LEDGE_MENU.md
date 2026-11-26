@@ -30,18 +30,40 @@ alone is not proof that diagnostic features are enabled; use its feature/build
 configuration. Diagnostics can provide timing/evidence, not guaranteed native
 acceptance, hit confirmation or a measured cure for a hardware crash.
 
-The lightweight menu starts visible on ledge choices at non-Training battle entry. It contains option rows only: no character/menu heading or control-hint footer. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. The former L+R3 binding is removed. While
+The lightweight menu starts visible on ledge choices at non-Training battle entry. It contains a compact page/control cue and option rows, without Training editor tools. Training starts hidden and keeps its editor heading and hints. **Minus** opens/closes either menu in every build, including silent and diagnostic Training compatibility. The former L+R3 binding is removed. While
 visible in Training, **Up/Down** selects a row and **Left/Right** changes its choice.
 Minus always opens the ledge home from hidden and closes from any page.
 Outside Training, Minus opens only the five ledge choices. **R3** switches
 between this list and a separate **Buttons / Assists** list; Minus closes either
 page and next opens ledge choices. Both pages use cached plain text, with up to
-nine rows around the cursor on the auxiliary page. **Hold L + D-pad** to navigate
-or change values; hold Up/Down to scroll rows. Without L, configured D-pad actions
+seven rows around the cursor, with position and hidden-row indicators for longer lists. **Hold L + D-pad** to navigate
+or change values; hold Up/Down to scroll rows and Left/Right to cycle saved choices.
+Assist ON/OFF toggles change only once per press. Without L, configured D-pad actions
 work while the menu stays open. Release a navigation direction before using it
 as a gameplay binding. R3 and Minus work without L. The panel fits its text,
 wraps long names and omits the ledge-option counters. There are no editor,
 preview, CRUD or save controls outside Training.
+
+### Faster Training navigation
+
+All selector pages use **Up/Down for rows** and **Left/Right for values**;
+there is no axis swap between the older full page and grouped categories.
+Press **ZL/ZR** on a selector or fighter settings page to switch directly between
+**Ledge / Buttons / Reactions / Assists / Fighter**, without scrolling to the top.
+The compact ledge home and its existing page links remain available.
+
+Hold **R + Up/Down** to jump eight rows, or **R + Left/Right** to jump eight saved
+choices on Training selectors. Fighter settings use **R + Up/Down** to jump eight
+visible settings, stopping at either end. Hold ordinary directions for accelerated
+scrolling or numeric adjustment; boolean settings still change once per press.
+The rule list supports **ZL/ZR** or **R + Up/Down** for bounded eight-row jumps.
+These shortcuts never save, delete, or reorder a sequence.
+
+Inside the recipe editor the established shortcuts remain unchanged:
+**ZL/ZR** moves between sequence steps; **R + Up/Down** reorders a step;
+**ZL+ZR** opens Step tools. **B/R3** backs out without saving, retaining the
+session draft; **Y alone** saves. Navigation controls stay owned through release
+so they cannot accidentally become gameplay inputs when closing the menu.
 
 Training retains the full layout: the ledge home has **Button recipes** and
 **Assist modes** links (A/R3 or Left/Right opens them), **R3** edits,
@@ -67,8 +89,10 @@ provides an empty R3 fallback on saved reload. Saved manual defaults/recipes can
 replace those fallback selections. A `short_hop:1` tape is a separate timed input. Release a navigation key
 before using it for gameplay. Minus is reserved for menu visibility.
 
-The menu uses a fixed-width dark rounded card, with a teal highlight and a
-separate navigation area. Silent stays at the **top left**; diagnostic stays at
+The menu uses a translucent dark rounded card with distinct category accents:
+sky blue for Ledge, lavender for Buttons, amber for Reactions, rose for Assists
+and green for Fighter settings. Selection, saved/unsaved feedback and list position use
+text cues as well as color. The bounded navigation area keeps long lists compact. Silent stays at the **top left**; diagnostic stays at
 the **top right**. Compact shows the selected option for every row. The wider
 editor keeps numbered action summaries and their settings together, marks edited
 steps, and highlights the exact selected value. The pinned header identifies

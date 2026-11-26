@@ -5,6 +5,32 @@ fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
     m.input(0, p);
     m.input(b, p);
 }
+#[test]
+fn rule_list_repeats_and_page_jumps_stop_at_bounds_without_editing() {
+    let source = (0..8).map(|i| format!("[bowser.roll.r{i}]\nstart_delay=0\nreaction=roll:grounded:0:20:18:any:1\nactions=grab:4\n")).collect::<String>();
+    let catalog = crate::sequence_config::Catalog::parse(&source).unwrap();
+    let mut profiles = FighterProfiles::default();
+    profiles.add_sequence_choices(&catalog).unwrap();
+    let p = profiles.profile(15).unwrap().menu_options;
+    let mut m = MenuSelection::new(&p);
+    m.show_modes();
+    m.open_mode_list(&p, MenuRow::RollRules);
+    tap(&mut m, &p, MAPPER_ZR);
+    assert_eq!(m.mode_rule_cursor, 8);
+    tap(&mut m, &p, MAPPER_ZR);
+    assert_eq!(m.mode_rule_cursor, 8);
+    tap(&mut m, &p, MAPPER_ZL);
+    assert_eq!(m.mode_rule_cursor, 0);
+    tap(&mut m, &p, DPAD_DOWN);
+    assert_eq!(m.mode_rule_cursor, 1);
+    for _ in 0..24 {
+        m.input(DPAD_DOWN, &p);
+    }
+    assert_eq!(m.mode_rule_cursor, 2);
+    assert!(!m.recipe_editing && !m.managing() && !m.save_requested);
+    assert_eq!(m.mode_entries(&p, MenuRow::RollRules).len(), 8);
+}
+
 /// Regression test for `spot_punish_opens_its_own_list_and_saved_rule_remains_separate`.
 #[test]
 fn spot_punish_opens_its_own_list_and_saved_rule_remains_separate() {

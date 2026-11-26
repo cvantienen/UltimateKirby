@@ -728,14 +728,6 @@ impl MenuSelection {
         }
         self.changed();
     }
-    /// Returns the row range belonging to the requested page.
-    fn page_rows(&self) -> &'static [MenuRow] {
-        if self.button_menu {
-            &Self::BUTTON_ROWS
-        } else {
-            &Self::LEDGE_ROWS
-        }
-    }
     /// Builds the navigation link for a settings page.
     pub fn page_link(row: MenuRow) -> bool {
         matches!(
@@ -1181,8 +1173,10 @@ impl MenuSelection {
     }
     /// Builds the quick-settings display.
     pub fn show_quick(&mut self) {
-        self.training_category = u8::MAX;
-        self.training_categories_active = false;
+        if self.mode_editor_origin.is_some() {
+            self.training_category = u8::MAX;
+            self.training_categories_active = false;
+        }
         self.training_tab_focus = false;
         if self.mode_editor_origin.is_some() && !self.mode_rule_list {
             self.recipe_editing = false;

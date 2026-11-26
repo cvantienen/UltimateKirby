@@ -81,6 +81,8 @@ pub(super) struct Snapshot {
     pub(super) training_categories_active: bool,
     /// Selected Training category index.
     pub(super) training_category: u8,
+    /// Whether shoulder category navigation is available on this page.
+    pub(super) category_controls: bool,
     /// Native fighter kind used to build the rows.
     pub(super) fighter: i32,
     /// Currently selected navigation row.
@@ -91,6 +93,10 @@ pub(super) struct Snapshot {
     pub(super) navigation: Option<CString>,
     /// Compact lightweight page and R3 navigation cue.
     pub(super) lightweight_label: Option<CString>,
+    /// Cached category labels; drawing never allocates native strings.
+    pub(super) categories: Vec<CString>,
+    /// One bounded-list context label per possible cursor position.
+    pub(super) row_context: Vec<CString>,
     /// Cached panel header lines.
     pub(super) header: Vec<CString>,
     /// Cached editor or recipe body lines.
@@ -115,6 +121,43 @@ pub(super) struct SavedChoice {
     pub(super) line: CString,
 }
 impl Snapshot {
+    /// Category colors stay distinct from save, error, and enabled-state colors.
+    pub(super) fn accent_rgb(&self) -> (f32, f32, f32) {
+        let category = if self.training_categories_active {
+            self.training_category
+        } else if self.modes {
+            2
+        } else if self.buttons {
+            1
+        } else {
+            0
+        };
+        Self::category_rgb(category)
+    }
+
+    pub(super) fn category_rgb(category: u8) -> (f32, f32, f32) {
+        match category {
+            1 => (0.75, 0.65, 1.0),
+            2 => (1.0, 0.73, 0.42),
+            3 => (0.96, 0.56, 0.69),
+            4 => (0.53, 0.82, 0.62),
+            _ => (0.45, 0.80, 1.0),
+        }
+    }
+
+    /// A centered, bounded option window shared by both renderers.
+    pub(super) fn row_window(&self) -> (usize, usize, usize) {
+        let focus = self
+            .values
+            .iter()
+            .position(|v| v.row == self.row)
+            .unwrap_or(0);
+        let start = focus
+            .saturating_sub(3)
+            .min(self.values.len().saturating_sub(7));
+        (start, (start + 7).min(self.values.len()), focus)
+    }
+
     /// Tests whether content/layout inputs are reusable apart from cursor and revision.
     pub(super) fn reusable(
         &self,
@@ -398,8 +441,15 @@ pub(super) fn build(
     let navigation = if selection.lightweight {
         None
     } else {
-        let text = format!("{}   /   L: {}", navigation_text(profile, selection, &values),
-            if selection.l_spacing_selected() { "SPACING" } else { "LEDGE TRAP" });
+        let text = format!(
+            "{}   /   L: {}",
+            navigation_text(profile, selection, &values),
+            if selection.l_spacing_selected() {
+                "SPACING"
+            } else {
+                "LEDGE TRAP"
+            }
+        );
         Some(text_cache::copy_text(&text)?.ok_or("Invalid menu heading")?)
     };
     let lightweight_label = if selection.lightweight {
@@ -411,18 +461,62 @@ pub(super) fn build(
             "LEDGE TRAP"
         };
         Some(
-            text_cache::copy_text(&format!("{page}  |  L: {}  |  R3: NEXT PAGE",
-                if selection.l_spacing_selected() { "SPACING" } else { "LEDGE TRAP" }))?
-                .ok_or("Invalid lightweight page label")?,
+            text_cache::copy_text(&format!(
+                "{page}  |  L: {}  |  R3: NEXT PAGE",
+                if selection.l_spacing_selected() {
+                    "SPACING"
+                } else {
+                    "LEDGE TRAP"
+                }
+            ))?
+            .ok_or("Invalid lightweight page label")?,
         )
     } else {
         None
     };
     let panel = recipe_panel(profile, selection);
-    // Training keeps every original hint and status without text filtering.
-    let header = text_cache::copy_lines(&panel.header)?;
+    // Some help panels repeat the same paragraph in the heading and body.
+    // Keep its body copy without hiding status or editor instructions.
+    let header_lines: Vec<String> = panel
+        .header
+        .iter()
+        .filter(|line| {
+            !panel.body.iter().any(|body| {
+                line.as_str() == body.as_str() || line.strip_prefix("Help: ") == Some(body.as_str())
+            })
+        })
+        .cloned()
+        .collect();
+    let header = text_cache::copy_lines(&header_lines)?;
     let body = text_cache::copy_lines(&panel.body)?;
     let footer = text_cache::copy_lines(&panel.footer)?;
+    let categories = if selection.training_categories_active {
+        text_cache::copy_lines(
+            &MenuSelection::TRAINING_CATEGORIES
+                .iter()
+                .map(|s| (*s).to_owned())
+                .collect::<Vec<_>>(),
+        )?
+    } else {
+        Vec::new()
+    };
+    let row_context = text_cache::copy_lines(
+        &(0..values.len())
+            .map(|focus| {
+                let start = focus.saturating_sub(3).min(values.len().saturating_sub(7));
+                let end = (start + 7).min(values.len());
+                format!(
+                    "OPTION {}/{}  |  {} {}-{} {}",
+                    focus + 1,
+                    values.len(),
+                    if start > 0 { "^" } else { "" },
+                    start + 1,
+                    end,
+                    if end < values.len() { "v" } else { "" }
+                )
+            })
+            .collect::<Vec<_>>(),
+    )?;
     Ok(Snapshot {
         revision: selection.revision,
         generation,
@@ -437,11 +531,17 @@ pub(super) fn build(
         training_tab_focus: selection.training_tab_focus,
         training_categories_active: selection.training_categories_active,
         training_category: selection.training_category,
+        category_controls: !selection.lightweight
+            && !selection.managing()
+            && (!selection.recipe_editing || selection.tuning_page)
+            && !selection.assist_rule_page(),
         fighter: profile.fighter_kind,
         row: selection.row,
         values,
         navigation,
         lightweight_label,
+        categories,
+        row_context,
         header,
         body,
         footer,

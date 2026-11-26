@@ -564,6 +564,52 @@ class Workbench:
         if self.build():
             self.upload()
 
+    def lan_editor_state(self):
+        return {"available": False, "connected": False, "listening": False,
+                "status": "Unavailable — native LAN transport is not verified",
+                "host": self.preferences.get("lan_editor_host", ""),
+                "port": self.preferences.get("lan_editor_port", 4242)}
+
+    def configure_lan_editor(self, host, port):
+        """Save a proposed Mac endpoint locally; never bind, resolve or connect."""
+        if not isinstance(host, str):
+            raise ValueError("Use the Mac's numeric private IPv4 address")
+        try:
+            address = ipaddress.IPv4Address(host.strip())
+        except ipaddress.AddressValueError:
+            raise ValueError("Use a numeric private IPv4 address, not a hostname or URL") from None
+        if not any(address in ipaddress.IPv4Network(network)
+                   for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")):
+            raise ValueError("Only RFC1918 private IPv4 addresses are allowed")
+        if isinstance(port, bool) or not isinstance(port, (str, int)):
+            raise ValueError("LAN port must be an integer from 1 to 65535")
+        text = str(port)
+        if not text.isascii() or not text.isdecimal() or not 1 <= int(text) <= 65535:
+            raise ValueError("LAN port must be an integer from 1 to 65535")
+        previous = dict(self.preferences)
+        self.preferences.update(lan_editor_host=str(address), lan_editor_port=int(text))
+        try:
+            self.save_preferences()
+        except OSError:
+            self.preferences = previous
+            raise
+        return self.lan_editor_state()
+
+    def lan_editor(self):
+        state = self.lan_editor_state()
+        print("\nTRAINING LAN EDITOR · unavailable · not listening · disconnected")
+        print("Native transport is not verified. This screen cannot connect or edit the game.")
+        print("Save the Mac's numeric LAN address and port for future setup only.")
+        print("No DNS, discovery, connection attempts or Switch writes occur here.")
+        print("Private IP validation does not verify a LAN route or block internet egress.")
+        host = ask("Mac LAN IPv4 address (empty cancels)", state["host"])
+        if not host:
+            return
+        port = ask("Future LAN editor port (not FTP)", state["port"])
+        if confirm("Save endpoint locally only? This does not enable the adapter.", "SAVE"):
+            saved = self.configure_lan_editor(host, port)
+            print(f"Saved {saved['host']}:{saved['port']} locally. Adapter remains unavailable.")
+
     def validate(self):
         self.run("validate", helper("sequence_validation.py", self.local_path("File to validate")))
 
@@ -581,6 +627,7 @@ class Workbench:
             ("History / shipped versions / file logs", self.show_history),
             ("Preferences", self.settings),
             ("Original helpers / advanced options", self.advanced),
+            ("Training LAN editor setup (transport unavailable)", self.lan_editor),
         )
 
     def loop(self):

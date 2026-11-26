@@ -89,6 +89,7 @@ pub mod fighters {
         facing.is_finite() && facing.abs() >= 0.5
     }
 }
+pub mod lan_editor;
 pub mod live_input;
 pub mod manual_controls;
 /// Independent assistance policies and their decision helpers.

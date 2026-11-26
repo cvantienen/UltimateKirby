@@ -142,6 +142,17 @@ fn profiles() -> FighterProfiles {
 fn input(m: &mut MenuSelection, p: &FighterProfile, buttons: u32, training: bool) {
     m.input_with_editing(buttons, &p.menu_options, training);
 }
+fn is_context(snapshot: &Snapshot, text: &str) -> bool {
+    matches!(
+        text,
+        "MATCH / GAMEPLAY ACTIVE"
+            | "Hold L + D-pad: select / change"
+            | "Release L: gameplay | Minus: hide"
+    ) || snapshot
+        .row_context
+        .iter()
+        .any(|line| line.to_str().unwrap() == text)
+}
 fn draw(snapshot: &Snapshot, collapse: bool) -> Vec<String> {
     TRACE.with(|t| {
         *t.borrow_mut() = Trace {
@@ -197,7 +208,7 @@ fn actual_lightweight_renderer_emits_only_option_rows_on_all_three_pages() {
         assert!(text.contains(&label.to_owned()));
         for line in text
             .iter()
-            .filter(|s| s.as_str() != ">" && s.as_str() != label)
+            .filter(|s| s.as_str() != ">" && s.as_str() != label && !is_context(&snapshot, s))
         {
             assert!(snapshot
                 .values
@@ -221,6 +232,61 @@ fn actual_lightweight_renderer_emits_only_option_rows_on_all_three_pages() {
         );
     }
 }
+#[test]
+fn bounded_option_window_tracks_cursor_without_rebuilding_context() {
+    let profiles = profiles();
+    let p = profiles.profile(15).unwrap();
+    let mut m = MenuSelection::new(&p.menu_options);
+    input(&mut m, p, 0, false);
+    input(&mut m, p, MENU_STICK_CLICK, false);
+    let mut snapshot = view::build(p, &m, false, 0).unwrap();
+    assert!(snapshot.values.len() > 7);
+    let context_ptr = snapshot.row_context[0].as_ptr();
+    snapshot.row = snapshot.values.last().unwrap().row;
+    let (start, end, focus) = snapshot.row_window();
+    assert_eq!(end - start, 7);
+    assert_eq!(end, snapshot.values.len());
+    assert_eq!(focus, end - 1);
+    let text = draw(&snapshot, false);
+    assert!(text.contains(&snapshot.row_context[focus].to_str().unwrap().to_owned()));
+    assert!(text.contains(&snapshot.values[focus].line.to_str().unwrap().to_owned()));
+    assert!(!text.contains(&snapshot.values[0].line.to_str().unwrap().to_owned()));
+    assert_eq!(snapshot.row_context[0].as_ptr(), context_ptr);
+    assert!(text
+        .iter()
+        .any(|s| s == "Release L: gameplay | Minus: hide"));
+}
+
+#[test]
+fn training_help_is_present_once_without_losing_controls() {
+    let profiles = profiles();
+    let p = profiles.profile(15).unwrap();
+    let mut m = MenuSelection::new(&p.menu_options);
+    input(&mut m, p, 0, true);
+    input(&mut m, p, MAPPER_MINUS, true);
+    m.set_training_category(2);
+    m.quick_menu = false;
+    m.modes_menu = false;
+    m.row = MenuRow::AutoMash;
+    let snapshot = view::build(p, &m, false, 0).unwrap();
+    assert!(snapshot
+        .body
+        .iter()
+        .any(|line| line.to_str().unwrap().contains("escape inputs")));
+    assert!(!snapshot
+        .header
+        .iter()
+        .any(|line| line.to_str().unwrap().starts_with("Help:")));
+    assert!(snapshot
+        .footer
+        .iter()
+        .any(|line| line.to_str().unwrap().contains("Minus: close")));
+    assert_eq!(
+        snapshot.categories.len(),
+        MenuSelection::TRAINING_CATEGORIES.len()
+    );
+}
+
 #[test]
 fn training_categories_publish_only_their_options_and_restore_after_tab_focus() {
     let profiles = profiles();
@@ -452,7 +518,10 @@ fn every_configured_fighter_renders_all_three_lightweight_pages_without_headers_
             assert!(m.lightweight && !m.menu_hidden && !m.recipe_editing && !m.managing());
             let rendered = draw(&snapshot, false);
             assert!(rendered.contains(&label.to_owned()));
-            for line in rendered.iter().filter(|s| s.as_str() != ">" && *s != label) {
+            for line in rendered
+                .iter()
+                .filter(|s| s.as_str() != ">" && *s != label && !is_context(&snapshot, s))
+            {
                 assert!(
                     snapshot
                         .values
