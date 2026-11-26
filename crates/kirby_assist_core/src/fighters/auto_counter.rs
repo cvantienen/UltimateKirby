@@ -86,7 +86,8 @@ pub fn predicted_attack(
         || frame < 0.0
         || !rate.is_finite()
         || rate <= 0.0
-        || !melee_status(status)
+        || !(melee_status(status)
+            || (crate::native_states::status::SPECIAL_N..=crate::native_states::status::SPECIAL_LW).contains(&status))
         || !config.valid()
     {
         return None;
@@ -348,7 +349,12 @@ pub fn projectile_owner_near(origin: [f32; 3], owner: [f32; 3], half_depth: f32)
 /// native input handling still decides whether the special starts.
 pub fn can_request(status: i32, situation: i32, transition_enabled: bool) -> bool {
     ready(status, situation)
-        && (transition_enabled || crate::native_states::moving_down_special_input(status, situation))
+        && (transition_enabled || crate::native_states::moving_down_special_input(status, situation)
+            || situation == crate::native_states::situation::AIR
+                && matches!(status, crate::native_states::status::JUMP
+                    | crate::native_states::status::JUMP_AERIAL
+                    | crate::native_states::status::FALL
+                    | crate::native_states::status::FALL_AERIAL))
 }
 
 pub fn ready(status: i32, situation: i32) -> bool {
@@ -727,6 +733,35 @@ mod tests {
         c.animation.frame += 1.0;
         assert_eq!(counter.sample(true, Some(config()), c, None).owned, SEQUENCE_BUTTONS);
         assert!(!counter.awaiting_receipt());
+    }
+
+    #[test]
+    fn held_counter_requests_immediately_for_ready_movement_and_air_states() {
+        use crate::native_states::{situation, status};
+        let configured = Config::for_fighter(crate::fighter_kinds::LUCINA, Tuning::default()).unwrap();
+        assert_eq!(configured.input_delay, 0.0);
+        for (situation, states) in [
+            (situation::GROUND, &[status::WAIT, status::WALK, status::DASH, status::RUN,
+                status::TURN, status::SQUAT, status::LANDING][..]),
+            (situation::AIR, &[status::JUMP, status::JUMP_AERIAL, status::FALL,
+                status::FALL_AERIAL][..]),
+        ] {
+            for &status in states {
+                let mut counter = Counter::new();
+                let mut c = Context { situation, ..context() };
+                c.animation.status = status;
+                let t = Threat { in_frames: 0.0, ..threat(7) };
+                let out = counter.sample(true, Some(configured), c, Some(t));
+                assert_eq!(out.requested, MAPPER_B, "status {status}");
+                assert_eq!(out.stick, Some([0.0, -1.0]));
+                counter.mapped();
+                c.animation.status = crate::native_states::status::SPECIAL_LW;
+                c.animation.frame = 0.0;
+                c.stopped = true;
+                assert_eq!(counter.sample(true, Some(configured), c, Some(t)), ControllerOutput::NONE);
+                assert!(!counter.active());
+            }
+        }
     }
 
     #[test]
@@ -1322,6 +1357,16 @@ mod tests {
     }
 
     #[test]
+    fn damaging_special_startup_is_not_discarded_by_normal_attack_status_filter() {
+        use crate::native_states::status;
+        let t = predicted_attack(config(), [0.; 3], [0.; 2], [12., 0., 0.], [0.; 2],
+            5, 7, crate::timing::motion_hash("attack_air_f"), status::SPECIAL_S, 12., 1.);
+        assert!(t.is_some());
+        assert!(predicted_attack(config(), [0.; 3], [0.; 2], [12., 0., 0.], [0.; 2],
+            5, 7, crate::timing::motion_hash("wait"), status::SPECIAL_S, 0., 1.).is_none());
+    }
+
+    #[test]
     fn movement_submits_input_without_overriding_action_lockouts() {
         use crate::native_states::{situation, status};
         for state in [
@@ -1342,7 +1387,7 @@ mod tests {
             );
         }
         for state in [status::JUMP, status::JUMP_AERIAL, status::FALL, status::FALL_AERIAL] {
-            assert!(!can_request(state, situation::AIR, false));
+            assert!(can_request(state, situation::AIR, false));
             assert!(can_request(state, situation::AIR, true));
         }
         assert!(Config::for_fighter(crate::fighter_kinds::LUCINA, Tuning::default()).is_some());

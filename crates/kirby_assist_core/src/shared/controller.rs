@@ -88,7 +88,7 @@ pub mod action_owner {
         }
         /// Determines whether the `exclusive` condition holds.
         pub fn exclusive(self) -> bool {
-            !matches!(self, Self::Defense | Self::Turbo | Self::Posture | Self::Spacing)
+            !matches!(self, Self::Defense | Self::Turbo | Self::Posture | Self::Spacing | Self::HeldDefense)
         }
     }
 
@@ -385,8 +385,11 @@ pub mod action_owner {
             assert!(!ownership.allows(Owner::Spacing));
             assert_eq!(ownership.select(true, &[intent(Owner::HeldDefense), intent(Owner::Counter)]), Some(Owner::HeldDefense));
             let neutral = exclusive_output(Some(Owner::HeldDefense), true, ControllerOutput::NONE);
-            assert_eq!(neutral.stick, Some([0.; 2]));
-            assert_eq!(neutral.owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
+            assert_eq!(neutral, ControllerOutput::NONE);
+            let shield = ControllerOutput { requested: crate::native_input::MAPPER_ZR,
+                owned: crate::ledge_trap::SEQUENCE_BUTTONS, stick: Some([0.; 2]),
+                ..ControllerOutput::NONE };
+            assert_eq!(exclusive_output(Some(Owner::HeldDefense), true, shield), shield);
             assert_eq!(ownership.select(true, &[intent(Owner::Safety), intent(Owner::HeldDefense)]), Some(Owner::Safety));
             ownership.release(Owner::Safety);
             ownership.set_defensive_hold(false, true);

@@ -283,8 +283,14 @@ pub fn fastest_walk_stick(walk_threshold: f32, dash_threshold: f32) -> Option<f3
     {
         return None;
     }
-    (1..=127).rev().map(|v| v as f32 / 127.0)
-        .find(|v| *v < dash_threshold && *v >= walk_threshold)
+    // Packets use 127, but native movement normalizes their bytes by 120.
+    // Comparing the pre-map float with dash_stick_x permits dash-sized packets.
+    (1..=120).rev()
+        .find(|&byte| {
+            let native = byte as f32 / 120.0;
+            native < dash_threshold && native >= walk_threshold
+        })
+        .map(|byte| byte as f32 / 127.0)
 }
 
 /// Drop every `sources` bit, then add each pair's destination when any of its
@@ -437,15 +443,6 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
     } else {
         buttons
     }
-}
-
-/// Suppress physical attack and tilt-stick output during a manual turn, or
-/// deliver the one buffered A without clearing unrelated mapped controls.
-pub fn mapped_posture_attack(buttons: u32, requested: bool) -> u32 {
-    mapped_attack_hold(
-        buttons & !(MAPPED_ATTACK_HOLD_BITS | MAPPED_CSTICK_BUTTON),
-        requested,
-    )
 }
 
 /// Spacing owns attacks but deliberately preserves the player's mapped jump.

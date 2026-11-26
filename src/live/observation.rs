@@ -1212,7 +1212,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
 unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_assist_core::gameplay::Opponent>)> {
     use kirby_assist_core::native_states::situation;
     let held = STATE.lock().ok()?.settings_menu.as_ref()
-        .is_some_and(|menu| menu.auto_spacing_held());
+        .is_some_and(|menu| menu.auto_spacing_held() || menu.auto_defense_held());
     if !held {
         return None;
     }
@@ -1252,12 +1252,24 @@ unsafe fn collect_spacing(p: &Pass) -> Option<(GameplayContext, Option<kirby_ass
 }
 
 fn sample_spacing(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
+    state.held_walk_cap = c.spacing_observation
+        .filter(|(context, _)| context.can_control
+            && context.situation == kirby_assist_core::native_states::situation::GROUND)
+        .map(|(context, _)| context.walk_stick.unwrap_or(0.));
     let held = state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held())
         && state.action_owner.allows(Owner::Spacing);
-    if let Some((context, target)) = c.spacing_observation.filter(|_| held) {
-        let config = state.settings_menu.as_ref()
+    if let Some((mut context, target)) = c.spacing_observation.filter(|_| held) {
+        let settings = state.settings_menu.as_ref().map_or_else(
+            || settings_for_fighter(Some(p.fighter_kind), p.config.assist),
+            |menu| menu.settings(Some(p.fighter_kind), &p.config.assist),
+        );
+        let mut config = state.settings_menu.as_ref()
             .map_or(Default::default(), |m| m.fighter_tuning(p.fighter_kind))
             .auto_spacing(p.fighter_kind);
+        // Manual movement is limited only by dash entry, not a gentle-walk setting.
+        config.ground_speed = context.walk_stick.unwrap_or_else(||
+            kirby_assist_core::manual_controls::ledge_walk_stick([1.0, 0.0], settings.walk_strength)[0]);
+        context.walk_stick = Some(config.ground_speed);
         state.spacing_output = state.spacing.get_or_insert_with(Default::default)
             .sample(tick, true, config, context, target);
     } else {
@@ -2196,11 +2208,8 @@ unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
         (
             s.settings_menu
                 .as_ref()
-                .and_then(|menu| menu.counter_config(p.fighter_kind))
-                .map(|mut config| {
-                    config.input_delay = f32::from(p.config.sequence_input_delay_frames);
-                    config
-                }),
+                // Counter input is immediate, not a delayed sequence action.
+                .and_then(|menu| menu.counter_config(p.fighter_kind)),
             s.settings_menu.as_ref().is_some_and(|m| m.counter_held())
                 && !p.tech_obs.clatter
                 && s.action_owner.allows(Owner::Counter),

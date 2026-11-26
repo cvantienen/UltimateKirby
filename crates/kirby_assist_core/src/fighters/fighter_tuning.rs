@@ -295,12 +295,12 @@ mod schema {
         "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
         "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
         "Attack only inside this horizontal distance. Ground approach walks toward the target even outside attack range; aerial direction stays manual outside range. Independent of minimum retreat spacing; holding blocks other automatic modes.",
-        "Fraction of the native fastest safe non-dash walk: 0 stops ground movement including retreat, 1 uses maximum safe walk. Positive settings retreat at maximum safe walk; neither direction dashes.",
-        "Maximum approaching aerial stick strength while held. Lucina defaults to 0.6; others to 1. Moving away permits full drift. Attack-selection packets retain their required direction.",
-        "Minimum approaching horizontal strength at the spacing boundary (0-1, default 0.1), capped by the selected maximum. Enabled braking smoothly tapers within its activation distance; never changes native physics.",
-        "Smooth approaching ground input near minimum spacing. OFF keeps the configured walk fraction. Never slows retreat.",
-        "Smooth approaching aerial input near minimum spacing. OFF keeps the configured maximum drift. Never slows retreat.",
-        "Root-distance above minimum spacing where enabled braking begins (default 5). Outside this zone movement keeps its normal configured strength. Zero disables tapering.",
+        "Legacy ground-cap value retained for saved configurations. Live manual Auto Space uses the maximum native non-dash stick value; assisted retreat uses full strength and may dash.",
+        "Legacy drift value retained for saved configurations. Auto Space now leaves manual aerial drift unrestricted and uses full drift for retreat.",
+        "Legacy minimum-drift value retained for saved configurations; Auto Space no longer tapers movement.",
+        "Legacy ground-braking setting; ignored because Auto Space braking has been removed.",
+        "Legacy air-braking setting; ignored because Auto Space braking has been removed.",
+        "Legacy braking-distance setting; ignored because Auto Space braking has been removed.",
         "Frames ahead of predicted contact to begin Auto Defense (0-30, default 4). Input-only timing, not native move startup.",
     ];
 
@@ -538,7 +538,7 @@ const DEFAULTS: [f32; COUNT] = {
     d[COUNTER_HEIGHT] = 16.;
     d[COUNTER_HALF_DEPTH] = 5.;
     d[AUTO_SPACING_MINIMUM_DISTANCE] = 15.;
-    d[AUTO_SPACING_GROUND_SPEED] = 1.;
+    d[AUTO_SPACING_GROUND_SPEED] = 0.49;
     d[AUTO_SPACING_GROUND_BRAKING] = 1.;
     d[AUTO_SPACING_AIR_BRAKING] = 1.;
     d[AUTO_SPACING_BRAKING_DISTANCE] = 10.;
@@ -665,7 +665,7 @@ impl Tuning {
         }
     }
     /// Resolves universal hold-mode spacing and independent attack estimates.
-    pub fn auto_spacing(self, kind: i32) -> crate::auto_spacing::Config {
+    pub fn auto_spacing(self, _kind: i32) -> crate::auto_spacing::Config {
         use crate::auto_spacing::{Attack, AttackConfig, Config};
         let attack = |i, aerial| match self.get(i) {
             1. => Attack::Neutral,
@@ -679,8 +679,7 @@ impl Tuning {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
             engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
             ground_speed: self.get(AUTO_SPACING_GROUND_SPEED),
-            maximum_drift: self.value(AUTO_SPACING_MAXIMUM_DRIFT,
-                if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. }),
+            maximum_drift: self.get(AUTO_SPACING_MAXIMUM_DRIFT),
             minimum_drift: self.get(AUTO_SPACING_MINIMUM_DRIFT),
             ground_braking: self.get(AUTO_SPACING_GROUND_BRAKING) == 1.,
             air_braking: self.get(AUTO_SPACING_AIR_BRAKING) == 1.,
@@ -874,7 +873,7 @@ impl Tuning {
         (values[AUTO_GRAB_CLOSE], values[AUTO_GRAB_FAR]) =
             default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
-        values[AUTO_SPACING_MAXIMUM_DRIFT] = if s.fighter_kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. };
+        values[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
         Values(values)
     }
     /// Applies saved per-fighter overrides to the runtime assistance settings.
@@ -1106,13 +1105,13 @@ mod tests {
             });
             assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
             assert_eq!(config.maximum_drift, menu[AUTO_SPACING_MAXIMUM_DRIFT]);
-            assert_eq!(config.ground_speed, 1.);
+            assert_eq!(config.ground_speed, 0.49);
             assert_eq!(config.minimum_distance, 15.);
             assert_eq!(config.engagement_range, 20.);
             assert!(config.ground_braking && config.air_braking);
             assert_eq!(config.braking_distance, 10.);
             assert_eq!(config.minimum_drift, 0.1);
-            assert_eq!(config.maximum_drift, if kind == crate::fighter_kinds::LUCINA { 0.6 } else { 1. });
+            assert_eq!(config.maximum_drift, 1.);
             assert!(matches!(config.ground.attack, Attack::Disabled));
             assert!(matches!(config.aerial.attack, Attack::Disabled));
             assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 0.);

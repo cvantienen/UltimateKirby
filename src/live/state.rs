@@ -152,6 +152,7 @@ pub(super) struct State {
     pub(super) counter_output: ControllerOutput,
     pub(super) held_defense: kirby_assist_core::defense_response::Defense,
     pub(super) held_defense_output: ControllerOutput,
+    pub(super) held_walk_cap: Option<f32>,
     /// Optional spot-dodge policy and target state.
     pub(super) spot_dodge: Option<kirby_assist_core::spot_dodge::SpotDodge>,
     /// Current spot-dodge controller proposal.
@@ -396,6 +397,7 @@ impl State {
             counter_output: ControllerOutput::NONE,
             held_defense: kirby_assist_core::defense_response::Defense::new(),
             held_defense_output: ControllerOutput::NONE,
+            held_walk_cap: None,
             settings_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
@@ -642,6 +644,7 @@ impl State {
         self.last_mapped_stick = None;
         self.policy_tick = None;
         self.manual_context = None;
+        self.held_walk_cap = None;
         self.manual_overlay = None;
         self.manual_jump_fence = kirby_assist_core::manual_controls::ManualJumpFence::new();
         self.grab_handoff = Default::default();

@@ -108,8 +108,7 @@ impl Defense {
             self.object = Some(c.object);
         }
         let mut output = ControllerOutput {
-            owned: crate::ledge_trap::SEQUENCE_BUTTONS,
-            stick: Some([0.0; 2]),
+            owned: crate::native_input::SEQUENCE_GUARD_INPUTS,
             ..ControllerOutput::NONE
         };
         let horizon = defense_horizon(lead_frames, input_delay);
@@ -123,6 +122,8 @@ impl Defense {
             self.unavailable_seen = false;
             if imminent && c.guard_ready {
                 output.requested = crate::native_input::MAPPER_ZR;
+                output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
+                output.stick = Some([0.; 2]);
             }
             return output;
         }
@@ -175,6 +176,8 @@ impl Defense {
             return output;
         }
         output.requested = crate::native_input::MAPPER_ZR;
+        output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
+        output.stick = Some([0.; 2]);
         output
     }
 }

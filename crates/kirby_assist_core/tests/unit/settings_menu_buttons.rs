@@ -426,6 +426,24 @@ fn full_editor_reserves_l_without_running_ledge_hold() {
 }
 
 #[test]
+fn editor_back_keeps_owned_buttons_quarantined_until_their_release() {
+    let p = configured();
+    let mut m = MenuSelection::new(&p);
+    m.input(0, &p);
+    m.input(MAPPER_MINUS, &p);
+    m.input(0, &p);
+    m.input(MENU_STICK_CLICK, &p);
+    m.input(0, &p);
+    assert!(m.recipe_editing);
+    m.input(MAPPER_X, &p);
+    assert_ne!(m.input(MAPPER_X | MAPPER_B, &p) & MAPPER_X, 0);
+    assert!(m.quick_menu && !m.recipe_editing);
+    assert_ne!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+    assert_ne!(m.input(0, &p) & MAPPER_X, 0, "hide the release edge too");
+    assert_eq!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+}
+
+#[test]
 fn l_press_does_not_cancel_or_reset_when_autopilot_is_already_on() {
     let p = configured();
     let mut m = MenuSelection::new(&p);
