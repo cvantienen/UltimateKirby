@@ -45,11 +45,7 @@ impl MenuSelection {
                 || self.toggle_active(self.spacing_toggle_sources, self.spacing_toggled))
     }
     pub fn defensive_owner(&self) -> Option<crate::action_owner::Owner> {
-        if self.native_hold_active(self.defense_sources)
-            || self.toggle_active(self.defense_toggle_sources, self.defense_toggled)
-        {
-            Some(crate::action_owner::Owner::HeldDefense)
-        } else if self.native_hold_active(self.counter_sources)
+        if self.native_hold_active(self.counter_sources)
             || self.toggle_active(self.counter_toggle_sources, self.counter_toggled)
         {
             Some(crate::action_owner::Owner::Counter)
@@ -59,9 +55,6 @@ impl MenuSelection {
     }
     pub fn counter_held(&self) -> bool {
         self.defensive_owner() == Some(crate::action_owner::Owner::Counter)
-    }
-    pub fn auto_defense_held(&self) -> bool {
-        self.defensive_owner() == Some(crate::action_owner::Owner::HeldDefense)
     }
     fn toggle_active(&self, sources: u32, toggled: bool) -> bool {
         sources != 0
@@ -75,7 +68,7 @@ impl MenuSelection {
     fn native_hold_active(&self, sources: u32) -> bool {
         !self.cancel_pending
             && (!self.binding_starts_blocked
-                || sources & (self.counter_sources | self.defense_sources) != 0)
+                || sources & self.counter_sources != 0)
             && self.menu_hidden
             && !self.recipe_editing
             && !self.managing()
@@ -122,7 +115,6 @@ impl MenuSelection {
         let source_pressed = self.binding_pressed;
         let spacing_sources = self.spacing_toggle_sources;
         let counter_sources = self.counter_toggle_sources;
-        let defense_sources = self.defense_toggle_sources;
         let eligible = available
             && !self.binding_starts_blocked
             && !self.cancel_pending
@@ -140,9 +132,6 @@ impl MenuSelection {
         }
         if clean_toggle_press(counter_sources) {
             self.counter_toggled = !self.counter_toggled;
-        }
-        if clean_toggle_press(defense_sources) {
-            self.defense_toggled = !self.defense_toggled;
         }
     }
     /// Explicitly assigned rule buttons toggle their reaction group on a clean press.
@@ -191,7 +180,7 @@ impl MenuSelection {
         let can_start = available
             && !self.binding_starts_blocked
             && physical & (MAPPER_MINUS | MAPPER_PLUS) == 0
-            && physical & (self.spacing_sources | self.counter_sources | self.defense_sources) == 0
+            && physical & (self.spacing_sources | self.counter_sources) == 0
             && physical & self.ledge_assist_sources == 0
             && (physical & exclusive).count_ones() == 1;
         let mut bound = 0;
@@ -307,7 +296,7 @@ impl MenuSelection {
             };
             self.button_latch |= layout.binding_ownership(
                 physical & BUTTON_MASK & !continuing_hop
-                    & !(self.counter_sources | self.defense_sources),
+                    & !self.counter_sources,
             );
         }
         if self.binding_safety_jump {
@@ -339,8 +328,6 @@ impl MenuSelection {
         self.spacing_toggle_sources = 0;
         self.counter_sources = 0;
         self.counter_toggle_sources = 0;
-        self.defense_sources = 0;
-        self.defense_toggle_sources = 0;
         self.builtin_consumed = 0;
         self.binding_sources = 0;
         self.single_jump_sources = 0;
@@ -364,10 +351,8 @@ impl MenuSelection {
                 Some(Builtin::LedgeTrump) => &mut self.trump_sources,
                 Some(Builtin::AutoSpacing) => &mut self.spacing_sources,
                 Some(Builtin::Counter) => &mut self.counter_sources,
-                Some(Builtin::AutoDefense) => &mut self.defense_sources,
                 Some(Builtin::AutoSpacingToggle) => &mut self.spacing_toggle_sources,
                 Some(Builtin::CounterToggle) => &mut self.counter_toggle_sources,
-                Some(Builtin::AutoDefenseToggle) => &mut self.defense_toggle_sources,
                 None => {
                     self.binding_sources |= button;
                     // Only inspect literal jump tapes when recovering from damage;

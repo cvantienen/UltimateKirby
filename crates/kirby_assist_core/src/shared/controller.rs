@@ -45,7 +45,6 @@ pub mod action_owner {
         Reflect,
         /// Configured melee counter.
         Counter,
-        HeldDefense,
         Spacing,
     }
 
@@ -69,7 +68,6 @@ pub mod action_owner {
         fn priority(self) -> u8 {
             match self {
                 Self::Safety => 103,
-                Self::HeldDefense => 102,
                 Self::Counter => 101,
                 Self::Spacing => 100,
                 Self::GrabDodge => 99,
@@ -88,7 +86,7 @@ pub mod action_owner {
         }
         /// Determines whether the `exclusive` condition holds.
         pub fn exclusive(self) -> bool {
-            !matches!(self, Self::Defense | Self::Turbo | Self::Posture | Self::Spacing | Self::HeldDefense)
+            !matches!(self, Self::Defense | Self::Turbo | Self::Posture | Self::Spacing)
         }
     }
 
@@ -198,7 +196,7 @@ pub mod action_owner {
         ledge_priority: bool,
         /// Runtime automatic suspended value used by ActionOwnership..
         automatic_suspended: bool,
-        held_defense: Option<Owner>,
+        held_counter: Option<Owner>,
         /// Runtime manual value used by ActionOwnership..
         manual: crate::manual_controls::ManualTakeover,
         /// Runtime locked manual value used by ActionOwnership..
@@ -211,7 +209,7 @@ pub mod action_owner {
                 locked: None,
                 ledge_priority: false,
                 automatic_suspended: false,
-                held_defense: None,
+                held_counter: None,
                 manual: crate::manual_controls::ManualTakeover::new(),
                 locked_manual: None,
             }
@@ -301,16 +299,10 @@ pub mod action_owner {
             self.automatic_suspended
         }
         /// Returns the displaced owner so callers can discard its pending packet.
-        pub fn set_defensive_hold(&mut self, defense: bool, counter: bool) -> Option<Owner> {
-            let requested_hold = if defense {
-                Some(Owner::HeldDefense)
-            } else if counter {
-                Some(Owner::Counter)
-            } else {
-                None
-            };
-            let previous_hold = self.held_defense;
-            self.held_defense = requested_hold;
+        pub fn set_counter_hold(&mut self, counter: bool) -> Option<Owner> {
+            let requested_hold = counter.then_some(Owner::Counter);
+            let previous_hold = self.held_counter;
+            self.held_counter = requested_hold;
             let displaced = self.locked.filter(|owner| {
                 if *owner == Owner::Safety {
                     return false;
@@ -328,10 +320,10 @@ pub mod action_owner {
         }
         /// Scope-independent admission gates shared by every owner.
         fn admissible(&self, owner: Owner) -> bool {
-            if let Some(held) = self.held_defense {
+            if let Some(held) = self.held_counter {
                 return owner == Owner::Safety || owner == held;
             }
-            if matches!(owner, Owner::HeldDefense | Owner::Counter) {
+            if matches!(owner, Owner::Counter) {
                 return false;
             }
             (!self.automatic_suspended || !Self::automatic(owner))
@@ -359,7 +351,7 @@ pub mod action_owner {
                 self.unlock();
                 self.ledge_priority = false;
                 self.automatic_suspended = false;
-                self.held_defense = None;
+                self.held_counter = None;
                 return None;
             }
             if self.locked.is_some_and(|owner| {

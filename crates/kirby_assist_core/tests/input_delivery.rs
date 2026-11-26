@@ -239,7 +239,7 @@ fn spacing_final_walk_cap_blocks_full_strength_reversals_after_mapping() {
 }
 
 #[test]
-fn held_defense_walks_between_threats_without_consuming_attacks_or_air_drift() {
+fn shared_defense_walks_between_threats_without_consuming_attacks_or_air_drift() {
     use kirby_assist_core::{auto_spacing::manual_walk,
         defense_response::{Context, Contact, Defense}, native_states::situation::{GROUND, AIR}};
     let cap = fastest_walk_stick(0.2, 0.8).unwrap();
@@ -255,7 +255,7 @@ fn held_defense_walks_between_threats_without_consuming_attacks_or_air_drift() {
                 for (tick, threat) in [(0, false), (1, true), (2, false)] {
                     let contact = threat.then_some(Contact { source: 2, in_frames: 0., projectile: false });
                     let out = kirby_assist_core::action_owner::exclusive_output(
-                        Some(kirby_assist_core::action_owner::Owner::HeldDefense), true,
+                        Some(kirby_assist_core::action_owner::Owner::Defense), true,
                         defense.sample(tick, true, c, contact, 4., 0.));
                     let physical = layout.physical_buttons(MAPPER_A | MAPPER_B | MAPPER_X
                         | MAPPER_LEFT_STICK_HORIZONTAL | MAPPER_RIGHT_STICK_DIRECTIONS);
@@ -450,7 +450,7 @@ fn counter_down_special_and_retry_release_survive_held_physical_inputs() {
     }
 }
 #[test]
-fn held_air_defense_delivers_neutral_guard_once_then_releases_owned_inputs() {
+fn shared_air_defense_delivers_neutral_guard_once_then_releases_owned_inputs() {
     use kirby_assist_core::{action_owner::{exclusive_output, Owner},
         defense_response::{Defense, Context, Contact}, native_states::situation};
     let mut defense = Defense::new();
@@ -461,7 +461,7 @@ fn held_air_defense_delivers_neutral_guard_once_then_releases_owned_inputs() {
     for tick in 0..3 {
         let held = tick != 2;
         let output = defense.sample(tick, held, c, contact, 4., 1.);
-        let selected = exclusive_output(held.then_some(Owner::HeldDefense), held, output);
+        let selected = exclusive_output(held.then_some(Owner::Defense), held, output);
         let raw = overlay.apply_reaction_controls(
             ButtonTrace { held: MAPPER_A | LEFT_STICK_DIRECTIONS,
                 previous: MAPPER_A | LEFT_STICK_DIRECTIONS, ..Default::default() },
@@ -488,7 +488,7 @@ fn held_air_defense_delivers_neutral_guard_once_then_releases_owned_inputs() {
 }
 
 #[test]
-fn held_defense_neutral_takeover_blocks_all_physical_actions_in_both_layouts() {
+fn shared_defense_neutral_takeover_blocks_all_physical_actions_in_both_layouts() {
     const MAPPED_CSTICK_BUTTON: u32 = 0x80;
     use kirby_assist_core::{defense_response::{Defense, Context, Contact},
         action_owner::{exclusive_output, Owner}, native_states::situation};
@@ -499,7 +499,7 @@ fn held_defense_neutral_takeover_blocks_all_physical_actions_in_both_layouts() {
                     guard_ready: true, air_dodge_ready: true, ..Default::default() };
                 let output = Defense::new().sample(0, true, c,
                     Some(Contact { source: 2, in_frames: 0., projectile: false }), 4., 0.);
-                let selected = exclusive_output(Some(Owner::HeldDefense), true, output);
+                let selected = exclusive_output(Some(Owner::Defense), true, output);
                 let held = layout.policy_buttons(GAMEPLAY_BUTTONS | MAPPER_RIGHT_STICK_DIRECTIONS);
                 let raw = ManualOverlay::default().apply_reaction_controls(
                     ButtonTrace { held, previous: held, pressed: held, ..Default::default() },

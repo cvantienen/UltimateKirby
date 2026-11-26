@@ -253,6 +253,30 @@ fn capture_mash_remains_exclusive_even_at_an_imminent_tech_deadline() {
     assert_eq!(ack, None);
 }
 #[test]
+fn an_unconsumed_tech_receipt_survives_a_di_only_arbitration_poll() {
+    let c = context();
+    let mut input = TechInput::default();
+    assert!(sample(&mut input, c, false).press);
+    input.mapped_press();
+
+    let output = sample(&mut input, c, false);
+    let (packet, acknowledgement) =
+        safety_output_with_deadline(output, None, Some([-1., 0.]), None, false);
+    assert_eq!(packet.requested, 0);
+    assert_eq!(acknowledgement, None);
+    assert!(sample(&mut input, c, false).press);
+    assert_eq!(input.cooldown_remaining(), 28.);
+
+    // Losing this poll is not native cancellation. Erasing the receipt instead
+    // strands the already-started lockout before the engine consumes Guard.
+    input.cancel_request();
+    let cancelled = sample(&mut input, c, false);
+    assert!(!cancelled.press);
+    assert!(cancelled.owns_guard);
+    assert_eq!(input.cooldown_remaining(), 28.);
+}
+
+#[test]
 fn lockout_is_synchronized_to_native_consumption_even_after_a_delayed_mapper_edge() {
     let mut input = TechInput::default();
     let c = context();

@@ -7,9 +7,9 @@ fn spacing_selection() -> (MenuSelection, MenuPresets) {
         menu_hidden: true,
         ..MenuSelection::default()
     };
-    selection.choices[PresetSlot::Y as usize] = presets.list(PresetSlot::Y).options.len()
+    selection.choices[PresetSlot::L3 as usize] = presets.list(PresetSlot::L3).options.len()
         + Builtin::AutoSpacing.visible_template_offset().unwrap();
-    selection.capture_binding_input(MAPPER_Y, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button(), &presets);
     (selection, presets)
 }
 
@@ -45,7 +45,7 @@ fn auto_spacing_choice_cycles_and_saved_default_reloads_by_identity() {
         assert_eq!(selection.cycle_choice(&presets, slot, true), spacing + 1);
         selection.quick_menu = true;
         let (position, count) = selection.choice_position(&presets, slot);
-        assert_eq!(position + 6, count);
+        assert_eq!(position + 4, count);
         selection.quick_menu = false;
     }
     let saved = persist::update(
@@ -90,12 +90,10 @@ fn defensive_holds_preempt_committed_bindings_and_release_cleanly() {
     let (mut selection, presets) = spacing_selection();
     selection.choices[PresetSlot::X as usize] = presets.list(PresetSlot::X).options.len()
         + Builtin::Counter.visible_template_offset().unwrap();
-    selection.choices[PresetSlot::L3 as usize] = presets.list(PresetSlot::L3).options.len()
-        + Builtin::AutoDefense.visible_template_offset().unwrap();
     selection.block_binding_starts(true);
     let l3 = PresetSlot::L3.button();
     selection.capture_binding_input(MAPPER_X | l3 | MAPPER_Y, &presets);
-    assert_eq!(selection.defensive_owner(), Some(Owner::HeldDefense));
+    assert_eq!(selection.defensive_owner(), Some(Owner::Counter));
     assert!(selection.reserves_automatic_modes());
     assert!(!selection.auto_spacing_held());
     assert_eq!(selection.builtin_consumed & (MAPPER_X | l3), MAPPER_X | l3);
@@ -109,7 +107,7 @@ fn defensive_holds_preempt_committed_bindings_and_release_cleanly() {
         .binding_layout
         .binding_ownership(selection.binding_physical);
     selection.block_binding_starts(false);
-    selection.capture_binding_input(MAPPER_Y, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button(), &presets);
     assert!(selection.auto_spacing_held());
     assert!(selection.reserves_automatic_modes());
 }
@@ -128,7 +126,7 @@ fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
         let presets = profiles.profile(kind).unwrap().menu_options;
         let selection = MenuSelection::new(&presets);
         for (slot, expected) in [
-            (PresetSlot::L3, Builtin::AutoDefense),
+            (PresetSlot::L3, Builtin::AutoSpacing),
             (PresetSlot::DpadDown, Builtin::TurboTeabag),
         ] {
             assert_eq!(
@@ -150,40 +148,16 @@ fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
             fresh
                 .choice(
                     &presets,
-                    PresetSlot::R3,
-                    fresh.choices[PresetSlot::R3 as usize]
+                    PresetSlot::Y,
+                    fresh.choices[PresetSlot::Y as usize]
                 )
                 .unwrap()
                 .id,
             expected.choice_id()
         );
         fresh.menu_hidden = true;
-        fresh.capture_binding_input(PresetSlot::R3.button(), &presets);
+        fresh.capture_binding_input(PresetSlot::Y.button(), &presets);
         assert_eq!(fresh.counter_held(), crate::auto_counter::supports(kind));
-        let saved_r3 = persist::update(
-            "",
-            kind,
-            PresetSlot::R3,
-            "saved_normal",
-            Sequence {
-                builtin: Some(Builtin::Normal),
-                ..Default::default()
-            },
-            true,
-        )
-        .unwrap();
-        fresh.load_saved_recipes(&presets, &Catalog::parse(&saved_r3).unwrap(), kind);
-        assert_eq!(
-            fresh
-                .choice(
-                    &presets,
-                    PresetSlot::R3,
-                    fresh.choices[PresetSlot::R3 as usize]
-                )
-                .unwrap()
-                .id,
-            "saved_normal"
-        );
         let saved = persist::update(
             "",
             kind,
@@ -217,15 +191,15 @@ fn fresh_defensive_defaults_preserve_saved_legacy_bindings() {
 fn auto_spacing_hold_releases_without_toggling_or_latching() {
     let (mut selection, presets) = spacing_selection();
     assert!(selection.auto_spacing_held());
-    assert_ne!(selection.builtin_consumed & MAPPER_Y, 0);
-    selection.process_bindings(&presets, MAPPER_Y, MAPPER_Y, true, 0);
+    assert_ne!(selection.builtin_consumed & PresetSlot::L3.button(), 0);
+    selection.process_bindings(&presets, PresetSlot::L3.button(), PresetSlot::L3.button(), true, 0);
     assert!(selection.auto_spacing_held());
-    assert_eq!(selection.button_latch & MAPPER_Y, 0);
+    assert_eq!(selection.button_latch & PresetSlot::L3.button(), 0);
     selection.capture_binding_input(0, &presets);
     assert!(!selection.auto_spacing_held());
-    selection.capture_binding_input(MAPPER_Y, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button(), &presets);
     assert!(selection.auto_spacing_held());
-    selection.capture_binding_input(MAPPER_Y | MAPPER_L, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button() | MAPPER_L, &presets);
     assert!(!selection.auto_spacing_held());
 }
 
@@ -244,11 +218,11 @@ fn auto_spacing_respects_menu_cancel_and_quarantine() {
     selection.cancel_pending = true;
     assert!(!selection.auto_spacing_held());
     selection.cancel_pending = false;
-    selection.pad_quarantine = MAPPER_Y;
+    selection.pad_quarantine = PresetSlot::L3.button();
     assert!(!selection.auto_spacing_held());
     selection.pad_quarantine = 0;
     selection.block_binding_starts(true);
-    selection.capture_binding_input(MAPPER_Y, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button(), &presets);
     assert!(!selection.auto_spacing_held());
     selection.block_binding_starts(false);
     assert!(
@@ -257,6 +231,6 @@ fn auto_spacing_respects_menu_cancel_and_quarantine() {
     );
     selection.observe_physical_passthrough(0, ControlLayout::Default);
     assert!(!selection.auto_spacing_held());
-    selection.capture_binding_input(MAPPER_Y, &presets);
+    selection.capture_binding_input(PresetSlot::L3.button(), &presets);
     assert!(selection.auto_spacing_held());
 }

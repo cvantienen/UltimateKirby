@@ -970,3 +970,18 @@ fn menu_edited_a_hold_continues_after_jab_into_the_next_action() {
     }
     assert!(trap.manual_after_response());
 }
+
+#[test]
+fn selected_editor_field_explains_units_adjustment_and_game_limits() {
+    let recipe = Recipe::new(Sequence::default());
+    let delay = recipe_panel(&recipe, &fields(&recipe), Some(Field::Start), false, None)
+        .header.join(" ");
+    assert!(delay.contains("frames after recognition"));
+    assert!(delay.contains("Increase for a later response"));
+    assert!(delay.contains("Move startup is separate"));
+    let range = recipe_panel(&recipe, &fields(&recipe), Some(Field::Reaction(3)), false, None)
+        .header.join(" ");
+    assert!(range.contains("world units"));
+    assert!(range.contains("decrease to require closer"));
+    assert!(range.contains("does not extend hitboxes"));
+}

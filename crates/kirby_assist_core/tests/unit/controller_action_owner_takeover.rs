@@ -3,7 +3,7 @@ mod takeover_tests {
     use crate::{gameplay::ControllerOutput, native_input::GAMEPLAY_BUTTONS};
 
     #[test]
-    fn held_defense_preempts_and_safety_wins_without_restoring_old_owner() {
+    fn held_counter_preempts_and_safety_wins_without_restoring_old_owner() {
         let mut ownership = ActionOwnership::new();
         let intent = |owner| Intent {
             owner,
@@ -14,15 +14,16 @@ mod takeover_tests {
             ownership.select(true, &[intent(Owner::Ledge)]),
             Some(Owner::Ledge)
         );
-        assert_eq!(ownership.set_defensive_hold(true, true), Some(Owner::Ledge));
-        assert!(!ownership.allows(Owner::Counter));
+        assert_eq!(ownership.set_counter_hold(true), Some(Owner::Ledge));
+        assert!(ownership.allows(Owner::Counter));
         assert!(!ownership.allows(Owner::Spacing));
         assert_eq!(
-            ownership.select(true, &[intent(Owner::HeldDefense), intent(Owner::Counter)]),
-            Some(Owner::HeldDefense)
+            ownership.select(true, &[intent(Owner::Counter)]),
+            Some(Owner::Counter)
         );
-        let neutral = exclusive_output(Some(Owner::HeldDefense), true, ControllerOutput::NONE);
-        assert_eq!(neutral, ControllerOutput::NONE);
+        let neutral = exclusive_output(Some(Owner::Counter), true, ControllerOutput::NONE);
+        assert_eq!(neutral.owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
+        assert_eq!(neutral.stick, Some([0.; 2]));
         let shield = ControllerOutput {
             requested: crate::native_input::MAPPER_ZR,
             owned: crate::ledge_trap::SEQUENCE_BUTTONS,
@@ -30,21 +31,21 @@ mod takeover_tests {
             ..ControllerOutput::NONE
         };
         assert_eq!(
-            exclusive_output(Some(Owner::HeldDefense), true, shield),
+            exclusive_output(Some(Owner::Counter), true, shield),
             shield
         );
         assert_eq!(
-            ownership.select(true, &[intent(Owner::Safety), intent(Owner::HeldDefense)]),
+            ownership.select(true, &[intent(Owner::Safety), intent(Owner::Counter)]),
             Some(Owner::Safety)
         );
         ownership.release(Owner::Safety);
-        ownership.set_defensive_hold(false, true);
+        ownership.set_counter_hold(true);
         assert_eq!(
             ownership.select(true, &[intent(Owner::Counter)]),
             Some(Owner::Counter)
         );
         assert_eq!(
-            ownership.set_defensive_hold(false, false),
+            ownership.set_counter_hold(false),
             Some(Owner::Counter)
         );
         assert_eq!(ownership.select(true, &[]), None);

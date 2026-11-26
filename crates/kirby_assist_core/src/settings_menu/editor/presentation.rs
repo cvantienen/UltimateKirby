@@ -246,6 +246,40 @@ pub(super) fn field_slot(f: Field) -> Option<usize> {
         | Field::Direction(i) => Some(i),
     }
 }
+fn field_help(field: Field) -> &'static str {
+    match field {
+        Field::Reaction(0) => "Choose the observed event that starts this recipe. Missing observations cannot trigger it.",
+        Field::Reaction(1) => "Choose when your fighter may react: grounded, airborne, or either. This never changes fighter state.",
+        Field::Reaction(2) => "Minimum horizontal separation in world units. Increase to exclude nearby opponents; decrease to allow closer targets.",
+        Field::Reaction(3) => "Maximum horizontal separation in world units. Increase to allow farther targets; decrease to require closer ones. It does not extend hitboxes.",
+        Field::Reaction(4) => "Maximum vertical separation in world units. Increase to allow larger height differences; decrease to require similar heights.",
+        Field::Reaction(5) => "Choose the opponent side allowed to trigger this recipe. This filters targets; it does not turn your fighter.",
+        Field::Reaction(6) => "Lower numbers are checked first when several rules match. Raising the number gives other rules the first chance.",
+        Field::Reaction(_) => "Choose which menu switch or assigned button enables this reaction. A reaction button replaces its normal game input.",
+        Field::WhileHeld => "Run once starts one playback per press. Loop repeats only while the assigned button stays held; release stops it.",
+        Field::GroundOnly => "ON stops this recipe when you become airborne. OFF allows air playback; it does not guarantee the move is available.",
+        Field::Start => "Wait this many frames after recognition before starting. Increase for a later response; decrease for an earlier one. Move startup is separate.",
+        Field::Slots => "Add or remove recipe steps. More slots allow more inputs; empty slots do nothing. At most 32 steps are supported.",
+        Field::Kind(_) => "Choose what this step does. Inputs ask the game to act; waits, checks and movement steps may delay later inputs.",
+        Field::Before(_) => "Wait this many frames before this step. Increase to delay it; decrease to run it sooner. This does not change animation speed.",
+        Field::Duration(_) => "Length or maximum wait in frames for this step. Increase to hold or wait longer; decrease to finish sooner. Checks may finish early.",
+        Field::Buttons(_) => "Choose buttons held by this step (A opens the picker). The resulting move depends on fighter state and your control layout.",
+        Field::TapButtons(_) => "Choose the input repeated by this step. Taps alternate held input and release; they do not guarantee a move each time.",
+        Field::TapGap(_) => "Released frames between taps. Increase for slower repetition; decrease for faster repetition. The game may ignore inputs while busy.",
+        Field::ShieldHold(_) => "Choose a timed hold or hold until manual takeover. Manual input ends the latter; unavailable actions are not forced.",
+        Field::Reference(_) | Field::CReference(_) => "Choose how horizontal stick direction is interpreted: fixed, facing-relative, or target-relative. It does not change move definitions.",
+        Field::X(_) | Field::CX(_) => "Horizontal stick input in percent, from -100 left to +100 right before the selected reference is applied. Larger magnitude pushes harder; zero is neutral.",
+        Field::Y(_) | Field::CY(_) => "Vertical stick input in percent: -100 down, +100 up. Increase to push upward; decrease to push downward. Zero is neutral.",
+        Field::Strength(_) => "Stick magnitude in percent. Increase for stronger movement; decrease for gentler movement. Fighter speed and game state still limit motion.",
+        Field::Tolerance(_) => "Allowed arrival error in world units. Increase to finish farther from the target; decrease to require a closer position.",
+        Field::Brake(_) => "Distance in world units at which movement slows near arrival. Increase to brake earlier; decrease to brake later. Zero disables braking.",
+        Field::PositionTimeout(_) => "Maximum frames allowed to reach the position. Increase to allow more travel time; decrease to give up sooner. Arrival can finish early.",
+        Field::Distance(_) => "Target distance or range in world units. Increase for a farther position or wider check; decrease for a nearer one. It never increases real attack reach.",
+        Field::Gap(_) => "Separation in world units at which movement stops or chase is skipped. Increase to stay farther away; decrease to approach closer. Off removes this limit.",
+        Field::Direction(_) => "Choose movement direction relative to the stage, fighter or opponent. Only controller direction changes; safety gates still apply.",
+    }
+}
+
 /// Full label and value of a field.
 pub(super) fn field_value(r: &Recipe, f: Field) -> String {
     field_text(r, f, false)
@@ -542,6 +576,9 @@ pub(super) fn recipe_panel(
         )
     });
     panel.header.push(timing_summary(r, branched));
+    if let Some(field) = selected {
+        panel.header.push(field_help(field).into());
+    }
     panel
         .footer
         .push("F1 = recognition update; move startup/recovery excluded".into());

@@ -234,10 +234,17 @@ reaction = auto_grab_dodged:10:12
 name = Dodged grab > Up B
 default = false
 
-[lucina.y.__builtin_auto_spacing]
+# Hold L3 for spacing; releasing it stops the assist.
+[lucina.l3.__builtin_auto_spacing]
 default = true
 name = Built-in: Auto-Spacing & Attack (hold)
 builtin = auto_spacing
+
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+[lucina.y.__builtin_counter_hold]
+default = true
+name = Built-in: Counter (hold)
+builtin = counter_hold
 
 
 [lucina.settings]
@@ -252,7 +259,11 @@ counter_margin = 3
 counter_half_width = 9
 counter_height = 17
 counter_half_depth = 6
+# Normal root-to-root spacing, in game units. Reactive retreat is separate.
 auto_spacing_minimum_distance = 24
+# After approach/action-change detection, retreat to 34 instead of 24.
+# Larger values retreat farther; idle first observations do not trigger retreat.
+auto_spacing_reactive_retreat_distance = 34
 auto_spacing_ground_move = 2
 auto_spacing_ground_startup = 10
 auto_spacing_ground_active_frames = 5
@@ -270,5 +281,4 @@ auto_spacing_maximum_drift = 1
 auto_spacing_minimum_drift = 0.11
 auto_spacing_ground_braking = false
 auto_spacing_braking_distance = 10
-auto_defense_lead_frames = 10
 

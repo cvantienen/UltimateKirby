@@ -806,6 +806,58 @@ fn native_tech_feedback_retains_delivery_and_advances_frozen_pose_lockout() {
 }
 
 #[test]
+fn native_floor_contact_and_airborne_forecast_share_guard_delivery_without_mode_holds() {
+    use kirby_assist_core::{
+        native_states::{situation, status},
+        tech_input::{TechContext, TechInput},
+        tech_prediction::Body,
+    };
+    for where_ in [situation::GROUND, situation::AIR] {
+        let mut own = Actor::new(1);
+        own.status = status::DAMAGE_FLY;
+        own.situation = where_;
+        own.position[1] = 2.;
+        own.velocity[1] = -2.;
+        let assessment = assess_native_tech(&mut own, Body::default());
+        assert!(assessment.contact_in.is_some());
+        if where_ == situation::GROUND {
+            assert_eq!(assessment.contact_in, Some(0.));
+        }
+        let context = TechContext {
+            object: 1,
+            status: own.status,
+            motion: own.motion,
+            frame: own.frame,
+            rate: 1.,
+            stopped: false,
+            remaining_stop: 0,
+            contact_in: assessment.contact_in,
+            input_delay: tech::TECH_INPUT_DELAY_FRAMES,
+            previous_guard: false,
+            prepare_guard: true,
+        };
+        let mut input = TechInput::default();
+        let sample = |input: &mut TechInput, own: &mut Actor| {
+            let (guard, reaction) = unsafe { tech::input_feedback(own.object(), own.status) };
+            input.sample_with_native_delivery(true, true, 28, context, reaction, 12, 7, guard)
+        };
+        assert!(sample(&mut input, &mut own).press);
+        input.mapped_press();
+        assert!(sample(&mut input, &mut own).press);
+        own.guard = 1 << 0x3;
+        assert!(!sample(&mut input, &mut own).press);
+        own.air_escape = true;
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+        own.air_escape = false;
+        own.passive_disabled = true;
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+        own.passive_disabled = false;
+        own.status = status::FALL;
+        assert_eq!(assess_native_tech(&mut own, Body::default()).contact_in, None);
+    }
+}
+
+#[test]
 fn native_hitstop_forecast_includes_frozen_frames_before_contact() {
     use kirby_assist_core::native_states::{situation, status};
     let mut own = Actor::new(1);
@@ -1011,4 +1063,64 @@ fn trip_snapshot_requires_victim_attacker_match_as_well_as_global_hit() {
     own.hit_now = false;
     assert!(!snapshot(&mut own).hit_confirmed, "last attacker alone can be stale");
     SOURCES.with(|sources| sources.borrow_mut().clear());
+}
+
+#[test]
+fn counter_observer_invalid_earliest_animation_cannot_erase_valid_contact() {
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    for invalid_first in [true, false] {
+        let mut invalid = Box::new(Actor::new(2));
+        invalid.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+        invalid.motion = 0;
+        invalid.geometry.power = 5.0;
+        let mut valid = Box::new(Actor::new(3));
+        valid.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+        valid.geometry.power = 5.0;
+        SOURCES.with(|s| *s.borrow_mut() = if invalid_first {
+            vec![invalid, valid]
+        } else {
+            vec![valid, invalid]
+        });
+        assert_eq!(counter_scan(&mut own).unwrap().id, 3);
+    }
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn counter_observer_tracks_motionless_projectiles_but_rejects_helpers_and_misses() {
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    let mut shot = Box::new(Actor::new(0x1000_0002));
+    shot.motion = 0;
+    shot.frame = f32::NAN;
+    shot.geometry.power = 5.0;
+    shot.position[0] = 12.0;
+    shot.velocity[0] = -1.0;
+    SOURCES.with(|s| *s.borrow_mut() = vec![shot]);
+    assert_eq!(counter_scan(&mut own).unwrap().id, 0x1000_0002);
+    SOURCES.with(|s| s.borrow_mut()[0].kind = kirby_assist_core::battle_objects::WEAPON_KIND_ROSETTA_TICO);
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| {
+        let mut s = s.borrow_mut();
+        s[0].kind = kirby_assist_core::fighter_kinds::KIRBY;
+        s[0].position[0] = 100.0;
+    });
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
+}
+
+#[test]
+fn counter_observer_does_not_fabricate_missing_active_hitbox() {
+    let mut own = Actor::new(1);
+    own.special_enabled = true;
+    let mut enemy = Box::new(Actor::new(2));
+    enemy.status = kirby_assist_core::native_states::status::ATTACK_LW3;
+    enemy.active = false;
+    let data = kirby_assist_core::fighter_data::fighter(enemy.kind)
+        .unwrap().move_for_motion(enemy.motion).unwrap();
+    enemy.frame = f32::from(data.active[0].first);
+    SOURCES.with(|s| *s.borrow_mut() = vec![enemy]);
+    assert!(counter_scan(&mut own).is_none());
+    SOURCES.with(|s| s.borrow_mut().clear());
 }

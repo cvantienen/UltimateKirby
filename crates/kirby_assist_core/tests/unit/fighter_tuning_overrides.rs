@@ -70,10 +70,10 @@ fn auto_spacing_overrides_roundtrip_independently() {
         ("auto_spacing_ground_speed", "1"),
         ("auto_spacing_maximum_drift", "0.6"),
         ("auto_spacing_minimum_drift", "0.15"),
+        ("auto_spacing_reactive_retreat_distance", "34"),
         ("auto_spacing_ground_braking", "false"),
         ("auto_spacing_air_braking", "true"),
         ("auto_spacing_braking_distance", "3.5"),
-        ("auto_defense_lead_frames", "12"),
         ("auto_spacing_ground_move", "3"),
         ("auto_spacing_ground_startup", "9"),
         ("auto_spacing_ground_active_frames", "2"),
@@ -101,7 +101,7 @@ fn auto_spacing_overrides_roundtrip_independently() {
     assert!(!config.ground_braking);
     assert!(config.air_braking);
     assert_eq!(config.braking_distance, 3.5);
-    assert_eq!(loaded.get(AUTO_DEFENSE_LEAD_FRAMES), 12.);
+    assert_eq!(config.reactive_retreat_distance, 34.);
     assert!(matches!(config.ground.attack, Attack::Up));
     assert!(matches!(config.aerial.attack, Attack::Back));
     assert_eq!(
@@ -152,8 +152,8 @@ fn auto_spacing_rejects_invalid_fields() {
         "auto_spacing_air_braking=maybe",
         "auto_spacing_braking_distance=-1",
         "auto_spacing_braking_distance=NaN",
-        "auto_defense_lead_frames=-1",
-        "auto_defense_lead_frames=31",
+        "auto_spacing_reactive_retreat_distance=-1",
+        "auto_spacing_reactive_retreat_distance=151",
         "auto_spacing_minimum_distance=12\nauto_spacing_minimum_distance=14",
     ] {
         assert!(
@@ -172,16 +172,20 @@ fn auto_spacing_saved_lucina_values_survive_new_defaults() {
     assert_eq!(config.minimum_distance, 12.);
     assert_eq!(config.ground_speed, 0.);
     assert_eq!(config.maximum_drift, 0.45);
-    assert_eq!(tuning.get(AUTO_DEFENSE_LEAD_FRAMES), 4.);
-    for value in ["0", "30"] {
-        let mut changed = tuning;
-        changed.set("auto_defense_lead_frames", value).unwrap();
-        let source = persist::update_tuning("", crate::fighter_kinds::LUCINA, changed).unwrap();
-        assert_eq!(
-            Catalog::parse(&source).unwrap().tuning[&crate::fighter_kinds::LUCINA],
-            changed
-        );
-    }
+    assert_eq!(config.reactive_retreat_distance, 34.);
+    assert_eq!(config.fighter_kind, crate::fighter_kinds::LUCINA);
+    let yoshi = Tuning::default().auto_spacing(crate::fighter_kinds::YOSHI);
+    assert_eq!(yoshi.reactive_retreat_distance, yoshi.minimum_distance);
+    let mut changed = tuning;
+    changed.set("auto_spacing_reactive_retreat_distance", "34.5").unwrap();
+    assert_eq!(changed.auto_spacing(crate::fighter_kinds::LUCINA).reactive_retreat_distance, 34.5);
+    let source = persist::update_tuning("", crate::fighter_kinds::LUCINA, changed).unwrap();
+    assert!(source.contains("# Horizontal root-distance target"));
+    assert_eq!(
+        Catalog::parse(&source).unwrap().tuning[&crate::fighter_kinds::LUCINA],
+        changed
+    );
+    assert!(Tuning::default().set("auto_defense_lead_frames", "10").is_ok());
 }
 
 #[test]
@@ -198,6 +202,7 @@ fn auto_spacing_defaults_resolve_by_fighter_and_match_menu() {
             ..AssistSettings::default()
         });
         assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
+        assert_eq!(config.reactive_retreat_distance, menu[AUTO_SPACING_REACTIVE_RETREAT_DISTANCE]);
         assert_eq!(config.maximum_drift, menu[AUTO_SPACING_MAXIMUM_DRIFT]);
         assert_eq!(config.ground_speed, 0.49);
         assert_eq!(config.minimum_distance, 15.);

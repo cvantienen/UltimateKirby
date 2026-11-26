@@ -674,7 +674,7 @@ fn match_all_supported_saved_slots_select_the_matching_payload() {
         );
         let (position, count) = m.choice_position(&p, slot);
         assert_eq!(position, 1);
-        assert_eq!(count, if slot.is_button() { 11 } else { 2 });
+        assert_eq!(count, if slot.is_button() { 9 } else { 2 });
     }
     assert!(m.editor.is_none() && m.catalog.is_none());
 }

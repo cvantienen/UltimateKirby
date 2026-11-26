@@ -874,7 +874,7 @@ fn prediction_rejects_unknown_and_missed_attacks() {
         19.0,
         1.0,
     )
-    .is_some());
+    .is_none());
 }
 
 #[test]
@@ -1387,4 +1387,53 @@ fn contact_lifetime_delay_and_relative_motion_are_not_double_counted() {
     assert!(!active_melee_threat(delayed, [0.; 3], [0.; 2], hit));
     delayed.input_delay = f32::NAN;
     assert!(active_melee_contact(delayed, [0.; 3], [0.; 2], hit, 7.).is_none());
+}
+
+#[test]
+fn invalid_earlier_contact_does_not_erase_incoming_attack() {
+    let best = Some(threat(7));
+    for candidate in [
+        Threat { motion: 0, in_frames: 0.0, ..threat(8) },
+        Threat { frame: f32::NAN, in_frames: 0.0, ..threat(8) },
+        Threat { in_frames: f32::NAN, ..threat(8) },
+        Threat { in_frames: 8.0, ..threat(8) },
+    ] {
+        assert_eq!(prefer_incoming(config(), best, candidate), best);
+    }
+    let immediate = Threat { in_frames: 0.0, ..threat(8) };
+    assert_eq!(prefer_incoming(config(), best, immediate), Some(immediate));
+}
+
+#[test]
+fn projectile_generation_rearms_same_object_without_native_motion() {
+    use crate::projectile_reflect::ProjectileKey;
+    let key = ProjectileKey { id: 0x1000_0007, generation: 0 };
+    let first = projectile_threat(key, 3.0);
+    let mut counter = Counter::new();
+    let mut c = context();
+    assert_eq!(counter.sample(true, Some(config()), c, Some(first)).requested, MAPPER_B);
+    counter.mapped();
+    assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 0.0));
+    c.animation.frame += 1.0;
+    assert_eq!(counter.sample(true, Some(config()), c, Some(first)), ControllerOutput::NONE);
+    let next = projectile_threat(ProjectileKey { generation: 1, ..key }, 3.0);
+    assert_eq!(counter.sample(true, Some(config()), c, Some(next)).requested, MAPPER_B);
+}
+
+#[test]
+fn attacker_progress_releases_failed_counter_with_frozen_defender_animation() {
+    let mut counter = Counter::new();
+    let c = context();
+    let mut t = threat(7);
+    assert_eq!(counter.sample(true, Some(config()), c, Some(t)).requested, MAPPER_B);
+    counter.mapped();
+    for tick in 1..=2 {
+        counter.poll_receipt(tick);
+        t.frame += 1.0;
+        let output = counter.sample(true, Some(config()), c, Some(t));
+        assert_eq!(output.requested, 0);
+    }
+    assert!(counter.release_pending);
+    counter.mapped_release();
+    assert_eq!(counter.sample(true, Some(config()), c, Some(t)).requested, MAPPER_B);
 }

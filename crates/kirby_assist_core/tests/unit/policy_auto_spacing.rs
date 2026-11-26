@@ -75,6 +75,8 @@ fn config() -> Config {
     Config {
         minimum_distance: 12.,
         engagement_range: 20.,
+        reactive_retreat_distance: 12.,
+        fighter_kind: -1,
         ground_speed: 1.,
         maximum_drift: 1.,
         minimum_drift: 0.1,
@@ -171,7 +173,7 @@ fn auto_spacing_uses_configured_distance_and_retreats_before_incoming_crosses_it
     };
     let mut spacing = Spacing::default();
     let out = spacing.sample(1, true, cfg, context(), enemy(24., -4.));
-    assert_eq!(out.controller.stick, Some([-1., 0.]));
+    assert_eq!(out.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
     assert!(
         !Spacing::default()
             .sample(2, true, cfg, context(), enemy(20., 0.))
@@ -209,7 +211,7 @@ fn auto_spacing_direct_ground_cap_limits_both_directions() {
                     },
                     enemy(side * distance, 0.),
                 );
-                assert_eq!(out.controller.stick, Some([-side, 0.]));
+                assert_eq!(out.controller.stick, Some([-side * ground_speed.min(GROUND_WALK_STICK), 0.]));
             }
             for cap in close {
                 assert!(crate::native_input::mapped_stick_axis(cap) <= 88);
@@ -270,7 +272,7 @@ fn auto_spacing_never_approaches_without_attacks_or_to_turn() {
             );
             assert_eq!(blocked.controller.stick, None);
             let retreat = Spacing::default().sample(1, true, cfg, c, enemy(side * 14., 0.));
-            assert_eq!(retreat.controller.stick, Some([-side, 0.]));
+            assert_eq!(retreat.controller.stick, Some([-side * speed.min(GROUND_WALK_STICK), 0.]));
             let mut attack_cfg = config();
             attack_cfg.ground_speed = 0.;
             let turn = Spacing::default().sample(1, true, attack_cfg, c, enemy(side * 18., 0.));
@@ -293,7 +295,7 @@ fn auto_spacing_engagement_boundary_cancels_retries_but_keeps_ground_approach() 
     s.mapped(1);
     let outside = s.sample(2, true, cfg, context(), enemy(20.01, -10.));
     assert_eq!(outside.controller.requested, 0);
-    assert_eq!(outside.controller.stick, Some([-1., 0.]));
+    assert_eq!(outside.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
     assert!(!outside.attack);
     assert!(!s.sample(3, true, cfg, context(), enemy(20., 0.)).attack);
     let missing = s.sample(4, true, cfg, context(), None);
@@ -618,7 +620,7 @@ fn auto_spacing_tapers_before_boundary_and_retreats_after_breach() {
     assert_eq!(out.movement_caps, Some([0.49, approach]));
     assert!(!out.attack);
     let out = s.sample(2, true, Config::default(), context(), enemy(-8., 0.));
-    assert_eq!(out.controller.stick, Some([1., 0.]));
+    assert_eq!(out.controller.stick, Some([0.49, 0.]));
     assert!(!out.attack);
 }
 #[test]
@@ -638,7 +640,7 @@ fn auto_spacing_attacks_approaches_and_breaches_without_recovery_gap_veto() {
     );
     cfg.minimum_distance = 21.;
     let out = s.sample(4, true, cfg, context(), enemy(20., 0.));
-    assert_eq!(out.controller.stick, Some([-1., 0.]));
+    assert_eq!(out.controller.stick, Some([-GROUND_WALK_STICK, 0.]));
     assert!(!out.attack);
 }
 #[test]
@@ -662,7 +664,7 @@ fn auto_spacing_outside_range_stays_manual_and_retreat_never_dashes() {
         assert_eq!(out.walk_cap, Some(GROUND_WALK_STICK));
     }
     let ground = s.sample(3, true, Config::default(), context(), enemy(10., 0.));
-    assert_eq!(ground.controller.stick, Some([-1., 0.]));
+    assert_eq!(ground.controller.stick, Some([-0.49, 0.]));
     let air = s.sample(
         4,
         true,
@@ -882,7 +884,7 @@ fn auto_spacing_ground_retreat_finishes_a_three_unit_step_without_facing_shuffle
                 ..context()
             };
             let out = s.sample(tick, true, cfg, c, enemy(side * enemy_x, 0.));
-            assert_eq!(out.controller.stick, walking.then_some([-side, 0.]));
+            assert_eq!(out.controller.stick, walking.then_some([-side * GROUND_WALK_STICK, 0.]));
             assert!(!out.attack);
             assert_eq!(out.controller.requested, 0);
         }
@@ -960,7 +962,7 @@ fn auto_spacing_braking_never_reduces_outward_walk_or_air_drift() {
                         );
                     }
                     if let Some(stick) = out.controller.stick {
-                        assert_eq!(stick, [-side, 0.]);
+                        assert_eq!(stick, [-side * full, 0.]);
                     }
                     assert!(!out.attack);
                 }
@@ -974,7 +976,7 @@ fn auto_spacing_retreat_releases_on_target_loss_and_respects_ground_support() {
     let cfg = Config::default();
     let mut spacing = Spacing::default();
     let start = spacing.sample(1, true, cfg, context(), enemy(10., 0.));
-    assert_eq!(start.controller.stick, Some([-1., 0.]));
+    assert_eq!(start.controller.stick, Some([-0.49, 0.]));
     let blocked = spacing.sample(
         2,
         true,
@@ -995,6 +997,86 @@ fn auto_spacing_retreat_releases_on_target_loss_and_respects_ground_support() {
         spacing.sample(4, false, cfg, context(), enemy(10., 0.)),
         Output::default()
     );
+}
+
+#[test]
+fn reactive_retreat_latches_all_status_entries_but_not_initial_idle() {
+    let cfg = Config { reactive_retreat_distance: 34., ..config() };
+    for airborne in [false, true] {
+        let c = GameplayContext {
+            situation: if airborne { situation::AIR } else { situation::GROUND },
+            status: if airborne { status::FALL } else { status::WAIT },
+            can_act: false,
+            can_air_attack: false,
+            ..context()
+        };
+        for state in [status::WALK, status::LANDING, status::ATTACK, status::WAIT] {
+            let mut s = Spacing::default();
+            let idle = Opponent { status: if state == status::WAIT { status::WALK } else { status::WAIT }, ..enemy(25., 0.).unwrap() };
+            assert_eq!(s.sample(1, true, cfg, c, Some(idle)).controller.stick, None);
+            let transitioned = Opponent { status: state, ..idle };
+            let expected = [-if airborne { 1. } else { GROUND_WALK_STICK }, 0.];
+            assert_eq!(s.sample(2, true, cfg, c, Some(transitioned)).controller.stick, Some(expected));
+            assert_eq!(s.sample(3, true, cfg, c, Some(Opponent { position: [33., 0.], ..transitioned })).controller.stick, Some(expected));
+            assert_eq!(s.sample(4, true, cfg, c, Some(Opponent { position: [34., 0.], ..transitioned })).controller.stick, None);
+            s.sample(5, true, cfg, c, Some(Opponent { velocity: [-0.1, 0.], ..transitioned }));
+            assert_eq!(s.sample(6, true, cfg, c, None).controller.stick, None);
+            assert_eq!(s.sample(7, true, cfg, c, Some(idle)).controller.stick, None);
+            s.sample(8, true, cfg, c, Some(transitioned));
+            s.sample(8, false, cfg, c, Some(transitioned));
+            assert_eq!(s.sample(9, true, cfg, c, Some(transitioned)).controller.stick, None);
+        }
+    }
+}
+
+#[test]
+fn reactive_retreat_tracks_motion_changes_and_restarts() {
+    let cfg = Config { reactive_retreat_distance: 34., ..Config::default() };
+    let mut e = enemy(25., 0.).unwrap();
+    e.motion = Some(crate::gameplay::MotionTiming { kind: 1, frame: 10., rate: 1., remaining: None });
+    let mut s = Spacing::default();
+    assert_eq!(s.sample(1, true, cfg, context(), Some(e)).controller.stick, None);
+    e.motion.as_mut().unwrap().frame = 11.;
+    assert_eq!(s.sample(2, true, cfg, context(), Some(e)).controller.stick, None);
+    e.motion.as_mut().unwrap().frame = 0.;
+    assert_eq!(s.sample(3, true, cfg, context(), Some(e)).controller.stick, Some([-0.49, 0.]));
+    let replacement = Opponent { id: 2, ..e };
+    assert_eq!(s.sample(4, true, cfg, context(), Some(replacement)).controller.stick, None);
+}
+
+#[test]
+fn position_selection_preserves_lucina_horizontal_and_uses_catalog_verticals() {
+    let cfg = Config {
+        fighter_kind: crate::fighter_kinds::LUCINA,
+        minimum_distance: 24., reactive_retreat_distance: 34., ground_speed: 0.49,
+        ground_braking: false, minimum_drift: 0.11,
+        ground: AttackConfig { startup: 10., active_frames: 5., reach: 28., height: 10., ..config().ground },
+        aerial: AttackConfig { startup: 5., active_frames: 5., reach: 28., height: 20.5, ..config().aerial },
+        ..config()
+    };
+    let ground = GameplayContext { walk_stick: Some(0.48999986), velocity: [-0.1, 0.], ..context() };
+    let mut s = Spacing::default();
+    assert!(s.sample(1, true, cfg, ground, enemy(25., 0.)).attack);
+    assert_eq!(s.pending_attack, cfg.ground);
+    let air = GameplayContext { situation: situation::AIR, status: status::FALL, ..context() };
+    for (y, expected) in [(0., Attack::Forward), (15., Attack::Up), (-15., Attack::Down)] {
+        let e = Opponent { position: [8., y], ..enemy(8., 0.).unwrap() };
+        let selected = select_attack(cfg, air, e, 1.);
+        assert_eq!(selected.attack, expected);
+        if y == 0. { assert_eq!(selected, cfg.aerial); }
+        let mut spacing = Spacing::default();
+        let out = spacing.sample(1, true, cfg, air, Some(e));
+        assert!(out.attack, "height {y}");
+        spacing.mapped(1);
+        let shifted = Opponent { position: [8., y + y.signum() * 0.1], ..e };
+        spacing.sample(2, true, cfg, air, Some(shifted));
+        assert_eq!(spacing.pending_attack, selected);
+    }
+    let behind = GameplayContext { facing: -1., ..air };
+    assert_eq!(select_attack(cfg, behind, enemy(8., 0.).unwrap(), 1.).attack, Attack::Back);
+    let above = Opponent { position: [8., 8.], ..enemy(8., 0.).unwrap() };
+    assert_eq!(select_attack(cfg, ground, above, 1.).attack, Attack::Up);
+    assert!(!Spacing::default().sample(1, true, cfg, ground, Some(above)).attack);
 }
 
 #[test]

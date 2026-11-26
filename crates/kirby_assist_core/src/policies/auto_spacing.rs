@@ -30,6 +30,10 @@ pub struct AttackConfig {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     pub minimum_distance: f32,
+    /// Expanded retreat boundary after approach or a newly observed opponent action.
+    pub reactive_retreat_distance: f32,
+    /// Catalog identity for position-based alternatives; unknown keeps configured moves only.
+    pub fighter_kind: i32,
     pub engagement_range: f32,
     /// Direct horizontal stick cap, also bounded by the native non-dash threshold.
     pub ground_speed: f32,
@@ -46,6 +50,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             minimum_distance: 15.,
+            reactive_retreat_distance: 15.,
+            fighter_kind: -1,
             engagement_range: 20.,
             ground_speed: 0.49,
             maximum_drift: 1.,
@@ -83,6 +89,9 @@ pub struct Spacing {
     pending_output: Output,
     retreat_side: Option<f32>,
     ground_retreat: Option<GroundRetreat>,
+    reactive_target: Option<(u32, f32)>,
+    observed_target: Option<Opponent>,
+    pending_config: Option<Config>,
     aerial_selection: Option<(i64, [f32; 2])>,
 }
 
@@ -158,10 +167,29 @@ impl Spacing {
     ) -> bool {
         let distance = (enemy.position[0] - c.position[0]).abs();
         let projected = distance + (enemy.velocity[0] - c.velocity[0]) * side * 5.;
+        let changed = self.observed_target.is_some_and(|old| {
+            old.id == enemy.id && (old.status != enemy.status || old.situation != enemy.situation
+                || old.motion.zip(enemy.motion).is_some_and(|(before, after)| {
+                    before.kind != after.kind
+                        || before.frame.is_finite() && after.frame.is_finite()
+                            && after.frame < before.frame
+                }))
+        });
+        self.observed_target = Some(enemy);
+        let boundary = config.reactive_retreat_distance.max(config.minimum_distance);
+        if self.reactive_target.is_some_and(|(id, direction)| {
+            id != enemy.id || direction != side || distance >= boundary
+        }) {
+            self.reactive_target = None;
+        }
+        if distance < boundary && (changed || enemy.velocity[0] * side < -0.01) {
+            self.reactive_target = Some((enemy.id, side));
+        }
+        let reactive = self.reactive_target == Some((enemy.id, side));
         if c.situation == situation::AIR {
             self.ground_retreat = None;
             let boundary = config.minimum_distance;
-            let retreat = projected.min(distance) <= boundary
+            let retreat = reactive || projected.min(distance) <= boundary
                 || self.retreat_side == Some(side) && distance < boundary + 2.;
             self.retreat_side = retreat.then_some(side);
             if retreat && !c.stopped {
@@ -186,7 +214,7 @@ impl Spacing {
                     start_x: c.position[0],
                 });
             }
-            let retreat = self
+            let retreat = reactive || self
                 .ground_retreat
                 .as_ref()
                 .is_some_and(|retreat| retreat.side == side);
@@ -194,7 +222,7 @@ impl Spacing {
                 self.pending = false;
                 if !c.stopped {
                     out.controller.stick = Some(if c.safe_ground[usize::from(side < 0.)] {
-                        [-side, 0.]
+                        [-side * ground_cap(config, c), 0.]
                     } else {
                         [0.; 2]
                     });
@@ -212,7 +240,6 @@ impl Spacing {
         c: GameplayContext,
         target: Option<Opponent>,
     ) -> Output {
-        let selected_attack = if c.situation == situation::AIR { config.aerial } else { config.ground };
         if !held || !valid_context(config, c) {
             self.reset();
             return Output::default();
@@ -232,6 +259,8 @@ impl Spacing {
             self.pending_frames = 0;
             self.retreat_side = None;
             self.ground_retreat = None;
+            self.reactive_target = None;
+            self.observed_target = None;
             self.output = Output { walk_cap, movement_caps: Some(caps),
                 ..Output::default() };
             if let Some((_, stick)) = self.aerial_selection {
@@ -257,6 +286,11 @@ impl Spacing {
         };
         let dx = enemy.position[0] - c.position[0];
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
+        let selected_attack = if self.pending && self.pending_config == Some(config) {
+            self.pending_attack
+        } else {
+            select_attack(config, c, enemy, side)
+        };
         if self.pending {
             if self.pending_target != Some(enemy.id)
                 || airborne != self.pending_airborne
@@ -266,7 +300,6 @@ impl Spacing {
                 || !facing_matches(selected_attack.attack, airborne, c.facing, side)
                 || is_attack(c.status)
                 || brake_ground_movement(c.status, c.situation)
-                || !airborne && c.velocity[0] * side < -0.01
                 || !predicts_hit(selected_attack, c, enemy, side)
             {
                 self.pending = false;
@@ -279,14 +312,9 @@ impl Spacing {
         }
         {
             let retreat = self.sample_retreat(config, c, enemy, side, caps, &mut out);
-            let moving_away = c.velocity[0] * side < -0.01;
-            let attack = if airborne {
-                config.aerial
-            } else {
-                config.ground
-            };
+            let attack = selected_attack;
             if !self.pending
-                && (airborne || !retreat && !moving_away)
+                && (airborne || !retreat && (c.facing * side > 0. || c.velocity[0] * side >= -0.01))
                 && self.aerial_selection.is_none()
                 && !c.stopped
                 && ready
@@ -331,6 +359,7 @@ impl Spacing {
                     self.pending_airborne = airborne;
                     self.pending_side = side;
                     self.pending_attack = attack;
+                    self.pending_config = Some(config);
                     self.pending_output = out;
                 }
             }
@@ -363,6 +392,64 @@ impl Spacing {
     }
 }
 
+fn catalog_attack(config: Config, airborne: bool, attack: Attack) -> Option<AttackConfig> {
+    let name = match (airborne, attack) {
+        (false, Attack::Up) => "Up Tilt",
+        (false, Attack::Down) => "Down Tilt",
+        (true, Attack::Up) => "Up Air",
+        (true, Attack::Down) => "Down Air",
+        (true, Attack::Back) => "Back Air",
+        (true, Attack::Forward) => "Forward Air",
+        _ => return None,
+    };
+    let data = crate::fighter_data::named_move(config.fighter_kind, name)?;
+    let active = data.active.first()?;
+    let base = if airborne { config.aerial } else { config.ground };
+    let candidate = AttackConfig {
+        attack,
+        startup: f32::from(active.first),
+        active_frames: f32::from(active.last - active.first + 1),
+        // The catalog has no hitbox geometry. Never invent a wider horizontal sweep.
+        reach: if matches!(attack, Attack::Up | Attack::Down) { base.reach.min(base.height) } else { base.reach },
+        height: base.height,
+        commitment: f32::from(data.total?),
+    };
+    attack_valid(candidate, airborne).then_some(candidate)
+}
+
+fn select_attack(config: Config, c: GameplayContext, enemy: Opponent, side: f32) -> AttackConfig {
+    let airborne = c.situation == situation::AIR;
+    let base = if airborne { config.aerial } else { config.ground };
+    if !attack_valid(base, airborne) {
+        return base;
+    }
+    let dy = enemy.position[1] - c.position[1];
+    let vertical = if dy >= 0. { Attack::Up } else { Attack::Down };
+    if dy.abs() > base.height * 0.5 {
+        if let Some(candidate) = catalog_attack(config, airborne, vertical)
+            .filter(|a| predicts_hit(*a, c, enemy, side))
+        {
+            return candidate;
+        }
+    }
+    if facing_matches(base.attack, airborne, c.facing, side)
+        && predicts_hit(base, c, enemy, side)
+    {
+        return base;
+    }
+    if airborne {
+        let horizontal = if c.facing * side > 0. { Attack::Forward } else { Attack::Back };
+        if let Some(candidate) = catalog_attack(config, true, horizontal)
+            .filter(|a| predicts_hit(*a, c, enemy, side))
+        {
+            return candidate;
+        }
+    }
+    catalog_attack(config, airborne, vertical)
+        .filter(|a| dy.abs() > 0.01 && predicts_hit(*a, c, enemy, side))
+        .unwrap_or(base)
+}
+
 /// Manual action selection must not inherit spacing's movement-only axis caps.
 pub fn manual_action(buttons: u32, right_stick: [f32; 2]) -> bool {
     buttons & (MAPPER_A | crate::native_input::MAPPER_B | crate::native_input::MAPPER_R
@@ -378,6 +465,8 @@ fn valid_context(config: Config, c: GameplayContext) -> bool {
         && matches!(c.situation, situation::GROUND | situation::AIR)
         && config.minimum_distance.is_finite()
         && config.minimum_distance >= 0.
+        && config.reactive_retreat_distance.is_finite()
+        && config.reactive_retreat_distance >= 0.
         && config.engagement_range.is_finite()
         && config.engagement_range >= 0.
         && config.braking_distance.is_finite()
@@ -464,12 +553,20 @@ fn predicts_hit(a: AttackConfig, c: GameplayContext, e: Opponent, side: f32) -> 
     };
     let mut time = lo;
     while time <= hi {
-        if height_at(time).abs() <= a.height {
+        if height_connects(a, height_at(time)) {
             return true;
         }
         time += 1.;
     }
-    height_at(hi).abs() <= a.height
+    height_connects(a, height_at(hi))
+}
+
+fn height_connects(attack: AttackConfig, height: f32) -> bool {
+    height.abs() <= attack.height && match attack.attack {
+        Attack::Up => height >= 0.,
+        Attack::Down => height <= 0.,
+        _ => true,
+    }
 }
 
 fn vertical_travel(speed: f32, physics: Option<crate::gameplay::AirPhysics>, time: f32) -> f32 {

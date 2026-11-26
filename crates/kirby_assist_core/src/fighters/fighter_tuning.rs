@@ -127,7 +127,7 @@ mod schema {
         "auto_spacing_ground_braking",
         "auto_spacing_air_braking",
         "auto_spacing_braking_distance",
-        "auto_defense_lead_frames",
+        "auto_spacing_reactive_retreat_distance",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -208,23 +208,23 @@ mod schema {
         "Auto DI (experimental)",
         "Auto SDI (experimental)",
         "Spacing: attack engagement range",
-        "Spacing: ground walk fraction (0-1)",
-        "Spacing: maximum approach drift",
-        "Spacing: minimum approach strength",
-        "Spacing: Ground Braking",
-        "Spacing: Air Braking",
-        "Spacing: braking activation distance",
-        "Auto Defense lead (frames)",
+        "Spacing: ground walk stick strength (0-1)",
+        "Spacing: maximum aerial approach drift (0-1)",
+        "Spacing: minimum aerial approach drift (0-1)",
+        "Spacing: ground braking",
+        "Spacing: air braking",
+        "Spacing: braking distance (game units)",
+        "Auto Space: reactive retreat distance",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
     pub const HINTS: [&str; COUNT] = [
         "Walking baseline uses the original curve: slightly lower at partial stick, 50% at full horizontal stick. Recipes keep their own strengths.",
         "Your grab reach estimate for recipes, legacy grab and Yoshi chase helpers. Saved attacker overrides also feed ordinary-grab threat estimates. Never extends hitboxes.",
-        "Horizontal acquisition limit; requires acquire/follow limits ON.",
-        "Vertical acquisition limit; requires acquire/follow limits ON.",
-        "Horizontal limit after acquiring a target; requires acquire/follow limits ON.",
-        "Vertical limit after acquiring a target; requires acquire/follow limits ON.",
+        "Maximum horizontal target-acquisition gap, in game units, when range limits are ON. Increase to acquire farther targets; decrease to require closer targets.",
+        "Maximum vertical target-acquisition gap, in game units, when range limits are ON. Increase to allow more height separation; decrease for tighter matching.",
+        "Maximum horizontal gap after acquiring a target, in game units, when range limits are ON. Increase to keep following farther targets; decrease to release sooner.",
+        "Maximum vertical gap after acquiring a target, in game units, when range limits are ON. Increase to tolerate more height separation; decrease to release sooner.",
         "Hold-L manual walk stop gap from the tracked ledge; also the automatic stance offset. Toggling autopilot ON alone does not limit walking.",
         "Input strength for eligible automatic stance positioning, not a change to physics.",
         "Enable manual walking limits while L is held. Autopilot ON without L does not cap manual walking.",
@@ -273,13 +273,13 @@ mod schema {
         "Prepare down tilt toward the opponent. Kirby and Yoshi default ON.",
         "Aim physical forward C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
         "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
-        "Explicit fighter counter configuration; only verified down-special counters are supported.",
-        "Frames before the counter becomes active; tune to the fighter's native move startup.",
-        "Additional frames ahead of predicted melee contact to begin the counter.",
+        "Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.",
+        "Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.",
+        "Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.",
         "Estimated horizontal body half-width for active melee hitbox prediction.",
         "Estimated body height above root for active melee hitbox prediction.",
         "Estimated body half-depth for active melee hitbox prediction.",
-        "Minimum root-to-root spacing while the assigned Auto-Spacing & Attack button is held. Universal input assistance, never a toggle.",
+        "Normal horizontal root-to-root spacing in game units while spacing is active (default hold L3). Increase to stay farther away; decrease to allow closer attacks. Reactive retreat is conditional and separate: Lucina normal 24, reactive 34.",
         "0 disabled (default for every fighter); 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 back (invalid, disabled). Ground tilts use directional tilt inputs, never move or status edits.",
         "Estimated frames before the configured ground attack becomes active; does not change native startup.",
         "Estimated active duration of the configured ground attack; never changes native hitboxes.",
@@ -294,14 +294,14 @@ mod schema {
         "Estimated total aerial commitment in frames; independent of startup and active duration.",
         "Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.",
         "Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.",
-        "Attack only inside this horizontal distance. Ground approach walks toward the target even outside attack range; aerial direction stays manual outside range. Independent of minimum retreat spacing; holding blocks other automatic modes.",
-        "Legacy ground-cap value retained for saved configurations. Live manual Auto Space uses the maximum native non-dash stick value; assisted retreat uses full strength and may dash.",
-        "Legacy drift value retained for saved configurations. Auto Space now leaves manual aerial drift unrestricted and uses full drift for retreat.",
-        "Legacy minimum-drift value retained for saved configurations; Auto Space no longer tapers movement.",
-        "Legacy ground-braking setting; ignored because Auto Space braking has been removed.",
-        "Legacy air-braking setting; ignored because Auto Space braking has been removed.",
-        "Legacy braking-distance setting; ignored because Auto Space braking has been removed.",
-        "Frames ahead of predicted contact to begin Auto Defense (0-30, default 4). Input-only timing, not native move startup.",
+        "Maximum horizontal root distance for choosing an attack. Increasing allows attacks from farther away; decreasing waits for closer range. Approach movement is otherwise governed by normal spacing.",
+        "Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.",
+        "Maximum aerial approach drift (0-1) while spacing is active. Increase for faster approach; decrease to preserve more drift control. Retreat may use full drift.",
+        "Minimum aerial approach strength (0-1) in the movement taper zone. Increase to maintain more approach drift; decrease to taper more. Retreat remains full directional drift.",
+        "When enabled, reduce excess grounded movement near normal spacing. Disable to retain the configured approach speed until the boundary.",
+        "When enabled, reduce excess aerial movement near normal spacing. Disable to retain aerial approach drift until the boundary.",
+        "Distance in game units where enabled movement braking begins before normal spacing. Increase to brake earlier; decrease to brake later.",
+        "Horizontal root-distance target after an approach or observed opponent action change while spacing is held. Retreat stays latched until this distance; idle first observations do not trigger it. Larger values retreat farther, never closer than normal spacing. Lucina example: normal 24, reactive 34 game units.",
     ];
 
     pub const AUTO_SPACING_ENGAGEMENT_RANGE: usize = 75;
@@ -311,7 +311,7 @@ mod schema {
     pub const AUTO_SPACING_GROUND_BRAKING: usize = 79;
     pub const AUTO_SPACING_AIR_BRAKING: usize = 80;
     pub const AUTO_SPACING_BRAKING_DISTANCE: usize = 81;
-    pub const AUTO_DEFENSE_LEAD_FRAMES: usize = 82;
+    pub const AUTO_SPACING_REACTIVE_RETREAT_DISTANCE: usize = 82;
 
     /// Experimental damage-stick preferences, appended for file compatibility.
     pub const AUTO_DI_DEFAULT: usize = 73;
@@ -542,7 +542,7 @@ const DEFAULTS: [f32; COUNT] = {
     d[AUTO_SPACING_GROUND_BRAKING] = 1.;
     d[AUTO_SPACING_AIR_BRAKING] = 1.;
     d[AUTO_SPACING_BRAKING_DISTANCE] = 10.;
-    d[AUTO_DEFENSE_LEAD_FRAMES] = 4.;
+    d[AUTO_SPACING_REACTIVE_RETREAT_DISTANCE] = 15.;
     d[AUTO_SPACING_ENGAGEMENT_RANGE] = 20.;
     d[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
     d[AUTO_SPACING_MINIMUM_DRIFT] = 0.1;
@@ -618,7 +618,6 @@ impl Tuning {
                 | REFLECT_MAX_HOLD
                 | COUNTER_STARTUP
                 | COUNTER_MARGIN
-                | AUTO_DEFENSE_LEAD_FRAMES
                 | AUTO_SPACING_GROUND_STARTUP
                 | AUTO_SPACING_GROUND_ACTIVE_FRAMES
                 | AUTO_SPACING_GROUND_COMMITMENT
@@ -634,7 +633,8 @@ impl Tuning {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
             COUNTER_DEFAULT..=COUNTER_HALF_DEPTH => crate::auto_counter::supports(kind),
             PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
-            AUTO_SPACING_MINIMUM_DISTANCE | AUTO_SPACING_ENGAGEMENT_RANGE => false,
+            AUTO_SPACING_MINIMUM_DISTANCE | AUTO_SPACING_ENGAGEMENT_RANGE
+            | AUTO_SPACING_REACTIVE_RETREAT_DISTANCE => true,
             CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
             TILT_TURN_DOWN..=TILT_TURN_UP => matches!(
                 kind,
@@ -665,7 +665,7 @@ impl Tuning {
         }
     }
     /// Resolves universal hold-mode spacing and independent attack estimates.
-    pub fn auto_spacing(self, _kind: i32) -> crate::auto_spacing::Config {
+    pub fn auto_spacing(self, kind: i32) -> crate::auto_spacing::Config {
         use crate::auto_spacing::{Attack, AttackConfig, Config};
         let attack = |i, aerial| match self.get(i) {
             1. => Attack::Neutral,
@@ -677,6 +677,8 @@ impl Tuning {
         };
         Config {
             minimum_distance: self.get(AUTO_SPACING_MINIMUM_DISTANCE),
+            reactive_retreat_distance: self.value(AUTO_SPACING_REACTIVE_RETREAT_DISTANCE,
+                if kind == crate::fighter_kinds::LUCINA { 34. } else { self.get(AUTO_SPACING_MINIMUM_DISTANCE) }),
             engagement_range: self.get(AUTO_SPACING_ENGAGEMENT_RANGE),
             ground_speed: self.get(AUTO_SPACING_GROUND_SPEED),
             maximum_drift: self.get(AUTO_SPACING_MAXIMUM_DRIFT),
@@ -684,6 +686,7 @@ impl Tuning {
             ground_braking: self.get(AUTO_SPACING_GROUND_BRAKING) == 1.,
             air_braking: self.get(AUTO_SPACING_AIR_BRAKING) == 1.,
             braking_distance: self.get(AUTO_SPACING_BRAKING_DISTANCE),
+            fighter_kind: kind,
             ground: AttackConfig {
                 attack: attack(AUTO_SPACING_GROUND_MOVE, false),
                 startup: self.get(AUTO_SPACING_GROUND_STARTUP),
@@ -764,7 +767,7 @@ impl Tuning {
         }
         match i {
             AUTO_SPACING_GROUND_MOVE | AUTO_SPACING_AERIAL_MOVE => (0., 5., 1.),
-            AUTO_DEFENSE_LEAD_FRAMES => (0., 30., 1.),
+            AUTO_SPACING_REACTIVE_RETREAT_DISTANCE => (0., 150., 0.5),
             AUTO_SPACING_GROUND_SPEED | AUTO_SPACING_MAXIMUM_DRIFT
             | AUTO_SPACING_MINIMUM_DRIFT => (0., 1., 0.01),
             AUTO_SPACING_MINIMUM_DISTANCE
@@ -818,6 +821,14 @@ impl Tuning {
     }
     /// Parses and saves one named per-fighter tuning override.
     pub fn set(&mut self, key: &str, text: &str) -> Result<(), String> {
+        if key == "auto_defense_lead_frames" {
+            let value = text.parse::<f32>().map_err(|_| format!("{key}: expected a number"))?;
+            return if value.is_finite() && (0. ..=30.).contains(&value) {
+                Ok(())
+            } else {
+                Err(format!("{key}: must be 0..30"))
+            };
+        }
         let i = KEYS
             .iter()
             .position(|k| *k == key)
@@ -874,6 +885,7 @@ impl Tuning {
             default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         values[AUTO_SPACING_MAXIMUM_DRIFT] = 1.;
+        values[AUTO_SPACING_REACTIVE_RETREAT_DISTANCE] = if s.fighter_kind == crate::fighter_kinds::LUCINA { 34. } else { values[AUTO_SPACING_MINIMUM_DISTANCE] };
         Values(values)
     }
     /// Applies saved per-fighter overrides to the runtime assistance settings.

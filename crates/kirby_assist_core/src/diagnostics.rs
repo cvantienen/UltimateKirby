@@ -88,7 +88,7 @@ pub mod modes {
     use std::fmt::Write;
 
     /// `OWNER_COUNT` is a configuration value used by the Smash runtime.
-    const OWNER_COUNT: usize = 16;
+    const OWNER_COUNT: usize = 15;
     /// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
     /// Sets the lower bound for report interval ms.
@@ -165,7 +165,6 @@ pub mod modes {
         Owner::Reflect,
         Owner::Counter,
         Owner::Spacing,
-        Owner::HeldDefense,
     ];
     /// Tests whether the requested bit is set in the value.
     pub fn bit(owner: Owner) -> u32 {
@@ -178,7 +177,6 @@ pub mod modes {
             Owner::Reflect => "Projectile reflect / absorb",
             Owner::Counter => "Melee counter",
             Owner::Spacing => "Held auto-spacing / attack",
-            Owner::HeldDefense => "Held shield / neutral air-dodge",
             Owner::GrabDodge => "Incoming grab dodge",
             Owner::OptionRead => "Configured dodge follow-up / recovery punish",
             Owner::Ledge => "Ledge trapping",
@@ -195,11 +193,10 @@ pub mod modes {
     /// Describe each tool's prerequisites without guessing a particular failed gate.
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
-            Owner::Spacing => "While held, walks without dashing, brakes and predicts configured attacks; preserves manual jump and yields to native safety. Requires Tilt Attack C-stick mapping.",
-            Owner::HeldDefense => "While held, predicts incoming contact and requests a native-ready ground shield or neutral air-dodge; yields to native safety.",
+            Owner::Spacing => "While held on L3 by default, walks without dashing and requests position-selected configured attacks; reactive retreat engages after approach or detected opponent action changes. Preserves jump and yields to native safety.",
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
             Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety and committed input. A full bucket is never discharged automatically.",
-            Owner::Counter => "Requests a configured down-special counter against an active direct melee hitbox; yields to ledge, safety and committed input.",
+            Owner::Counter => "While the configured hold button is pressed (Y by default for supported Lucina), requests a down-special counter only for a detected incoming hitbox/projectile or forecast contact; yields to ledge, safety and committed input.",
             Owner::Safety => "Handles native tech windows, capture escape, hitstop SDI and launch DI; physical stick override can cancel DI.",
             Owner::GrabDodge => "Requests a native-ready spot dodge for an incoming ordinary grab; may preempt general punishes, but yields to protected ledge responses and safety.",
             Owner::OptionRead => "Runs configured spot-dodge/grab-dodge follow-ups and retained recovery punishes; yields to incoming grab defense.",

@@ -191,7 +191,7 @@ impl MenuSelection {
                     .unwrap_or_else(|| entry.choice.replace('_', " "));
                 if !old_index.is_some_and(|i| {
                     options[i].name == name && *options[i].sequence == entry.sequence
-                }) {
+                }) && entry.sequence.builtin != Some(crate::button_bindings::Builtin::Normal) {
                     records.drafts.insert(
                         (slot as usize, index),
                         catalog::Draft {
@@ -212,7 +212,7 @@ impl MenuSelection {
             self.choices[slot as usize] = selected
                 .or(first)
                 .unwrap_or_else(|| {
-                    if slot == PresetSlot::R3 && crate::auto_counter::supports(kind) {
+                    if slot == PresetSlot::Y && crate::auto_counter::supports(kind) {
                         options.len() + crate::button_bindings::Builtin::Counter.visible_template_offset().unwrap()
                     } else {
                         slot.default_index(options.len())

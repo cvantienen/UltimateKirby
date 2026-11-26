@@ -97,17 +97,23 @@ pub fn predicted_attack(
         return None;
     }
     let move_data = crate::fighter_data::fighter(kind)?.move_for_motion(motion)?;
-    if !move_data.has_damage_data() {
+    if !move_data.has_damage_data()
+        || move_data.active.iter().any(|window| {
+            frame >= f32::from(window.first) && frame < f32::from(window.last) + 1.0
+        })
+    {
         return None;
     }
-    // Screen during each active window, not at counter activation: an early
-    // crossing is still best effort, and later contact may occur in the same hit.
-    let in_frames = move_data.active.iter().filter_map(|window| {
-        let first = ((f32::from(window.first) - frame) / rate).max(0.0);
-        let last = ((f32::from(window.last) + 1.0 - frame) / rate).min(config.horizon());
-        root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
-            first, last, 12.0, 6.0)
-    }).min_by(|a, b| a.total_cmp(b))?;
+    // Missing live geometry during an active window is not startup evidence.
+    // Only forecast a future window, screening contact throughout that window.
+    let in_frames = move_data.active.iter()
+        .filter(|window| frame < f32::from(window.first))
+        .filter_map(|window| {
+            let first = (f32::from(window.first) - frame) / rate;
+            let last = ((f32::from(window.last) + 1.0 - frame) / rate).min(config.horizon());
+            root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
+                first, last, 12.0, 6.0)
+        }).min_by(|a, b| a.total_cmp(b))?;
     Some(Threat {
         id,
         motion,
@@ -115,6 +121,36 @@ pub fn predicted_attack(
         frame,
         in_frames,
     })
+}
+
+/// Select the earliest usable contact without letting unknown animation
+/// metadata from an unrelated source erase a validated threat.
+pub fn prefer_incoming(config: Config, best: Option<Threat>, candidate: Threat) -> Option<Threat> {
+    if !config.valid()
+        || candidate.motion == 0
+        || !candidate.frame.is_finite()
+        || candidate.frame < 0.0
+        || !candidate.in_frames.is_finite()
+        || !(0.0..=config.horizon()).contains(&candidate.in_frames)
+    {
+        return best;
+    }
+    if best.is_none_or(|old| candidate.in_frames < old.in_frames) {
+        Some(candidate)
+    } else {
+        best
+    }
+}
+
+/// Projectile attack generations, not optional native animations, identify a shot.
+pub fn projectile_threat(source: crate::projectile_reflect::ProjectileKey, in_frames: f32) -> Threat {
+    Threat {
+        id: source.id,
+        motion: (1u64 << 63) | u64::from(source.generation),
+        status: 0,
+        frame: 0.0,
+        in_frames,
+    }
 }
 
 /// Root-space startup screening only. Live hitboxes must instead be checked
@@ -393,6 +429,7 @@ pub struct Counter {
     target: Option<(u32, u64)>,
     began: i64,
     observed_tick: i64,
+    threat_progress: f32,
     last: Option<(u32, u64)>,
     /// Final mapped counter delivery waits for native startup or a short deadline.
     receipt: bool,
@@ -416,6 +453,7 @@ impl Counter {
             target: None,
             began: 0,
             observed_tick: 0,
+            threat_progress: 0.0,
             last: None,
             receipt: false,
             release_pending: false,
@@ -607,7 +645,16 @@ impl Counter {
             self.cancel();
             return ControllerOutput::default();
         }
-        let Some(now) = self.clock.observe(c.animation, false) else {
+        let mut animation = c.animation;
+        if let Some(threat) = threat.filter(|t| t.frame.is_finite() && t.in_frames.is_finite()) {
+            self.threat_progress = if threat.frame > 0.0 {
+                threat.frame
+            } else {
+                threat.in_frames
+            };
+        }
+        animation.auxiliary = self.threat_progress;
+        let Some(now) = self.clock.observe(animation, false) else {
             self.cancel();
             return ControllerOutput::default();
         };

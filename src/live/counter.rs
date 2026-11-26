@@ -266,7 +266,6 @@ pub(super) unsafe fn observe(
         .flatten();
     let team = reads.team(own);
     let mut best: Option<Threat> = None;
-    let mut soonest = f32::INFINITY;
     // Cover every slot in the bounded fighter and projectile snapshots. A
     // third multi-hitbox fighter must not veto an already observed close hit.
     let mut geometry_budget =
@@ -300,7 +299,6 @@ pub(super) unsafe fn observe(
         } else {
             [reads.speed_x(enemy), reads.speed_y(enemy)]
         };
-        let admissible = enemy_motion != 0 && enemy_frame.is_finite() && enemy_frame >= 0.;
         let remaining = policy::active_remaining(
             reads.fighter_kind(enemy),
             enemy_motion,
@@ -338,10 +336,7 @@ pub(super) unsafe fn observe(
                 reads.motion_rate(enemy))
         });
         if let Some(threat) = attack {
-            if threat.in_frames < soonest || !admissible && threat.in_frames == soonest {
-                soonest = threat.in_frames;
-                best = admissible.then_some(threat);
-            }
+            best = policy::prefer_incoming(config, best, threat);
         }
     }
     // Counter admission depends on incoming hostile geometry, not owner distance.
@@ -365,6 +360,13 @@ pub(super) unsafe fn observe(
         if reads.team(projectile) == team {
             continue;
         }
+        if !kirby_assist_core::battle_objects::is_projectile(
+            source.id,
+            reads.fighter_kind(projectile),
+            reads.status_kind(projectile),
+        ) {
+            continue;
+        }
         let stopped = reads.is_stop(projectile);
         let velocity = if stopped {
             [0.; 2]
@@ -384,13 +386,7 @@ pub(super) unsafe fn observe(
             false,
             air,
         ) {
-            let motion = reads.motion_kind(projectile);
-            let frame = reads.motion_frame(projectile);
-            if contact <= soonest && motion != 0 && frame.is_finite() && frame >= 0. {
-                soonest = contact;
-                best = Some(Threat { id: source.id, motion,
-                    status: reads.status_kind(projectile), frame, in_frames: contact });
-            }
+            best = policy::prefer_incoming(config, best, policy::projectile_threat(source, contact));
         }
     }
     // An unreadable unrelated source must not veto a known incoming contact.

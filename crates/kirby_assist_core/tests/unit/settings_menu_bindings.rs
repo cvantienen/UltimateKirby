@@ -26,19 +26,18 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
     for (slot, builtin, mode_index) in [
         (PresetSlot::Y, Builtin::AutoSpacingToggle, 0),
         (PresetSlot::X, Builtin::CounterToggle, 1),
-        (PresetSlot::DpadUp, Builtin::AutoDefenseToggle, 2),
     ] {
         m.choices[slot as usize] = p.list(slot).options.len()
             + builtin.visible_template_offset().unwrap();
         m.input(0, &p);
         let button = slot.button();
         m.input(button, &p);
-        let active = [m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()];
+        let active = [m.auto_spacing_held(), m.counter_held()];
         assert!(active[mode_index]);
         m.input(0, &p);
-        assert!([m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()][mode_index]);
+        assert!([m.auto_spacing_held(), m.counter_held()][mode_index]);
         m.input(button, &p);
-        assert!(![m.auto_spacing_held(), m.counter_held(), m.auto_defense_held()][mode_index]);
+        assert!(![m.auto_spacing_held(), m.counter_held()][mode_index]);
         m.input(0, &p);
     }
 
@@ -55,15 +54,15 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
 }
 
 #[test]
-fn l3_defaults_to_defense_and_down_to_turbo_without_starting_a_recipe() {
+fn l3_defaults_to_spacing_and_down_to_turbo_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
     let index = m.choices[PresetSlot::L3 as usize];
     assert_eq!(m.choice(&p, PresetSlot::L3, index).unwrap().id,
-        Builtin::AutoDefense.choice_id());
+        Builtin::AutoSpacing.choice_id());
     m.input(0, &p);
     assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
-    assert!(m.auto_defense_held());
+    assert!(m.auto_spacing_held());
     assert_eq!(m.native_buttons(MENU_L3) & crate::manual_controls::TURBO_TRIGGER, 0);
     m.input(0, &p);
     assert_ne!(m.input(DPAD_DOWN, &p) & DPAD_DOWN, 0);
@@ -123,10 +122,8 @@ fn supported_button_templates_resolve_uniquely_and_trump_runs_its_native_helper(
                     Builtin::LedgeTrump.choice_id(),
                     Builtin::AutoSpacing.choice_id(),
                     Builtin::Counter.choice_id(),
-                    Builtin::AutoDefense.choice_id(),
                     Builtin::AutoSpacingToggle.choice_id(),
                     Builtin::CounterToggle.choice_id(),
-                    Builtin::AutoDefenseToggle.choice_id(),
                 ]
             );
             assert!(m.choice(&p, slot, base + slot.templates()).is_none());
@@ -341,7 +338,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 9);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 7);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m
@@ -495,4 +492,41 @@ fn removing_a_reaction_binding_clears_its_toggle_and_restores_normal_x_passthrou
     assert_eq!(m.rule_button_mask, 0);
     m.input(0, &p);
     assert_eq!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+}
+
+#[test]
+fn obsolete_defense_builtins_reload_as_normal_and_do_not_consume_the_button() {
+    use crate::button_bindings::Builtin;
+    for token in ["auto_defense_hold", "auto_defense_toggle"] {
+        let text = format!("[kirby.y.retired]\nbuiltin={token}\ndefault=true\n");
+        let catalog = Catalog::parse(&text).unwrap();
+        assert_eq!(catalog.entries()[0].sequence.builtin, Some(Builtin::Normal));
+        let (p, mut m) = setup(&text, crate::fighter_kinds::KIRBY);
+        m.load_saved_recipes(&p, &catalog, crate::fighter_kinds::KIRBY);
+        m.input(0, &p);
+        assert_eq!(m.input(MAPPER_Y, &p) & MAPPER_Y, 0);
+        assert!(!m.counter_held());
+        assert!(!m.auto_spacing_held());
+        assert_eq!(catalog.entries()[0].sequence.builtin, Some(Builtin::Normal));
+        assert!(text.contains(token), "loading does not rewrite the saved file");
+    }
+}
+
+#[test]
+fn held_y_counter_consumes_normal_y_in_both_control_layouts_and_releases() {
+    use crate::native_input::ControlLayout;
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let (p, mut m) = setup("", crate::fighter_kinds::LUCINA);
+        m.load_saved_recipes(&p, &Catalog::parse("").unwrap(), crate::fighter_kinds::LUCINA);
+        m.binding_input = Some((0, layout));
+        m.input(0, &p);
+        m.binding_input = Some((MAPPER_Y, layout));
+        let consumed = m.input(layout.policy_buttons(MAPPER_Y), &p);
+        assert_eq!(consumed & layout.binding_ownership(MAPPER_Y), layout.binding_ownership(MAPPER_Y));
+        assert!(m.counter_held());
+        assert_eq!(m.native_buttons(MAPPER_Y) & MAPPER_Y, 0);
+        assert!(m.preview_slot.is_none());
+        m.input(0, &p);
+        assert!(!m.counter_held());
+    }
 }

@@ -367,9 +367,6 @@ pub struct MenuSelection {
     counter_sources: u32,
     counter_toggle_sources: u32,
     counter_toggled: bool,
-    defense_sources: u32,
-    defense_toggle_sources: u32,
-    defense_toggled: bool,
     /// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
     /// Runtime binding sources value used by MenuSelection..
@@ -987,7 +984,6 @@ impl MenuSelection {
     pub fn reset_inputs(&mut self) {
         self.spacing_toggled = false;
         self.counter_toggled = false;
-        self.defense_toggled = false;
         self.restore_mode_choices();
         self.tuning_page = false;
         self.close_tools();

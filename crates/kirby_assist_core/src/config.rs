@@ -438,36 +438,30 @@ pub mod button_bindings {
         /// Hold-only universal spacing and configured attack assistance.
         AutoSpacing,
         Counter,
-        AutoDefense,
         AutoSpacingToggle,
         CounterToggle,
-        AutoDefenseToggle,
     }
     impl Builtin {
         /// Native helpers retained for loading existing saved configurations.
-        pub const ALL: [Self; 10] = [
+        pub const ALL: [Self; 8] = [
             Self::Normal,
             Self::LedgeAssist,
             Self::TurboTeabag,
             Self::LedgeTrump,
             Self::AutoSpacing,
             Self::Counter,
-            Self::AutoDefense,
             Self::AutoSpacingToggle,
             Self::CounterToggle,
-            Self::AutoDefenseToggle,
         ];
         /// Selectable native helpers; legacy ledge assistance remains loadable only.
-        pub const MENU: [Self; 9] = [
+        pub const MENU: [Self; 7] = [
             Self::Normal,
             Self::TurboTeabag,
             Self::LedgeTrump,
             Self::AutoSpacing,
             Self::Counter,
-            Self::AutoDefense,
             Self::AutoSpacingToggle,
             Self::CounterToggle,
-            Self::AutoDefenseToggle,
         ];
         /// Returns the serialized token for the value.
         pub fn token(self) -> &'static str {
@@ -478,10 +472,8 @@ pub mod button_bindings {
                 Self::LedgeTrump => "ledge_trump",
                 Self::AutoSpacing => "auto_spacing",
                 Self::Counter => "counter_hold",
-                Self::AutoDefense => "auto_defense_hold",
                 Self::AutoSpacingToggle => "auto_spacing_toggle",
                 Self::CounterToggle => "counter_toggle",
-                Self::AutoDefenseToggle => "auto_defense_toggle",
             }
         }
         /// Returns the display label for the value.
@@ -493,10 +485,8 @@ pub mod button_bindings {
                 Self::LedgeTrump => "Built-in: Ledge trump",
                 Self::AutoSpacing => "Built-in: Auto-Spacing & Attack (hold)",
                 Self::Counter => "Built-in: Counter (hold)",
-                Self::AutoDefense => "Built-in: Auto Defense (hold)",
                 Self::AutoSpacingToggle => "Built-in: Auto-Spacing & Attack (toggle)",
                 Self::CounterToggle => "Built-in: Counter (toggle)",
-                Self::AutoDefenseToggle => "Built-in: Auto Defense (toggle)",
             }
         }
         /// Returns the stable identifier of the selected choice.
@@ -508,23 +498,22 @@ pub mod button_bindings {
                 Self::LedgeTrump => "__builtin_ledge_trump",
                 Self::AutoSpacing => "__builtin_auto_spacing",
                 Self::Counter => "__builtin_counter_hold",
-                Self::AutoDefense => "__builtin_auto_defense_hold",
                 Self::AutoSpacingToggle => "__builtin_auto_spacing_toggle",
                 Self::CounterToggle => "__builtin_counter_toggle",
-                Self::AutoDefenseToggle => "__builtin_auto_defense_toggle",
             }
         }
         /// Parses the supplied source into the module’s validated representation.
         pub fn parse(value: &str) -> Option<Self> {
             match value {
-                "short_hop" => Some(Self::Normal),
+                // Retired saved helpers must not reactivate or invalidate the catalog.
+                "short_hop" | "auto_defense_hold" | "auto_defense_toggle" => Some(Self::Normal),
                 _ => Self::ALL.into_iter().find(|b| b.token() == value),
             }
         }
         /// Builds the default the for.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             match slot {
-                crate::fighter_profiles::presets::PresetSlot::L3 => Self::AutoDefense,
+                crate::fighter_profiles::presets::PresetSlot::L3 => Self::AutoSpacing,
                 crate::fighter_profiles::presets::PresetSlot::DpadDown => Self::TurboTeabag,
                 _ => Self::Normal,
             }
@@ -538,10 +527,8 @@ pub mod button_bindings {
                 Self::LedgeTrump => 4,
                 Self::AutoSpacing => 5,
                 Self::Counter => 6,
-                Self::AutoDefense => 7,
-                Self::AutoSpacingToggle => 8,
-                Self::CounterToggle => 9,
-                Self::AutoDefenseToggle => 10,
+                Self::AutoSpacingToggle => 7,
+                Self::CounterToggle => 8,
             }
         }
         /// Returns the selected menu index for a visible button built-in.
@@ -560,17 +547,11 @@ pub mod button_bindings {
                 Self::Counter => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 4)
                 }
-                Self::AutoDefense => {
+                Self::AutoSpacingToggle => {
                     Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 5)
                 }
-                Self::AutoSpacingToggle => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 6)
-                }
                 Self::CounterToggle => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 7)
-                }
-                Self::AutoDefenseToggle => {
-                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 8)
+                    Some(crate::fighter_profiles::presets::PresetSlot::B_REVERSE_OFFSET + 6)
                 }
                 Self::LedgeAssist => None,
             }

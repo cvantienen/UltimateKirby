@@ -209,7 +209,9 @@ pub fn update(
         return Err("Invalid saved choice ID".into());
     }
     if sequence.len == 0 && sequence.mode.is_none() && sequence.builtin.is_none() {
-        return Err("Add an action or delay before saving".into());
+        if !matches!(sequence.builtin, Some(crate::button_bindings::Builtin::Normal)) {
+            return Err("Add an action or delay before saving".into());
+        }
     }
     let existing = catalog
         .entries()
@@ -316,6 +318,9 @@ pub fn update(
 
 fn recipe_properties(kind: i32, slot: PresetSlot, sequence: &Sequence) -> Result<String, String> {
     let mut properties = if let Some(builtin) = sequence.builtin {
+        if matches!(builtin, crate::button_bindings::Builtin::Normal) {
+            String::from("builtin = normal\n")
+        } else {
         if !slot.is_button()
             || sequence.len != 0
             || sequence.mode.is_some()
@@ -328,6 +333,7 @@ fn recipe_properties(kind: i32, slot: PresetSlot, sequence: &Sequence) -> Result
             return Err("Built-in helpers cannot include recipe actions or conditions".into());
         }
         format!("builtin = {}\n", builtin.token())
+        }
     } else if let Some(binding) = sequence.mode {
         if !slot.is_button()
             || !binding.mode.supports(kind)
@@ -624,7 +630,7 @@ pub fn update_tuning(
             } else {
                 value.to_string()
             };
-            result.push_str(&format!("{key} = {text}\n"));
+            result.push_str(&format!("# {}\n{key} = {text}\n", crate::fighter_tuning::HINTS[i]));
         }
     }
     validate_output(&result)?;

@@ -427,9 +427,6 @@ impl SettingsMenu {
     pub fn defensive_owner(&self) -> Option<kirby_assist_core::action_owner::Owner> {
         self.scoped().and_then(MenuSelection::defensive_owner)
     }
-    pub fn auto_defense_held(&self) -> bool {
-        self.scoped().is_some_and(MenuSelection::auto_defense_held)
-    }
     pub fn counter_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::counter_held)
     }

@@ -12,7 +12,36 @@ impl MenuSelection {
             return self.tuning_panel();
         }
         let Some(slot) = self.row.slot() else {
-            return RecipePanel::default();
+            let help = match self.row {
+                MenuRow::AutoTech => "ON requests a shield input near an observed techable collision. OFF stops automatic tech requests. Missing collision data or game lockout can prevent a tech.",
+                MenuRow::AutoMash => "Toggle automatic escape inputs for supported trapped states. This cannot shorten states where the game does not accept mash inputs.",
+                MenuRow::IdleCrouch => "ON allows Kirby's idle crouch input when eligible. OFF leaves idle posture to you; manual movement still takes priority.",
+                MenuRow::TiltTurn => "ON allows facing inputs for supported tilt attacks toward the observed target. OFF keeps your facing; unavailable observations cannot guide a turn.",
+                MenuRow::SpotPunish => "ON enables configured reactions to opponent spot dodges. OFF disables them. A recipe still needs a matching observed event and valid range.",
+                MenuRow::GrabDodge => "ON enables eligible responses to an observed incoming grab. OFF stops them. Detection and game action availability limit success.",
+                MenuRow::AutoLedge => "ON enables selected ledge responses and spacing. OFF returns ledge control to you. Inputs do not alter ledge invulnerability or attack reach.",
+                MenuRow::OutOfShield => "ON enables configured automatic grab responses. OFF stops those responses. The target must satisfy the configured observation and range checks.",
+                MenuRow::ShieldPressure => "ON enables configured reactions to observed shield pressure. OFF disables them. Only matching recipes run; this does not guarantee a shield break.",
+                MenuRow::RollRules => "ON enables authored automatic reactions. OFF disables them. First matching enabled rule runs; configure its event, range and inputs before use.",
+                MenuRow::AutoReflect => "ON enables the supported fighter's reflect inputs for observed projectiles. OFF stops them. Missing projectile data or unavailable moves can prevent reflection.",
+                MenuRow::AutoCounter => "Counter activation is assigned in Button recipes. Lucina only: hold the assigned button for detected-threat counter requests; release to stop.",
+                MenuRow::AutoDi => "ON enables experimental launch-direction stick assistance. OFF keeps your launch input. This changes controller direction only and cannot guarantee survival.",
+                MenuRow::AutoSdi => "ON enables experimental hitstop stick pulses. OFF keeps your input. Only eligible observed hitstop is used; this does not alter damage or knockback.",
+                MenuRow::TestLatency => "Adjust the test delay label with Left/Right: increase or decrease the displayed frame count. This label does not add gameplay input latency.",
+                MenuRow::Performance => "Toggle the performance display. It reports runtime work, not fighter speed; it does not improve or change gameplay timing.",
+                MenuRow::FighterSettings => "Open this fighter's numeric settings. Left/Right adjusts, X resets, Y saves. Distances are world units; input timing is frames, not animation speed.",
+                MenuRow::ButtonsPage => "Choose a physical button, then its normal action, built-in helper or input recipe. Custom assignments replace that button's normal action; saved bindings are preserved.",
+                MenuRow::ModesPage => "Choose which assist modes are enabled, or edit their event recipes. Enabling a mode still requires its observations and safety conditions.",
+                MenuRow::LedgePage => "Choose recipes for observed ledge options. Timing starts at recognition; these inputs cannot change the opponent's invulnerability or your hitboxes.",
+                MenuRow::RollRead => "Legacy roll-read control is not selectable. Use Auto react event recipes instead.",
+                _ => "Select a recipe to inspect its inputs, timing and conditions.",
+            };
+            return RecipePanel {
+                header: vec![self.row.label().into(), format!("Help: {help}")],
+                body: vec![help.into()],
+                footer: vec!["Left/Right: adjust or toggle | R3: open | Minus: close".into()],
+                focus: None,
+            };
         };
         let index = self.choices[slot as usize];
         if let Some(catalog) = self.catalog.as_ref().filter(|c| c.active()) {
@@ -25,8 +54,15 @@ impl MenuSelection {
             return RecipePanel {
                 header: vec![builtin.label().into()],
                 body: vec![
-                    "Uses the existing native helper; no input recipe runs.".into(),
-                    "Select this built-in on another button to move its activation.".into(),
+                    match builtin {
+                        crate::button_bindings::Builtin::AutoSpacing => "Hold this button to space and request configured attacks; release to stop. Manual inputs and safety gates still apply.",
+                        crate::button_bindings::Builtin::AutoSpacingToggle => "Press to enable spacing and configured attacks; press again to stop. Safety gates still apply; this does not extend attack reach.",
+                        crate::button_bindings::Builtin::Counter => "Hold to request a counter against a detected threat; release to stop. Lucina only; unavailable or unobserved threats cannot be countered.",
+                        crate::button_bindings::Builtin::CounterToggle => "Press to enable threat-based counter requests; press again to stop. Lucina only; no guaranteed counter against every attack.",
+                        crate::button_bindings::Builtin::Normal => "Uses this button's normal game action; no standalone assist or recipe runs.",
+                        _ => "Uses the existing input helper; no input recipe runs. The game still decides whether the action is available.",
+                    }.into(),
+                    "This assignment replaces the button's normal action. Assign it to another button to move its control.".into(),
                 ],
                 footer: vec!["Y: save as startup default | R3: back | B: manage".into()],
                 focus: None,
@@ -60,7 +96,13 @@ impl MenuSelection {
     /// One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
         let custom = self.tuning.0[i];
-        let value = custom.unwrap_or(self.tuning_values[i]);
+        let value = custom.unwrap_or_else(|| {
+            if i == fighter_tuning::AUTO_SPACING_REACTIVE_RETREAT_DISTANCE {
+                self.tuning.auto_spacing(self.y_fighter_kind).reactive_retreat_distance
+            } else {
+                self.tuning_values[i]
+            }
+        });
         let shown = if Tuning::is_bool(i) {
             if value == 1.0 {
                 "ON".into()

@@ -15,9 +15,6 @@
 
     // Local Rust work does not need MCP tool schemas. Reload VS Code and
     // start a fresh chat after changing these; re-enable for MCP tasks.
-    "chat.mcp.access": "none",
-    "chat.agentHost.githubMcpServer.enabled": false,
-
     "cmake.sourceDirectory": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist 2/firmware/esp32_wroom",
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
