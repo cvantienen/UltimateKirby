@@ -1613,6 +1613,26 @@ mod menu_audit_tests {
         assert!(e.copy_step((3, 0), 0));
         assert!(!e.paste_step((2, 0), 0, true));
     }
+    #[test]
+    fn onstage_direct_kind_cycle_skips_ledge_presets() {
+        let mut source = recipe("face:opponent,walk:inward:4:50%");
+        source.reaction = crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, source);
+        e.cursor = fields(&e.recipes[&DST])
+            .iter()
+            .position(|f| *f == Field::Kind(0))
+            .unwrap();
+        let count = PRESETS.len() + e.recipes[&DST].imported.len();
+        for forward in [true, false] {
+            for _ in 0..count {
+                assert!(e.adjust(DST, forward));
+                assert!(!e.recipes[&DST].sequence.actions[0].needs_ledge());
+            }
+        }
+        assert_eq!(e.recipes[&DST].sequence.actions[1], source.actions()[1]);
+    }
+
     /// Regression test for `onstage_picker_and_direction_adjustment_only_offer_actions_that_can_execute_there`.
     #[test]
     fn onstage_picker_and_direction_adjustment_only_offer_actions_that_can_execute_there() {

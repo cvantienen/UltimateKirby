@@ -1440,23 +1440,24 @@ fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
         .strip_prefix("short_hop_")
         .or_else(|| name.strip_prefix("shorthop_"))
         .map_or((false, name), |v| (true, v));
+    if paired && !pairs_with_short_hop(name) {
+        return Err(format!(
+            "{}: short_hop_ requires an aerial name",
+            args.token
+        ));
+    }
     if name == "dash_attack" || name == "dashattack" {
         push(sequence, input(0, [1.0, 0.0], args.duration(1, 1)?, true))?;
         return push(sequence, input(A, [1.0, 0.0], args.duration(2, 1)?, true));
     }
     if let Some(&(bit, _)) = BUTTON_TOKENS.iter().find(|(_, token)| *token == name) {
+        args.at_most(2)?;
         return push(sequence, input(bit, [0.0; 2], args.duration(1, 1)?, false));
     }
     let (mask, stick) =
         named_input(name).ok_or_else(|| format!("unknown action {}", args.token))?;
     if matches!(name, "full_hop" | "fullhop") && args.len() < 2 {
         return Err("full_hop requires an explicit hold duration, e.g. full_hop:4".into());
-    }
-    if paired && !pairs_with_short_hop(name) {
-        return Err(format!(
-            "{}: short_hop_ requires an aerial name",
-            args.token
-        ));
     }
     let strength = args.float_or(2, 1.0, 0.0, 1.0)?;
     push(
@@ -1620,6 +1621,27 @@ mod tests {
             };
             assert_eq!(parse(text), Err(error), "{text}");
         }
+    }
+
+    #[test]
+    fn shortcut_prefixes_and_button_arguments_cannot_be_silently_ignored() {
+        for token in [
+            "short_hop_dash_attack",
+            "shorthop_dashattack:3:2",
+            "short_hop_a",
+            "turnaround_short_hop_zr:4",
+            "a:1:0.5",
+            "turnaround_b:2:0.5",
+        ] {
+            assert!(parse(token).is_err(), "accepted malformed shortcut {token}");
+        }
+        assert_eq!(
+            parse("turnaround_short_hop_fair:3:0.5"),
+            Ok(vec![
+                Action::Face(Direction::Backward),
+                input(X | A, [0.5, 0.0], 3, true),
+            ])
+        );
     }
 
     /// Regression test for `the_action_budget_is_checked_after_each_expansion`.

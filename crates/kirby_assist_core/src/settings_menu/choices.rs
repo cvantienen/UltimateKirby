@@ -510,6 +510,9 @@ impl MenuSelection {
         forward: bool,
         missing_index: usize,
     ) -> usize {
+        if visible.is_empty() {
+            return current;
+        }
         let index = visible
             .iter()
             .position(|choice| *choice == current)

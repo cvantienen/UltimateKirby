@@ -214,7 +214,10 @@ fn arbitration_reports_only_buttons_actually_added() {
 #[test]
 fn paused_scheduler_does_not_replay_a_cached_tech_press_when_the_clock_is_still_frozen() {
     let mut controls = RawAutoControls::default();
-    let settings = LiveSettings::default();
+    let settings = LiveSettings {
+        auto_tech: true,
+        ..Default::default()
+    };
     assert_eq!(controls.update(settings, 1, 1, false, true), HID_ZR);
     let remaining = controls.tech_cooldown_remaining();
     controls.pause_inputs();

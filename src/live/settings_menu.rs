@@ -670,7 +670,10 @@ impl SettingsMenu {
         let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
             self.invalidate();
+            self.observe_passthrough(physical, layout);
             self.consumed = 0;
+            self.builtin_consumed = 0;
+            self.native_buttons = buttons;
             return false;
         };
         if self.kind != Some(kind) {

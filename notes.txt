@@ -179,3 +179,210 @@ You chose **unencrypted LAN**, which is feasible. However:
 
 Native networking compatibility and end-to-end behavior remain unverified; this was source inspection and planning only.
 
+The model only supports 128 tools, 10 tools were not provided to the model. `Configure Tools`
+
+Read skill `creating-implementation-plan`
+Completed with input: {"skill":"creating-implementation-plan"}
+
+Below is a **copy-paste prompt for a high-capability coding model**. It authorizes a full Rust review, necessary scope expansion, and targeted research while setting clear limits on wasted work and verification claims.
+
+This is an execution plan—not a code assessment. I haven’t inspected or changed your files.
+
+---
+
+# Complete Rust Codebase Refactoring and Verification
+
+## Objective
+
+###
+### 
+### 
+
+Review my entire first-party Rust codebase and incrementally improve its organization, readability, maintainability, and correctness.
+
+**Execute the work, not just an assessment or proposal.** First establish a concise, evidence-based plan, then implement and validate it in manageable batches.
+ Do not rewrite working code merely to make it different.
+
+### Required coverage
+
+Inspect every first-party Rust file in:
+
+- Root `src/`
+- Core crate `src/`
+
+Also inventory and review first-party Rust files in other crates, tests, examples, build scripts, and supporting tools. Account for feature-gated and target-specific code,
+ not just modules compiled by the default configuration.
+
+Exclude generated files, vendored dependencies, build outputs, caches, backups, and release artifacts. **Reviewing every file does not mean modifying every file.**
+
+## Authorization and boundaries
+
+For this task, I explicitly authorize broader local inspection and edits than the usual small-task workflow:
+
+- Follow dependencies and callers across the repository.
+- Fix discovered correctness problems, inconsistencies, and configuration issues—even outside the initial refactoring batch.
+- Update directly affected manifests, module declarations, tests, feature wiring, and configuration when necessary.
+- Consult relevant local documentation and update it when changes make it inaccurate. Do not perform an unrelated documentation cleanup.
+- Search the web when Smash Ultimate mechanics, engine behavior, or external Rust APIs require confirmation. Prefer authoritative documentation and upstream source;
+\ cite evidence supporting consequential changes. Do not upload private code, logs, or credentials.
+
+Scope expansion must serve a specific finding or verification need. Record the reason briefly; do not turn it into an unrelated modernization project.
+
+Preserve these boundaries:
+
+- Assistance must remain **controller-input simulation only**. Never modify native physics, hitboxes, move definitions, animation rates, or fighter status.
+- Do not deploy, upload, or build Switch artifacts.
+- Host-side tests, compilation checks, formatting checks, and linting are authorized, including their necessary compilation.
+- Do not bump versions, broadly upgrade dependencies, create branches or commits, or push changes.
+- Preserve existing user changes. Never use destructive resets or overwrite unrelated work.
+
+## Refactoring goals
+
+Prioritize:
+
+1. **Clear organization:** group code by responsibility and make dependencies understandable.
+2. **Less duplication:** consolidate genuinely shared behavior.
+3. **Lower complexity:** simplify nesting, branching, state transitions, and control flow.
+4. **Readable names:** use descriptive, domain-appropriate names with clear units and meanings.
+5. **Useful functions:** extract cohesive, reusable operations from complex functions.
+6. **Fewer unnecessary small files:** merge fragments that belong together without creating giant modules.
+7. **Removal of verified dead or obsolete code:** establish evidence before deleting.
+8. **Correctness:** fix demonstrated bugs and resolve inconsistent handling of the same concepts.
+
+Do not equate fewer lines, fewer files, or more abstractions with better design. Preserve meaningful differences between fighter-specific behavior, 
+timing rules, and platform integrations.
+
+Avoid generic frameworks, wrapper layers, one-use helper proliferation, and speculative extensibility.
+
+## Execution plan
+
+### Phase 1 — Establish inventory and validation baseline
+
+- Inspect repository instructions, working-tree changes, workspace configuration, features, and relevant test commands.
+- Enumerate all in-scope Rust files once.
+- Track each file as **pending, reviewed unchanged, changed, or blocked**, with a short finding or reason.
+- Identify actual module boundaries and cross-crate responsibilities.
+- Determine which checks can run on the host and which code requires unavailable target tooling or hardware.
+- Run the smallest useful baseline checks. Record existing failures separately from regressions.
+
+Keep the inventory and progress ledger in session storage, not new repository planning documents.
+
+**Deliverable:** a concise batch order, coverage inventory, and realistic validation strategy—not a lengthy architecture report.
+
+### Phase 2 — Review every file and form cohesive batches
+
+Read each file sufficiently to understand its responsibilities and behavior. Use bounded reads for large files; do not silently treat a filename listing or partial sample as a completed review.
+
+For each candidate change, establish:
+
+- The specific problem and expected benefit.
+- Relevant callers, dependencies, and contracts.
+- Whether it preserves behavior or fixes a demonstrated bug.
+- The smallest validation that can detect a mistake.
+
+Order batches by dependency and risk. Keep module moves, logic simplification, and behavioral fixes distinguishable rather than combining them into an unreviewable rewrite.
+
+### Phase 3 — Implement and verify incrementally
+
+For each batch:
+
+1. Inspect the relevant implementation and immediate consumers.
+2. Resolve material ambiguity before changing behavior.
+3. Make complete, focused changes.
+4. Update all affected callers, imports, module declarations, tests, and configuration.
+5. Inspect the diff for accidental changes.
+6. Run focused checks.
+7. Record the outcome and continue to the next ready batch.
+
+For consolidation, identify a clear canonical implementation and migrate every affected consumer. Do not leave parallel implementations or new obsolete paths behind.
+
+Before deleting “legacy” code, check feature gates, conditional compilation, macros, registration tables, hooks, callbacks, exported symbols, platform entry points, and relevant configuration. A missing ordinary call site is not proof that code is unused.
+
+### Phase 4 — Verify integration and finish coverage
+
+After batch-level checks pass:
+
+- Reconcile the inventory against the final file tree, including newly created or moved files.
+- Verify cross-crate interfaces and intended feature/target configurations.
+- Check configuration defaults, external names, serialized formats, and registration paths affected by changes.
+- Run a final host-supported validation set covering the changed surface. Escalate to broader suites when changes span shared code or multiple subsystems; avoid redundant reruns.
+- Review the aggregate diff for unintended behavior changes and incomplete migrations.
+- Clearly identify target-specific behavior that could not be compiled or exercised.
+
+Do not claim Switch runtime correctness from host tests or static inspection.
+
+## Behavior-preservation requirements
+
+Pay particular attention to:
+
+- Input priority, ownership, ordering, and release behavior.
+- Frame timing, cooldowns, buffering, and held versus newly pressed inputs.
+- State resets, transitions, and lifecycle boundaries.
+- Fighter-specific conditions and fallback behavior.
+- Error handling and recovery.
+- Unsafe Rust, FFI contracts, pointer lifetimes, aliasing, and synchronization.
+- Allocations and work introduced into per-frame or other hot paths.
+
+Internal renaming must not accidentally change configuration keys, serialized fields, exported symbols, or externally consumed interfaces.
+
+Preserve existing observable behavior unless correcting an evidenced defect. For each intentional behavior change, record the previous behavior,
+ corrected behavior, justification, and verification.
+
+## Clarification policy
+
+Use the available structured question tool when:
+
+- Two implementations conflict and their intended roles are unclear.
+- A proposed consolidation would erase potentially intentional differences.
+- Correct behavior cannot be established from code, tests, or reliable evidence.
+- A change would alter user-facing defaults, compatibility, or gameplay policy.
+
+Batch related questions and explain the recommended option and trade-off. Do not ask for approval of routine internal refactoring.
+
+While a decision is pending, continue independent safe work where possible. Do not silently select a gameplay interpretation merely to avoid asking.
+
+## Validation policy
+
+- Reuse existing tests, linters, and tooling.
+- Run focused tests for each affected behavior.
+- Add a few targeted regression or characterization tests where logic changes or extraction risk justify them.
+- Do not add tests that merely assert names, constants, or implementation structure.
+- Check relevant feature combinations selectively; do not blindly enumerate every combination.
+- Keep formatting scoped to touched code.
+- Do not suppress diagnostics or weaken tests to make checks pass.
+- Install or restore dependencies only after relevant manifest changes or a validation failure identifying a missing dependency.
+- If validation is blocked, identify the exact blocker and distinguish verified facts from assumptions.
+
+## Efficiency and continuity rules
+
+- Maintain one compact inventory and findings ledger; reuse it rather than rediscovering the repository.
+- Prefer scoped symbol searches and bounded reads over repeated broad searches.
+- Do not reread unchanged files without a specific reason.
+- Use subagents only for substantial independent work with explicit boundaries. Avoid overlapping reviews, duplicate scans, and competing edits.
+- Do not stop after planning, inventory, or the first successful batch.
+- If a command or approach fails, diagnose the failure before retrying. Never repeat an unchanged failing command without new evidence.
+- If genuinely blocked, record the blocker, continue independent work, and request only the missing decision or capability.
+- Before context exhaustion, persist completed work, remaining batches, open decisions, and exact validation results in session storage.
+
+Optimize for **useful verified improvements per unit of effort**, not maximum activity.
+
+## Completion criteria and final report
+
+Completion requires:
+
+- Every in-scope Rust file accounted for.
+- Agreed changes implemented and saved.
+- Affected consumers and configuration updated.
+- Applicable checks passing, with no unexplained regressions.
+- No unresolved material behavior decisions.
+- Remaining platform-validation limitations explicitly disclosed.
+
+Report concisely:
+
+1. Coverage: reviewed, changed, unchanged, and blocked files.
+2. Main organizational and complexity improvements.
+3. Bugs fixed and intentional behavior changes.
+4. Exact checks run and their results.
+5. Remaining blockers or hardware-dependent verification.
+
+If any criterion remains unmet, report **partial completion**, explain why, and give the exact next action. Do not claim that every possible defect has been eliminated.

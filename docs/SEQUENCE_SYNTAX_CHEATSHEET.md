@@ -249,7 +249,6 @@ MAX_Y=0 does not prove that either fighter is grounded.
 | `auto_roll` | `reaction = auto_roll:40:12` | Auto react; enemy forward/back roll |
 | `auto_spot_dodge` | `reaction = auto_spot_dodge:35:12` | Auto react; enemy spot dodge |
 | `auto_air_dodge` | `reaction = auto_air_dodge:40:24` | Auto react; enemy air dodge |
-| `auto_grab` | `reaction = auto_grab:35:24` | Automatic grabs; unshielded approach requires shielding opponent |
 | `auto_shield_grab` | `reaction = auto_shield_grab:25:10` | Automatic grabs; shielded front grab against vulnerable/grabbable target |
 | `auto_grab_dodged` | `reaction = auto_grab_dodged:35:12` | Grab avoidance; follow-up after the assisted grab dodge |
 | `auto_shield_backup` | `reaction = auto_shield_backup:25:15` | Automatic grabs; configured shield backup when the grab does not qualify |
@@ -262,6 +261,10 @@ timeout = 240
 reaction = auto_roll:40:12
 actions = up_b:4, drift:opponent:1:69
 ```
+
+`auto_grab` is retired and is not an accepted reaction event. Automatic grabs
+start only while shielding (`GUARD_ON` with grab readiness, or `GUARD`) against
+a qualifying front target; no unshielded approach is started.
 
 Only one recipe per automatic event per fighter. The slot stores the recipe;
 the reaction field establishes its trigger. Other fighters need their own
@@ -411,6 +414,35 @@ out_of_shield_default = true
 | `tilt_turn_down` | `true` / `false` | Aim down tilts; defaults ON for Kirby/Yoshi/Lucina, OFF for others |
 | `tilt_turn_forward` | `true` / `false` | Aim side C-stick tilts; requires Tilt Attack mapping; defaults OFF |
 | `tilt_turn_up` | `true` / `false` | Aim up C-stick tilts; requires Tilt Attack mapping; defaults OFF |
+| `counter_default` | `true` / `false` | Auto-counter at startup; currently Lucina only |
+| `counter_startup` | 1–30 | Counter startup estimate in frames |
+| `counter_margin` | 0–10 | Early activation margin in frames |
+| `counter_half_width` | 1–30 | Body half-width for melee prediction |
+| `counter_height` | 1–60 | Body height for melee prediction |
+| `counter_half_depth` | 1–30 | Body half-depth for melee prediction |
+| `auto_spacing_minimum_distance` | 0–150 | Compatibility minimum-spacing distance |
+| `auto_spacing_ground_move` | 0–5 | Integer ground move selector |
+| `auto_spacing_ground_startup` | 1–300 | Ground move startup in frames |
+| `auto_spacing_ground_active_frames` | 1–300 | Ground move active duration in frames |
+| `auto_spacing_ground_reach` | 0–150 | Ground move reach estimate |
+| `auto_spacing_ground_height` | 0–100 | Ground move height tolerance |
+| `auto_spacing_ground_commitment` | 1–300 | Ground move commitment in frames |
+| `auto_spacing_aerial_move` | 0–5 | Integer aerial move selector |
+| `auto_spacing_aerial_startup` | 1–300 | Aerial move startup in frames |
+| `auto_spacing_aerial_active_frames` | 1–300 | Aerial move active duration in frames |
+| `auto_spacing_aerial_reach` | 0–150 | Aerial move reach estimate |
+| `auto_spacing_aerial_height` | 0–100 | Aerial move height tolerance |
+| `auto_spacing_aerial_commitment` | 1–300 | Aerial move commitment in frames |
+| `auto_di_default` | `true` / `false` | Auto-DI at startup |
+| `auto_sdi_default` | `true` / `false` | Auto-SDI at startup |
+| `auto_spacing_engagement_range` | 0–150 | Compatibility engagement-range setting |
+| `auto_spacing_ground_speed` | 0–1 | Ground spacing stick strength |
+| `auto_spacing_maximum_drift` | 0–1 | Maximum aerial drift strength |
+| `auto_spacing_minimum_drift` | 0–1 | Minimum aerial drift strength |
+| `auto_spacing_ground_braking` | `true` / `false` | Enable ground spacing braking |
+| `auto_spacing_air_braking` | `true` / `false` | Enable aerial spacing braking |
+| `auto_spacing_braking_distance` | 0–150 | Spacing braking distance |
+| `auto_defense_lead_frames` | 0–30 | Defensive input lead time in frames |
 
 Put tilt directions in the fighter's settings section, independently of the selected
 ledge response. The existing Tilt Turn menu toggle still controls activation:

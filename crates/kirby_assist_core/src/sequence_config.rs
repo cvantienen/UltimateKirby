@@ -25,12 +25,16 @@ pub mod layout {
 
     /// Keep property bytes and per-category choice order; only move whole sections.
     pub fn organize(source: &str) -> Result<String, String> {
+        if source.len() as u64 > MAX_FILE_BYTES {
+            return Err("sequence file exceeds 512 KiB".into());
+        }
         let lines: Vec<_> = source.lines().collect();
         let mut clean = String::new();
         for (i, line) in lines.iter().enumerate() {
             if *line == BORDER
                 || (line.starts_with("# ---- ") && line.ends_with(" ----"))
-                || (i > 0
+                || (line.starts_with('#')
+                    && i > 0
                     && i + 1 < lines.len()
                     && lines[i - 1] == BORDER
                     && lines[i + 1] == BORDER)
@@ -202,6 +206,26 @@ pub mod layout {
                 result.find("[kirby.roll.b]").unwrap() < result.find("[yoshi.neutral.a]").unwrap()
             );
             assert!(result.starts_with("# ---- UNIVERSAL SETTINGS ----"));
+        }
+
+        #[test]
+        fn organizing_preserves_properties_between_decorative_borders() {
+            let source = format!(
+                "[kirby.neutral.a]\nstart_delay=0\n{BORDER}\nactions=wait:2,jab\n{BORDER}\n"
+            );
+            let expected = crate::sequence_config::Catalog::parse(&source).unwrap();
+            let organized = organize(&source).unwrap();
+            assert_eq!(
+                crate::sequence_config::Catalog::parse(&organized).unwrap(),
+                expected
+            );
+            assert_eq!(organize(&organized).unwrap(), organized);
+        }
+
+        #[test]
+        fn oversized_comment_only_input_is_rejected_before_presentation() {
+            let source = format!("#{}", "x".repeat(MAX_FILE_BYTES as usize));
+            assert!(organize(&source).is_err());
         }
 
         /// Regression test for `decorative_headers_never_reject_a_valid_near_limit_source`.

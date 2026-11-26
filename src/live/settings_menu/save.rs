@@ -506,6 +506,7 @@ fn commit_paths(
     updated: &str,
 ) -> Result<bool, String> {
     if updated == original {
+        ensure_unchanged(path, original)?;
         return Ok(false);
     }
     // Refuse to reuse an unclaimed temporary file. Replacement preserves the
@@ -1226,6 +1227,23 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), updated);
         assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
+    #[test]
+    fn unchanged_save_rejects_concurrent_edits_without_touching_files() {
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        let external = format!("{SOURCE}\n# external edit\n");
+        fs::write(&path, &external).unwrap();
+        fs::write(&backup, "previous backup").unwrap();
+        assert!(commit_paths(&path, &temp, &backup, SOURCE, SOURCE)
+            .unwrap_err()
+            .contains("changed during save"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), external);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), "previous backup");
+        assert!(!temp.exists());
+    }
+
     #[test]
     /// Verifies failed tuning backup creation preserves the active file.
     fn settings_backup_failure_preserves_active_file() {

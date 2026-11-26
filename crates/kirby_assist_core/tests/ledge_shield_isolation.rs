@@ -93,7 +93,7 @@ fn sample(
     context: GameplayContext,
     ts: [Option<Target>; 8],
     shielded: bool,
-    grab: &Sequence,
+    _grab: &Sequence,
     shield: &Sequence,
 ) -> ControllerOutput {
     tool.sample_automatic_configured(
@@ -108,7 +108,6 @@ fn sample(
         Some(8.),
         settings(),
         AutomaticConfig {
-            grab: Some(grab),
             shield_grab: Some(shield),
             backup: None,
         },
@@ -123,12 +122,13 @@ fn shield() -> ControllerOutput {
     }
 }
 #[test]
-fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_run() {
+fn saved_bowser_chase_grab_cannot_restore_retired_unshielded_runs() {
     let catalog = Catalog::parse(include_str!(
         "../../../deployment/ultimate/kirby_assist/fighters/bowser.txt"
     ))
     .unwrap();
-    let grab = &catalog.find(15, PresetSlot::Roll, "auto_grab").unwrap();
+    assert!(catalog.find(15, PresetSlot::Roll, "auto_grab").is_none());
+    let grab = &recipe("auto_shield_grab", "drift:opponent:1:69,input:r:0:0:4");
     let shield = &catalog
         .find(15, PresetSlot::Roll, "auto_shield_grab")
         .unwrap();
@@ -141,8 +141,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
         grab,
         shield,
     );
-    assert_eq!(out.requested, MAPPER_R);
-    assert_eq!(out.stick, Some([0.; 2]));
+    assert_eq!(out, ControllerOutput::default());
     tool.mapped_grab(0, 2);
     for frame in 1..70 {
         let out = sample(
@@ -173,8 +172,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
         shield,
     );
     assert_eq!(out.requested, 0);
-    assert_eq!(out.stick, Some([1., 0.]));
-    tool.mapped_approach(0, 2);
+    assert_eq!(out, ControllerOutput::default());
     let out = sample(
         &mut tool,
         c(3, 1.),
@@ -184,13 +182,13 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
         shield,
     );
     assert_eq!(
-        out.requested, MAPPER_R,
-        "native dash needs no hidden Up-B tracking"
+        out.requested, 0,
+        "native dash cannot authorize an automatic grab"
     );
 }
 #[test]
 fn a_fresh_shield_grab_is_sent_on_its_first_legal_observation_without_dropping_guard() {
-    let grab = recipe("auto_grab", "input:r:0:0:4");
+    let grab = recipe("auto_shield_grab", "input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
     for status in [
         kirby_assist_core::native_states::GUARD_ON,
@@ -208,13 +206,13 @@ fn a_fresh_shield_grab_is_sent_on_its_first_legal_observation_without_dropping_g
             );
             assert_eq!(out.requested, MAPPER_R | MAPPER_ZR);
             assert_eq!(out.stick, Some([0.; 2]));
-            assert!(!tool.approach_pending());
+            assert!(!tool.shield_up_b_pending());
         }
     }
 }
 #[test]
-fn shield_entry_replaces_an_undelivered_custom_grab_plan_on_the_same_observation() {
-    let grab = recipe("auto_grab", "wait:10,input:r:0:0:4");
+fn shield_entry_starts_without_inheriting_an_obsolete_unshielded_grab_plan() {
+    let grab = recipe("auto_shield_grab", "wait:10,input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
     let mut tool = OutOfShield::new();
     assert_eq!(
@@ -242,7 +240,7 @@ fn shield_entry_replaces_an_undelivered_custom_grab_plan_on_the_same_observation
 }
 #[test]
 fn an_undelivered_custom_grab_cannot_chase_a_lost_unshielded_or_rear_target() {
-    let grab = recipe("auto_grab", "wait:10,input:r:0:0:4");
+    let grab = recipe("auto_shield_grab", "wait:10,input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
     for (status, x) in [
         (0, 10.),
@@ -329,7 +327,7 @@ fn ledge_takeover_waits_for_prior_receipts_and_never_replaces_a_queued_grab_with
 }
 #[test]
 fn a_ledge_tapes_own_grab_receipt_preserves_both_authored_four_frame_shield_holds() {
-    let sequence = recipe("auto_grab", "input:r:0:0:4,shield:4,shield:4");
+    let sequence = recipe("auto_shield_grab", "input:r:0:0:4,shield:4,shield:4");
     let mut tape = InputTimeline::new(sequence, enemy(0x77, 10., 0.));
     let mut h = GrabHandoff::new();
     for tick in 0..12 {
@@ -412,7 +410,7 @@ fn static_shield_receipts_expire_from_already_observed_enemy_progress_without_an
     }
     h.observe_enemy_progress(context, Some(enemy(0x27, 10., 24.)));
     assert!(!h.pending());
-    let grab = recipe("auto_grab", "input:r:0:0:4");
+    let grab = recipe("auto_shield_grab", "input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
     let mut tool = OutOfShield::new();
     let out = sample(
@@ -481,34 +479,30 @@ fn a_new_ledge_grab_requires_the_prior_receipt_to_end_and_a_new_input_edge() {
 }
 
 #[test]
-fn manual_retreat_ends_an_undelivered_unshielded_custom_grab_but_not_a_shield_tilt_grab() {
-    let grab = recipe("auto_grab", "wait:10,input:r:0:0:4");
+fn unshielded_custom_grab_is_inert_while_native_shield_grab_remains_neutral() {
+    let grab = recipe("auto_shield_grab", "wait:10,input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
     let mut tool = OutOfShield::new();
-    let out = sample(
-        &mut tool,
-        c(0, 0.),
-        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
-        false,
-        &grab,
-        &shield,
-    );
-    assert_ne!(out.owned, 0);
     assert_eq!(
-        tool.with_grab_movement(out, [-0.7, 0.]),
-        ControllerOutput::default()
+        sample(
+            &mut tool,
+            c(0, 0.),
+            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
+            false,
+            &grab,
+            &shield
+        ),
+        Default::default()
     );
     assert!(!tool.configured_committed());
-    let mut tool = OutOfShield::new();
     let out = sample(
         &mut tool,
-        c(kirby_assist_core::native_states::GUARD, 0.),
-        targets(0, 10., 0.),
+        c(kirby_assist_core::native_states::GUARD, 1.),
+        targets(0, 10., 1.),
         true,
         &grab,
         &shield,
     );
-    let out = tool.with_grab_movement(out, [-0.4, 0.]);
     assert_eq!(out.requested, MAPPER_R | MAPPER_ZR);
     assert_eq!(out.stick, Some([0.; 2]));
 }

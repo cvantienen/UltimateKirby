@@ -53,7 +53,7 @@ fn targets(status: i32, x: f32) -> [Option<Target>; 8] {
     ts
 }
 #[test]
-fn shielding_vulnerable_front_targets_can_be_grabbed_with_or_without_own_shield() {
+fn shielding_vulnerable_front_targets_require_own_native_shield() {
     for own in [
         0,
         kirby_assist_core::native_states::GUARD_ON,
@@ -73,6 +73,10 @@ fn shielding_vulnerable_front_targets_can_be_grabbed_with_or_without_own_shield(
                 22.,
                 100.,
             );
+            if own == 0 {
+                assert_eq!(out, kirby_assist_core::gameplay::ControllerOutput::NONE);
+                continue;
+            }
             assert_eq!(
                 out.requested,
                 if matches!(own, 0x1b | 0x1c) {
@@ -238,7 +242,7 @@ fn approach_range_is_visible_and_remains_parseable_for_existing_files() {
 }
 
 #[test]
-fn unready_or_uninterruptible_grabs_never_reserve_the_controller() {
+fn uninterruptible_states_reject_grabs_while_native_guard_supplies_readiness() {
     for status in [
         kirby_assist_core::native_states::status::JUMP,
         kirby_assist_core::native_states::status::FALL,
@@ -281,8 +285,8 @@ fn unready_or_uninterruptible_grabs_never_reserve_the_controller() {
             22.,
             35.,
         );
-        assert_eq!(out.requested, if ready { MAPPER_R | MAPPER_ZR } else { 0 });
-        assert_eq!(out.owned != 0, ready, "no queue before native readiness");
+        assert_eq!(out.requested, MAPPER_R | MAPPER_ZR);
+        assert_ne!(out.owned, 0, "native GUARD itself authorizes shield grab");
     }
 }
 
@@ -293,8 +297,8 @@ fn a_grab_retry_cancels_if_target_leaves_range_or_becomes_invulnerable() {
         assert_ne!(
             grab.sample_simple(
                 true,
-                c(0., 0),
-                lc(0., 0),
+                c(0., kirby_assist_core::native_states::GUARD),
+                lc(0., kirby_assist_core::native_states::GUARD),
                 targets(kirby_assist_core::native_states::GUARD, 10.),
                 None,
                 22.,
@@ -307,14 +311,22 @@ fn a_grab_retry_cancels_if_target_leaves_range_or_becomes_invulnerable() {
         if !vulnerable {
             enemy[0].as_mut().unwrap().vulnerable_in = None;
         }
-        let out = grab.sample_simple(true, c(1., 0), lc(1., 0), enemy, None, 22., 35.);
+        let out = grab.sample_simple(
+            true,
+            c(1., kirby_assist_core::native_states::GUARD),
+            lc(1., kirby_assist_core::native_states::GUARD),
+            enemy,
+            None,
+            22.,
+            35.,
+        );
         assert_eq!(out.owned, 0);
         assert!(grab.target().is_none());
     }
 }
 
 #[test]
-fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
+fn grab_dodge_admits_controllable_ground_movement_but_not_shieldstun_or_attacks() {
     use kirby_assist_core::spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget};
     let enemy = GrabTarget {
         id: 2,
@@ -364,6 +376,9 @@ fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
                 kirby_assist_core::native_states::status::WAIT
                     | kirby_assist_core::native_states::GUARD_ON
                     | kirby_assist_core::native_states::GUARD
+                    | kirby_assist_core::native_states::status::WALK
+                    | kirby_assist_core::native_states::status::DASH
+                    | kirby_assist_core::native_states::status::RUN
             ),
             "{status:#x}"
         );
@@ -376,8 +391,8 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
     assert_ne!(
         grab.sample_simple(
             true,
-            c(0., 0),
-            lc(0., 0),
+            c(0., kirby_assist_core::native_states::GUARD),
+            lc(0., kirby_assist_core::native_states::GUARD),
             targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
@@ -405,8 +420,16 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
     );
     assert!(grab.target().is_none());
     assert_eq!(
-        grab.sample_simple(true, c(2., 0), lc(2., 0), [None; 8], None, 22., 35.)
-            .owned,
+        grab.sample_simple(
+            true,
+            c(2., kirby_assist_core::native_states::GUARD),
+            lc(2., kirby_assist_core::native_states::GUARD),
+            [None; 8],
+            None,
+            22.,
+            35.
+        )
+        .owned,
         0
     );
     use kirby_assist_core::spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget};
@@ -533,12 +556,28 @@ fn automatic_grab_finishes_with_no_controller_or_target_left_reserved() {
     let ts = targets(kirby_assist_core::native_states::GUARD, 10.);
     for n in 0..4 {
         assert_ne!(
-            grab.sample_simple(true, c(n as f32, 0), lc(n as f32, 0), ts, None, 22., 35.)
-                .requested,
+            grab.sample_simple(
+                true,
+                c(n as f32, kirby_assist_core::native_states::GUARD),
+                lc(n as f32, kirby_assist_core::native_states::GUARD),
+                ts,
+                None,
+                22.,
+                35.
+            )
+            .requested,
             0
         );
     }
-    let ended = grab.sample_simple(true, c(4., 0), lc(4., 0), ts, None, 22., 35.);
+    let ended = grab.sample_simple(
+        true,
+        c(4., kirby_assist_core::native_states::GUARD),
+        lc(4., kirby_assist_core::native_states::GUARD),
+        ts,
+        None,
+        22.,
+        35.,
+    );
     assert_eq!(ended.owned, 0);
     assert_eq!(ended.stick, None);
     assert!(grab.target().is_none());
@@ -775,7 +814,7 @@ fn unshielded_grabs_require_enemy_shield_but_shielded_grabs_accept_other_vulnera
                         35.,
                         Some(12.),
                     );
-                    assert_eq!(out.owned!=0,vulnerable&&side>0.&&(shielding||matches!(status,kirby_assist_core::native_states::GUARD_ON|kirby_assist_core::native_states::GUARD|kirby_assist_core::native_states::GUARD_DAMAGE)),"enemy={status:#x} self-shield={shielding} vulnerable={vulnerable} side={side}");
+                    assert_eq!(out.owned!=0,vulnerable && side > 0. && shielding && matches!(status, 0 | 3 | 0x1b | 0x1c | 0x1d | 0x1e | 0x1f | 0x20 | 0x21 | 0x22 | 0x23 | 0x2c | 0x37 | 0x47),"enemy={status:#x} self-shield={shielding} vulnerable={vulnerable} side={side}");
                 }
             }
         }
@@ -818,217 +857,67 @@ fn unshielded_grabs_require_enemy_shield_but_shielded_grabs_accept_other_vulnera
 }
 
 #[test]
-fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_shield() {
-    for side in [-1., 1.] {
-        let mut grab = OutOfShield::new();
-        let ts = targets(kirby_assist_core::native_states::GUARD, side * 30.);
-        let context = GameplayContext {
-            facing: side,
-            safe_ground: [true; 2],
-            ..lc(0., 0)
-        };
-        for _ in 0..10 {
-            let o = grab.sample_automatic(
-                true,
-                Context {
-                    facing: side,
-                    ..c(0., 0)
-                },
-                context,
-                ts,
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-            );
-            assert_eq!(o.requested, 0);
-            assert_eq!(o.stick, Some([side, 0.]));
+fn legacy_far_grab_range_never_emits_approach_or_grab_packets() {
+    for status in [0, 1, 3, 4, kirby_assist_core::native_states::GUARD] {
+        for shielded in [false, true] {
+            for distance in [-30., 30., 35., 35.01] {
+                for safe in [false, true] {
+                    let mut grab = OutOfShield::new();
+                    for tick in 0..6 {
+                        let out = grab.sample_automatic(
+                            true,
+                            c(tick as f32, status),
+                            GameplayContext {
+                                safe_ground: [safe; 2],
+                                ..lc(tick as f32, status)
+                            },
+                            targets(kirby_assist_core::native_states::GUARD, distance),
+                            None,
+                            shielded,
+                            22.,
+                            35.,
+                            Some(8.),
+                        );
+                        assert_eq!(out, kirby_assist_core::gameplay::ControllerOutput::NONE);
+                        assert!(grab.target().is_none());
+                        assert!(!grab.grab_delivery_pending());
+                    }
+                }
+            }
         }
-        grab.mapped_approach(0, 999);
-        assert!(grab.approach_pending());
-        grab.mapped_approach(0, 2);
-        grab.mapped_approach(0, 2);
-        assert!(
-            grab.approach_pending(),
-            "far Bowser grab still needs native dash confirmation"
-        );
-        for tick in 1..=4 {
-            let mut running = Context {
-                facing: side,
-                ..c(0., 3)
-            };
-            running.can_grab = false;
-            running.shield_ready = false;
-            let o = grab.sample_automatic(
-                true,
-                running,
-                GameplayContext {
-                    status: kirby_assist_core::native_states::status::DASH,
-                    ..context
-                },
-                ts,
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-            );
-            assert_eq!(o.requested, MAPPER_R);
-            assert_eq!(o.stick, Some([0.; 2]));
-            assert_eq!(grab.with_grab_movement(o, [side, 0.8]).stick, Some([0.; 2]));
-            grab.mapped_grab(tick, 2);
-            grab.mapped_grab(tick, 2);
-        }
-        let o = grab.sample_automatic(true, c(0., 0), context, ts, None, false, 22., 35., Some(8.));
-        assert_eq!(o.owned, 0);
-        assert!(grab.grab_delivery_pending());
-    }
-    for own in [
-        0,
-        kirby_assist_core::native_states::GUARD_ON,
-        kirby_assist_core::native_states::GUARD,
-    ] {
-        // Includes a fresh physical shield before native WAIT changes.
-        let mut grab = OutOfShield::new();
-        let context = lc(0., own);
-        assert_eq!(
-            grab.sample_automatic(
-                true,
-                c(0., own),
-                context,
-                targets(kirby_assist_core::native_states::GUARD, 30.),
-                None,
-                true,
-                22.,
-                35.,
-                Some(12.)
-            )
-            .owned,
-            0
-        );
-        let o = grab.sample_automatic(
-            true,
-            c(0., own),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, 20.),
-            None,
-            true,
-            22.,
-            35.,
-            Some(12.),
-        );
-        assert_ne!(o.requested & MAPPER_R, 0);
-        assert_eq!(o.stick, Some([0.; 2]));
-        assert!(!grab.approach_pending());
     }
 }
 
 #[test]
-fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state() {
-    for (distance, safe, expected) in [(35., true, true), (35.01, true, false), (30., false, false)]
-    {
-        let mut grab = OutOfShield::new();
-        let context = GameplayContext {
-            safe_ground: [safe; 2],
-            ..lc(0., 0)
-        };
-        let o = grab.sample_automatic(
-            true,
-            c(0., 0),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, distance),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-        );
-        assert_eq!(o.owned != 0, expected);
+fn legacy_approach_admission_stays_inert_across_native_and_support_changes() {
+    for status in [0, 1, 3, 4, kirby_assist_core::native_states::GUARD] {
+        for shielded in [false, true] {
+            for distance in [-30., 30., 35., 35.01] {
+                for safe in [false, true] {
+                    let mut grab = OutOfShield::new();
+                    for tick in 0..6 {
+                        let out = grab.sample_automatic(
+                            true,
+                            c(tick as f32, status),
+                            GameplayContext {
+                                safe_ground: [safe; 2],
+                                ..lc(tick as f32, status)
+                            },
+                            targets(kirby_assist_core::native_states::GUARD, distance),
+                            None,
+                            shielded,
+                            22.,
+                            35.,
+                            Some(8.),
+                        );
+                        assert_eq!(out, kirby_assist_core::gameplay::ControllerOutput::NONE);
+                        assert!(grab.target().is_none());
+                        assert!(!grab.grab_delivery_pending());
+                    }
+                }
+            }
+        }
     }
-    let mut grab = OutOfShield::new();
-    let context = GameplayContext {
-        safe_ground: [true; 2],
-        ..lc(0., 0)
-    };
-    assert_ne!(
-        grab.sample_automatic(
-            true,
-            c(0., 0),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, 30.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.)
-        )
-        .owned,
-        0
-    );
-    assert_eq!(
-        grab.sample_automatic(
-            true,
-            c(0., 0),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, 30.),
-            None,
-            true,
-            22.,
-            35.,
-            Some(12.)
-        )
-        .owned,
-        0,
-        "fresh shield cannot retain the far approach"
-    );
-    let mut grab = OutOfShield::new();
-    grab.sample_automatic(
-        true,
-        c(0., 0),
-        context,
-        targets(kirby_assist_core::native_states::GUARD, 30.),
-        None,
-        false,
-        22.,
-        35.,
-        Some(8.),
-    );
-    grab.mapped_approach(0, 2);
-    assert_ne!(
-        grab.sample_automatic(
-            true,
-            c(1., 3),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, 30.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.)
-        )
-        .requested,
-        0,
-        "a shielding target remains eligible"
-    );
-    let mut invalid = targets(0x2c, 30.);
-    invalid[0].as_mut().unwrap().vulnerable_in = None;
-    assert_eq!(
-        grab.sample_automatic(
-            true,
-            c(2., 3),
-            context,
-            invalid,
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.)
-        )
-        .owned,
-        0
-    );
-    assert!(grab.target().is_none());
 }
 
 fn automatic_roll_rules(actions: &str) -> kirby_assist_core::reaction_rules::Resolved {
@@ -1059,7 +948,7 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
         settings::AssistSettings,
     };
     let rules = automatic_roll_rules("up_b:4,drift:opponent:1:30");
-    for shielded in [false, true] {
+    for shielded in [true] {
         for other_target in [false, true] {
             let own = if shielded { 0x1c } else { 0 };
             let context = GameplayContext {
@@ -1154,92 +1043,50 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
 }
 
 #[test]
-fn ready_up_b_replaces_only_an_undelivered_committed_grab_approach() {
-    use kirby_assist_core::{reaction_rules::Engine, settings::AssistSettings};
-
+fn ready_up_b_replaces_only_an_undelivered_committed_shield_grab() {
+    use kirby_assist_core::reaction_rules::Engine;
     let rules = automatic_roll_rules("up_b:4");
-    for phase in 0..4 {
+    for delivered in [false, true] {
         for gate in 0..3 {
             let context = GameplayContext {
                 can_act: true,
-                safe_ground: [true; 2],
-                ..lc(0., 0)
+                ..lc(0., kirby_assist_core::native_states::GUARD)
             };
             let mut grab = OutOfShield::new();
-            let started = grab.sample_automatic(
+            let out = grab.sample_automatic(
                 true,
-                c(0., 0),
+                c(0., context.status),
                 context,
-                targets(kirby_assist_core::native_states::GUARD, 30.),
+                targets(kirby_assist_core::native_states::GUARD, 10.),
                 None,
-                false,
+                true,
                 22.,
                 35.,
                 Some(8.),
             );
-            assert_eq!(started.requested, 0);
-            assert_eq!(started.stick, Some([1., 0.]));
+            assert_ne!(out.requested & MAPPER_R, 0);
+            if delivered {
+                grab.mapped_grab(0, 2);
+            }
             let mut owner = ActionOwnership::new();
-            owner.select(
-                true,
-                &[Intent::input_sequence(Owner::OutOfShield, started.owned)],
-            );
-            if phase >= 1 {
-                grab.mapped_approach(0, 2);
-            }
-            if phase >= 2 {
-                let dash = GameplayContext {
-                    status: kirby_assist_core::native_states::status::DASH,
-                    ..context
-                };
-                let proposed = grab.sample_automatic(
-                    true,
-                    c(1., dash.status),
-                    dash,
-                    targets(kirby_assist_core::native_states::GUARD, 30.),
-                    None,
-                    false,
-                    22.,
-                    35.,
-                    Some(8.),
-                );
-                assert_eq!(proposed.requested, MAPPER_R);
-                if phase == 3 {
-                    grab.mapped_grab(1, 2);
-                }
-            }
             if gate == 1 {
                 owner.set_ledge_priority(true);
-            } else if gate == 2 {
+            }
+            if gate == 2 {
                 owner.set_automatic_suspended(true);
             }
-            let mut engine = Engine::default();
-            let reactions = targets(kirby_assist_core::native_states::ESCAPE_F, 10.);
-            let yielded = engine.preempt_automatic_grab(
-                true, &rules, context, &reactions, None, &mut grab, &mut owner,
+            let yielded = Engine::default().preempt_automatic_grab(
+                true,
+                &rules,
+                context,
+                &targets(kirby_assist_core::native_states::ESCAPE_F, 10.),
+                None,
+                &mut grab,
+                &mut owner,
             );
-            assert_eq!(
-                yielded,
-                phase < 3 && gate == 0,
-                "phase {phase}, gate {gate}"
-            );
-            if yielded {
-                assert!(grab.target().is_none());
-                assert_eq!(owner.current_owner(), None);
-                let out = engine.sample_simple(
-                    owner.allows(Owner::RollRead),
-                    &rules,
-                    AssistSettings::default(),
-                    context,
-                    reactions,
-                    None,
-                );
-                assert_ne!(out.requested & MAPPER_B, 0);
-                assert_eq!(out.requested & MAPPER_R, 0);
-            } else {
-                assert_eq!(grab.target(), Some(2));
-                assert_eq!(owner.current_owner(), Some(Owner::OutOfShield));
-            }
+            assert_eq!(yielded, !delivered && gate == 0);
+            assert_eq!(grab.target().is_some(), !yielded);
+            assert_eq!(grab.grab_delivery_pending(), delivered);
         }
     }
 }
@@ -1353,47 +1200,33 @@ fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readi
 }
 
 #[test]
-fn approach_cancels_before_grab_when_live_target_crosses_disappears_or_becomes_ungrabbable() {
-    let context = GameplayContext {
-        safe_ground: [true; 2],
-        ..lc(0., 0)
-    };
-    for next in [
-        targets(0, -1.),
-        targets(0, 36.),
-        targets(kirby_assist_core::native_states::CAPTURE_PULLED, 10.),
-        [None; 8],
-    ] {
-        let mut grab = OutOfShield::new();
-        let started = grab.sample_automatic(
-            true,
-            c(0., 0),
-            context,
-            targets(kirby_assist_core::native_states::GUARD, 30.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-        );
-        assert_ne!(started.owned, 0);
-        grab.mapped_approach(0, 2);
-        let out = grab.sample_automatic(
-            true,
-            c(1., 3),
-            GameplayContext {
-                status: kirby_assist_core::native_states::status::DASH,
-                ..context
-            },
-            next,
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-        );
-        assert_eq!(out.owned, 0);
-        assert_eq!(out.requested, 0);
-        assert!(grab.target().is_none());
+fn legacy_approach_never_leaves_a_target_or_delivery_receipt() {
+    for status in [0, 1, 3, 4, kirby_assist_core::native_states::GUARD] {
+        for shielded in [false, true] {
+            for distance in [-30., 30., 35., 35.01] {
+                for safe in [false, true] {
+                    let mut grab = OutOfShield::new();
+                    for tick in 0..6 {
+                        let out = grab.sample_automatic(
+                            true,
+                            c(tick as f32, status),
+                            GameplayContext {
+                                safe_ground: [safe; 2],
+                                ..lc(tick as f32, status)
+                            },
+                            targets(kirby_assist_core::native_states::GUARD, distance),
+                            None,
+                            shielded,
+                            22.,
+                            35.,
+                            Some(8.),
+                        );
+                        assert_eq!(out, kirby_assist_core::gameplay::ControllerOutput::NONE);
+                        assert!(grab.target().is_none());
+                        assert!(!grab.grab_delivery_pending());
+                    }
+                }
+            }
+        }
     }
 }

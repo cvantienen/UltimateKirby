@@ -628,6 +628,11 @@ impl ManualOverlay {
         owned_buttons: u32,
         reaction_owned: bool,
     ) -> ManualFrame {
+        // Invalid proposals relinquish stick ownership, including its prior
+        // direction history, without dropping an independent button request.
+        let output = TurboOutput {
+            stick: output.stick.filter(|s| s.iter().all(|v| v.is_finite())),
+        };
         let entering_reaction = reaction_owned && !self.reaction_owned;
         self.reaction_owned = reaction_owned;
         if output.stick.is_none()

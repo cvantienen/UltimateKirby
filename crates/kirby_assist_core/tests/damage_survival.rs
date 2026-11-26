@@ -452,15 +452,25 @@ fn live_damage_sticks_abstain_and_reset_when_environment_is_missing_or_invalid()
 }
 
 #[test]
-fn final_di_yields_only_to_mash_or_an_urgent_actual_tech_press() {
+fn final_di_preserves_additive_releases_but_yields_to_owned_tech_preparation() {
     use kirby_assist_core::action_owner::safety_output_with_deadline;
     let di = Some([0.5, -0.5]);
     for urgent in [false, true] {
-        let prep = TechOutput { press: false, owns_guard: true };
-        let (packet, ack) = safety_output_with_deadline(prep, None, di, None, urgent);
-        assert_eq!(packet.stick, di);
-        assert_eq!(packet.requested, 0);
-        assert_eq!(ack, None);
+        for owns_guard in [false, true] {
+            let prep = TechOutput {
+                press: false,
+                owns_guard,
+            };
+            let (packet, ack) = safety_output_with_deadline(prep, None, di, None, urgent);
+            assert_eq!(packet.stick, if owns_guard { Some([0.; 2]) } else { di });
+            assert_eq!(packet.requested, 0);
+            assert_eq!(ack, if owns_guard { Some(prep) } else { None });
+            let (packet, ack) =
+                safety_output_with_deadline(prep, Some([1., 0.]), di, None, urgent);
+            assert_eq!(packet.stick, Some([1., 0.]));
+            assert_eq!(packet.requested, 0);
+            assert_eq!(ack, None);
+        }
         let press = TechOutput { press: true, owns_guard: true };
         let (packet, ack) = safety_output_with_deadline(press, None, di, None, urgent);
         assert_eq!(ack, urgent.then_some(press));

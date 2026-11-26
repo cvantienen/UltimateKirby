@@ -7,7 +7,7 @@ use kirby_assist_core::{
     ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
-    sequence_config::Catalog,
+    sequence_config::{Action, Catalog, RangeCheck},
     settings::AssistSettings,
     tech_input::{mapped_guard, TechContext, TechInput, TechOutput},
 };
@@ -63,12 +63,12 @@ fn tc(frame: f32, previous_guard: bool) -> TechContext {
     }
 }
 #[test]
-fn exact_bowser_shield_getup_attack_grab_keeps_guard_through_range_then_grabs() {
+fn bowser_shield_getup_attack_grab_waits_with_explicit_fighter_range() {
     let cat = Catalog::parse(include_str!(
         "../../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
     ))
     .unwrap();
-    let seq = cat
+    let mut seq = cat
         .entries()
         .iter()
         .find(|e| {
@@ -78,9 +78,48 @@ fn exact_bowser_shield_getup_attack_grab_keeps_guard_through_range_then_grabs() 
         })
         .unwrap()
         .sequence;
-    let mut t = InputTimeline::new(seq, enemy(30., 0.));
-    let settings = AssistSettings::default();
+    let settings = AssistSettings {
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
+        ..AssistSettings::default()
+    };
     let anchor = Some([50., 0.]);
+    let gate = seq
+        .actions()
+        .iter()
+        .position(|action| matches!(action, Action::Range(_)))
+        .unwrap();
+    assert_eq!(seq.actions[gate], Action::Range(RangeCheck::Verify(25.)));
+    let mut authored = InputTimeline::new(seq, enemy(30., 0.));
+    for (status, frame) in [
+        (kirby_assist_core::native_states::GUARD, 0.),
+        (kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+    ] {
+        authored.sample(
+            settings,
+            c(status, frame),
+            Some(enemy(30., frame)),
+            anchor,
+            1.,
+        );
+    }
+    assert_eq!(
+        authored
+            .sample(
+                settings,
+                c(kirby_assist_core::native_states::GUARD, 2.),
+                Some(enemy(30., 2.)),
+                anchor,
+                1.
+            )
+            .requested,
+        0
+    );
+    assert!(
+        authored.finished(),
+        "authored numeric range cancels immediately outside reach"
+    );
+    seq.actions[gate] = Action::Range(RangeCheck::FighterGrabRange);
+    let mut t = InputTimeline::new(seq, enemy(30., 0.));
     assert_eq!(
         t.sample(
             settings,

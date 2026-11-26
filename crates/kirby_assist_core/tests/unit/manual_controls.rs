@@ -24,6 +24,59 @@ fn stick_only_override_works_without_dpad_or_button_ownership_and_restores_input
     assert_eq!(restored.buttons.held, human.held);
 }
 #[test]
+fn invalid_assist_stick_releases_direction_history_but_preserves_button_delivery() {
+    use crate::native_input::{MAPPER_A, MAPPER_PLUS};
+    let physical = [0.1, -0.2];
+    let human = ButtonTrace {
+        held: MAPPER_PLUS,
+        previous: MAPPER_PLUS,
+        ..ButtonTrace::default()
+    };
+    for invalid in [
+        [f32::NAN, -1.0],
+        [1.0, f32::INFINITY],
+        [f32::NEG_INFINITY, 0.0],
+    ] {
+        let mut overlay = ManualOverlay::default();
+        overlay.apply(
+            human,
+            physical,
+            TurboOutput {
+                stick: Some([1.0, 0.0]),
+            },
+        );
+        let frame = overlay.apply_controls(
+            human,
+            physical,
+            TurboOutput {
+                stick: Some(invalid),
+            },
+            0,
+            MAPPER_A,
+            MAPPER_A,
+        );
+        assert_eq!(frame.stick, physical);
+        assert_eq!(frame.buttons.held, MAPPER_PLUS | MAPPER_A);
+        assert_eq!(frame.buttons.pressed & MAPPER_A, MAPPER_A);
+        assert_eq!(frame.buttons.released & LEFT_STICK_DIRECTIONS, 1 << 21);
+        assert_eq!(
+            frame.clear_autorepeat & LEFT_STICK_DIRECTIONS,
+            LEFT_STICK_DIRECTIONS
+        );
+        let released = overlay.apply(
+            human,
+            physical,
+            TurboOutput {
+                stick: Some(invalid),
+            },
+        );
+        assert_eq!(released.stick, physical);
+        assert_eq!(released.buttons.released & MAPPER_A, MAPPER_A);
+        assert_eq!(released.clear_autorepeat, 0);
+    }
+}
+
+#[test]
 fn turbo_movement_requires_grounded_active_movement() {
     assert!(!turbo_movement_allowed(0, 2, false));
     assert!(!turbo_movement_allowed(

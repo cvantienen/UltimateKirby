@@ -253,7 +253,7 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
                 assert!(m.preview_slot.is_none());
                 assert!(!m.ledge_trump_held());
                 assert!(m.out_of_shield);
-                assert!(m.auto_tech);
+                assert!(!m.auto_tech);
                 for base in [false, true] {
                     assert_eq!(m.effective_mode(mode, base), base);
                 }

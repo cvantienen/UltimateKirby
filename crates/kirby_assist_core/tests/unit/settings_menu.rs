@@ -91,7 +91,7 @@ fn diagnostic_only_rows_are_available_only_in_diagnostics() {
     );
     assert!(menu.row_visible(MenuRow::GrabDodge));
     assert!(!menu.performance && menu.grab_dodge && menu.out_of_shield);
-    assert!(menu.spot_punish && menu.auto_tech);
+    assert!(menu.spot_punish && !menu.auto_tech);
 }
 
 #[test]
@@ -123,16 +123,16 @@ fn auto_tech_toggles_once_and_survives_input_reset() {
     menu.show_modes();
     menu.row = MenuRow::AutoTech;
     menu.input(0, presets);
+    assert!(!menu.auto_tech);
+    menu.input(DPAD_RIGHT, presets);
+    assert!(menu.auto_tech && menu.cancel_pending);
+    menu.input(DPAD_RIGHT, presets);
     assert!(menu.auto_tech);
-    menu.input(DPAD_RIGHT, presets);
-    assert!(!menu.auto_tech && menu.cancel_pending);
-    menu.input(DPAD_RIGHT, presets);
-    assert!(!menu.auto_tech);
-    menu.cancel_actions();
-    assert!(!menu.auto_tech);
+    menu.reset_inputs();
+    assert!(menu.auto_tech);
     menu.input(0, presets);
     menu.input(crate::manual_controls::DPAD_LEFT, presets);
-    assert!(menu.auto_tech);
+    assert!(!menu.auto_tech);
 }
 
 #[test]

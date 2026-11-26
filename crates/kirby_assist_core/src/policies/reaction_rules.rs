@@ -1281,7 +1281,7 @@ impl Engine {
                 let enemy = t.opponent(crate::native_states::situation::GROUND, t.actionable_in);
                 let mut seq = candidate.sequence;
                 seq.while_held = false;
-                follow.get_or_insert(enemy);
+                *follow = Some(follow.filter(|e| e.id == enemy.id).unwrap_or(enemy));
                 self.plan = Some(InputTimeline::new(seq, enemy));
                 self.target = Some(t.id);
                 self.tracks[i].as_mut().unwrap().used = true;
@@ -1479,6 +1479,39 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn new_spatial_roll_response_replaces_unrelated_follow_but_keeps_matching_live_facts() {
+        let rules = resolved(sequence("roll:any:0:20:12:any:1", "face:opponent,wait:2"));
+        let selected = target(0., 5.);
+        for id in [selected.id, 99] {
+            let mut engine = Engine::default();
+            let live = Opponent {
+                id,
+                position: [-5., 0.],
+                ..Opponent::default()
+            };
+            let out = engine.sample(
+                true,
+                &rules,
+                AssistSettings::default(),
+                context(0.),
+                [Some(selected), None, None, None, None, None, None, None],
+                Some(live),
+            );
+            assert!(engine.committed());
+            assert_eq!(engine.target(), Some(selected.id));
+            assert_ne!(engine.feedback, Feedback::MissingTarget);
+            assert_eq!(
+                out.stick,
+                Some(if id == selected.id {
+                    [-0.3, 0.]
+                } else {
+                    [0.; 2]
+                })
+            );
+        }
+    }
+
     /// Regression test for `different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag`.
     #[test]
     fn different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag() {

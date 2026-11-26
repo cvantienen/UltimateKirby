@@ -934,8 +934,16 @@ fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
 /// Updates adjust action kind.
 fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
     let count = PRESETS.len() + recipe.imported.len();
-    recipe.kinds[index] = cycle(recipe.kinds[index], count, up);
-    recipe.sequence.actions[index] = recipe.action_for(recipe.kinds[index]);
+    let mut kind = recipe.kinds[index];
+    for _ in 0..count {
+        kind = cycle(kind, count, up);
+        let action = recipe.action_for(kind);
+        if !recipe.sequence.reaction.active() || !action.needs_ledge() {
+            recipe.kinds[index] = kind;
+            recipe.sequence.actions[index] = action;
+            break;
+        }
+    }
 }
 
 /// Toggles the shield hold.
@@ -1628,6 +1636,23 @@ mod tests {
         assert!(header.contains("timeout 6f"));
         assert!(!header.contains("done F"));
     }
+    #[test]
+    fn manual_takeover_hold_has_variable_timing_and_no_exact_completion() {
+        let mut source = Sequence::default();
+        source.len = 2;
+        source.actions[..2].copy_from_slice(&[
+            key(MAPPER_ZR, 0., 0., 0),
+            key(MAPPER_A, 0., 0., 4),
+        ]);
+        let recipe = Recipe::new(source);
+        assert_eq!(schedule_summary(&recipe), (4, true));
+        let panel = recipe_panel(&recipe, &fields(&recipe), None, false, None);
+        assert!(panel.header.join(" ").contains("variable checks"));
+        assert!(!panel.header.join(" ").contains("done F"));
+        assert!(panel.body.join(" ").contains("after checks"));
+        assert_eq!(recipe.compile(), Some(source));
+    }
+
     /// Regression test for `schedule_never_claims_exact_frames_after_a_spatial_or_block_check`.
     #[test]
     fn schedule_never_claims_exact_frames_after_a_spatial_or_block_check() {

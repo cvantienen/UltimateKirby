@@ -59,8 +59,9 @@ fn complete(engine: &mut Reflector, key: ProjectileKey, status: i32, gauge: f32)
                 incoming(key),
             )
             .requested,
-        MAPPER_B
+        0
     );
+    assert!(!engine.active());
     assert_eq!(
         engine
             .sample(true, Some(config()), own(status, gauge), incoming(key))
@@ -203,9 +204,11 @@ fn a_fresh_attack_on_the_tracked_object_does_not_restart_an_inflight_bucket() {
                 incoming(next),
             )
             .requested,
-        MAPPER_B
+        0
     );
-    assert_eq!(engine.target(), Some(SHOT));
+    assert!(!engine.active());
+    assert_eq!(engine.target(), None);
+    assert!(!engine.awaiting_receipt());
     engine.sample(
         true,
         Some(config()),

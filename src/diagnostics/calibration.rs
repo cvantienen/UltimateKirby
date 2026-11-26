@@ -996,6 +996,7 @@ mod tests {
             position: [0.0, 0.0],
             velocity: [0.0; 2],
             ground_brake: Some(0.1),
+            walk_stick: None,
             facing: 1.0,
             previous_status: kirby_assist_core::native_states::status::WAIT,
             can_grab: true,

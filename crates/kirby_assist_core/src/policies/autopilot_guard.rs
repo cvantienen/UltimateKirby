@@ -353,7 +353,7 @@ impl GuardHold {
                 crate::native_states::GUARD_ON | crate::native_states::GUARD
             )
         {
-            if let Some(delta) = enemy_elapsed.filter(|delta| *delta > 0.) {
+            if let Some(delta) = enemy_elapsed {
                 elapsed = delta;
             } else if !threat {
                 self.remaining = 0.;

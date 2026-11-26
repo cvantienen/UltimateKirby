@@ -99,7 +99,7 @@ impl FrameTechInput {
         state: NativeTechState,
         guard_held: bool,
     ) -> TechOutput {
-        if self.object != Some(object) {
+        if self.object != Some(object) || self.frame.is_some_and(|last| frame < last) {
             *self = Self::default();
             self.object = Some(object);
         }
@@ -714,6 +714,41 @@ mod frame_pulse_tests {
         assert_eq!(
             input.sample(true, 7, 14, NativeTechState::Inactive, false),
             TechOutput::default()
+        );
+    }
+
+    #[test]
+    fn frame_rewind_restarts_guard_preparation_without_replaying_old_phase() {
+        let mut input = FrameTechInput::default();
+        assert!(
+            input
+                .sample(true, 1, 10, NativeTechState::Opportunity, false)
+                .press
+        );
+        let release = TechOutput {
+            press: false,
+            owns_guard: true,
+        };
+        assert_eq!(
+            input.sample(true, 1, 11, NativeTechState::Opportunity, false),
+            release
+        );
+        assert_eq!(
+            input.sample(true, 1, 0, NativeTechState::Opportunity, true),
+            release
+        );
+        assert_eq!(
+            input.sample(true, 1, 0, NativeTechState::Opportunity, true),
+            release
+        );
+        assert!(
+            input
+                .sample(true, 1, 1, NativeTechState::Opportunity, false)
+                .press
+        );
+        assert_eq!(
+            input.sample(true, 2, 1, NativeTechState::Opportunity, true),
+            release
         );
     }
 
