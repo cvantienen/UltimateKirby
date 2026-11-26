@@ -1078,6 +1078,40 @@ fn auto_spacing_release_is_immediate_even_on_same_tick_and_keeps_jump_manual() {
     );
 }
 #[test]
+fn close_target_brakes_approaching_dash_before_selecting_a_tilt() {
+    for status in [status::DASH, status::RUN, status::TURN_RUN, status::RUN_BRAKE] {
+        let c = GameplayContext { status, can_act: false, velocity: [3., 0.], ..context() };
+        let mut spacing = Spacing::default();
+        let braking = spacing.sample(1, true, config(), c, enemy(18., 0.));
+        assert!(!braking.attack);
+        assert_eq!(braking.controller.stick, Some([0.; 2]));
+        assert!(spacing.sample(2, true, config(), context(), enemy(18., 0.)).attack);
+    }
+}
+
+#[test]
+fn spacing_discards_buffered_selection_when_native_readiness_is_lost() {
+    for airborne in [false, true] {
+        let c = GameplayContext {
+            situation: if airborne { situation::AIR } else { situation::GROUND },
+            status: if airborne { status::FALL } else { status::WAIT },
+            ..context()
+        };
+        let mut spacing = Spacing::default();
+        assert!(spacing.sample(1, true, config(), c, enemy(18., 0.)).attack);
+        spacing.mapped(1);
+        let locked = GameplayContext {
+            status: if airborne { status::CLIFF_JUMP2 } else { status::LANDING_ATTACK_AIR },
+            can_act: false, can_air_attack: false, ..c
+        };
+        assert!(!spacing.sample(2, true, config(), locked, enemy(18., 0.)).attack);
+        assert!(!spacing.pending);
+        assert!(spacing.aerial_selection.is_none());
+        assert!(spacing.sample(3, true, config(), c, enemy(18., 0.)).attack);
+    }
+}
+
+#[test]
 fn auto_spacing_repeats_only_after_delivery_and_native_recovery() {
     let mut s = Spacing::default();
     let mut c = context();

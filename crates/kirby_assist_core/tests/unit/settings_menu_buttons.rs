@@ -89,10 +89,11 @@ fn fighter_setting_navigation_repeats_and_jumps_only_visible_rows() {
     m.show();
     m.input(0, &p);
     m.set_training_category(4);
-    let visible = (0..crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
-        .filter(|i| m.tuning_visible(*i))
+    let visible = (0..crate::fighter_tuning::COUNT
+        + usize::from(cfg!(feature = "diagnostic-logging")))
+        .filter(|i| m.tuning_group_visible(*i))
         .collect::<Vec<_>>();
-    let expected = visible[8 % visible.len()];
+    let expected = visible[8.min(visible.len() - 1)];
     let first = m.tuning_row;
     assert_ne!(m.input(MAPPER_R | DPAD_DOWN, &p) & MAPPER_R, 0);
     assert_eq!(m.tuning_row, expected);

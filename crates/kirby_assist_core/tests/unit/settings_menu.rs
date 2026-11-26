@@ -279,7 +279,10 @@ fn visible_pad_edits_only_and_close_quarantines_held_directions() {
     assert_ne!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
     assert_ne!(menu.input(0, p) & DPAD_DOWN, 0);
     assert_eq!(menu.input(DPAD_DOWN, p) & DPAD_DOWN, 0);
-    assert_eq!(menu.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER, 0);
+    assert_eq!(
+        menu.native_buttons(DPAD_DOWN) & crate::manual_controls::TURBO_TRIGGER,
+        0
+    );
 }
 
 #[test]
@@ -453,6 +456,81 @@ fn fighter_settings_save_requires_y_alone_and_keeps_hints_after_status() {
     m.input(0, &profile.menu_options);
     m.input(MAPPER_Y, &profile.menu_options);
     assert!(m.tuning_save_requested);
+}
+
+#[test]
+fn fighter_groups_cover_available_settings_once_and_skip_empty_groups() {
+    let presets = MenuPresets::EMPTY;
+    for kind in [
+        crate::fighter_kinds::KIRBY,
+        crate::fighter_kinds::YOSHI,
+        crate::fighter_kinds::FOX,
+    ] {
+        let mut m = MenuSelection::new(&presets);
+        m.y_fighter_kind = kind;
+        m.set_training_category(4);
+        let expected = (0..=crate::fighter_tuning::COUNT)
+            .filter(|i| m.tuning_visible(*i))
+            .collect::<Vec<_>>();
+        let mut seen = Vec::new();
+        loop {
+            let rows = (0..=crate::fighter_tuning::COUNT)
+                .filter(|i| m.tuning_group_visible(*i))
+                .collect::<Vec<_>>();
+            assert!(!rows.is_empty());
+            let panel = m.recipe_panel(&presets);
+            assert_eq!(panel.body.len(), rows.len());
+            assert_eq!(panel.focus, Some(0));
+            assert!(panel.header[0].contains(MenuSelection::TUNING_GROUPS[m.tuning_group]));
+            seen.extend(rows);
+            m.change_tuning_group(true);
+            if m.tuning_group == 0 {
+                break;
+            }
+        }
+        seen.sort_unstable();
+        assert_eq!(
+            seen, expected,
+            "every available setting must remain reachable exactly once"
+        );
+    }
+}
+
+#[test]
+fn fighter_group_switch_does_not_edit_on_hold_or_modifier_release_and_back_is_owned() {
+    let presets = MenuPresets::EMPTY;
+    let mut m = MenuSelection::new(&presets);
+    m.input(0, &presets);
+    m.open_page(MenuRow::FighterSettings);
+    let tuning = m.tuning;
+    let consumed = m.input(MAPPER_L | DPAD_RIGHT, &presets);
+    assert_eq!(m.tuning_group, 1);
+    assert_ne!(consumed & MAPPER_L, 0);
+    for _ in 0..80 {
+        m.input(MAPPER_L | DPAD_RIGHT, &presets);
+    }
+    for _ in 0..80 {
+        m.input(DPAD_RIGHT, &presets);
+    }
+    assert_eq!(m.tuning_group, 1);
+    assert_eq!(m.tuning, tuning);
+    m.input(0, &presets);
+    m.input(DPAD_UP, &presets);
+    assert!(m.training_tab_focus);
+    assert_eq!(
+        m.tuning_group, 1,
+        "tab focus must retain the settings group"
+    );
+    m.input(0, &presets);
+    m.input(MAPPER_B, &presets);
+    assert!(!m.training_tab_focus && m.tuning_page);
+    m.input(0, &presets);
+    m.input(DPAD_RIGHT, &presets);
+    assert!(m.tuning.0[m.tuning_row].is_some());
+    m.input(0, &presets);
+    assert_ne!(m.input(MAPPER_B, &presets) & MAPPER_B, 0);
+    assert!(!m.tuning_page);
+    assert_ne!(m.input(MAPPER_B, &presets) & MAPPER_B, 0);
 }
 
 #[test]

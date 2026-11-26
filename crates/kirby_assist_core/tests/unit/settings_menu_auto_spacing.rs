@@ -90,15 +90,15 @@ fn auto_spacing_choice_cycles_and_saved_default_reloads_by_identity() {
 }
 
 #[test]
-fn spacing_suppresses_counter_until_l_is_released() {
+fn counter_suppresses_spacing_even_when_binding_starts_are_blocked() {
     use crate::action_owner::Owner;
     let (mut selection, presets) = spacing_selection();
     selection.choices[PresetSlot::X as usize] = presets.list(PresetSlot::X).options.len()
         + Builtin::Counter.visible_template_offset().unwrap();
     selection.block_binding_starts(true);
     selection.capture_binding_input(MAPPER_X | MAPPER_L, &presets);
-    assert_eq!(selection.defensive_owner(), None);
-    assert!(selection.auto_spacing_held());
+    assert_eq!(selection.defensive_owner(), Some(Owner::Counter));
+    assert!(!selection.auto_spacing_held());
     assert!(selection.reserves_automatic_modes());
     selection.capture_binding_input(MAPPER_X, &presets);
     assert_eq!(selection.defensive_owner(), Some(Owner::Counter));

@@ -750,8 +750,14 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
     let ledge_inputs_reserved = defensive_owner.is_some() || ledge_held || spacing_held
         || menu.is_some_and(|m| m.reserves_automatic_modes());
     state.action_owner.set_counter_hold(defensive_owner == Some(Owner::Counter));
-    if defensive_owner.is_some() && state.action_owner.current_owner() != Some(Owner::Safety) {
+    if defensive_owner.is_some() {
         state.cancel_non_owner(defensive_owner);
+        state.tech_input = None;
+        state.tech_output = Default::default();
+        state.policy = None;
+        state.mash_stick = None;
+        state.di = None;
+        state.sdi = None;
     }
     if defensive_owner != Some(Owner::Counter) {
         state.counter.cancel();
@@ -1312,7 +1318,8 @@ fn sample_damage_sticks(
     let [di_enabled, sdi_enabled] = state.settings_menu.as_ref().zip(state.fighter_kind)
         .map_or(defaults, |(menu, kind)| menu.damage_sticks(kind, defaults));
     let sdi_context = state.sdi_context;
-    let damage_enabled = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED;
+    let damage_enabled = kirby_assist_core::config::AUTO_DAMAGE_STICK_ENABLED
+        && !state.settings_menu.as_ref().is_some_and(|menu| menu.counter_held());
     let sdi_enabled = damage_enabled && sdi_enabled && manual_scope && fresh;
     let di_context = state.di_context;
     let damage_trajectory = state.damage_trajectory;
@@ -1575,7 +1582,9 @@ fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
         .map_or(config.controls.auto_mash, |menu| {
             menu.auto_mash(config.controls.auto_mash)
         });
-    let mash_stick = if fresh && auto_mash {
+    let mash_stick = if fresh && auto_mash
+        && !state.settings_menu.as_ref().is_some_and(|menu| menu.counter_held())
+    {
         state.mash_stick
     } else {
         None

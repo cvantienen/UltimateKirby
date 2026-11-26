@@ -459,6 +459,9 @@ pub struct MenuSelection {
     pub tuning_values: crate::fighter_tuning::Values,
     /// Runtime tuning page value used by MenuSelection..
     pub tuning_page: bool,
+    /// Selected group of fighter settings; independent of the main category tabs.
+    pub tuning_group: usize,
+    tuning_group_direction: u32,
     /// Runtime tuning row value used by MenuSelection..
     pub tuning_row: usize,
     /// Runtime tuning save requested value used by MenuSelection..
@@ -725,6 +728,7 @@ impl MenuSelection {
             _ => MenuRow::Neutral,
         };
         if self.tuning_page {
+            self.tuning_group = 0;
             self.tuning_row = self.tuning_visible_index(0);
         } else if let Some(row) = self
             .display_rows()
@@ -941,11 +945,59 @@ impl MenuSelection {
             && i != crate::fighter_tuning::AUTO_GRAB_FAR
             && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured != 0)
     }
+    pub const TUNING_GROUPS: [&'static str; 12] = [
+        "Movement & facing",
+        "Ledge positioning",
+        "Grabs & avoidance",
+        "Shield defense",
+        "Tech & damage escape",
+        "Projectile reflection",
+        "Counters",
+        "Auto-spacing movement",
+        "Auto-spacing ground attacks",
+        "Auto-spacing aerial attacks",
+        "Fighter-specific",
+        "Developer tools",
+    ];
+
+    fn tuning_row_group(i: usize) -> usize {
+        match i {
+            0 | 8 | 51..=53 => 0,
+            2..=7 | 9..=10 => 1,
+            1 | 11..=13 | 21..=22 | 42..=43 => 2,
+            14..=20 | 40..=41 => 3,
+            23..=30 | 73..=74 => 4,
+            44..=50 => 5,
+            54..=59 | 82 => 6,
+            60 | 75..=81 | 83..=84 => 7,
+            61..=66 => 8,
+            67..=72 => 9,
+            31..=39 => 10,
+            _ => 11,
+        }
+    }
+
+    fn tuning_group_visible(&self, i: usize) -> bool {
+        self.tuning_visible(i) && Self::tuning_row_group(i) == self.tuning_group
+    }
+
+    fn change_tuning_group(&mut self, forward: bool) {
+        for _ in 0..Self::TUNING_GROUPS.len() {
+            self.tuning_group = cycle(self.tuning_group, Self::TUNING_GROUPS.len(), forward);
+            if (0..=crate::fighter_tuning::COUNT).any(|i| self.tuning_group_visible(i)) {
+                break;
+            }
+        }
+        self.tuning_row = self.tuning_visible_index(0);
+        self.hold.reset();
+        self.view_changed();
+    }
+
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     fn tuning_visible_index(&self, row: usize) -> usize {
         (row..crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
-            .find(|i| self.tuning_visible(*i))
-            .or_else(|| (0..crate::fighter_tuning::COUNT).find(|i| self.tuning_visible(*i)))
+            .find(|i| self.tuning_group_visible(*i))
+            .or_else(|| (0..=crate::fighter_tuning::COUNT).find(|i| self.tuning_group_visible(*i)))
             .unwrap_or(0)
     }
     /// Returns the current recipe-input validation error, if any.

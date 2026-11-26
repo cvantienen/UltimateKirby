@@ -1,14 +1,12 @@
-counter prmot
-nsure the auto counter cominout out after dropping below ledgeds and hitstun and all states of me and my charihcter so runnish dashing falling etc. eveything. make this mode also better about prediciting oncoming attacks using enemys velocity,startup anination, to better handle closer and further enmys more riliably coming in at diffrent speeds so it can have acurate rpediciton as well if enemy hitbox incoming or will be imcoming reliably in all state  and conditions of the game. ensure when auto counter. is held evey single auto punish/reation feature and defenive feature will all turn off when held and counters auto is the only mode active when pressed. counter still haviong situations that casue them to get stuck and not come out, and same with same with attacks from auto spacing mode, they run into situations that they should be attacking but dont ensure no state or condition is casing this with me or enemy states that ckuld casue this issue whjere they are close, and attacks arnt coming out, ensure it handles both me and enemys stetes and all possible ones as well too. 
+issues
+
+i want to create another feature that incorperate communicating betweeen switch in ntraining room and computer. 
+
+create feature that when in training room i can slect this mode to be on and i can get live data and stats from the running instance of smash ultimate itsled so im able to view and see all smash game internal stats and data the game has availible to view. Figure out way to also hae it so it when connected to the game in the diagnostic version it returns all of the availible game states that are availble in game. so essentailly a way to have the live game running and the mod can see all of the current in gsme live states the game hads avalible to veiw threw the game. it should cover essentially all the live variables we have acces to live in game in the code when running and playing we are able to see and view and use in out code. it will esenntailly be a live potral into the game the we can use and veiw information from live when running, possibly send stuff in future. but for know just start creatikng this and have it as way for us to see and view in game mlive variables nd values in game currently when running and acivated. Ensure all of this is opnlyl for thie idagnostic build and it only returns, and views the variables and conditions we consider safe, like doesnt alter game hitboxes or physics. 
 
 
 auto spacing prompt
 i want to also impleneted the autoshiled mode that is active for ledge trap mode. so it handles shielding incoming attacks and relasing shiled just like ledge trap modes. they should use the exact same implementatison/code to shiled. also ensure this mod is saftly handing all types of incoming hitxoes and attacks possible states etc so no types of conditions or attacks are missed. 
 
 
-Menu color prompt
-make sure all the manu navigation and controls are properly owkrimng and configured
 
-after go through and fix the colors used in the menu to use colors to make viewing, navigating, selecting and making changes in menu easier to see and modern color usage, and just so cyan isnt used throughtout. colors are used throughtout the entire menu to make viewing and navigating easier. so range of coloor are used to make navigating and using the menu esier across the entire menu not just cyan.
-
-also for the long lsits like the fighter settings menu whenscrolling in game editor make it way esier to navigate and reduce scrolling by catgeroizing options.  

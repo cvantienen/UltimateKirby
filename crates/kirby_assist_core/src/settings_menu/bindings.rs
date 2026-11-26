@@ -39,14 +39,14 @@ impl MenuSelection {
     }
     /// The selected L mode runs only during a physical L hold in gameplay.
     pub fn auto_spacing_held(&self) -> bool {
-        self.l_spacing_selected && self.native_hold_active(MAPPER_L)
+        self.l_spacing_selected && self.native_hold_active(MAPPER_L) && !self.counter_held()
     }
     pub fn l_spacing_selected(&self) -> bool {
         self.l_spacing_selected
     }
     pub fn defensive_owner(&self) -> Option<crate::action_owner::Owner> {
-        if !self.auto_spacing_held() && (self.native_hold_active(self.counter_sources)
-            || self.toggle_active(self.counter_toggle_sources, self.counter_toggled))
+        if self.native_hold_active(self.counter_sources)
+            || self.toggle_active(self.counter_toggle_sources, self.counter_toggled)
         {
             Some(crate::action_owner::Owner::Counter)
         } else {

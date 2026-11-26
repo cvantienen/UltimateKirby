@@ -10,6 +10,8 @@ fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
     m.input(MAPPER_MINUS, &presets);
     m.input(0, &presets);
     m.set_training_category(4);
+    #[cfg(feature = "diagnostic-logging")]
+    m.change_tuning_group(false);
     let panel = m.recipe_panel(&presets);
     assert_eq!(
         panel

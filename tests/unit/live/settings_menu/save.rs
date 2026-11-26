@@ -826,33 +826,50 @@ fn current_full_roster_edits_defaults_copies_deletes_and_settings_round_trip() {
     std::thread::Builder::new()
         .stack_size(WORKER_STACK_BYTES)
         .spawn(|| {
-            // Read maintained split sources, not a potentially stale generated
-            // bundle. All writes/backup/recovery checks use a temporary folder.
-            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../deployment/ultimate/kirby_assist");
-            let mut source = fs::read_to_string(root.join("sequences.txt")).unwrap();
-            source.push_str("\n\n");
-            let mut files: Vec<_> = fs::read_dir(root.join("fighters"))
-                .unwrap()
-                .map(|e| e.unwrap().path())
-                .filter(|p| p.extension().is_some_and(|e| e == "txt"))
-                .collect();
-            files.sort();
-            for file in files {
-                source.push_str(&fs::read_to_string(file).unwrap());
-                source.push_str("\n\n");
+            // Exercise the full roster near catalog capacity without depending on
+            // local deployment sources or a stale assembled bundle.
+            let profiles = kirby_assist_core::fighter_profiles::FighterProfiles::default();
+            let sequence = job().sequence;
+            let fighters = (0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT)
+                .filter(|kind| profiles.profile(*kind).is_some())
+                .map(|kind| {
+                    let seed = persist::update(
+                        "", kind, PresetSlot::Neutral, "seed", sequence, true,
+                    )
+                    .unwrap();
+                    Catalog::parse(&seed).unwrap().entries()[0].fighter.clone()
+                })
+                .collect::<Vec<_>>();
+            let mut source = String::new();
+            for index in 0..kirby_assist_core::sequence_config::MAX_ENTRIES - 1 {
+                let fighter = &fighters[index % fighters.len()];
+                let choice = index / fighters.len();
+                let slot = if choice % 2 == 0 { "neutral" } else { "roll" };
+                source.push_str(&format!(
+                    "[{fighter}.{slot}.fixture_{choice}]\nstart_delay=0\nactions=wait:2\n\n"
+                ));
             }
             let original = Catalog::parse(&source).unwrap();
+            assert_eq!(
+                original.entries().len(),
+                kirby_assist_core::sequence_config::MAX_ENTRIES - 1
+            );
             let entry = original
                 .entries()
                 .iter()
-                .find(|e| {
-                    e.fighter == "lucina"
-                        && e.slot == PresetSlot::Neutral
-                        && !e.sequence.reaction.active()
-                })
-                .unwrap();
-            let untouched = original.find(15, PresetSlot::Roll, "auto_roll").unwrap();
+                .find(|e| e.slot == PresetSlot::Neutral && !e.sequence.reaction.active())
+                .expect("roster fixture must contain an editable neutral recipe");
+            let untouched_entry = original
+                .entries()
+                .iter()
+                .find(|e| e.slot == PresetSlot::Roll && !e.sequence.reaction.active())
+                .expect("roster fixture must contain an independent roll recipe");
+            let untouched_key = (
+                untouched_entry.fighter_kind,
+                untouched_entry.slot,
+                untouched_entry.choice.clone(),
+            );
+            let untouched = untouched_entry.sequence;
             let mut j = job();
             j.kind = entry.fighter_kind;
             j.slot = entry.slot;
@@ -870,7 +887,7 @@ fn current_full_roster_edits_defaults_copies_deletes_and_settings_round_trip() {
             let saved = write_paths(&j, &path, &temp, &backup).unwrap();
             assert_eq!(saved.find(j.kind, j.slot, &j.choice), Some(j.sequence));
             assert_eq!(
-                saved.find(15, PresetSlot::Roll, "auto_roll"),
+                saved.find(untouched_key.0, untouched_key.1, &untouched_key.2),
                 Some(untouched)
             );
             assert_eq!(

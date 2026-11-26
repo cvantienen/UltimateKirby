@@ -31,6 +31,7 @@ use view::Snapshot;
 #[path = "lightweight.rs"]
 /// Publishes and draws the compact option-only selector.
 mod lightweight;
+use lightweight::palette;
 
 /// Cached owned snapshot consumed by the immediate-mode renderer.
 static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
@@ -423,13 +424,9 @@ const OVERLAY_FLAGS: i32 = (ImGuiWindowFlags_NoDecoration
     | ImGuiWindowFlags_NoInputs
     | ImGuiWindowFlags_NoFocusOnAppearing
     | ImGuiWindowFlags_NoBringToFrontOnFocus) as i32;
-/// Returns the configured accent color used by menu headings.
-fn accent() -> ImVec4_c {
-    color(0.35, 0.86, 0.78, 1.0)
-}
-/// Returns the configured selected-row background color.
+/// Returns the selected-row background, independent of category and status.
 fn row_highlight() -> ImVec4_c {
-    color(0.17, 0.54, 0.50, 0.19)
+    palette::highlight()
 }
 
 /// Draws the cached panel frame, heading, content, and status within display bounds.
@@ -443,9 +440,10 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32) {
         .min((display.x - 16.0 * scale).max(1.0));
     igPushFont(std::ptr::null_mut(), 15.0 * scale);
     for (slot, value) in [
-        (ImGuiCol_WindowBg, color(0.025, 0.033, 0.052, 0.86)),
-        (ImGuiCol_Border, color(0.19, 0.25, 0.32, 0.70)),
-        (ImGuiCol_Text, color(0.86, 0.90, 0.95, 1.0)),
+        (ImGuiCol_WindowBg, palette::surface(0.96)),
+        (ImGuiCol_Border, palette::border()),
+        (ImGuiCol_Separator, palette::border()),
+        (ImGuiCol_Text, palette::text()),
     ] {
         igPushStyleColor_Vec4(slot as _, value);
     }
@@ -494,7 +492,7 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32) {
     }
     igEnd();
     igPopStyleVar(4);
-    igPopStyleColor(3);
+    igPopStyleColor(4);
     igPopFont();
 }
 
@@ -510,13 +508,13 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
         c"TRAINING / MENU CONTROLS"
     });
     igPopStyleColor(1);
-    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+    igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::muted());
     if let Some(navigation) = &view.navigation {
         card_text(navigation);
     }
     igPopStyleColor(1);
     if !view.lightweight && view.training_categories_active {
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.64, 0.72, 0.81, 1.0));
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::muted());
         for (index, category) in view.categories.iter().enumerate() {
             if index > 0 {
                 igSameLine(0.0, 7.0 * scale);
@@ -524,32 +522,42 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
             let selected = index == view.training_category as usize;
             igPushStyleColor_Vec4(ImGuiCol_Text as _, {
                 let (r, g, b) = Snapshot::category_rgb(index as u8);
-                color(r, g, b, if selected { 1.0 } else { 0.68 })
+                if selected && view.training_tab_focus {
+                    palette::focus()
+                } else {
+                    color(r, g, b, 1.0)
+                }
             });
             card_text(category);
             igPopStyleColor(1);
         }
         igPopStyleColor(1);
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::muted());
         if view.training_tab_focus {
             card_text(c"Left/Right: change category | B: return to options");
         } else {
             card_text(c"Up/Down: options | Left/Right: value");
         }
+        igPopStyleColor(1);
     }
     if view.category_controls {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::muted());
         card_text(if view.mode == 3 {
             c"ZL/ZR: category | R + Up/Down: jump 8 settings"
         } else {
             c"ZL/ZR: category | R + D-pad: jump 8"
         });
+        igPopStyleColor(1);
     }
     igSeparator();
     if super::save::busy() {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::warning());
         card_text(c"Saving now; keep Smash open until complete");
+        igPopStyleColor(1);
     }
     draw_value_rows(view, scale);
     for line in &view.header {
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.60, 0.84, 0.94, 1.0));
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::action());
         card_text(line);
         igPopStyleColor(1);
     }
@@ -567,22 +575,21 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
 fn footer_tint(line: &CStr) -> ImVec4_c {
     let bytes = line.to_bytes();
     if bytes.starts_with(b"Save failed") {
-        color(1.0, 0.55, 0.45, 1.0)
+        palette::error()
     } else if bytes.starts_with(b"Saved") {
-        color(0.53, 0.87, 0.65, 1.0)
+        palette::success()
     } else if bytes.starts_with(b"Unsaved") {
-        color(0.96, 0.77, 0.42, 1.0)
+        palette::warning()
     } else {
-        color(0.72, 0.78, 0.87, 1.0)
+        palette::muted()
     }
 }
 
 /// Draws cached selectable rows and updates focus only when its identity changes.
 unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
     let (start, end, focus) = view.row_window();
-    let (r, g, b) = view.accent_rgb();
     if let Some(context) = view.row_context.get(focus) {
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.72, 0.78, 0.85, 1.0));
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, palette::muted());
         card_text(context);
         igPopStyleColor(1);
     }
@@ -596,20 +603,16 @@ unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
         }
         let selected = value.row == view.row;
         if selected {
-            draw_selected_row_backdrop(&value.line, scale, color(r, g, b, 1.0));
+            draw_selected_row_backdrop(&value.line, scale, palette::focus());
         }
-        let tint = if selected {
-            color(r, g, b, 1.0)
-        } else {
-            match value.enabled {
-                Some(true) => color(0.50, 0.82, 0.70, 1.0),
-                Some(false) => color(0.54, 0.61, 0.69, 1.0),
-                None => color(0.86, 0.90, 0.95, 1.0),
-            }
-        };
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
-        card_text(&value.line);
-        igPopStyleColor(1);
+        igPushTextWrapPos(0.0);
+        lightweight::draw_option_line(
+            &value.line,
+            selected,
+            value.enabled,
+            MenuSelection::page_link(value.row),
+        );
+        igPopTextWrapPos();
     }
 }
 
@@ -749,11 +752,13 @@ unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
                 );
             }
             let tint = if focused {
-                accent()
+                palette::focus()
             } else if is_title {
-                color(0.55, 0.85, 0.95, 1.0)
+                palette::action()
+            } else if view.mode == 0 {
+                palette::muted()
             } else {
-                color(0.92, 0.94, 0.97, 1.0)
+                palette::value()
             };
             igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
             card_text(line);
@@ -782,9 +787,9 @@ unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
     igPushStyleColor_Vec4(
         ImGuiCol_Text as _,
         if enabled {
-            color(0.45, 1.0, 0.58, 0.82)
+            palette::success()
         } else {
-            color(1.0, 0.48, 0.42, 0.82)
+            palette::muted()
         },
     );
     if igBegin(

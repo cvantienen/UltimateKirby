@@ -96,7 +96,10 @@ impl MenuSelection {
         let row = self.tuning_visible_index(self.tuning_row);
         RecipePanel {
             header: vec![
-                "FIGHTER SETTINGS / Training only".into(),
+                format!(
+                    "FIGHTER SETTINGS / {} / Training only",
+                    Self::TUNING_GROUPS[self.tuning_group]
+                ),
                 if row == fighter_tuning::COUNT {
                     "Left/Right or A: toggle LAN editor HTTP service".into()
                 } else {
@@ -104,19 +107,22 @@ impl MenuSelection {
                 },
             ],
             body: (0..fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
-                .filter(|i| self.tuning_visible(*i))
+                .filter(|i| self.tuning_group_visible(*i))
                 .map(|i| self.tuning_line(i, i == row))
                 .collect(),
             footer: [
                 Some("Up/Down: select (hold) | Left/Right: adjust (hold numbers)".into()),
-                Some("ZL/ZR: category | R + Up/Down: jump 8 settings".into()),
-                Some("X: reset value | Y alone: save | R3: back | Minus: close".into()),
+                Some(
+                    "L + Left/Right: settings group | ZL/ZR: menu category | R + Up/Down: jump 8"
+                        .into(),
+                ),
+                Some("X: reset value | Y alone: save | B/R3: back | Minus: close".into()),
                 self.save_status.clone(),
             ]
             .into_iter()
             .flatten()
             .collect(),
-            focus: Some((0..row).filter(|i| self.tuning_visible(*i)).count()),
+            focus: Some((0..row).filter(|i| self.tuning_group_visible(*i)).count()),
         }
     }
     /// One fighter-setting row: value plus where that value comes from.

@@ -3,7 +3,7 @@ mod takeover_tests {
     use crate::{gameplay::ControllerOutput, native_input::GAMEPLAY_BUTTONS};
 
     #[test]
-    fn held_counter_preempts_and_safety_wins_without_restoring_old_owner() {
+    fn held_counter_preempts_all_assists_without_restoring_old_owner() {
         let mut ownership = ActionOwnership::new();
         let intent = |owner| Intent {
             owner,
@@ -36,7 +36,7 @@ mod takeover_tests {
         );
         assert_eq!(
             ownership.select(true, &[intent(Owner::Safety), intent(Owner::Counter)]),
-            Some(Owner::Safety)
+            Some(Owner::Counter)
         );
         ownership.release(Owner::Safety);
         ownership.set_counter_hold(true);

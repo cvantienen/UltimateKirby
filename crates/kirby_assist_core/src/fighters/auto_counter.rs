@@ -108,7 +108,11 @@ pub fn predicted_attack(
     // A close, slow startup is actionable now; the short live-contact horizon
     // must not postpone it until the animation is almost active.
     if move_data.active.first().is_some_and(|window| {
-        (f32::from(window.first) - frame) / rate > config.horizon()
+        let first = (f32::from(window.first) - frame) / rate;
+        let last = (f32::from(window.last) + 1.0 - frame) / rate;
+        first > config.horizon()
+            && root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
+                first, last, 12.0, 6.0).is_some()
     }) && root_contact(config, origin, own_velocity, enemy_position, enemy_velocity,
         0.0, 0.0, 12.0, 6.0).is_some()
     {
@@ -545,9 +549,12 @@ impl Counter {
             self.last_poll = Some(tick);
             self.receipt_polls = self.receipt_polls.saturating_add(1);
             if self.receipt_polls >= self.poll_limit {
-                self.last = self.target;
-                self.attempts = 2;
-                self.cancel();
+                if self.receipt {
+                    self.receipt = false;
+                    self.release_pending = true;
+                } else if !self.release_pending {
+                    self.cancel();
+                }
             }
         }
     }

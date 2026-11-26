@@ -26,6 +26,9 @@ mod lightweight;
 #[derive(Default)]
 struct Trace {
     text: Vec<String>,
+    colored_text: Vec<(String, [f32; 4])>,
+    color_stack: Vec<(i32, bindings::ImVec4_c)>,
+    join_text: bool,
     colors: i32,
     vars: i32,
     fonts: i32,
@@ -91,13 +94,19 @@ pub mod bindings {
             assert!(t.vars >= 0);
         });
     }
-    pub unsafe fn igPushStyleColor_Vec4(_: i32, _: ImVec4_c) {
-        record(|t| t.colors += 1);
+    pub unsafe fn igPushStyleColor_Vec4(slot: i32, color: ImVec4_c) {
+        record(|t| {
+            t.colors += 1;
+            t.color_stack.push((slot, color));
+        });
     }
     pub unsafe fn igPopStyleColor(n: i32) {
         record(|t| {
             t.colors -= n;
             assert!(t.colors >= 0);
+            for _ in 0..n {
+                t.color_stack.pop().unwrap();
+            }
         });
     }
     pub unsafe fn igPushFont(_: *mut c_void, _: f32) {
@@ -130,10 +139,36 @@ pub mod bindings {
     pub unsafe fn igEnd() {
         record(|t| t.ends += 1);
     }
-    pub unsafe fn igSameLine(_: f32, _: f32) {}
-    pub unsafe fn igTextUnformatted(text: *const c_char, _: *const c_char) {
-        let s = CStr::from_ptr(text).to_str().unwrap().to_owned();
-        record(|t| t.text.push(s));
+    pub unsafe fn igSameLine(_: f32, spacing: f32) {
+        record(|t| t.join_text = spacing == 0.0);
+    }
+    pub unsafe fn igTextUnformatted(text: *const c_char, end: *const c_char) {
+        let s = if end.is_null() {
+            CStr::from_ptr(text).to_str().unwrap().to_owned()
+        } else {
+            std::str::from_utf8(std::slice::from_raw_parts(
+                text.cast(),
+                end.offset_from(text) as usize,
+            ))
+            .unwrap()
+            .to_owned()
+        };
+        record(|t| {
+            let tint = t
+                .color_stack
+                .iter()
+                .rev()
+                .find(|(slot, _)| *slot == ImGuiCol_Text)
+                .map(|(_, c)| [c.x, c.y, c.z, c.w])
+                .unwrap_or([1.0; 4]);
+            t.colored_text.push((s.clone(), tint));
+            if t.join_text {
+                t.text.last_mut().unwrap().push_str(&s);
+            } else {
+                t.text.push(s);
+            }
+            t.join_text = false;
+        });
     }
 }
 fn profiles() -> FighterProfiles {
@@ -849,4 +884,53 @@ fn damage_toggles_are_independent_persisted_and_invalidate_cached_rows() {
     assert_eq!(tuning.0[AUTO_DI_DEFAULT], Some(0.));
     assert_eq!(tuning.0[AUTO_SDI_DEFAULT], Some(1.));
     assert!(Catalog::parse("[bowser.settings]\nauto_di_default=1\n").is_err());
+}
+
+#[test]
+fn selected_options_keep_value_state_distinct_from_focus_and_balance_styles() {
+    let rgba = |c: bindings::ImVec4_c| [c.x, c.y, c.z, c.w];
+    for (line, enabled, action, expected) in [
+        (
+            c"Auto mash: ON",
+            Some(true),
+            false,
+            lightweight::palette::success(),
+        ),
+        (
+            c"Auto mash: OFF",
+            Some(false),
+            false,
+            lightweight::palette::muted(),
+        ),
+        (c"Delay: 12", None, false, lightweight::palette::value()),
+        (
+            c"Recipes: Manage",
+            None,
+            true,
+            lightweight::palette::action(),
+        ),
+    ] {
+        TRACE.with(|t| *t.borrow_mut() = Trace::default());
+        unsafe {
+            lightweight::draw_option_line(line, true, enabled, action);
+        }
+        TRACE.with(|t| {
+            let t = t.borrow();
+            assert_eq!(t.text, [line.to_str().unwrap()]);
+            assert_eq!(t.colored_text[0].1, rgba(lightweight::palette::focus()));
+            assert_eq!(t.colored_text[1].1, rgba(expected));
+            assert_ne!(t.colored_text[0].1, t.colored_text[1].1);
+            assert_eq!(t.colors, 0);
+            assert!(t.color_stack.is_empty());
+        });
+    }
+    TRACE.with(|t| *t.borrow_mut() = Trace::default());
+    unsafe {
+        lightweight::draw_option_line(c"No value", false, None, false);
+    }
+    TRACE.with(|t| {
+        let t = t.borrow();
+        assert_eq!(t.text, ["No value"]);
+        assert_eq!(t.colors, 0);
+    });
 }

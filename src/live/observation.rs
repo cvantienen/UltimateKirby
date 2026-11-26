@@ -1233,7 +1233,9 @@ unsafe fn collect_spacing(
     let controllable = !p.tech_obs.clatter && !reads.capture_link(object)
         && (recovery_input || !kirby_assist_core::native_states::fighter_sequence_interrupted(p.fighter_kind, own.status));
     let attack_ready = recovery_input || kirby_assist_core::auto_spacing::attack_ready(
-        own.status, own.situation, game::cancel_enabled(object));
+        own.status, own.situation, game::cancel_enabled(object))
+        || own.situation == situation::GROUND && game::transition_enabled(
+            object, kirby_assist_core::native_states::transition_terms::CONT_ATTACK);
     let context = GameplayContext {
         held: true,
         can_control: controllable,
@@ -3014,6 +3016,14 @@ fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 ///
 fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
+    if state.settings_menu.as_ref().is_some_and(|menu| menu.counter_held()) {
+        state.tech_input = None;
+        state.tech_output = Default::default();
+        state.policy = None;
+        state.policy_tick = None;
+        state.mash_stick = None;
+        return None;
+    }
     let Pass {
         config,
         object_id,

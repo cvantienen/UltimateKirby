@@ -68,6 +68,23 @@ fn counter_requires_hold_then_preempts_sequences_and_keeps_release_reservation()
     );
 }
 #[test]
+fn counter_hold_displaces_safety_and_blocks_every_other_owner_until_release() {
+    let mut control = ActionOwnership::new();
+    control.select(true, &[intent(Owner::Safety, true)]);
+    assert_eq!(control.set_counter_hold(true), Some(Owner::Safety));
+    for owner in [Owner::Safety, Owner::Defense, Owner::Spacing, Owner::Turbo,
+        Owner::Posture, Owner::Trump, Owner::Ledge, Owner::Reflect, Owner::Trip,
+        Owner::Fair, Owner::RollRead, Owner::OptionRead, Owner::GrabDodge,
+        Owner::OutOfShield] {
+        assert!(!control.allows(owner));
+        assert_eq!(control.select(true, &[intent(owner, true)]), None);
+    }
+    assert!(control.allows(Owner::Counter));
+    control.set_counter_hold(false);
+    assert_eq!(control.select(true, &[intent(Owner::Safety, true)]), Some(Owner::Safety));
+}
+
+#[test]
 fn acquired_ledge_visit_reserves_new_work_without_replacing_committed_reads() {
     for read in [Owner::OptionRead, Owner::RollRead] {
         let mut control = ActionOwnership::new();
@@ -439,8 +456,8 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
         }
         assert_eq!(
             control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
-            Some(Owner::Safety),
-            "native safety must preempt committed controller sequences"
+            Some(if current == Owner::Counter { Owner::Counter } else { Owner::Safety }),
+            "safety preempts sequences except the exclusive counter hold"
         );
     }
     let mut control = ActionOwnership::new();

@@ -204,6 +204,7 @@ impl MenuSelection {
         let previous = self.previous.unwrap_or(buttons);
         let pressed = buttons & !previous;
         self.previous = Some(buttons);
+        self.tuning_group_direction &= buttons;
         if self.rule_binding_stamp != Some(self.recipe_revision) {
             self.refresh_rule_bindings(presets, buttons);
             self.rule_binding_stamp = Some(self.recipe_revision);
@@ -337,8 +338,28 @@ impl MenuSelection {
         if !(s.editing && s.allow_editing && self.tuning_page) {
             return None;
         }
+        if !(0..=crate::fighter_tuning::COUNT).any(|i| self.tuning_group_visible(i)) {
+            self.change_tuning_group(true);
+        }
         self.tuning_row = self.tuning_visible_index(self.tuning_row);
         self.trigger_ready &= !(MAPPER_L | bindings::BUTTON_MASK);
+        if s.buttons & MAPPER_L != 0 && s.pad & DPAD_SIDES != 0 {
+            if !s.toggled
+                && s.pad_pressed()
+                && s.buttons & (EDITOR_OWNED_BUTTONS | MENU_STICK_CLICK | MENU_L3) == 0
+            {
+                self.change_tuning_group(s.pad == DPAD_RIGHT);
+            }
+            self.tuning_group_direction |= s.pad;
+            self.pad_quarantine |= s.pad | MAPPER_L | (s.buttons & EDITOR_OWNED_BUTTONS);
+            return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS));
+        }
+        // Releasing L while still holding a group-switch direction must not edit a value.
+        if s.pad & self.tuning_group_direction != 0 {
+            self.hold.reset();
+            self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
+            return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS));
+        }
         let repeat = self
             .hold
             .step(if s.pad.count_ones() == 1 { s.pad } else { 0 });
@@ -352,7 +373,8 @@ impl MenuSelection {
             self.changed();
             return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS));
         }
-        if s.pressed & MENU_STICK_CLICK != 0 {
+        if s.pressed & (MENU_STICK_CLICK | MAPPER_B) != 0 {
+            self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
             self.open_page(MenuRow::LedgePage);
         } else if !s.toggled && (s.pad_pressed() || repeat) {
             if s.pad & (DPAD_UP | DPAD_DOWN) != 0 {
@@ -383,11 +405,8 @@ impl MenuSelection {
             }
             self.changed();
         }
-        Some(
-            s.consume(
-                MAPPER_L | MAPPER_X | MAPPER_Y | (self.pad_quarantine & EDITOR_OWNED_BUTTONS),
-            ),
-        )
+        self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
+        Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS))
     }
     /// Next visible fighter-setting row, wrapping; stays put when none is visible.
     fn next_tuning_row(&self, forward: bool) -> usize {
@@ -396,7 +415,7 @@ impl MenuSelection {
             crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging"));
         for _ in 0..count {
             row = cycle(row, count, forward);
-            if self.tuning_visible(row) {
+            if self.tuning_group_visible(row) {
                 return row;
             }
         }
@@ -745,7 +764,11 @@ impl MenuSelection {
             } else {
                 0
             };
+            let tuning = (self.tuning_group, self.tuning_row);
             self.set_training_category(category);
+            if self.tuning_page {
+                (self.tuning_group, self.tuning_row) = tuning;
+            }
         }
         self.training_tab_focus = true;
         self.pad_quarantine |= s.pad;

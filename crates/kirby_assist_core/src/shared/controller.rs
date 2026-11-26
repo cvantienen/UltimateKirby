@@ -304,9 +304,6 @@ pub mod action_owner {
             let previous_hold = self.held_counter;
             self.held_counter = requested_hold;
             let displaced = self.locked.filter(|owner| {
-                if *owner == Owner::Safety {
-                    return false;
-                }
                 let preempted_by_hold = requested_hold.is_some() && Some(*owner) != requested_hold;
                 preempted_by_hold
                     || previous_hold.is_some()
@@ -321,7 +318,7 @@ pub mod action_owner {
         /// Scope-independent admission gates shared by every owner.
         fn admissible(&self, owner: Owner) -> bool {
             if let Some(held) = self.held_counter {
-                return owner == Owner::Safety || owner == held;
+                return owner == held;
             }
             if matches!(owner, Owner::Counter) {
                 return false;
@@ -329,9 +326,13 @@ pub mod action_owner {
             (!self.automatic_suspended || !Self::automatic(owner))
                 && (!self.ledge_priority || Self::ledge_compatible(owner))
         }
-        /// Native safety may preempt committed work; every other contender must
-        /// wait for explicit cancellation or completion of the current owner.
+        /// Safety assists preempt committed work except during counter-only hold.
+        /// Other contenders wait for cancellation or completion of the current owner.
         pub fn allows(&self, owner: Owner) -> bool {
+            if self.held_counter.is_some() {
+                return self.admissible(owner)
+                    && (self.locked.is_none() || self.locked == Some(owner));
+            }
             owner == Owner::Safety
                 || self.locked == Some(owner)
                 || self.admissible(owner) && self.locked.is_none()

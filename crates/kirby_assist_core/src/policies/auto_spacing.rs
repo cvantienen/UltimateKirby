@@ -260,7 +260,10 @@ impl Spacing {
         self.tick = Some(tick);
         let airborne = c.situation == situation::AIR;
         if self.aerial_selection.is_some_and(|(start, _)|
-            !airborne || aerial_started(c) || tick < start || tick.saturating_sub(start) >= 24)
+            !airborne || aerial_started(c)
+                || !c.stopped && !c.can_air_attack && !is_attack(c.status)
+                    && !attack_ready(c.status, c.situation, false)
+                || tick < start || tick.saturating_sub(start) >= 24)
         {
             self.aerial_selection = None;
         }
@@ -298,14 +301,18 @@ impl Spacing {
         let dx = enemy.position[0] - c.position[0];
         let side = if dx.abs() > 0.001 { dx.signum() } else { c.facing.signum() };
         let mut attack_context = c;
-        if !airborne && c.velocity[0] * side < 0. {
-            // Ground attack admission assumes the retreat input is released.
+        if !airborne && (c.velocity[0] * side < 0.
+            || brake_ground_movement(c.status, c.situation))
+        {
+            // A tilt waits for locomotion to end; do not extrapolate a dash
+            // through its startup and veto the neutral input needed to brake.
             attack_context.velocity[0] = 0.;
         }
         let selected_attack = if airborne { config.aerial } else { config.ground };
         let engaged = config.engagement_range > 0. && dx.abs() <= config.engagement_range;
         if self.pending {
             if !engaged
+                || !ready && !attack_ready(c.status, c.situation, false)
                 || self.pending_config != Some(config)
                 || self.pending_target != Some(enemy.id)
                 || airborne != self.pending_airborne

@@ -733,6 +733,39 @@ fn close_slow_startup_requests_counter_at_animation_start() {
 }
 
 #[test]
+fn slow_startup_prediction_checks_relative_motion_at_the_active_window() {
+    let predict = |own_velocity, enemy_velocity| predicted_attack(
+        config(), [0.; 3], own_velocity, [12., 0., 0.], enemy_velocity,
+        crate::fighter_kinds::YOSHI, 7, crate::timing::motion_hash("attack_air_f"),
+        crate::native_states::status::ATTACK_AIR, 0., 1.,
+    );
+    assert!(predict([0.; 2], [0.; 2]).is_some());
+    assert!(predict([0.; 2], [4., 0.]).is_none());
+    assert!(predict([0.; 2], [-4., 0.]).is_none());
+    assert!(predict([0.; 2], [0., 4.]).is_none());
+    assert!(predict([4., 0.], [4., 0.]).is_some());
+}
+
+#[test]
+fn delivered_counter_watchdog_requires_clean_release_with_frozen_animations() {
+    let mut counter = Counter::new();
+    let c = context();
+    counter.sample(true, Some(config()), c, Some(threat(7)));
+    counter.mapped();
+    for tick in 0..24 {
+        counter.poll_receipt(tick);
+    }
+    let release = counter.sample(true, Some(config()), c, Some(threat(7)));
+    assert_eq!(release.requested, 0);
+    assert_eq!(release.owned, SEQUENCE_BUTTONS);
+    assert!(counter.active());
+    counter.poll_receipt(24);
+    assert_eq!(counter.sample(true, Some(config()), c, Some(threat(7))), release);
+    counter.mapped_release();
+    assert_eq!(counter.sample(true, Some(config()), c, Some(threat(7))).requested, MAPPER_B);
+}
+
+#[test]
 fn close_startup_uses_contact_time_not_counter_activation_time() {
     let motion = crate::timing::motion_hash("attack_air_f");
     let predict = |x, vx| {

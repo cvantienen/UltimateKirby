@@ -57,6 +57,23 @@ fn optional_native_modes_toggle_and_hold_bindings_release_as_expected() {
 }
 
 #[test]
+fn counter_hold_preempts_spacing_and_spacing_resumes_on_release() {
+    let (p, mut m) = setup("", crate::fighter_kinds::LUCINA);
+    m.load_saved_recipes(&p, &Catalog::parse("").unwrap(), crate::fighter_kinds::LUCINA);
+    m.menu_hidden = true;
+    m.l_spacing_selected = true;
+    m.input(0, &p);
+    m.input(MAPPER_L, &p);
+    assert!(m.auto_spacing_held());
+    m.input(MAPPER_L | MAPPER_Y, &p);
+    assert!(m.counter_held());
+    assert!(!m.auto_spacing_held());
+    m.input(MAPPER_L, &p);
+    assert!(!m.counter_held());
+    assert!(m.auto_spacing_held());
+}
+
+#[test]
 fn l3_and_up_default_to_normal_and_r3_swaps_l_without_starting_a_recipe() {
     use crate::button_bindings::Builtin;
     let (p, mut m) = setup("", 6);
