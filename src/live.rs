@@ -89,6 +89,8 @@ use tech::assess_tech;
 
 /// Coordinates Training Modpack input handoff and passthrough state.
 mod training;
+#[cfg(feature = "diagnostic-logging")]
+mod telemetry;
 
 use crate::game_ffi as game;
 use kirby_assist_core::combat_assist::{SdiContext, SdiState};
@@ -280,8 +282,22 @@ unsafe fn map_controls(
     wrapper: *mut c_void,
     arg: bool,
 ) {
+    #[cfg(feature = "diagnostic-logging")]
+    let telemetry_input = mapper::capture_telemetry_input(wrapper, index);
+    #[cfg(feature = "diagnostic-logging")]
+    if !RUNTIME_ENABLED.load(Ordering::Acquire)
+        || CONFIG.get().is_some_and(|c| !c.controls.enabled)
+    {
+        let restore = mapper::prepare_telemetry_menu(wrapper, index);
+        original!()(mappings, index, output, wrapper, arg);
+        if let Some(saved) = restore { saved.restore(); }
+        mapper::publish_telemetry_input(telemetry_input, output);
+        return;
+    }
     let Some(admission) = mapper::admit_mapper_callback(wrapper, index) else {
         original!()(mappings, index, output, wrapper, arg);
+        #[cfg(feature = "diagnostic-logging")]
+        mapper::publish_telemetry_input(telemetry_input, output);
         return;
     };
     let session_ticket = admission.session_ticket;
@@ -299,6 +315,8 @@ unsafe fn map_controls(
         training_test::active(training_mode.is_some(), training_mode.unwrap_or(false));
     if training_test_mode && mapper::enter_training_passthrough(&admission, index) {
         original!()(mappings, index, output, wrapper, arg);
+        #[cfg(feature = "diagnostic-logging")]
+        mapper::publish_telemetry_input(telemetry_input, output);
         return;
     }
     training::finish_passthrough(training_test_mode);
@@ -313,6 +331,8 @@ unsafe fn map_controls(
         mapper::prepare_mapper_overlay(admission, index, output, training_mode, training_test_mode)
     else {
         original!()(mappings, index, output, wrapper, arg);
+        #[cfg(feature = "diagnostic-logging")]
+        mapper::publish_telemetry_input(telemetry_input, output);
         return;
     };
     // original!() is Skyline's trampoline to the function we replaced. Calling
@@ -322,10 +342,14 @@ unsafe fn map_controls(
             saved.restore();
         }
         original!()(mappings, index, output, wrapper, arg);
+        #[cfg(feature = "diagnostic-logging")]
+        mapper::publish_telemetry_input(telemetry_input, output);
         return;
     }
     original!()(mappings, index, output, wrapper, arg);
     mapper::finish_mapper_overlay(output, index, session_ticket, preparation);
+    #[cfg(feature = "diagnostic-logging")]
+    mapper::publish_telemetry_input(telemetry_input, output);
 }
 
 // Exported ControlModule symbol, ABI checked against pinned skyline-smash.
@@ -341,6 +365,11 @@ unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
         return flags;
     }
     observe_master_presence(object);
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        install_mapper_if_ready();
+        telemetry::observe(object);
+    }
     // Plugin entrypoints have finished before battle fighter callbacks. Leaving
     // FIM untouched until here lets Training Modpack finish its signature scan.
     // Skyline's trampoline retains its existing hook; do not bypass it.
@@ -431,7 +460,7 @@ pub fn install() {
         sequences.len()
     ));
     let _ = SEQUENCES.set(Mutex::new(sequences));
-    if !config.controls.enabled {
+    if !config.controls.enabled && !cfg!(feature = "diagnostic-logging") {
         log!("disabled in config; no hooks installed");
         return;
     }

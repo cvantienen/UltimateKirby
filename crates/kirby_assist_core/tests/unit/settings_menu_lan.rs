@@ -68,6 +68,45 @@ fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
     }
 }
 
+#[test]
+fn telemetry_switch_is_training_only_and_does_not_edit_saved_tuning() {
+    let presets = MenuPresets::EMPTY;
+    let mut m = MenuSelection::new(&presets);
+    m.begin_match();
+    m.input(0, &presets);
+    m.input(MAPPER_MINUS, &presets);
+    m.input(0, &presets);
+    m.set_training_category(4);
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        m.change_tuning_group(false);
+        m.tuning_row = crate::fighter_tuning::COUNT + 1;
+        let tuning = m.tuning;
+        assert!(m.recipe_panel(&presets).body.iter().any(|s| s.contains("Live telemetry UDP: OFF")));
+        m.input(MAPPER_A, &presets);
+        assert!(m.telemetry_toggle_requested && !m.lan_toggle_requested);
+        m.input(MAPPER_A, &presets);
+        assert!(!m.telemetry_toggle_requested);
+        for button in [MAPPER_X, MAPPER_Y] {
+            m.input(0, &presets);
+            m.input(button, &presets);
+            assert_eq!(m.tuning, tuning);
+            assert!(!m.tuning_save_requested);
+        }
+        m.input(0, &presets);
+        m.input(DPAD_DOWN, &presets);
+        assert_eq!(m.tuning_row, crate::fighter_tuning::COUNT);
+        m.input(0, &presets);
+        m.input(DPAD_DOWN, &presets);
+        assert_eq!(m.tuning_row, crate::fighter_tuning::COUNT + 1);
+        m.input_with_editing(0, &presets, false);
+        m.input_with_editing(MAPPER_A, &presets, false);
+        assert!(!m.telemetry_toggle_requested);
+    }
+    #[cfg(not(feature = "diagnostic-logging"))]
+    assert!(!m.recipe_panel(&presets).body.iter().any(|s| s.contains("telemetry")));
+}
+
 #[cfg(feature = "diagnostic-logging")]
 #[test]
 fn remote_editing_requires_open_clean_training_menu() {

@@ -13,6 +13,7 @@ use std::{
 const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/lan_editor.txt";
 const LEASE: Duration = Duration::from_millis(100);
 static ENABLED: AtomicBool = AtomicBool::new(false);
+static STATUS: Mutex<Option<String>> = Mutex::new(None);
 static RELOAD: AtomicBool = AtomicBool::new(false);
 static OBSERVATION: Mutex<Option<(Instant, bool)>> = Mutex::new(None);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
@@ -38,6 +39,20 @@ pub(crate) fn enabled() -> bool {
     ENABLED.load(Ordering::Acquire)
 }
 
+pub(crate) fn status() -> Option<String> {
+    STATUS.try_lock().ok().and_then(|status| status.clone())
+}
+
+fn set_status(message: impl Into<String>) {
+    *STATUS.lock().unwrap_or_else(|e| e.into_inner()) = Some(message.into());
+}
+
+fn listener_ready() {
+    if enabled() && fresh(false) {
+        set_status("LISTENING — connect from Workbench Training LAN");
+    }
+}
+
 pub(crate) fn request_reload() {
     RELOAD.store(true, Ordering::Release);
 }
@@ -57,8 +72,17 @@ fn fresh(editing: bool) -> bool {
 }
 
 pub(crate) fn toggle() -> Result<(), String> {
+    let result = toggle_inner();
+    if let Err(error) = &result {
+        set_status(error.clone());
+    }
+    result
+}
+
+fn toggle_inner() -> Result<(), String> {
     if enabled() {
         revoke();
+        set_status("Disabled explicitly");
         crate::logging::write("LAN: disabled explicitly");
         return Ok(());
     }
@@ -72,6 +96,7 @@ pub(crate) fn toggle() -> Result<(), String> {
     if let Some(handle) = worker.take() {
         let _ = handle.join();
     }
+    set_status("STARTING — reading lan_editor.txt and opening network listener");
     ENABLED.store(true, Ordering::Release);
     match std::thread::Builder::new()
         .name("kirby-diagnostic-http".into())
@@ -84,7 +109,9 @@ pub(crate) fn toggle() -> Result<(), String> {
         }
         Err(error) => {
             revoke();
-            Err(format!("Cannot start LAN worker: {error}"))
+            let message = format!("Cannot start LAN worker: {error}");
+            set_status(message.clone());
+            Err(message)
         }
     }
 }
@@ -153,28 +180,50 @@ fn private_ip(text: &str) -> Result<Ipv4Addr, String> {
 }
 
 fn run() {
-    let result = serve();
+    finish(serve());
+}
+
+fn finish(result: Result<(), String>) {
+    let was_enabled = enabled();
     revoke();
     match result {
-        Ok(()) => crate::logging::write("LAN: listener closed; explicit activation required"),
-        Err(error) => crate::logging::write_owned(format!(
-            "LAN: stopped: {error}; explicit activation required"
-        )),
+        Ok(()) => {
+            if was_enabled {
+                set_status("Training observation expired; reopen editor and activate again");
+            }
+            crate::logging::write("LAN: listener closed; explicit activation required");
+        }
+        Err(error) => {
+            set_status(error.clone());
+            crate::logging::write_owned(format!(
+                "LAN: stopped: {error}; explicit activation required"
+            ));
+        }
     }
 }
 
-fn serve() -> Result<(), String> {
+fn load_config(path: &std::path::Path) -> Result<Config, String> {
     use std::io::Read;
     let mut source = String::new();
-    std::fs::File::open(CONFIG_PATH)
-        .map_err(|_| "Cannot read lan_editor.txt; see Workbench setup guide")?
+    std::fs::File::open(path)
+        .map_err(|error| {
+            if error.kind() == io::ErrorKind::NotFound {
+                "Setup required: create /ultimate/kirby_assist/lan_editor.txt on SD (switch_ip, computer_ip, port, token)".to_owned()
+            } else {
+                "Cannot open lan_editor.txt on SD; check file access".to_owned()
+            }
+        })?
         .take(2049)
         .read_to_string(&mut source)
-        .map_err(|_| "Invalid LAN setup file")?;
+        .map_err(|_| "Cannot read LAN setup as UTF-8")?;
     if source.len() > 2048 {
         return Err("LAN setup exceeds 2048 bytes".into());
     }
-    let config = Config::parse(&source)?;
+    Config::parse(&source)
+}
+
+fn serve() -> Result<(), String> {
+    let config = load_config(std::path::Path::new(CONFIG_PATH))?;
     if !enabled() || !fresh(true) {
         return Ok(());
     }
@@ -183,6 +232,7 @@ fn serve() -> Result<(), String> {
     let listener = TcpListener::bind(config.local)
         .map_err(|e| format!("Cannot bind configured Switch address: {e}"))?;
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
+    listener_ready();
     crate::logging::write_owned(format!(
         "LAN: listening on {}; paired inbound HTTP only; no route-isolation claim",
         config.local
@@ -328,6 +378,53 @@ fn respond(
 mod tests {
     use super::*;
     static TEST_GATE: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn missing_setup_failure_stays_visible_without_starting_network() {
+        let _serial = TEST_GATE.lock().unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "kirby-lan-setup-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let error = load_config(&directory.join("lan_editor.txt"))
+            .err()
+            .unwrap();
+        observe(true, true);
+        ENABLED.store(true, Ordering::Release);
+        set_status("STARTING");
+        finish(Err(error));
+        assert!(!enabled());
+        assert!(status().unwrap().contains("Setup required"));
+        assert!(status().unwrap().contains("lan_editor.txt"));
+        observe(true, true);
+        assert!(status().unwrap().contains("Setup required"));
+    }
+
+    #[test]
+    fn listener_status_changes_only_after_binding_and_failures_hide_secrets() {
+        let _serial = TEST_GATE.lock().unwrap();
+        observe(true, true);
+        ENABLED.store(true, Ordering::Release);
+        set_status("STARTING");
+        listener_ready();
+        assert!(status().unwrap().contains("LISTENING"));
+        let secret = "SECRET_VALUE_MUST_NEVER_APPEAR_IN_ERRORS";
+        let source =
+            format!("switch_ip=192.168.1.10\ncomputer_ip=192.168.1.20\nport=bad\ntoken={secret}\n");
+        finish(Err(Config::parse(&source).err().unwrap()));
+        assert!(!enabled());
+        assert!(status().unwrap().contains("port"));
+        assert!(!status().unwrap().contains(secret));
+        observe(true, true);
+        ENABLED.store(true, Ordering::Release);
+        *OBSERVATION.lock().unwrap() = Some((Instant::now() - LEASE, true));
+        finish(Ok(()));
+        assert!(status().unwrap().contains("observation expired"));
+    }
 
     #[test]
     fn activation_never_survives_training_exit_or_expired_observation() {

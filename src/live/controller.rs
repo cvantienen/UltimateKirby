@@ -207,6 +207,90 @@ impl ControllerRestore {
     }
 }
 
+#[cfg(feature = "diagnostic-logging")]
+pub(super) unsafe fn telemetry_input(
+    controller: *const Controller,
+    object_id: u32,
+    kind: i32,
+) -> kirby_assist_core::telemetry::Sample {
+    let physical = trace(controller);
+    let mut sample = kirby_assist_core::telemetry::Sample {
+        object_id,
+        category: 0,
+        kind,
+        group: 9,
+        ..Default::default()
+    };
+    for (i, value) in [
+        physical.held,
+        physical.previous,
+        physical.pressed,
+        physical.released,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sample.values[i] = Some(u64::from(value));
+    }
+    for (i, value) in [
+        (*controller).left_stick_x,
+        (*controller).left_stick_y,
+        (*controller).right_stick_x,
+        (*controller).right_stick_y,
+        (*controller).left_trigger,
+        (*controller).right_trigger,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sample.values[4 + i] = value.is_finite().then_some(u64::from(value.to_bits()));
+    }
+    sample.values[10] = Some(u64::from((*controller).autorepeat[0]));
+    sample
+}
+#[cfg(feature = "diagnostic-logging")]
+pub(super) fn telemetry_mapped(
+    sample: &mut kirby_assist_core::telemetry::Sample,
+    mapped: &MappedInputs,
+) {
+    sample.values[11] = Some(u64::from(mapped.buttons));
+    for (i, value) in [mapped.left_x, mapped.left_y, mapped.right_x, mapped.right_y]
+        .into_iter()
+        .enumerate()
+    {
+        sample.values[12 + i] = Some(value as i64 as u64);
+    }
+}
+#[cfg(feature = "diagnostic-logging")]
+pub(super) unsafe fn consume_diagnostic_menu(
+    controller: *mut Controller,
+    consumed: u32,
+) -> Option<ControllerRestore> {
+    if consumed == 0 {
+        return None;
+    }
+    let physical = trace(controller);
+    let saved = ControllerRestore {
+        controller,
+        physical,
+        stick: [(*controller).left_stick_x, (*controller).left_stick_y],
+        right_stick: [(*controller).right_stick_x, (*controller).right_stick_y],
+        autorepeat: (*controller).autorepeat[0],
+        triggers: [(*controller).left_trigger, (*controller).right_trigger],
+    };
+    write_trace(
+        controller,
+        ButtonTrace {
+            held: physical.held & !consumed,
+            previous: physical.previous & !consumed,
+            pressed: physical.pressed & !consumed,
+            released: physical.released & !consumed,
+        },
+    );
+    (*controller).autorepeat[0] &= !consumed;
+    Some(saved)
+}
+
 /// Pinned MappedInputs result (common/input.rs). The post-map filter clears
 /// reserved taunts which may otherwise survive native repeat/history handling.
 #[repr(C)]

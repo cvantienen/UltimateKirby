@@ -82,6 +82,15 @@ target results; the other Switch is still attempted.
 
 ## Training LAN editor and live Diagnostic logs
 
+**ON immediately returns to OFF:** first create the SD pairing file below.
+Without it the listener deliberately stops; it cannot accept unpaired edits or
+logs. The Training row now retains startup errors (missing/invalid setup, bind
+failure, or expired Training observation) so troubleshooting does not depend on
+connecting to a server that failed to start. Correct setup and activate again;
+there is no automatic retry. A bind error usually means `switch_ip` is not the
+Switch's current address or the chosen HTTP port is already in use. Workbench
+connection failures can also mean a wrong computer IP/token or LAN isolation.
+
 Manual setup only; Workbench does not deploy configuration, discover devices or
 activate the native listener. Use an isolated trusted LAN and router/firewall rules.
 Private numeric addressing is not proof of a local route or internet isolation;
@@ -107,10 +116,21 @@ native networking bindings or shared-service finalization are introduced.
    `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'`.
    Native tokens require 32–128 ASCII letters/digits/`-`/`_`. Protect the SD
    configuration and never share the token in screenshots or logs.
-2. Start the Diagnostic build, enter Training, open the Training fighter tuning
-   panel and explicitly enable its LAN editor row. Finish/discard local unsaved
-   recipe/tuning drafts first; they cannot overlap a remote write. Silent has no
-   diagnostic listener. Leaving Training revokes permission.
+   On a mounted SD card the file is `/ultimate/kirby_assist/lan_editor.txt`;
+   `sd:/` is the game's path prefix, not an SD directory named `sd:`. Use plain
+   UTF-8 text and ensure the filename is not accidentally `lan_editor.txt.txt`.
+   Find the Switch IPv4 in System Settings → Internet → Connection Status.
+   On macOS find the computer IPv4 in System Settings → Network → your active
+   Wi-Fi/Ethernet connection → Details → TCP/IP. Both devices must use the same
+   trusted LAN; guest Wi-Fi/client isolation can prevent their communication.
+   These are examples: replace both addresses with your actual addresses.
+2. Start the Diagnostic build, enter Training, press Minus to open the editor,
+   select **FIGHTER**, and enable **LAN editor HTTP** with A or Left/Right.
+   Keep the editor open for saving. **STARTING** means setup/network initialization
+   is in progress; **LISTENING** means you can connect from Workbench. If it
+   returns to OFF, the row retains the failure reason. Finish/discard local
+   unsaved recipe/tuning drafts first; they cannot overlap a remote write.
+   Silent has no diagnostic listener. Leaving Training revokes permission.
 3. Open **Training LAN**, enter the **Switch** address, HTTP port and shared
    secret; press **Connect explicitly**. Workbench saves only host/port. The
    secret stays in process memory and is cleared on disconnect; it never enters

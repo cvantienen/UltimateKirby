@@ -153,6 +153,61 @@ pub(super) unsafe fn admit_mapper_callback(
         session_ticket,
     })
 }
+#[cfg(feature = "diagnostic-logging")]
+pub(super) unsafe fn capture_telemetry_input(wrapper: *mut c_void, index: i32) -> Option<kirby_assist_core::telemetry::Sample> {
+    if !crate::diagnostics::telemetry::ready() { return None; }
+    let config = CONFIG.get().map(Box::as_ref)?;
+    let controller = selected_controller(wrapper, index, config.player_index)?;
+    if (*controller).connected == 0 || !game::is_training_mode() { return None; }
+    let id = super::fighter_ids()?.into_iter().flatten().find(|id| {
+        let object = game::module_accessor(*id);
+        !object.is_null() && game::battle_object_id(object) == *id
+            && controller_index(object.cast()) == Some(index) && human_fighter(object)
+    })?;
+    Some(super::controller::telemetry_input(controller, id, game::fighter_kind(id)))
+}
+#[cfg(feature = "diagnostic-logging")]
+pub(super) unsafe fn publish_telemetry_input(sample: Option<kirby_assist_core::telemetry::Sample>, output: *mut c_void) {
+    let Some(mut sample) = sample else { return; };
+    if output.is_null() || !game::is_training_mode() || !game::is_active(sample.object_id) { return; }
+    super::controller::telemetry_mapped(&mut sample, &*output.cast::<MappedInputs>());
+    crate::diagnostics::telemetry::publish(sample);
+}
+
+/// Diagnostic menu-only path. It consumes menu input but never evaluates assistance.
+#[cfg(feature = "diagnostic-logging")]
+pub(super) unsafe fn prepare_telemetry_menu(wrapper: *mut c_void, index: i32) -> Option<ControllerRestore> {
+    let config = CONFIG.get().map(Box::as_ref)?;
+    let controller = selected_controller(wrapper, index, config.player_index)?;
+    let training = game::is_training_mode();
+    crate::diagnostics::telemetry::observe(training && (*controller).connected != 0);
+    if !training || (*controller).connected == 0 { return None; }
+    let ids = super::fighter_ids()?;
+    let id = ids.into_iter().flatten().find(|id| {
+        let object = game::module_accessor(*id);
+        !object.is_null() && game::battle_object_id(object) == *id
+            && controller_index(object.cast()) == Some(index) && human_fighter(object)
+    })?;
+    let kind = game::fighter_kind(id);
+    settings_menu::observe_local_fighter(Instant::now());
+    let physical = trace(controller);
+    let consumed = {
+        let mut state = STATE.try_lock().ok()?;
+        let menu = state.settings_menu.get_or_insert_with(settings_menu::SettingsMenu::default);
+        menu.input(settings_menu::MenuInput {
+            available: true, gameplay: false, bindings_blocked: true, safety_jump: false,
+            fighter_kind: Some(kind), buttons: config.control_layout.policy_buttons(physical.held),
+            physical: physical.held, layout: config.control_layout, base: config.assist,
+            mash_default: config.controls.auto_mash, grab_default: config.auto_spot_dodge,
+            tech_default: config.controls.auto_tech, damage_defaults: [config.auto_di.enabled, config.auto_sdi],
+            training: true,
+        });
+        menu.display_battle(true);
+        config.control_layout.physical_buttons(menu.consumed & !menu.builtin_consumed)
+    };
+    super::controller::consume_diagnostic_menu(controller, consumed)
+}
+
 /// Enters the training passthrough mode for the admitted controller, returning `true` when the callback should stay a passthrough.
 /// Passes the copied physical input and configured layout to training handoff policy.
 /// # Safety

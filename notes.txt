@@ -1,12 +1,7 @@
 issues
 
-i want to create another feature that incorperate communicating betweeen switch in ntraining room and computer. 
-
-create feature that when in training room i can slect this mode to be on and i can get live data and stats from the running instance of smash ultimate itsled so im able to view and see all smash game internal stats and data the game has availible to view. Figure out way to also hae it so it when connected to the game in the diagnostic version it returns all of the availible game states that are availble in game. so essentailly a way to have the live game running and the mod can see all of the current in gsme live states the game hads avalible to veiw threw the game. it should cover essentially all the live variables we have acces to live in game in the code when running and playing we are able to see and view and use in out code. it will esenntailly be a live potral into the game the we can use and veiw information from live when running, possibly send stuff in future. but for know just start creatikng this and have it as way for us to see and view in game mlive variables nd values in game currently when running and acivated. Ensure all of this is opnlyl for thie idagnostic build and it only returns, and views the variables and conditions we consider safe, like doesnt alter game hitboxes or physics. 
-
 
 auto spacing prompt
-i want to also impleneted the autoshiled mode that is active for ledge trap mode. so it handles shielding incoming attacks and relasing shiled just like ledge trap modes. they should use the exact same implementatison/code to shiled. also ensure this mod is saftly handing all types of incoming hitxoes and attacks possible states etc so no types of conditions or attacks are missed. 
-
+i want to also impleneted the autoshiled mode that is active for ledge trap mode. so it handles shielding incoming attacks and relasing shiled just like ledge trap modes. they should use the exact same implementatison/code to shiled. also ensure this mod is saftly handing all types of incoming hitxoes and attacks possible states etc so no types of conditions or attacks are missed.  then also i eant the auto spot dodge incoming grabs feature active when this mode is on as well. ensure these all work and are conflict free and no issues wwith those modes configured togeather are an issue and works oiptimally. you can run as many testst and stuff you want to full ensure and validate working correctly. 
 
 

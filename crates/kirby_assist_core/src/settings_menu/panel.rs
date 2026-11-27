@@ -100,13 +100,15 @@ impl MenuSelection {
                     "FIGHTER SETTINGS / {} / Training only",
                     Self::TUNING_GROUPS[self.tuning_group]
                 ),
-                if row == fighter_tuning::COUNT {
+                if row == fighter_tuning::COUNT + 1 {
+                    "Read-only live telemetry | Left/Right or A: toggle".into()
+                } else if row == fighter_tuning::COUNT {
                     "Left/Right or A: toggle LAN editor HTTP service".into()
                 } else {
                     fighter_tuning::HINTS[row].into()
                 },
             ],
-            body: (0..fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
+            body: (0..fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging")))
                 .filter(|i| self.tuning_group_visible(*i))
                 .map(|i| self.tuning_line(i, i == row))
                 .collect(),
@@ -127,6 +129,15 @@ impl MenuSelection {
     }
     /// One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
+        #[cfg(feature = "diagnostic-logging")]
+        if i == fighter_tuning::COUNT + 1 {
+            return format!(
+                "{} Live telemetry UDP: {} | read-only{}",
+                if selected { ">" } else { " " },
+                if self.telemetry_enabled { "STREAMING" } else { "OFF" },
+                self.telemetry_status.as_ref().map_or(String::new(), |s| format!(" | {s}"))
+            );
+        }
         #[cfg(feature = "diagnostic-logging")]
         if i == fighter_tuning::COUNT {
             return format!(

@@ -473,6 +473,12 @@ pub struct MenuSelection {
     #[cfg(feature = "diagnostic-logging")]
     pub lan_status: Option<String>,
     #[cfg(feature = "diagnostic-logging")]
+    pub telemetry_toggle_requested: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    pub telemetry_enabled: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    pub telemetry_status: Option<String>,
+    #[cfg(feature = "diagnostic-logging")]
     pub saved_tuning: crate::fighter_tuning::Tuning,
     /// Training category tabs have focus instead of the selected page.
     pub training_tab_focus: bool,
@@ -938,8 +944,9 @@ impl MenuSelection {
     }
     /// Checks whether the tuning section is visible.
     fn tuning_visible(&self, i: usize) -> bool {
-        if i == crate::fighter_tuning::COUNT {
-            return cfg!(feature = "diagnostic-logging") && !self.lightweight;
+        if i >= crate::fighter_tuning::COUNT {
+            return i < crate::fighter_tuning::COUNT + 2
+                && cfg!(feature = "diagnostic-logging") && !self.lightweight;
         }
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
             && i != crate::fighter_tuning::AUTO_GRAB_FAR
@@ -984,7 +991,7 @@ impl MenuSelection {
     fn change_tuning_group(&mut self, forward: bool) {
         for _ in 0..Self::TUNING_GROUPS.len() {
             self.tuning_group = cycle(self.tuning_group, Self::TUNING_GROUPS.len(), forward);
-            if (0..=crate::fighter_tuning::COUNT).any(|i| self.tuning_group_visible(i)) {
+            if (0..crate::fighter_tuning::COUNT + 2).any(|i| self.tuning_group_visible(i)) {
                 break;
             }
         }
@@ -995,9 +1002,9 @@ impl MenuSelection {
 
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     fn tuning_visible_index(&self, row: usize) -> usize {
-        (row..crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging")))
+        (row..crate::fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging")))
             .find(|i| self.tuning_group_visible(*i))
-            .or_else(|| (0..=crate::fighter_tuning::COUNT).find(|i| self.tuning_group_visible(*i)))
+            .or_else(|| (0..crate::fighter_tuning::COUNT + 2).find(|i| self.tuning_group_visible(*i)))
             .unwrap_or(0)
     }
     /// Returns the current recipe-input validation error, if any.

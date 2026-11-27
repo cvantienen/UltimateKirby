@@ -28,6 +28,7 @@ mod diagnostics {
     /// Provides the diagnostic logging backend.
     pub(crate) mod logging;
     pub(crate) mod lan;
+    pub(crate) mod telemetry;
     /// Provides runtime performance measurements and reports.
     pub(crate) mod performance;
 }

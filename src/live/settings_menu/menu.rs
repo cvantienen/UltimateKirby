@@ -363,7 +363,8 @@ unsafe extern "C" fn draw() {
     // callback. Show confirmation only after the chord instead of leaving a
     // label across unrelated menus and single-player screens.
     let status = toast.filter(|_| !super::super::MASTER_IN_MATCH.load(Ordering::Acquire) || active);
-    let menu_requested = battle_active && MENU_VISIBLE.load(Ordering::Acquire) && active;
+    let menu_active = active || cfg!(feature = "diagnostic-logging");
+    let menu_requested = battle_active && MENU_VISIBLE.load(Ordering::Acquire) && menu_active;
     let hud = (battle_active && active && presence_fresh(now) == Some(true))
         .then(|| BATTLE_HUD.current())
         .flatten();

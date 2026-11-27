@@ -13,6 +13,42 @@ struct Wrapper {
     controller: *mut controller::Controller,
 }
 
+#[cfg(feature = "diagnostic-logging")]
+#[test]
+fn diagnostic_menu_consumes_only_reserved_input_and_telemetry_is_read_only() {
+    let mut c: controller::Controller = unsafe { std::mem::zeroed() };
+    c.current_buttons = 0b1111;
+    c.previous_buttons = 0b1011;
+    c.just_down = 0b1100;
+    c.just_release = 0b0011;
+    c.autorepeat = [0b1111, 42, 43];
+    c.left_stick_x = 0.5;
+    c.right_stick_y = f32::NAN;
+    c.left_trigger = 0.25;
+    let before = unsafe { controller::trace(&c) };
+    let mut sample = unsafe { controller::telemetry_input(&c, 7, 2) };
+    assert_eq!(unsafe { controller::trace(&c) }, before);
+    assert_eq!(sample.values[0], Some(15));
+    assert_eq!(sample.values[4], Some(u64::from(0.5f32.to_bits())));
+    assert_eq!(sample.values[7], None);
+    let saved = unsafe { controller::consume_diagnostic_menu(&mut c, 0b0101) }.unwrap();
+    assert_eq!(c.current_buttons, 0b1010);
+    assert_eq!(c.just_down, 0b1000);
+    assert_eq!(c.autorepeat, [0b1010, 42, 43]);
+    assert_eq!(c.left_stick_x, 0.5);
+    assert_eq!(c.left_trigger, 0.25);
+    controller::telemetry_mapped(&mut sample, &controller::MappedInputs {
+        buttons: 0x1234, left_x: -127, left_y: 42, right_x: 0, right_y: 127,
+    });
+    assert_eq!(sample.values[11], Some(0x1234));
+    assert_eq!(sample.values[12], Some(-127i64 as u64));
+    assert_eq!(sample.values[0], Some(15));
+    unsafe { saved.restore(); }
+    assert_eq!(unsafe { controller::trace(&c) }, before);
+    assert_eq!(c.autorepeat, [15, 42, 43]);
+    assert!(c.right_stick_y.is_nan());
+}
+
 #[test]
 fn reads_the_controller_pointer_without_modifying_the_wrapper() {
     let mut sentinel = 0u8;

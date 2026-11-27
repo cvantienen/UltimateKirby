@@ -58,6 +58,7 @@ impl MenuSelection {
         #[cfg(feature = "diagnostic-logging")]
         {
             self.lan_toggle_requested = false;
+            self.telemetry_toggle_requested = false;
         }
         if self.rule_binding_stamp != Some(self.recipe_revision) {
             self.refresh_rule_bindings(presets, buttons);
@@ -364,11 +365,15 @@ impl MenuSelection {
             .hold
             .step(if s.pad.count_ones() == 1 { s.pad } else { 0 });
         #[cfg(feature = "diagnostic-logging")]
-        if self.tuning_row == crate::fighter_tuning::COUNT
+        if self.tuning_row >= crate::fighter_tuning::COUNT
             && !s.toggled
             && (s.pressed & MAPPER_A != 0 || s.pad_pressed() && s.pad & DPAD_SIDES != 0)
         {
-            self.lan_toggle_requested = true;
+            if self.tuning_row == crate::fighter_tuning::COUNT {
+                self.lan_toggle_requested = true;
+            } else {
+                self.telemetry_toggle_requested = true;
+            }
             self.pad_quarantine |= s.buttons & EDITOR_OWNED_BUTTONS;
             self.changed();
             return Some(s.consume(MAPPER_L | EDITOR_OWNED_BUTTONS));
@@ -392,8 +397,8 @@ impl MenuSelection {
                 self.adjust_tuning(s.pad == DPAD_RIGHT);
             }
             self.changed();
-        } else if self.tuning_row == crate::fighter_tuning::COUNT {
-            // The LAN switch is session-only, never a tuning save/reset.
+        } else if self.tuning_row >= crate::fighter_tuning::COUNT {
+            // Transport switches are session-only, never a tuning save/reset.
         } else if s.pressed & MAPPER_X != 0 {
             self.tuning.0[self.tuning_row] = None;
             self.recipes_edited("Default restored — Y: Save");
@@ -412,7 +417,7 @@ impl MenuSelection {
     fn next_tuning_row(&self, forward: bool) -> usize {
         let mut row = self.tuning_row;
         let count =
-            crate::fighter_tuning::COUNT + usize::from(cfg!(feature = "diagnostic-logging"));
+            crate::fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging"));
         for _ in 0..count {
             row = cycle(row, count, forward);
             if self.tuning_group_visible(row) {

@@ -663,6 +663,7 @@ impl SettingsMenu {
         #[cfg(all(feature = "diagnostic-logging", not(test)))]
         if !active {
             crate::diagnostics::lan::revoke();
+            crate::diagnostics::telemetry::revoke();
         }
         #[cfg(feature = "imgui-menu")]
         menu::set_battle_active(active);
@@ -702,6 +703,8 @@ impl SettingsMenu {
                 && self.selections.get(&kind.unwrap_or(-1))
                     .is_some_and(|s| s.lan_editing_allowed()),
         );
+        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        crate::diagnostics::telemetry::observe(available && training);
         let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
             #[cfg(feature = "imgui-menu")]
@@ -788,8 +791,21 @@ impl SettingsMenu {
                 bump_content(selection);
             }
             let enabled = crate::diagnostics::lan::enabled();
-            if selection.lan_enabled != enabled {
+            let status = crate::diagnostics::lan::status().or_else(|| selection.lan_status.clone());
+            if selection.lan_enabled != enabled || selection.lan_status != status {
                 selection.lan_enabled = enabled;
+                selection.lan_status = status;
+                bump_content(selection);
+            }
+            if std::mem::take(&mut selection.telemetry_toggle_requested) {
+                selection.telemetry_status = crate::diagnostics::telemetry::toggle().err();
+                bump_content(selection);
+            }
+            let enabled = crate::diagnostics::telemetry::ready();
+            let status = crate::diagnostics::telemetry::status().or_else(|| selection.telemetry_status.clone());
+            if selection.telemetry_enabled != enabled || selection.telemetry_status != status {
+                selection.telemetry_enabled = enabled;
+                selection.telemetry_status = status;
                 bump_content(selection);
             }
         }

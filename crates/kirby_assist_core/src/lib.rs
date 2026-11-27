@@ -21,6 +21,8 @@ pub mod config;
 pub mod diagnostics;
 #[cfg(feature = "diagnostic-logging")]
 pub mod diagnostic_http;
+#[cfg(feature = "diagnostic-logging")]
+pub mod telemetry;
 /// Fighter reference facts, profiles, native state tables and fighter-specific policies.
 pub mod fighters {
     pub mod auto_counter;
