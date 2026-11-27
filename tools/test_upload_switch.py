@@ -115,6 +115,22 @@ class UploadTests(unittest.TestCase):
         redirect.__enter__()
         self.addCleanup(redirect.__exit__, None, None, None)
 
+    def test_release_only_preserves_active_and_staged_sequences_without_local_source(self):
+        self.deployment_sequences.unlink()
+        fake = FakeFTP()
+        active, staged = '/' + str(builder.ACTIVE_SEQUENCES), '/' + str(builder.SEQUENCES)
+        fake.files[active] = b'current device recipes'
+        fake.files[staged] = b'current staged recipes'
+        with patch.object(builder.ftplib, 'FTP', return_value=fake), \
+             patch.object(builder, 'assemble') as assemble:
+            builder.upload_files(self.source, '192.0.2.10', preserve_sequences=True)
+        assemble.assert_not_called()
+        self.assertEqual(fake.files[active], b'current device recipes')
+        self.assertEqual(fake.files[staged], b'current staged recipes')
+        self.assertTrue(fake.stores)
+        self.assertFalse(any(path in (active, staged) for _, path in fake.events))
+        self.assertEqual(fake.stores[-1], '/' + str(builder.PLUGIN))
+
     def test_invalid_current_sequences_block_full_upload_before_ftp(self):
         self.deployment_sequences.write_bytes(
             b"[yoshi.roll.grab]\nactions = short_hop_nair:4,\n")

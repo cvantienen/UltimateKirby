@@ -6,27 +6,59 @@ From the project directory, run:
 python3 tools/workbench.py
 ```
 
-This opens a small dark-themed browser GUI served only on your computer, using
-Python's standard library. Keep the terminal open; **Close** stops the launcher.
-No build or FTP connection happens merely by opening it. All original helper
-commands still work independently. Training LAN connects only on explicit request to the separately activated Diagnostic server.
+This opens a responsive dashboard served only on your computer, using Python's
+standard library. Keep the terminal open; **Close** stops the launcher and its
+managed telemetry receiver. No build/upload or FTP connection happens merely by
+opening it; starting telemetry may compile its **host** viewer with the existing
+offline Cargo cache. All original helper commands still work independently.
+Training LAN connects only on explicit request to the separately activated
+Diagnostic server. Starting the computer receiver never activates the Switch stream.
 
-Seven tabs cover the whole workflow, and the window reopens on the tab you used
-last:
+Eight pages are available in the left sidebar (a compact navigation grid on narrow
+screens), and the window reopens on the page you used last:
 
-| Tab | Use it to |
+| Page | Use it to |
 | --- | --- |
-| **Ship** | Set the version and build/upload to either or both Switches |
-| **Edit fighter** | Change one fighter's sections with a diff preview |
-| **Training LAN** | Explicit Diagnostic connection, complete-file editor and bounded live logs |
-| **Break down** | Split a combined `sequences.txt` into `fighters/*.txt` |
-| **Transfer** | Copy a whole file or one fighter between computer and Switches |
-| **History** | Review shipped versions, past runs and their logs |
-| **Helpers** | Run the original scripts with their own arguments |
+| **Build & upload** | Set the version and build/upload to either or both Switches |
+| **Fighter editor** | Change one fighter's sections with a diff preview |
+| **Training telemetry** | Inspect read-only observations, filters, charts and field references |
+| **Training LAN editor** | Explicit Diagnostic connection, complete-file editor and bounded live logs |
+| **Split source files** | Split a combined `sequences.txt` into `fighters/*.txt` |
+| **Transfer sequences** | Copy a whole file or one fighter between computer and Switches |
+| **Deployment history** | Review shipped versions, past runs and their logs |
+| **Advanced helpers** | Run the original scripts with their own arguments |
 
-The header shows the current `Cargo.toml` version, the **Ship** tab shows the
-last verified upload for each Switch, and the output console stays visible at
-the bottom of every tab.
+The header shows the current `Cargo.toml` version. **Build & upload** shows the
+last verified upload for each Switch. The output console appears below operation
+pages; **Training telemetry** uses that space for its embedded dashboard.
+
+## Read-only Training telemetry dashboard
+
+The GUI automatically starts the local Rust telemetry viewer with offline Cargo;
+no pairing file or manual key is required. **Training telemetry** reports starting,
+ready or failed receiver status and offers explicit stop/start controls. First
+startup may compile the host example; missing offline dependencies are reported,
+not automatically downloaded. **Open full dashboard** opens the standalone view.
+Closing Workbench stops the receiver it owns; it does not toggle the Switch mode.
+
+Enter the Diagnostic Switch's current private IPv4 and telemetry UDP port (4243)
+in the dashboard, then explicitly activate **Live telemetry UDP** in Training.
+No FTP/build-ready checkbox is needed. Traffic is **not authenticated or encrypted
+by default**; use a trusted private LAN. The embedded view uses token-protected
+same-origin workbench routes; the standalone receiver keeps its localhost
+Host/Origin protections. Neither view can send gameplay commands.
+
+Object and publication-group selectors determine which observation is displayed.
+The field search filters names, wire types and source labels, not collection on
+the Switch. Schema reference works without live samples; available-only hides
+missing values. Field references preserve exact raw words and explain sources.
+Numeric and throughput charts retain bounded browser history, not a full packet
+capture. Freeze stops display updates, not reception or freshness clocks; CSV
+exports contain only visible rows. Staleness starts at 250 ms, and records expire
+at one second. Publication timestamps and sequences are not game frames or
+network latency. Sequence gaps and sender drops are separate diagnostics.
+
+See [Training monitor](TRAINING_MONITOR.md) for measurement interpretation.
 
 ## Choose the workflow before pressing a button
 
@@ -77,7 +109,9 @@ snapshot during build/upload preflight, then import it into repository split
 sources and replace active files on the chosen targets. Silent must be reachable
 for that guided synchronization even if only Diagnostic is selected. This differs
 from the direct upload helper's default inactive staging. **History** retains logs and the last verified
-upload for each Switch. A partial upload is reported as a failure with individual
+upload for each Switch. Verified deployment requires an exact completion receipt
+whose count and read-back paths match the planned SHA-256 manifest; a completion
+marker alone is not proof of upload. A partial upload is reported as a failure with individual
 target results; the other Switch is still attempted.
 
 ## Training LAN editor and live Diagnostic logs
@@ -98,7 +132,7 @@ this feature does not control Nintendo services or other mods. The native
 listener uses the installed Switch Rust TCP backend, whose first socket use may
 request OS network access. That initialization runs only on the LAN worker, not
 on controller/render callbacks; it cannot be forcibly cancelled while inside
-the OS. Revocation is rechecked before serving requests. No private/guessed
+the OS. Revocation is rechecked before serving requests. Request admission is also rechecked after complete upload/header reads; an expired Training observation rejects the request before file/log handling. No private/guessed
 native networking bindings or shared-service finalization are introduced.
 
 1. On the Diagnostic Switch SD card, create
@@ -154,7 +188,10 @@ redirect following, discovery, automatic reconnect or persistent log worker.
 GET requests have a two-second total transport deadline; PUT allows ten seconds
 for validation/SD save and acknowledgment. Lost save acknowledgment does not mean
 the disk is unchanged: reconnect and reload before deciding what to do; never
-automatically retry a save. Sequence reads/writes are
+automatically retry a save. A non-admission save failure (including HTTP 500)
+also warns that disk may have changed. Disconnect invalidates pending client/browser
+results so a delayed reply cannot restore a loaded draft or connected session.
+Sequence reads/writes are
 bounded to 512 KiB, status/save replies below 8 KiB, and log replies to 64 KiB / 64
 entries. A transport/protocol error clears the session; only explicit connect
 starts another one. State polling uses a separate lock and is not held during
@@ -318,6 +355,9 @@ bytes after writing. Existing remote destinations also receive a verified
 `.workbench.bak` before replacement. A failed remote replacement attempts to
 restore the original; inspect the reported recovery path if restoration fails.
 A failed first upload to a nonexistent destination can leave a partial file.
+The standalone `sync_sequences.py` helper also caps destination snapshots and
+concurrency rechecks at 512 KiB, and stops read-back verification immediately
+if the remote file exceeds the expected result length.
 
 ## History and recovery
 

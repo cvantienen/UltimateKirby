@@ -84,9 +84,11 @@ struct World {
     actor: Box<Actor>,
     enabled: bool,
     ready: bool,
+    session: u64,
     training: bool,
+    training_reads_left: Option<usize>,
     human: bool,
-    roster: Option<[Option<u32>; 8]>,
+    roster: Option<kirby_assist_core::battle_objects::FightersInGame>,
     reads: usize,
     work_reads: Vec<i32>,
     flag_reads: Vec<i32>,
@@ -104,9 +106,15 @@ impl World {
             actor: Box::new(Actor::new(1)),
             enabled: true,
             ready: true,
+            session: 1,
             training: true,
+            training_reads_left: None,
             human: true,
-            roster: Some([Some(1), None, None, None, None, None, None, None]),
+            roster: Some({
+                let mut ids = [None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY];
+                ids[0] = Some(1);
+                ids
+            }),
             reads: 0,
             work_reads: vec![],
             flag_reads: vec![],
@@ -156,7 +164,7 @@ fn float(s: &Sample, index: usize) -> Option<f32> {
 fn human_fighter(_: *mut game::Object) -> bool {
     with_world(|w| w.human)
 }
-fn fighter_ids() -> Option<[Option<u32>; 8]> {
+fn fighter_ids() -> Option<kirby_assist_core::battle_objects::FightersInGame> {
     with_world(|w| w.roster)
 }
 
@@ -168,6 +176,9 @@ mod diagnostics {
         }
         pub fn ready() -> bool {
             with_world(|w| w.enabled && w.ready)
+        }
+        pub fn session() -> u64 {
+            with_world(|w| w.session)
         }
         pub fn observe(training: bool) {
             if !training {
@@ -197,6 +208,12 @@ mod game {
     pub unsafe fn is_training_mode() -> bool {
         with_world(|w| {
             w.reads += 1;
+            if let Some(left) = w.training_reads_left.as_mut() {
+                if *left == 0 {
+                    return false;
+                }
+                *left -= 1;
+            }
             w.training
         })
     }
@@ -649,7 +666,7 @@ fn remembered_projectiles_sample_geometry_without_fighter_work_and_clear_on_trai
         w.actor.stopped = true;
         w.actor.damage_stopped = true;
         w.actor.attack = true;
-        w.roster = Some([None; 8]);
+        w.roster = Some([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     });
     let object = with_world(|w| w.actor.object());
     unsafe {
@@ -680,6 +697,57 @@ fn remembered_projectiles_sample_geometry_without_fighter_work_and_clear_on_trai
     });
     observe();
     assert!(with_world(|w| w.samples.is_empty()));
+}
+
+#[test]
+fn samples_the_last_validated_partner_roster_slot() {
+    let _serial = SERIAL.lock().unwrap();
+    reset();
+    with_world(|w| {
+        let mut ids = [None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY];
+        ids[ids.len() - 1] = Some(w.actor.id);
+        w.roster = Some(ids);
+    });
+    observe();
+    assert_eq!(base().object_id, 1);
+}
+
+#[test]
+fn training_exit_during_sampling_revokes_before_more_publication() {
+    let _serial = SERIAL.lock().unwrap();
+    for reads in [1, 2] {
+        reset();
+        with_world(|w| w.training_reads_left = Some(reads));
+        observe();
+        assert_eq!(with_world(|w| w.revoked), 1);
+        assert!(with_world(|w| w.samples.is_empty()));
+        assert!(!with_world(|w| w.ready));
+    }
+}
+
+#[test]
+fn new_session_does_not_reuse_remembered_projectiles() {
+    let _serial = SERIAL.lock().unwrap();
+    reset();
+    let id = (kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON << 28) | 7;
+    with_world(|w| {
+        w.actor = Box::new(Actor::new(id));
+        w.actor.attack = true;
+        w.roster = Some([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
+    });
+    let object = with_world(|w| w.actor.object());
+    unsafe { sampler::remember_attack(object) };
+    observe();
+    assert_eq!(base().object_id, id);
+    with_world(|w| {
+        w.samples.clear();
+        w.session += 1;
+    });
+    observe();
+    assert!(with_world(|w| w.samples.is_empty()));
+    unsafe { sampler::remember_attack(object) };
+    observe();
+    assert_eq!(base().object_id, id);
 }
 
 #[test]

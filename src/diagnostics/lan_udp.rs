@@ -1,0 +1,246 @@
+//! Bounded stop-and-wait transport for the same gated editor requests as HTTP.
+use super::{enabled, fresh, network::socket_result, Config};
+use std::{
+    io,
+    net::{SocketAddr, UdpSocket},
+    time::{Duration, Instant},
+};
+
+const CHUNK: usize = 1024;
+const HEADER: usize = 17;
+const MAX_CHUNKS: usize = 520;
+const MAX_REQUEST: usize = kirby_assist_core::diagnostic_http::MAX_BODY_BYTES
+    + kirby_assist_core::diagnostic_http::MAX_HEADER_BYTES;
+const LIFETIME: Duration = Duration::from_secs(12);
+
+struct Packet<'a> {
+    kind: u8,
+    id: u64,
+    index: usize,
+    total: usize,
+    payload: &'a [u8],
+}
+impl<'a> Packet<'a> {
+    fn parse(bytes: &'a [u8]) -> Option<Self> {
+        if bytes.len() < HEADER || bytes.len() > HEADER + CHUNK || &bytes[..4] != b"KALE" {
+            return None;
+        }
+        let packet = Self {
+            kind: bytes[4],
+            id: u64::from_be_bytes(bytes[5..13].try_into().ok()?),
+            index: u16::from_be_bytes(bytes[13..15].try_into().ok()?) as usize,
+            total: u16::from_be_bytes(bytes[15..17].try_into().ok()?) as usize,
+            payload: &bytes[HEADER..],
+        };
+        (packet.id != 0).then_some(packet)
+    }
+}
+
+struct Transfer {
+    peer: SocketAddr,
+    id: u64,
+    total: usize,
+    received: usize,
+    request: Vec<u8>,
+    response: Option<Vec<u8>>,
+    started: Instant,
+}
+impl Transfer {
+    fn matches(&self, peer: SocketAddr, packet: &Packet<'_>) -> bool {
+        self.peer == peer && self.id == packet.id
+    }
+
+    fn upload(&mut self, packet: &Packet<'_>) -> bool {
+        if packet.total != self.total
+            || packet.index >= self.total
+            || packet.payload.is_empty()
+            || (packet.index + 1 < packet.total && packet.payload.len() != CHUNK)
+        {
+            return false;
+        }
+        if packet.index < self.received {
+            let start = packet.index * CHUNK;
+            return self.request.get(start..start + packet.payload.len()) == Some(packet.payload);
+        }
+        if packet.index != self.received || self.request.len() + packet.payload.len() > MAX_REQUEST
+        {
+            return false;
+        }
+        self.request.extend_from_slice(packet.payload);
+        self.received += 1;
+        true
+    }
+}
+
+fn send(
+    socket: &UdpSocket,
+    peer: SocketAddr,
+    kind: u8,
+    id: u64,
+    index: usize,
+    total: usize,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut bytes = [0u8; HEADER + CHUNK];
+    bytes[..4].copy_from_slice(b"KALE");
+    bytes[4] = kind;
+    bytes[5..13].copy_from_slice(&id.to_be_bytes());
+    bytes[13..15].copy_from_slice(&(index as u16).to_be_bytes());
+    bytes[15..17].copy_from_slice(&(total as u16).to_be_bytes());
+    bytes[HEADER..HEADER + payload.len()].copy_from_slice(payload);
+    socket_result(socket.send_to(&bytes[..HEADER + payload.len()], peer)).map(|_| ())
+}
+
+fn execute(request: &[u8], config: &Config) -> Vec<u8> {
+    let started = Instant::now();
+    let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
+    let mut input = io::Cursor::new(request);
+    let parsed = kirby_assist_core::diagnostic_http::read_request(&mut input, allowed);
+    let mut output = Vec::new();
+    match parsed {
+        Ok(request) if input.position() as usize == input.get_ref().len() => {
+            let _ = super::dispatch(&mut output, config, request, started);
+        }
+        _ => {
+            let _ = super::respond(
+                &mut output,
+                400,
+                b"{\"error\":\"Invalid editor request\"}",
+                None,
+                allowed,
+            );
+        }
+    }
+    output
+}
+
+pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
+    let mut active: Option<Transfer> = None;
+    // Keep completed IDs even after another request starts: delayed uploads must never resave.
+    let mut completed: std::collections::VecDeque<(SocketAddr, u64, Instant)> =
+        std::collections::VecDeque::new();
+    let mut bytes = [0u8; HEADER + CHUNK + 1];
+    while enabled() && fresh(false) {
+        let now = Instant::now();
+        completed.retain(|(_, _, seen)| now.duration_since(*seen) < LIFETIME);
+        if active
+            .as_ref()
+            .is_some_and(|t| t.started.elapsed() >= LIFETIME)
+        {
+            active = None;
+        }
+        let (length, peer) = match socket_result(socket.recv_from(&mut bytes)) {
+            Ok(value) => value,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(1));
+                continue;
+            }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(format!("UDP editor receive: {error}")),
+        };
+        let SocketAddr::V4(address) = peer else {
+            continue;
+        };
+        if !config.permits(*address.ip()) {
+            continue;
+        }
+        let Some(packet) = Packet::parse(&bytes[..length]) else {
+            continue;
+        };
+        if packet.kind == 1 {
+            if packet.total == 0 || packet.total > MAX_CHUNKS || packet.index >= packet.total {
+                continue;
+            }
+            let matching = active.as_ref().is_some_and(|t| t.matches(peer, &packet));
+            if !matching {
+                if completed
+                    .iter()
+                    .any(|(p, id, _)| *p == peer && *id == packet.id)
+                    || packet.index != 0
+                    || completed.len() >= 256
+                    || active.as_ref().is_some_and(|t| t.response.is_none())
+                {
+                    continue;
+                }
+                active = Some(Transfer {
+                    peer,
+                    id: packet.id,
+                    total: packet.total,
+                    received: 0,
+                    request: Vec::new(),
+                    response: None,
+                    started: Instant::now(),
+                });
+            }
+            let transfer = active.as_mut().unwrap();
+            if !transfer.upload(&packet) {
+                continue;
+            }
+            let _ = send(&socket, peer, 2, packet.id, packet.index, packet.total, &[]);
+            if transfer.received == transfer.total && transfer.response.is_none() {
+                completed.push_back((peer, packet.id, Instant::now()));
+                transfer.response = Some(execute(&transfer.request, config));
+            }
+        } else if packet.kind == 3 && packet.total == 0 && packet.payload.is_empty() {
+            if let Some(transfer) = active.as_ref().filter(|t| t.matches(peer, &packet)) {
+                if let Some(response) = &transfer.response {
+                    let total = response.len().div_ceil(CHUNK);
+                    if packet.index < total {
+                        let start = packet.index * CHUNK;
+                        let end = (start + CHUNK).min(response.len());
+                        let _ = send(
+                            &socket,
+                            peer,
+                            4,
+                            packet.id,
+                            packet.index,
+                            total,
+                            &response[start..end],
+                        );
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn packet(kind: u8, id: u64, index: u16, total: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = b"KALE".to_vec();
+        bytes.push(kind);
+        bytes.extend(id.to_be_bytes());
+        bytes.extend(index.to_be_bytes());
+        bytes.extend(total.to_be_bytes());
+        bytes.extend(payload);
+        bytes
+    }
+
+    #[test]
+    fn upload_rejects_gaps_conflicting_retries_and_oversize() {
+        let mut transfer = Transfer {
+            peer: "127.0.0.1:4242".parse().unwrap(),
+            id: 1,
+            total: 2,
+            received: 0,
+            request: Vec::new(),
+            response: None,
+            started: Instant::now(),
+        };
+        let gap = packet(1, 1, 1, 2, b"end");
+        assert!(!transfer.upload(&Packet::parse(&gap).unwrap()));
+        let first = packet(1, 1, 0, 2, &[b'a'; CHUNK]);
+        assert!(transfer.upload(&Packet::parse(&first).unwrap()));
+        assert!(transfer.upload(&Packet::parse(&first).unwrap()));
+        assert_eq!(transfer.received, 1);
+        let changed = packet(1, 1, 0, 2, &[b'b'; CHUNK]);
+        assert!(!transfer.upload(&Packet::parse(&changed).unwrap()));
+        assert!(transfer.upload(&Packet::parse(&gap).unwrap()));
+        assert_eq!(transfer.request.len(), CHUNK + 3);
+        assert!(Packet::parse(&packet(1, 0, 0, 1, b"x")).is_none());
+        assert!(Packet::parse(&packet(1, 1, 0, 1, &[0; CHUNK + 1])).is_none());
+    }
+}

@@ -1,4 +1,6 @@
-use kirby_assist_core::telemetry::{decode, fields, Config, Sample, ValueKind, FIELD_COUNT};
+use kirby_assist_core::telemetry::{
+    decode, fields, private_peer, Sample, ValueKind, FIELD_COUNT, SUBSCRIPTION, TELEMETRY_PORT,
+};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
@@ -17,6 +19,8 @@ struct Observation {
 struct State {
     objects: HashMap<(u32, u16), Observation>,
     session: Option<u64>,
+    target: Option<(std::net::SocketAddrV4, String)>,
+    generation: u64,
     retired: HashSet<u64>,
     last_sequence: Option<u64>,
     received: Option<Instant>,
@@ -41,6 +45,8 @@ impl State {
         Self {
             objects: HashMap::new(),
             session: None,
+            target: None,
+            generation: 0,
             retired: HashSet::new(),
             last_sequence: None,
             received: None,
@@ -58,6 +64,59 @@ impl State {
             rate_packets: 0,
             bytes_per_second: 0.0,
             packets_per_second: 0.0,
+        }
+    }
+    fn configure(&mut self, route: &str) -> Result<(), &'static str> {
+        let endpoint = route
+            .strip_prefix("/connect?endpoint=")
+            .ok_or("invalid setup")?;
+        let peer: std::net::SocketAddrV4 = endpoint
+            .parse()
+            .map_err(|_| "Enter numeric private Switch IPv4 and port")?;
+        if !private_peer(peer) {
+            return Err("Expected private unicast Switch IPv4 and nonzero port");
+        }
+        let generation = self.generation.wrapping_add(1);
+        *self = Self::new();
+        self.generation = generation;
+        self.target = Some((peer, String::new()));
+        Ok(())
+    }
+    fn renew(
+        &self,
+        udp: &UdpSocket,
+        renewed: &mut Option<Instant>,
+        now: Instant,
+    ) -> io::Result<()> {
+        if let Some((peer, key)) = self.target.as_ref() {
+            if key.is_empty()
+                && renewed.is_none_or(|t| now.duration_since(t) >= Duration::from_secs(1))
+            {
+                match udp.send_to(SUBSCRIPTION, peer) {
+                    Ok(n) if n == SUBSCRIPTION.len() => *renewed = Some(now),
+                    Ok(_) => {}
+                    Err(e)
+                        if matches!(
+                            e.kind(),
+                            io::ErrorKind::WouldBlock | io::ErrorKind::ConnectionRefused
+                        ) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Ok(())
+    }
+    fn receive(&mut self, bytes: &[u8], source: SocketAddr, now: Instant) {
+        let Some((peer, key)) = self.target.as_ref() else {
+            return;
+        };
+        if source != SocketAddr::V4(*peer) {
+            self.wrong_source = self.wrong_source.saturating_add(1);
+            return;
+        }
+        match decode(bytes, key.as_bytes()) {
+            Ok(sample) => self.accept(sample, bytes.len(), now),
+            Err(_) => self.rejected = self.rejected.saturating_add(1),
         }
     }
     fn accept(&mut self, sample: Sample, length: usize, now: Instant) {
@@ -168,10 +227,14 @@ fn schema() -> Value {
 fn valid_headers(request: &str, port: u16) -> Option<&str> {
     let mut lines = request.split("\r\n");
     let mut first = lines.next()?.split(' ');
-    if first.next()? != "GET" {
+    let method = first.next()?;
+    if !matches!(method, "GET" | "POST") {
         return None;
     }
     let route = first.next()?;
+    if (method == "POST") != route.starts_with("/connect?") {
+        return None;
+    }
     if first.next()? != "HTTP/1.1" || first.next().is_some() {
         return None;
     }
@@ -206,7 +269,9 @@ fn valid_headers(request: &str, port: u16) -> Option<&str> {
     if host? != expected {
         return None;
     }
-    if origin.is_some_and(|o| o != format!("http://{expected}")) {
+    if (method == "POST" && origin.is_none())
+        || origin.is_some_and(|o| o != format!("http://{expected}"))
+    {
         return None;
     }
     Some(route)
@@ -249,6 +314,16 @@ fn serve(mut stream: TcpStream, port: u16, state: &Mutex<State>, schema: &[u8]) 
             let snapshot = state.lock().unwrap().snapshot(Instant::now());
             ("200 OK", "application/json", serde_json::to_vec(&snapshot)?)
         }
+        Some(route) if route.starts_with("/connect?") => {
+            match state.lock().unwrap().configure(route) {
+                Ok(()) => (
+                    "200 OK",
+                    "text/plain",
+                    b"Subscribed; enable telemetry in Training on Switch".to_vec(),
+                ),
+                Err(error) => ("400 Bad Request", "text/plain", error.as_bytes().to_vec()),
+            }
+        }
         Some(_) => ("404 Not Found", "text/plain", b"Not found".to_vec()),
         None => ("403 Forbidden", "text/plain", b"Forbidden".to_vec()),
     };
@@ -258,15 +333,14 @@ fn serve(mut stream: TcpStream, port: u16, state: &Mutex<State>, schema: &[u8]) 
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    if !(1..=2).contains(&args.len()) {
-        return Err("usage: telemetry_viewer <config path> [local HTTP port; default 8765]".into());
+    if args.len() > 1 {
+        return Err("usage: telemetry_viewer [local HTTP port; default 8765]".into());
     }
-    let config = Config::parse(&std::fs::read_to_string(&args[0])?)?;
-    let port: u16 = args.get(1).map(|p| p.parse()).transpose()?.unwrap_or(8765);
+    let port: u16 = args.first().map(|p| p.parse()).transpose()?.unwrap_or(8765);
     if port == 0 {
         return Err("HTTP port must be 1..65535".into());
     }
-    let udp = UdpSocket::bind(config.computer)?;
+    let udp = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?;
     udp.set_nonblocking(true)?;
     let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))?;
     listener.set_nonblocking(true)?;
@@ -288,54 +362,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     println!("Read-only telemetry viewer: http://127.0.0.1:{port}/ (waiting for stream)");
-    println!(
-        "Trusted private LAN only: HMAC authenticates packets but does not encrypt telemetry."
-    );
+    println!("Trusted private LAN only: default stream is NOT authenticated or encrypted; explicitly enable Training telemetry on Switch (UDP {TELEMETRY_PORT}).");
     let mut buffer = [0u8; 1201];
+    let mut generation = 0;
+    let mut renewed = None;
     loop {
         if http_worker.is_finished() {
             return Err("local HTTP worker stopped".into());
         }
-        for _ in 0..256 {
-            match udp.recv_from(&mut buffer) {
-                Ok((n, source)) => {
-                    if source != SocketAddr::V4(config.switch) {
-                        state.lock().unwrap().wrong_source += 1;
-                        continue;
-                    }
-                    match decode(&buffer[..n], config.token.as_bytes()) {
-                        Ok(sample) => state.lock().unwrap().accept(sample, n, Instant::now()),
-                        Err(_) => state.lock().unwrap().rejected += 1,
+        {
+            let mut state = state.lock().unwrap();
+            if generation != state.generation {
+                // Discard queued observations before admitting the newly selected endpoint.
+                let mut drained = false;
+                for _ in 0..256 {
+                    match udp.recv_from(&mut buffer) {
+                        Ok(_) => {}
+                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                            drained = true;
+                            break;
+                        }
+                        Err(e) => return Err(e.into()),
                     }
                 }
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
-                Err(e) => return Err(e.into()),
+                if !drained {
+                    drop(state);
+                    thread::sleep(Duration::from_millis(2));
+                    continue;
+                }
+                generation = state.generation;
+                renewed = None;
             }
+            let now = Instant::now();
+            state.renew(&udp, &mut renewed, now)?;
+            for _ in 0..256 {
+                match udp.recv_from(&mut buffer) {
+                    Ok((n, source)) => state.receive(&buffer[..n], source, Instant::now()),
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(e) => return Err(e.into()),
+                }
+            }
+            state.tick(Instant::now());
         }
-        state.lock().unwrap().tick(Instant::now());
         thread::sleep(Duration::from_millis(2));
     }
 }
 
-const HTML: &str = r#"<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Training telemetry</title>
-<style>body{font:14px system-ui;background:#15191d;color:#ddd;margin:24px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:6px;border-bottom:1px solid #444}input,select{padding:8px;margin:5px;background:#222;color:#eee}.changed{background:#594821}.stale{opacity:.45}code{font-family:monospace}pre{white-space:pre-wrap}</style>
-<h1>Read-only Training telemetry</h1><p>Trusted private LAN only: authenticated, not encrypted. No control channel. Missing values are unavailable, not zero. Values become stale after 250ms and expire after 1s.</p>
-<pre id="status">Waiting for stream</pre><label>Object / group <select id="picker"></select></label><label>Search <input id="search" placeholder="Field, type, source"></label><label><input id="browse" type="checkbox">Browse schema</label>
-<p>Coverage: fighter roster max16; observed attacking weapon/items max32; attack slots0..7. Common verified fields, not every engine variable. Inputs distinguish physical pre-mapping from mapped results after the existing finishing overlay.</p>
-<label>Numeric history <select id="graph"></select></label><p>Graph uses approximate numeric display values; exact identifiers remain raw hex below.</p><canvas id="chart" width="760" height="160"></canvas>
-<table><thead><tr><th>Field</th><th>Value</th><th>Exact raw u64</th><th>Kind / source</th></tr></thead><tbody id="rows"></tbody></table>
-<script>
-'use strict';const $=id=>document.getElementById(id);let schemas=null,state=null,previous=new Map(),highlights=new Map(),session=null,renderKey=null,lastFetch=performance.now();
-const key=o=>o.object_id+':'+o.group;const schemasFor=g=>g===0?schemas.object:g===9?schemas.input:schemas.attack;
-let history=[],historyKey=null,historySequence=null;
-function chart(o,stale){const numeric=schemasFor(o?o.group:0).filter(f=>['Float','Signed','Unsigned'].includes(f.kind)&&!f.source.startsWith('unavailable'));const selector=$('graph');const wanted=selector.value;selector.replaceChildren();for(const f of numeric){const option=document.createElement('option');option.value=String(f.index);option.textContent=f.name;selector.append(option)}if(numeric.some(f=>String(f.index)===wanted))selector.value=wanted;const selected=(o?key(o):'none')+':'+selector.value;if(selected!==historyKey){history=[];historySequence=null;historyKey=selected}const value=o?o.values[Number(selector.value)]:null;if(o&&!stale&&o.sequence!==historySequence&&value){const n=Number(value.display);if(Number.isFinite(n)){history.push(n);if(history.length>120)history.shift()}historySequence=o.sequence}const canvas=$('chart'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#ddd';if(!history.length){ctx.fillText('Select a numeric field; waiting for fresh samples',12,20);return}const min=Math.min(...history),max=Math.max(...history),range=max-min||1;ctx.fillText('Last '+history.length+' samples (max120), min '+min+' max '+max+(stale?' — stale':''),12,20);ctx.strokeStyle=stale?'#777':'#6db9ee';ctx.beginPath();history.forEach((n,i)=>{const x=12+i*(canvas.width-24)/119,y=canvas.height-12-(n-min)*(canvas.height-45)/range;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
-
-function render(){if(!state||!schemas)return;const o=state.objects.find(o=>key(o)===$('picker').value);const selected=o?key(o):'schema';if(renderKey!==selected){previous.clear();highlights.clear();renderKey=selected}const elapsed=performance.now()-lastFetch;const stale=!o||o.stale||o.age_ms+elapsed>=250;const list=schemasFor(o?o.group:0);chart(o,stale);$('rows').replaceChildren();const search=$('search').value.toLowerCase();
-for(const f of list){if(![f.name,f.kind,f.source].join(' ').toLowerCase().includes(search))continue;const v=o?o.values[f.index]:null;const raw=v?v.raw:null;if(previous.has(f.index)&&previous.get(f.index)!==raw)highlights.set(f.index,performance.now()+500);previous.set(f.index,raw);const tr=document.createElement('tr');if(stale&&!$('browse').checked)tr.classList.add('stale');if((highlights.get(f.index)||0)>performance.now())tr.classList.add('changed');for(const text of [f.index+' '+f.name,$('browse').checked?'—':v?v.display:'unavailable',$('browse').checked?'—':v?v.raw:'—',f.kind+' / '+f.source]){const td=document.createElement('td');td.textContent=text;tr.append(td)}$('rows').append(tr)}
-$('status').textContent=[elapsed>=250?'stale / receiver unavailable':state.status,'session '+(state.session||'—'),o?'object '+o.object_id+' category '+o.category+' kind '+o.kind+' group '+o.group+' sequence '+o.sequence+' sample_us '+o.sample_us+' age '+Math.round(o.age_ms+elapsed)+'ms':'No current object', 'packets '+state.packets+' bytes '+state.bytes+' gaps '+state.gaps+' reordered '+state.reordered+' rejected '+state.rejected+' wrong-source '+state.wrong_source+' sender-dropped '+state.sender_dropped+' session changes '+state.session_changes, state.packets_per_second.toFixed(1)+' packets/s '+state.bytes_per_second.toFixed(0)+' bytes/s',state.session_history_full?'Session history full: restart viewer to admit another session':''].join('\n')}
-async function poll(){try{if(!schemas)schemas=await(await fetch('/schema',{cache:'no-store'})).json();const response=await fetch('/state',{cache:'no-store',signal:AbortSignal.timeout(500)});if(!response.ok)throw Error('HTTP');const next=await response.json();if(next.session!==session){previous.clear();highlights.clear();history=[];historyKey=null;historySequence=null;session=next.session}state=next;lastFetch=performance.now();const old=$('picker').value;$('picker').replaceChildren();for(const o of state.objects){const option=document.createElement('option');option.value=key(o);option.textContent=o.object_id+' / '+(o.group===0?'object state':o.group===9?'input':'attack slot '+(o.group-1))+(o.stale?' (stale)':'');$('picker').append(option)}if(state.objects.some(o=>key(o)===old))$('picker').value=old;render()}catch(e){render();if(!state)$('status').textContent='Receiver unavailable'}setTimeout(poll,75)}
-$('search').oninput=render;$('picker').onchange=render;$('browse').onchange=render;$('graph').onchange=render;setInterval(render,100);poll();
-</script>"#;
+const HTML: &str = include_str!("telemetry_viewer.html");
 
 #[cfg(test)]
 mod tests {
@@ -352,6 +425,88 @@ mod tests {
             dropped: 0,
             values: [None; FIELD_COUNT],
         }
+    }
+    #[test]
+    fn subscription_renews_and_receives_on_the_same_ephemeral_socket() {
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_millis(50)))
+            .unwrap();
+        let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+        udp.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let SocketAddr::V4(peer) = server.local_addr().unwrap() else {
+            unreachable!()
+        };
+        let mut state = State::new();
+        state.target = Some((peer, String::new()));
+        let now = Instant::now();
+        let mut renewed = None;
+        let mut bytes = [0; 1200];
+        state.renew(&udp, &mut renewed, now).unwrap();
+        let (n, source) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(&bytes[..n], SUBSCRIPTION);
+        assert_eq!(source, udp.local_addr().unwrap());
+        state
+            .renew(&udp, &mut renewed, now + Duration::from_millis(999))
+            .unwrap();
+        assert!(server.recv_from(&mut bytes).is_err());
+        state
+            .renew(&udp, &mut renewed, now + Duration::from_secs(1))
+            .unwrap();
+        let (n, same_source) = server.recv_from(&mut bytes).unwrap();
+        assert_eq!(&bytes[..n], SUBSCRIPTION);
+        assert_eq!(same_source, source);
+        let n =
+            kirby_assist_core::telemetry::encode(&sample(1, 1, 42, 0), b"", &mut bytes).unwrap();
+        server.send_to(&bytes[..n], source).unwrap();
+        let (n, source) = udp.recv_from(&mut bytes).unwrap();
+        state.receive(&bytes[..n], source, now);
+        assert_eq!(state.objects.len(), 1);
+    }
+    #[test]
+    fn setup_resets_observations_and_filters_endpoint_and_wire_mode() {
+        let now = Instant::now();
+        let mut state = State::new();
+        state
+            .configure("/connect?endpoint=192.168.1.10:4243")
+            .unwrap();
+        let mut bytes = [0; 1200];
+        let n =
+            kirby_assist_core::telemetry::encode(&sample(1, 1, 42, 0), b"", &mut bytes).unwrap();
+        state.receive(&bytes[..n], "192.168.1.10:4242".parse().unwrap(), now);
+        assert_eq!(state.wrong_source, 1);
+        assert!(state.objects.is_empty());
+        state.receive(&bytes[..n], "192.168.1.10:4243".parse().unwrap(), now);
+        assert_eq!(state.objects.len(), 1);
+        for endpoint in [
+            "8.8.8.8:4243",
+            "127.0.0.1:4243",
+            "192.168.1.0:4243",
+            "192.168.1.10:0",
+            "[::1]:4243",
+        ] {
+            assert!(state
+                .configure(&format!("/connect?endpoint={endpoint}"))
+                .is_err());
+            assert_eq!(state.objects.len(), 1);
+        }
+        state
+            .configure("/connect?endpoint=192.168.1.11:4243")
+            .unwrap();
+        assert!(state.objects.is_empty());
+        assert!(state.retired.is_empty());
+        assert_eq!(state.last_sequence, None);
+        assert_eq!(state.received, None);
+        state.receive(&bytes[..n], "192.168.1.10:4243".parse().unwrap(), now);
+        assert!(state.objects.is_empty());
+        let n = kirby_assist_core::telemetry::encode(
+            &sample(1, 1, 42, 0),
+            b"0123456789abcdef0123456789abcdef",
+            &mut bytes,
+        )
+        .unwrap();
+        state.receive(&bytes[..n], "192.168.1.11:4243".parse().unwrap(), now);
+        assert_eq!(state.rejected, 1);
     }
     #[test]
     fn ordering_sessions_and_expiry() {
@@ -390,6 +545,55 @@ mod tests {
             .find(|o| o["object_id"] == "0x000002bc")
             .unwrap();
         assert_eq!(object["values"][3]["raw"], "0xffffffffffffffff");
+    }
+    #[test]
+    fn dashboard_snapshot_preserves_exact_unknown_and_nonfinite_values() {
+        let now = Instant::now();
+        let mut state = State::new();
+        let mut s = sample(u64::MAX, u64::MAX, u32::MAX, 0);
+        s.sample_us = u64::MAX;
+        s.values[0] = Some(u64::MAX);
+        s.values[4] = Some(f32::NAN.to_bits() as u64);
+        s.values[5] = Some(f32::INFINITY.to_bits() as u64);
+        s.values[14] = Some(u64::MAX);
+        state.accept(s, 604, now);
+        let snapshot = state.snapshot(now);
+        let object = &snapshot["objects"][0];
+        assert_eq!(object["session"], "0xffffffffffffffff");
+        assert_eq!(object["sequence"], u64::MAX.to_string());
+        assert_eq!(object["sample_us"], u64::MAX.to_string());
+        assert_eq!(object["values"][0]["display"], "-1");
+        assert_eq!(object["values"][4]["display"], "NaN");
+        assert_eq!(object["values"][5]["display"], "inf");
+        assert_eq!(object["values"][14]["display"], u64::MAX.to_string());
+        assert!(object["values"][29].is_null());
+        assert_eq!(
+            state.snapshot(now + STALE - Duration::from_nanos(1))["objects"][0]["stale"],
+            false
+        );
+        assert_eq!(state.snapshot(now + STALE)["objects"][0]["stale"], true);
+        state.tick(now + EXPIRY - Duration::from_nanos(1));
+        assert_eq!(state.objects.len(), 1);
+        state.tick(now + EXPIRY);
+        assert!(state.objects.is_empty());
+    }
+    #[test]
+    fn throughput_and_sender_drops_are_distinct_from_sequence_gaps() {
+        let now = Instant::now();
+        let mut state = State::new();
+        state.rate_started = now;
+        let mut first = sample(1, 1, 1, 0);
+        first.dropped = 7;
+        state.accept(first, 100, now);
+        state.accept(sample(1, 4, 1, 0), 200, now);
+        state.tick(now + Duration::from_millis(500));
+        assert_eq!(state.gaps, 2);
+        assert_eq!(state.sender_dropped, 7);
+        assert_eq!(state.packets_per_second, 4.0);
+        assert_eq!(state.bytes_per_second, 600.0);
+        state.tick(now + EXPIRY);
+        assert_eq!(state.packets_per_second, 0.0);
+        assert_eq!(state.bytes_per_second, 0.0);
     }
     #[test]
     fn serves_live_state_over_local_http_without_exposing_secrets() {
@@ -433,6 +637,22 @@ mod tests {
             valid_headers("GET /state HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n\r\n", 8765),
             Some("/state")
         );
+        let setup = "POST /connect?endpoint=192.168.1.10:4243 HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: http://127.0.0.1:8765\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(
+            valid_headers(setup, 8765),
+            Some("/connect?endpoint=192.168.1.10:4243")
+        );
+        assert!(valid_headers(&setup.replace("POST", "GET"), 8765).is_none());
+        assert!(valid_headers(
+            &setup.replace("Origin: http://127.0.0.1:8765\r\n", ""),
+            8765
+        )
+        .is_none());
+        assert!(valid_headers(
+            &setup.replace("Content-Length: 0", "Content-Length: 12"),
+            8765
+        )
+        .is_none());
         for headers in [
             "Host: evil.test",
             "Host: 127.0.0.1:8765\r\nOrigin: https://evil.test",

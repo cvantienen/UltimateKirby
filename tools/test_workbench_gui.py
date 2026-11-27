@@ -1,6 +1,14 @@
 """GUI safety checks with fake builds/uploads and temporary local files only."""
 import contextlib
 import io
+import json
+import http.client
+import queue
+import re
+import threading
+from urllib.parse import urlsplit
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +28,120 @@ class GuiTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.app = workbench.Workbench(History(self.root / 'state'))
         self.gui = gui.Controller(self.app)
+
+    def test_loopback_server_auth_and_dedicated_lan_route(self):
+        urls = queue.Queue()
+        servers = []
+        server_type = gui.ThreadingHTTPServer
+        def create_server(*args):
+            server = server_type(*args)
+            servers.append(server)
+            return server
+        errors = []
+        def serve():
+            try:
+                gui.launch(self.app)
+            except BaseException as error:
+                errors.append(error)
+        with patch.object(gui.webbrowser, 'open', side_effect=urls.put), \
+             patch.object(gui, 'TelemetryViewer') as viewer_type, \
+             patch.object(gui, 'ThreadingHTTPServer', side_effect=create_server), \
+             patch.object(self.app.lan, 'perform', return_value={'next': 0, 'dropped': 0, 'entries': []}) as perform, \
+             contextlib.redirect_stdout(io.StringIO()):
+            viewer = viewer_type.return_value
+            viewer.snapshot.return_value = {'ready': False, 'running': False, 'status': 'test'}
+            viewer.start.return_value = viewer.snapshot.return_value
+            viewer.stop.return_value = viewer.snapshot.return_value
+            thread = threading.Thread(target=serve)
+            thread.start()
+            address = urlsplit(urls.get(timeout=3))
+            def request(method, path, data=None, token=None, host=None):
+                with contextlib.closing(http.client.HTTPConnection(address.hostname, address.port, timeout=3)) as connection:
+                    headers = {'Host': host or address.netloc}
+                    if token:
+                        headers['X-Workbench-Token'] = token
+                    body = None if data is None else json.dumps(data)
+                    connection.request(method, path, body, headers)
+                    response = connection.getresponse()
+                    return response.status, response.read().decode()
+            try:
+                code, html = request('GET', '/')
+                self.assertEqual(code, 200)
+                token = re.search(r'const TOKEN=("[0-9a-f]+")', html)[1]
+                token = json.loads(token)
+                self.assertEqual(request('GET', '/api/state')[0], 403)
+                self.assertEqual(request('GET', '/api/state', token='é')[0], 403)
+                self.assertEqual(request('GET', '/api/state', token=token, host='evil.test')[0], 403)
+                self.assertEqual(request('POST', '/api/lan', {'operation': 'logs'}, token)[0], 200)
+                perform.assert_called_once_with('logs')
+                perform.reset_mock()
+                self.assertEqual(request('POST', '/api/lan', {'operation': 'connect',
+                                        'host': '10.0.0.20', 'port': 4242, 'transport': 'udp'}, token)[0], 200)
+                perform.assert_called_once_with('connect', host='10.0.0.20', port=4242, transport='udp')
+                self.assertIn('<option value="udp" selected>', html)
+                self.assertNotIn('lanToken', html)
+                self.assertFalse(self.app.history.path.exists())
+                self.assertEqual(request('POST', '/api/lan', [], token)[0], 400)
+                viewer.start.assert_called_once_with()
+                viewer.request.return_value = (200, 'text/html', b"const API_BASE = '', API_HEADERS = {};")
+                self.assertEqual(request('GET', '/telemetry/?session=wrong')[0], 403)
+                code, embedded = request('GET', '/telemetry/?session=' + token)
+                self.assertEqual(code, 200)
+                self.assertIn("'/api/telemetry/view'", embedded)
+                self.assertIn(token, embedded)
+                viewer.request.return_value = (200, 'application/json', b'{"objects":[]}')
+                self.assertEqual(request('GET', '/api/telemetry/view/state')[0], 403)
+                self.assertEqual(request('GET', '/api/telemetry/view/state', token=token)[0], 200)
+                self.assertEqual(request('POST', '/api/telemetry/view/connect?endpoint=192.168.1.142:4243', token=token)[0], 200)
+                viewer.request.assert_called_with('/connect?endpoint=192.168.1.142:4243', 'POST')
+                self.assertEqual(request('POST', '/api/telemetry', {'operation': 'stop'})[0], 403)
+                self.assertEqual(request('POST', '/api/telemetry', {'operation': 'stop'}, token)[0], 200)
+                self.assertEqual(request('POST', '/api/telemetry', {'operation': 'start'}, token)[0], 200)
+                viewer.start.assert_called_with()
+                self.assertNotIn('telemetryConfig', html)
+                self.assertIn('No config file or manual key is needed', html)
+                self.assertEqual(request('POST', '/api/telemetry', [], token)[0], 400)
+                self.assertEqual(request('POST', '/api/close', {}, token)[0], 200)
+            finally:
+                servers[0].shutdown()
+                thread.join(5)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(errors, [])
+
+    @unittest.skipUnless(shutil.which('node'), 'Node required for browser JavaScript regression')
+    def test_browser_disconnect_ignores_pending_load_and_poll_state(self):
+        html = Path(gui.__file__).with_suffix('.html').read_text()
+        script = html[html.index('let lanConnected='):html.index('showLanSetup(INITIAL.lan_editor);')]
+        harness = '''
+const elements = new Proxy({}, {get(target, id){return target[id] ||= {value:'',checked:false,disabled:false,textContent:'',addEventListener(){}}}});
+const $ = id => elements[id];
+const document = {querySelectorAll(){return []}};
+let busy=false;
+let pending;
+const api = (path,data) => data.operation==='disconnect' ? Promise.resolve({connected:false}) : new Promise(resolve=>{pending=resolve});
+const error = () => {};
+const refresh = async () => {};
+'''
+        cases = '''
+(async()=>{
+lanConnected=true;
+const load=lanLoad();
+await lanDisconnect();
+pending({text:'old session',revision:'abc'});
+await load;
+if(lanLoaded || $('lanText').value==='old session')throw Error('Late load restored disconnected session');
+lanConnected=true;
+const connect=lanConnect();
+await lanDisconnect();
+pending({connected:true,editing:true});
+await connect;
+if(lanConnected)throw Error('Late connect resurrected session');
+busy=true;lanConnected=true;lanControls();
+if(!$('lanConnect').disabled || !$('lanText').disabled)throw Error('LAN controls ignore main job');
+})().catch(error=>{console.error(error);process.exitCode=1});
+'''
+        result = subprocess.run(['node', '-e', harness + script + cases], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_lan_setup_is_local_only_persists_without_connecting(self):
         with patch('socket.socket', side_effect=AssertionError('No network sockets')), \
@@ -71,15 +193,14 @@ class GuiTests(unittest.TestCase):
             self.assertIsNone(self.gui.thread)
 
     def test_terminal_lan_explicit_connect_disconnect_without_transfer(self):
-        with patch.object(workbench, 'ask', side_effect=['172.16.1.20', '4242']), \
-             patch.object(workbench.getpass, 'getpass', return_value='x' * 32), \
+        with patch.object(workbench, 'ask', side_effect=['172.16.1.20', '4242', 'udp']), \
              patch.object(workbench, 'choose', return_value=3), \
              patch.object(self.app.lan, 'perform', return_value={'connected': True}) as perform, \
              contextlib.redirect_stdout(io.StringIO()):
             self.app.lan.connected = True
             self.app.lan_editor()
         self.assertEqual(self.app.lan_editor_state()['host'], '172.16.1.20')
-        perform.assert_called_once_with('connect', host='172.16.1.20', port='4242', token='x' * 32)
+        perform.assert_called_once_with('connect', host='172.16.1.20', port='4242', transport='udp')
         self.assertFalse(self.app.lan.connected)
         self.assertNotIn('token', self.app.preferences_path.read_text())
 
@@ -119,6 +240,26 @@ class GuiTests(unittest.TestCase):
         self.assertTrue(all('--dry-run' in p for p in previews))
         self.assertTrue(all('--replace-sequences' in p for p in previews))
         upload.assert_called_once_with('2.2.5', list(workbench.TARGETS), verify=False, sequences_synced=True, sequence_plan=plan)
+
+    def test_diagnostic_only_skips_silent_sync_and_preserves_device_sequences(self):
+        for action in ('ship', 'upload', 'verify'):
+            with self.subTest(action=action), \
+                 patch.object(gui, 'set_version', return_value={}), \
+                 patch.object(gui, 'version', return_value='2.2.5'), \
+                 patch.object(self.app, 'prepare_silent_sequences') as prepare, \
+                 patch.object(self.app, 'apply_silent_sequences') as apply, \
+                 patch.object(self.app, 'build_release') as build, \
+                 patch.object(self.app, 'run') as preview, \
+                 patch.object(self.app, 'upload_release', return_value=True) as upload:
+                self.gui.perform({'action': action, 'version': '2.2.5', 'target': 'diagnostic', 'ready': True})
+                prepare.assert_not_called()
+                apply.assert_not_called()
+                self.assertEqual(build.call_count, int(action == 'ship'))
+                argv = preview.call_args.args[1]
+                self.assertIn('--preserve-sequences', argv)
+                self.assertNotIn('--replace-sequences', argv)
+                self.assertEqual([name for _, name in upload.call_args.args[1]], ['diagnostic'])
+                self.assertIsNone(upload.call_args.kwargs['sequence_plan'])
 
     def test_ship_synchronizes_silent_before_build_and_uses_configured_targets(self):
         events = []

@@ -1,8 +1,11 @@
 //! Session-only, read-only telemetry transport. Native pointers never enter this module.
+#[allow(dead_code)]
+#[path = "network.rs"]
+mod network;
 use kirby_assist_core::telemetry::{self, Config, Sample};
+use network::socket_result;
 use std::{
-    io::Read,
-    net::UdpSocket,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex,
@@ -11,7 +14,29 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/telemetry.txt";
+struct Subscriber {
+    peer: SocketAddrV4,
+    renewed: Instant,
+}
+fn subscribe(subscriber: &mut Option<Subscriber>, bytes: &[u8], peer: SocketAddr, now: Instant) {
+    if bytes != telemetry::SUBSCRIPTION {
+        return;
+    }
+    if let SocketAddr::V4(peer) = peer {
+        if telemetry::private_peer(peer) {
+            *subscriber = Some(Subscriber { peer, renewed: now });
+        }
+    }
+}
+fn destination(subscriber: &mut Option<Subscriber>, now: Instant) -> Option<SocketAddrV4> {
+    if subscriber
+        .as_ref()
+        .is_some_and(|s| now.duration_since(s.renewed) >= telemetry::SUBSCRIBER_LEASE)
+    {
+        *subscriber = None;
+    }
+    subscriber.as_ref().map(|s| s.peer)
+}
 const LEASE: Duration = Duration::from_millis(250);
 const CAPACITY: usize = 512;
 const EMPTY: Sample = Sample {
@@ -27,6 +52,7 @@ const EMPTY: Sample = Sample {
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static READY: AtomicBool = AtomicBool::new(false);
+static OBSERVED: AtomicBool = AtomicBool::new(false);
 static SESSION: AtomicU64 = AtomicU64::new(0);
 static DROPPED: AtomicU64 = AtomicU64::new(0);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
@@ -79,9 +105,17 @@ pub(crate) fn ready() -> bool {
 pub(crate) fn status() -> Option<String> {
     STATUS.try_lock().ok().and_then(|s| s.clone())
 }
+pub(crate) fn session() -> u64 {
+    SESSION.load(Ordering::Acquire)
+}
 pub(crate) fn revoke() {
     ENABLED.store(false, Ordering::Release);
     READY.store(false, Ordering::Release);
+    OBSERVED.store(false, Ordering::Release);
+    if let Ok(mut mailbox) = MAILBOX.try_lock() {
+        mailbox.seen = None;
+        mailbox.len = 0;
+    }
 }
 pub(crate) fn observe(training: bool) {
     if !training {
@@ -90,6 +124,7 @@ pub(crate) fn observe(training: bool) {
     }
     if let Ok(mut mailbox) = MAILBOX.try_lock() {
         mailbox.seen = Some(Instant::now());
+        OBSERVED.store(true, Ordering::Release);
     }
 }
 pub(crate) fn publish(mut sample: Sample) {
@@ -126,7 +161,7 @@ pub(crate) fn toggle() -> Result<(), String> {
     let mut mailbox = MAILBOX
         .try_lock()
         .map_err(|_| "Telemetry sampler busy; retry")?;
-    if !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
+    if !OBSERVED.load(Ordering::Acquire) || !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
         return Err("Activate telemetry in Training only".into());
     }
     mailbox.len = 0;
@@ -168,45 +203,61 @@ fn run() {
     }
 }
 fn serve() -> Result<(), String> {
-    let mut source = String::new();
-    std::fs::File::open(CONFIG_PATH)
-        .map_err(|_| "Cannot read telemetry.txt".to_owned())?
-        .take(2049)
-        .read_to_string(&mut source)
-        .map_err(|_| "Invalid telemetry setup UTF-8".to_owned())?;
-    if source.len() > 2048 {
-        return Err("Telemetry setup exceeds 2048 bytes".into());
-    }
-    let config = Config::parse(&source).map_err(str::to_owned)?;
-    serve_config(config)
+    let socket = socket_result(UdpSocket::bind((
+        Ipv4Addr::UNSPECIFIED,
+        telemetry::TELEMETRY_PORT,
+    )))
+    .map_err(|e| format!("Telemetry bind: {e}"))?;
+    serve_socket(socket, None)
 }
+#[cfg(test)]
 fn serve_config(config: Config) -> Result<(), String> {
-    if !enabled() {
-        return Ok(());
-    }
-    let socket = UdpSocket::bind(config.switch).map_err(|e| format!("Telemetry bind: {e}"))?;
-    socket
-        .connect(config.computer)
-        .map_err(|e| format!("Telemetry destination: {e}"))?;
-    socket.set_nonblocking(true).map_err(|e| e.to_string())?;
-    READY.store(true, Ordering::Release);
+    let socket = socket_result(UdpSocket::bind(config.switch))
+        .map_err(|e| format!("Telemetry bind: {e}"))?;
+    serve_socket(socket, Some(config))
+}
+fn serve_socket(socket: UdpSocket, config: Option<Config>) -> Result<(), String> {
+    socket_result(socket.set_nonblocking(true))
+        .map_err(|e| format!("Telemetry nonblocking setup: {e}"))?;
+    let mut subscriber = None;
+    let mut subscription = [0; 64];
     let mut bytes = [0; 1200];
     while enabled() {
+        // Bound receive work even under LAN flooding; oversized/truncated requests cannot match.
+        for _ in 0..32 {
+            match socket_result(socket.recv_from(&mut subscription)) {
+                Ok((n, peer)) => {
+                    subscribe(&mut subscriber, &subscription[..n], peer, Instant::now())
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) => return Err(format!("Telemetry subscription: {e}")),
+            }
+        }
+        let peer = config
+            .as_ref()
+            .map(|c| c.computer)
+            .or_else(|| destination(&mut subscriber, Instant::now()));
+        READY.store(peer.is_some(), Ordering::Release);
         let mut mailbox = MAILBOX
             .lock()
             .map_err(|_| "Telemetry mailbox unavailable")?;
         if !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
             break;
         }
-        let sample = mailbox.pop();
+        let sample = if peer.is_some() {
+            mailbox.pop()
+        } else {
+            mailbox.len = 0;
+            None
+        };
         drop(mailbox);
-        if let Some(sample) = sample {
-            let n = telemetry::encode(&sample, config.token.as_bytes(), &mut bytes)
-                .map_err(str::to_owned)?;
+        if let (Some(sample), Some(peer)) = (sample, peer) {
+            let key = config.as_ref().map_or(&[][..], |c| c.token.as_bytes());
+            let n = telemetry::encode(&sample, key, &mut bytes).map_err(str::to_owned)?;
             if !ready() {
                 break;
             }
-            match socket.send(&bytes[..n]) {
+            match socket_result(socket.send_to(&bytes[..n], peer)) {
                 Ok(sent) if sent == n => {}
                 Ok(_) => {
                     DROPPED.fetch_add(1, Ordering::Relaxed);
@@ -232,6 +283,78 @@ fn serve_config(config: Config) -> Result<(), String> {
 mod tests {
     use super::*;
     static TEST_GATE: Mutex<()> = Mutex::new(());
+    #[test]
+    fn subscription_is_exact_private_and_expires_without_renewal() {
+        let now = Instant::now();
+        let mut subscriber = None;
+        let peer: SocketAddr = "192.168.1.20:54321".parse().unwrap();
+        for invalid in [
+            "127.0.0.1:1234",
+            "8.8.8.8:1234",
+            "192.168.1.255:1234",
+            "192.168.1.0:1234",
+            "[::1]:1234",
+        ] {
+            subscribe(
+                &mut subscriber,
+                telemetry::SUBSCRIPTION,
+                invalid.parse().unwrap(),
+                now,
+            );
+            assert!(subscriber.is_none());
+        }
+        for invalid in [
+            b"KATM SUBSCRIBE 1\n".as_slice(),
+            b"KATM SUBSCRIBE 2",
+            b"KATM SUBSCRIBE",
+        ] {
+            subscribe(&mut subscriber, invalid, peer, now);
+            assert!(subscriber.is_none());
+        }
+        subscribe(&mut subscriber, telemetry::SUBSCRIPTION, peer, now);
+        assert_eq!(
+            destination(&mut subscriber, now),
+            Some("192.168.1.20:54321".parse().unwrap())
+        );
+        subscribe(
+            &mut subscriber,
+            telemetry::SUBSCRIPTION,
+            peer,
+            now + Duration::from_secs(1),
+        );
+        let renewed_peer = Some("192.168.1.20:54321".parse().unwrap());
+        assert_eq!(
+            destination(&mut subscriber, now + telemetry::SUBSCRIBER_LEASE),
+            renewed_peer
+        );
+        for invalid in ["8.8.8.8:54321", "127.0.0.1:54321", "[::1]:54321"] {
+            subscribe(
+                &mut subscriber,
+                telemetry::SUBSCRIPTION,
+                invalid.parse().unwrap(),
+                now + telemetry::SUBSCRIBER_LEASE,
+            );
+            assert_eq!(
+                destination(&mut subscriber, now + telemetry::SUBSCRIBER_LEASE),
+                renewed_peer
+            );
+        }
+        subscribe(
+            &mut subscriber,
+            b"KATM SUBSCRIBE 1 redirect=192.168.1.30:4243",
+            peer,
+            now + telemetry::SUBSCRIBER_LEASE,
+        );
+        assert_eq!(
+            destination(&mut subscriber, now + telemetry::SUBSCRIBER_LEASE),
+            renewed_peer
+        );
+        assert!(destination(
+            &mut subscriber,
+            now + telemetry::SUBSCRIBER_LEASE + Duration::from_secs(1)
+        )
+        .is_none());
+    }
     #[test]
     fn bounded_mailbox_retains_newest_and_preserves_sequence() {
         let _guard = TEST_GATE.lock().unwrap();
@@ -259,6 +382,36 @@ mod tests {
             (last.object_id, last.sequence),
             (CAPACITY as u32 + 5, CAPACITY as u64 + 6)
         );
+    }
+    #[test]
+    fn revocation_discards_the_queue_and_requires_fresh_training_observation() {
+        let _guard = TEST_GATE.lock().unwrap();
+        {
+            let mut mailbox = MAILBOX.lock().unwrap();
+            mailbox.seen = Some(Instant::now());
+            mailbox.len = 1;
+        }
+        ENABLED.store(true, Ordering::Release);
+        READY.store(true, Ordering::Release);
+        revoke();
+        let mailbox = MAILBOX.lock().unwrap();
+        assert!(mailbox.seen.is_none());
+        assert_eq!(mailbox.len, 0);
+        assert!(!ready());
+    }
+    #[test]
+    fn contended_revocation_cannot_reuse_the_old_training_lease() {
+        let _guard = TEST_GATE.lock().unwrap();
+        observe(true);
+        {
+            let _mailbox = MAILBOX.lock().unwrap();
+            revoke();
+        }
+        assert_eq!(toggle(), Err("Activate telemetry in Training only".into()));
+        assert!(!enabled());
+        observe(true);
+        assert!(OBSERVED.load(Ordering::Acquire));
+        revoke();
     }
     #[test]
     fn expired_training_lease_does_not_publish() {

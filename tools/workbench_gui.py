@@ -27,6 +27,7 @@ import sequence_transfer as transfer
 from toml_compat import tomllib
 import upload_switch
 from workbench import DEFAULT_FILE, HELPERS, ROOT, TARGETS, helper, version
+from workbench_telemetry import TelemetryViewer
 
 
 def set_version(manifest: Path, release: str):
@@ -178,7 +179,7 @@ class Controller:
         if action.startswith('lan-editor-'):
             raise ValueError('Use the dedicated LAN request endpoint')
         if action in {'ship', 'upload'} and data.get('ready') is not True:
-            raise ValueError('Close Smash and open FTP on the Silent Switch and selected targets, then check the ready box')
+            raise ValueError('Close Smash and open FTP on Diagnostic for Diagnostic only; otherwise on Silent and selected targets. Then check the ready box')
         for key in ('silent_port', 'diagnostic_port'):
             port = int(data.get(key, self.app.preferences.get(key, 5000)))
             if not 1 <= port <= 65535:
@@ -203,7 +204,8 @@ class Controller:
             self.app.save_preferences()
             sequences_synced = False
             sync_plan = None
-            if action in {'ship', 'upload'}:
+            preserve_sequences = target == 'diagnostic'
+            if action in {'ship', 'upload'} and not preserve_sequences:
                 sync_plan = self.app.prepare_silent_sequences()
                 if action == 'ship' or data.get('sequences_confirmed') is True:
                     data['sequences_confirmed'] = True
@@ -223,9 +225,9 @@ class Controller:
                     for host, name in targets:
                         self.app.run('upload-preview', helper('upload_switch.py', host, '-v', release,
                             '-s' if name == 'silent' else '-d', '--port', self.app.port(name),
-                            '--replace-sequences', '--allow-diagnostic-on-silent-ip', '--dry-run'),
+                            '--preserve-sequences' if preserve_sequences else '--replace-sequences', '--allow-diagnostic-on-silent-ip', '--dry-run'),
                             {'version': release, 'target': name, 'host': host})
-                if action in {'ship', 'upload'} and data.get('ready') is True:
+                if action in {'ship', 'upload'} and data.get('ready') is True and not preserve_sequences:
                     if not data.get('sequences_confirmed'):
                         raise ValueError('Confirm synchronizing Silent sequences and replacing active files')
                     self.app.history.perform('silent-sequence-sync',
@@ -373,6 +375,7 @@ class Controller:
 
 def launch(app):
     controller = Controller(app)
+    telemetry = TelemetryViewer(ROOT)
     token = secrets.token_hex(32)
     html = Path(__file__).with_suffix('.html').read_text().replace('__TOKEN__', json.dumps(token))
     initial = {'version': version(), 'cargo_home': app.preferences.get('cargo_home', '/private/tmp/kirby-assist-build-cargo'),
@@ -403,7 +406,9 @@ def launch(app):
             self.send_header('Content-Length', str(len(payload)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+            ancestors = "'self'" if urlsplit(self.path).path == '/telemetry/' else "'none'"
+            self.send_header('Referrer-Policy', 'no-referrer')
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors " + ancestors + "; base-uri 'none'")
             self.end_headers()
             self.wfile.write(payload)
 
@@ -412,19 +417,43 @@ def launch(app):
             if self.headers.get('Host') != authority or self.headers.get('Origin', 'http://' + authority) != 'http://' + authority:
                 self.respond(403, {'error': 'Local workbench requests only'})
                 return False
-            if api and not secrets.compare_digest(self.headers.get('X-Workbench-Token', ''), token):
+            supplied = self.headers.get('X-Workbench-Token', '')
+            if api and (not supplied.isascii() or not secrets.compare_digest(supplied, token)):
                 self.respond(403, {'error': 'Invalid session token'})
                 return False
             return True
 
         def do_GET(self):
             route = urlsplit(self.path)
+            if route.path == '/telemetry/':
+                if not self.allowed(api=False):
+                    return
+                supplied = parse_qs(route.query).get('session', [''])[0]
+                if not supplied.isascii() or not secrets.compare_digest(supplied, token):
+                    self.respond(403, {'error': 'Invalid session token'})
+                    return
+                try:
+                    code, _, body = telemetry.request('/')
+                    page = body.decode('utf-8').replace(
+                        "const API_BASE = '', API_HEADERS = {};",
+                        "const API_BASE = '/api/telemetry/view', API_HEADERS = "
+                        + json.dumps({'X-Workbench-Token': token}) + ";")
+                    self.respond(code, page, 'text/html')
+                except (ValueError, RuntimeError, OSError) as error:
+                    self.respond(503, {'error': str(error)})
+                return
             if not self.allowed(api=route.path != '/'):
                 return
-            if route.path == '/':
+            if route.path.startswith('/api/telemetry/view/'):
+                try:
+                    code, content_type, body = telemetry.request(route.path.removeprefix('/api/telemetry/view'))
+                    self.respond(code, body.decode('utf-8'), content_type.split(';')[0])
+                except (ValueError, RuntimeError, OSError) as error:
+                    self.respond(503, {'error': str(error)})
+            elif route.path == '/':
                 self.respond(200, html, 'text/html')
             elif route.path == '/api/state':
-                self.respond(200, controller.snapshot())
+                self.respond(200, {**controller.snapshot(), 'telemetry': telemetry.snapshot()})
             elif route.path == '/api/log':
                 id = parse_qs(route.query).get('id', [''])[0]
                 row = next((r for r in controller.rows if r['id'] == id), None)
@@ -448,6 +477,13 @@ def launch(app):
             if not self.allowed():
                 return
             try:
+                route = urlsplit(self.path)
+                if route.path == '/api/telemetry/view/connect':
+                    if self.headers.get('Content-Length', '0') != '0':
+                        raise ValueError('Telemetry subscription takes no body')
+                    code, content_type, body = telemetry.request('/connect?' + route.query, 'POST')
+                    self.respond(code, body.decode('utf-8'), content_type.split(';')[0])
+                    return
                 size = int(self.headers.get('Content-Length', '0'))
                 limit = 4 * 1024 * 1024 if self.path == '/api/lan' else 65536
                 if not 0 < size <= limit:
@@ -460,8 +496,17 @@ def launch(app):
                     if operation == 'connect':
                         app.lan.disconnect()
                         app.configure_lan_editor(data.get('host'), data.get('port'))
-                    arguments = {key: data[key] for key in ('host', 'port', 'token', 'text', 'confirmed') if key in data}
+                    arguments = {key: data[key] for key in ('host', 'port', 'transport', 'token', 'text', 'confirmed') if key in data}
                     self.respond(200, app.lan.perform(operation, **arguments))
+                elif self.path == '/api/telemetry':
+                    if not isinstance(data, dict):
+                        raise ValueError('Invalid telemetry request')
+                    if data.get('operation') == 'start':
+                        self.respond(200, telemetry.start())
+                    elif data.get('operation') == 'stop':
+                        self.respond(200, telemetry.stop())
+                    else:
+                        raise ValueError('Unknown telemetry operation')
                 elif self.path == '/api/run':
                     controller.start(data)
                     self.respond(202, {'started': True})
@@ -484,11 +529,13 @@ def launch(app):
         print('Workbench GUI:', url, flush=True)
         print('Keep this terminal open. Use Close workbench in the window to exit.', flush=True)
         try:
+            telemetry.start()
             webbrowser.open(url)
             server.serve_forever(poll_interval=0.3)
         except KeyboardInterrupt:
             print('\nClosing after any active operation finishes; transfers are not interrupted.', flush=True)
         finally:
+            telemetry.stop()
             app.lan.disconnect()
             if controller.thread:
                 controller.thread.join()

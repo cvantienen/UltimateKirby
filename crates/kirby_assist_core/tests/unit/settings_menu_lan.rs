@@ -57,7 +57,7 @@ fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
         assert!(panel
             .body
             .iter()
-            .any(|s| s.contains("HTTP: ON") && s.contains("Listener unavailable")));
+            .any(|s| s.contains("HTTP + UDP: ON") && s.contains("Listener unavailable")));
         m.input_with_editing(0, &presets, false);
         assert!(!m.lan_toggle_requested && !m.lan_editing_allowed());
         assert!(!m

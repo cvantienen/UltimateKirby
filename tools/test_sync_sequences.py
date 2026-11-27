@@ -90,6 +90,22 @@ class SequenceSyncTests(unittest.TestCase):
         self.assertEqual((snapshot / "diagnostic-sequences.txt").read_bytes(), SOURCE)
         self.assertEqual((snapshot / "silent-sequences.txt").read_bytes(), ORIGINAL)
 
+    def test_oversized_destination_stops_before_backups_or_writes(self):
+        self.destination = FakeFTP(b'x' * (sync.MAX_BYTES + 1))
+        with self.assertRaisesRegex(RuntimeError, 'exceeds 512 KiB'):
+            self.run_sync()
+        self.assertEqual(self.destination.active_writes, 0)
+        self.assertFalse(self.backups.exists())
+
+    def test_oversized_readback_stops_at_expected_length(self):
+        ftp = FakeFTP(b'')
+        def oversized(command, consume):
+            consume(b'x' * 4)
+            self.fail('Read-back continued after exceeding expected bytes')
+        with patch.object(ftp, 'retrbinary', side_effect=oversized):
+            with self.assertRaisesRegex(RuntimeError, 'read-back'):
+                sync.store_verified(ftp, sync.ACTIVE, b'abc')
+
     def test_dry_run_only_downloads_and_validates_without_writing(self):
         self.assertEqual(self.run_sync(dry_run=True), 1)
         self.assertFalse(self.backups.exists())

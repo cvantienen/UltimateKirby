@@ -30,7 +30,11 @@ sequences.txt, and restarting does not activate the staged copy.
 
 The prompt stays open until Exit. Local history/preferences/backups live in
 .mod-workbench/ (override with --state-dir). Existing standalone helpers remain
-available; no build or Switch write occurs merely by opening this launcher.
+available; no Switch release build or device write occurs merely by opening this
+launcher. The GUI also starts the read-only telemetry receiver (offline Cargo may
+compile its host example). Training telemetry has its own sidebar dashboard;
+Switch streaming still requires explicit activation. Closing the GUI stops its
+receiver. --cli and --history do not start it.
 """
 from __future__ import annotations
 
@@ -42,7 +46,8 @@ import ftplib
 import json
 import os
 import ipaddress
-import getpass
+import secrets
+import struct
 import socket
 import threading
 import time
@@ -105,12 +110,95 @@ def helper(name, *args):
     return [sys.executable, str(ROOT / "tools" / name), *map(str, args)]
 
 
+class LanDatagramPeer:
+    """Carry one HTTP request over acknowledged, bounded LAN fragments."""
+    header = struct.Struct('>4sBQHH')
+
+    def __init__(self, remaining, response_limit):
+        self.remaining = remaining
+        self.response_limit = response_limit
+        self.transfer_id = secrets.randbelow(2**64 - 1) + 1
+        self.response_total = None
+        self.response_index = 0
+        self.received_size = 0
+        self.buffer = b''
+
+    def __enter__(self):
+        self.peer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return self
+
+    def __exit__(self, *args):
+        self.peer.close()
+
+    def settimeout(self, value):
+        self.peer.settimeout(value)
+
+    def connect(self, address):
+        self.peer.connect(address)
+
+    def exchange(self, kind, index, total, payload, response_kind, attempts=None):
+        packet = self.header.pack(b'KALE', kind, self.transfer_id, index, total) + payload
+        attempt = 0
+        while attempts is None or attempt < attempts:
+            attempt += 1
+            self.peer.settimeout(self.remaining())
+            self.peer.send(packet)
+            fragment_deadline = time.monotonic() + min(.15, self.remaining())
+            while True:
+                wait = min(fragment_deadline - time.monotonic(), self.remaining())
+                if wait <= 0:
+                    break
+                self.peer.settimeout(wait)
+                try:
+                    response = self.peer.recv(1042)
+                except TimeoutError:
+                    break
+                if not 17 <= len(response) <= 1041:
+                    continue
+                magic, received_kind, transfer_id, received_index, received_total = self.header.unpack(response[:17])
+                if (magic, received_kind, transfer_id, received_index) != (b'KALE', response_kind, self.transfer_id, index):
+                    continue
+                if response_kind == 2:
+                    if received_total == total and len(response) == 17:
+                        return b'', received_total
+                elif 1 <= received_total <= 520 and index < received_total:
+                    if self.response_total is not None and received_total != self.response_total:
+                        raise ValueError('Inconsistent LAN response fragments')
+                    return response[17:], received_total
+        raise TimeoutError()
+
+    def sendall(self, body):
+        if not body or len(body) > 512 * 1024 + 4096:
+            raise ValueError('Oversized LAN request')
+        total = (len(body) + 1023) // 1024
+        for index in range(total):
+            self.exchange(1, index, total, body[index * 1024:(index + 1) * 1024], 2, attempts=3)
+
+    def recv(self, size):
+        if not self.buffer:
+            if self.response_total is not None and self.response_index == self.response_total:
+                return b''
+            chunk, total = self.exchange(3, self.response_index, 0, b'', 4)
+            if not chunk or (self.response_index + 1 < total and len(chunk) != 1024):
+                raise ValueError('Invalid LAN response fragment size')
+            self.response_total = total
+            self.response_index += 1
+            self.received_size += len(chunk)
+            if self.received_size > self.response_limit:
+                raise ValueError('Oversized LAN response')
+            self.buffer = chunk
+        result, self.buffer = self.buffer[:size], self.buffer[size:]
+        return result
+
+
 class LanClient:
-    """Explicit, input-only diagnostic session; no resolver, proxy or retry path."""
+    """Explicit diagnostic session; fragment retries never repeat a request."""
     def __init__(self):
         self.lock = threading.Lock()
+        self.state_lock = threading.RLock()
         self.connected = False
         self.host, self.port, self.token = '', 4242, ''
+        self.transport = 'http'
         self.editing = False
         self.revision = None
         self.original = None
@@ -119,12 +207,20 @@ class LanClient:
         self.generation = 0
 
     def disconnect(self):
-        self.generation += 1
-        self.connected = self.editing = False
-        self.token = ''
-        self.revision = self.original = self.preview_text = None
-        self.next = 0
+        with self.state_lock:
+            self.generation += 1
+            self.connected = self.editing = False
+            self.token = ''
+            self.revision = self.original = self.preview_text = None
+            self.next = 0
         return {'connected': False}
+
+    @contextmanager
+    def publish(self, generation):
+        with self.state_lock:
+            if generation != self.generation:
+                raise RuntimeError('Session disconnected')
+            yield
 
     def _request(self, method, path, limit, body=b'', revision=None):
         generation = self.generation
@@ -135,10 +231,14 @@ class LanClient:
                 raise TimeoutError()
             return value
         headers = (f'{method} {path} HTTP/1.1\r\nHost: {self.host}:{self.port}\r\n'
-                   f'X-Kirby-Token: {self.token}\r\nConnection: close\r\nContent-Length: {len(body)}\r\n')
+                   f'Connection: close\r\nContent-Length: {len(body)}\r\n')
+        if self.token:
+            headers += f'X-Kirby-Token: {self.token}\r\n'
         if revision is not None:
             headers += f'X-Kirby-Revision: {revision}\r\n'
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as peer:
+        connection = (LanDatagramPeer(remaining, limit + 8196) if self.transport == 'udp'
+                      else socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+        with connection as peer:
             peer.settimeout(remaining())
             peer.connect((self.host, self.port))
             peer.settimeout(remaining())
@@ -182,6 +282,8 @@ class LanClient:
             raise RuntimeError('Session disconnected')
         code = int(status[1])
         if code != 200:
+            if method == 'PUT' and code not in {403, 409}:
+                raise ValueError('Save not acknowledged')
             messages = {403: 'Training access revoked or editor closed', 409: 'Stale revision; reconnect and reload before editing'}
             raise RuntimeError(messages.get(code, f'HTTP {code}; redirects and retries are disabled'))
         return payload, fields
@@ -192,19 +294,26 @@ class LanClient:
         if not self.lock.acquire(blocking=False):
             raise RuntimeError('A LAN request is already running')
         save_started = False
+        generation = self.generation
         try:
             if operation == 'connect':
-                self.disconnect()
-                self.host, self.port = lan_endpoint(data.get('host'), data.get('port'))
-                token = data.get('token')
-                if not isinstance(token, str) or not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token):
-                    raise ValueError('Token must be 32..128 ASCII letters, digits, hyphens or underscores')
-                self.token = token
+                with self.state_lock:
+                    self.disconnect()
+                    generation = self.generation
+                    self.host, self.port = lan_endpoint(data.get('host'), data.get('port'))
+                    token = data.get('token', '')
+                    if not isinstance(token, str) or (token and not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token)):
+                        raise ValueError('Token must be 32..128 ASCII letters, digits, hyphens or underscores')
+                    transport = data.get('transport', 'http')
+                    if transport not in ('http', 'udp'):
+                        raise ValueError('Select HTTP or UDP transport')
+                    self.token, self.transport = token, transport
                 payload, _ = self._request('GET', '/status', 8191)
                 status = json.loads(payload)
                 if not isinstance(status, dict) or type(status.get('protocol')) is not int or status['protocol'] != 1 or status.get('training') is not True or type(status.get('editing')) is not bool:
                     raise ValueError('Unsupported protocol or Training not active')
-                self.connected, self.editing = True, status['editing']
+                with self.publish(generation):
+                    self.connected, self.editing = True, status['editing']
                 return {'connected': True, 'editing': self.editing}
             if not self.connected:
                 raise RuntimeError('Connect explicitly first')
@@ -214,7 +323,8 @@ class LanClient:
                 if not re.fullmatch(r'[0-9a-fA-F]{1,128}', revision):
                     raise ValueError('Missing or invalid sequence revision')
                 text = payload.decode('utf-8')
-                self.original, self.revision, self.preview_text = text, revision, None
+                with self.publish(generation):
+                    self.original, self.revision, self.preview_text = text, revision, None
                 return {'text': text, 'revision': revision}
             if operation in {'preview', 'save'}:
                 text = data.get('text')
@@ -224,15 +334,16 @@ class LanClient:
                 if not body.strip() or len(body) > 512 * 1024:
                     raise ValueError('File must be nonempty and at most 512 KiB')
                 if operation == 'preview':
-                    generation = self.generation
                     try:
                         transfer.validate_sequences(body)
                     except Exception:
                         raise RuntimeError('Local sequence validation failed; disconnected, correct the draft and reconnect') from None
-                    if generation != self.generation or not self.connected:
-                        raise RuntimeError('Session disconnected')
-                    self.preview_text = text
-                    diff = ''.join(difflib.unified_diff(self.original.splitlines(True), text.splitlines(True), fromfile='Switch', tofile='draft'))
+                    with self.publish(generation):
+                        if not self.connected:
+                            raise RuntimeError('Session disconnected')
+                        self.preview_text = text
+                        original = self.original
+                    diff = ''.join(difflib.unified_diff(original.splitlines(True), text.splitlines(True), fromfile='Switch', tofile='draft'))
                     return {'diff': diff[:64000], 'truncated': len(diff) > 64000}
                 if data.get('confirmed') is not True or self.preview_text != text:
                     raise RuntimeError('Preview this exact text and explicitly confirm save')
@@ -241,7 +352,8 @@ class LanClient:
                 result = json.loads(payload)
                 if not isinstance(result, dict) or result.get('saved') is not True or result.get('reloaded') is not True:
                     raise ValueError('Save/reload not acknowledged; reload before retrying')
-                self.revision = self.original = self.preview_text = None
+                with self.publish(generation):
+                    self.revision = self.original = self.preview_text = None
                 return result
             if operation == 'logs':
                 payload, _ = self._request('GET', f'/logs?after={self.next}', 65536)
@@ -259,7 +371,8 @@ class LanClient:
                     if not isinstance(entry, dict) or not u64(entry.get('id')) or not isinstance(entry.get('text'), str) or not previous < entry['id'] <= result['next']:
                         raise ValueError('Invalid log entry')
                     previous = entry['id']
-                self.next = result['next']
+                with self.publish(generation):
+                    self.next = result['next']
                 return {**result, 'restarted': restarted}
             raise ValueError('Unknown LAN operation')
         except Exception as error:
@@ -267,9 +380,17 @@ class LanClient:
             # Peer content, draft text and credentials never enter error messages/history.
             if isinstance(error, RuntimeError):
                 raise
+            if isinstance(error, ConnectionRefusedError):
+                reason = 'LAN connection refused; check the address, port, transport and Training diagnostic server'
+            elif isinstance(error, TimeoutError):
+                reason = 'LAN request timed out; check the address, transport, firewall and Training diagnostic server'
+            elif isinstance(error, OSError):
+                reason = 'LAN network connection failed; check the address and network connectivity'
+            else:
+                reason = 'LAN request failed local validation or peer protocol validation'
             if save_started:
-                raise RuntimeError('Save acknowledgment lost or invalid; disk may have changed. Reconnect and reload; never retry automatically') from None
-            raise RuntimeError('LAN request failed validation or transport; disconnected, reconnect manually') from None
+                raise RuntimeError(f'{reason}. Save acknowledgment lost or invalid; disk may have changed. Reconnect and reload; never retry automatically') from None
+            raise RuntimeError(f'{reason}; disconnected, reconnect manually') from None
         finally:
             self.lock.release()
 
@@ -483,7 +604,9 @@ class Workbench:
             return
         routes = self.targets()
         targets = list(routes) if selected == 0 else [(host, name) for host, name in routes if name == ("silent" if selected == 1 else "diagnostic")]
-        if not verify and not confirm("Silent active sequences.txt becomes the repository source of truth. Close Smash and open FTP on Silent and the selected Switches; selected active files will be replaced after verified backups.", "UPLOAD"):
+        message = ("Upload Diagnostic release only. Close Smash and open FTP on Diagnostic; its current sequences are preserved and Silent is not contacted."
+                   if selected == 2 else "Silent active sequences.txt becomes the repository source of truth. Close Smash and open FTP on Silent and the selected Switches; selected active files will be replaced after verified backups.")
+        if not verify and not confirm(message, "UPLOAD"):
             return False
         return self.upload_release(release, targets, verify=verify)
 
@@ -492,7 +615,8 @@ class Workbench:
         upload_switch.release_version(release)
         if not targets or any(target not in self.targets() for target in targets):
             raise ValueError("Only the saved Switch/variant routes may be used")
-        if not verify and not sequences_synced:
+        preserve_sequences = all(name == 'diagnostic' for _, name in targets)
+        if not verify and not sequences_synced and not preserve_sequences:
             sequence_plan = self.prepare_silent_sequences()
             with self.stage_silent_sequences(sequence_plan):
                 for host, name in targets:
@@ -505,7 +629,7 @@ class Workbench:
         failures = []
         uploaded = []
         for host, name in targets:
-            argv = helper("upload_switch.py", host, "-v", release, "-s" if name == "silent" else "-d", "--port", self.port(name), "--replace-sequences", "--allow-diagnostic-on-silent-ip")
+            argv = helper("upload_switch.py", host, "-v", release, "-s" if name == "silent" else "-d", "--port", self.port(name), "--preserve-sequences" if preserve_sequences else "--replace-sequences", "--allow-diagnostic-on-silent-ip")
             if verify:
                 argv.append("--verify-only")
             else:
@@ -515,7 +639,7 @@ class Workbench:
                 # Keep local payload snapshots; actual uploaded hashes are read
                 # separately from the original helper's output, never guessed.
                 details["artifacts"] = [{"remote": "/" + str(path), **self.history.archive(data)}
-                    for path, data in upload_switch.upload_payloads(upload_switch.selected_source(release, name), replace_sequences=True)]
+                    for path, data in upload_switch.upload_payloads(upload_switch.selected_source(release, name), replace_sequences=not preserve_sequences, preserve_sequences=preserve_sequences)]
                 return self.execute(argv)
             try:
                 self.history.perform("verify" if verify else "upload", details, operation)
@@ -779,11 +903,11 @@ class Workbench:
         host = ask("Switch private IPv4 (empty cancels)", state["host"])
         if not host:
             return
-        port = ask("Diagnostic HTTP port (not FTP)", state["port"])
+        port = ask("Diagnostic LAN port (not FTP)", state["port"])
+        transport = ask("Transport (udp or http)", "udp").lower()
         self.configure_lan_editor(host, port)
-        token = getpass.getpass("Shared secret (not saved): ")
         try:
-            print(self.lan.perform('connect', host=host, port=port, token=token))
+            print(self.lan.perform('connect', host=host, port=port, transport=transport))
             while self.lan.connected:
                 action = choose("LAN actions", ["Read complete file to computer", "Preview and save computer file", "Read new logs", "Disconnect"])
                 if action is None or action == 3:
@@ -810,7 +934,6 @@ class Workbench:
                     for entry in result['entries']:
                         print(entry['id'], json.dumps(entry['text'], ensure_ascii=True))
         finally:
-            token = ''
             self.lan.disconnect()
 
     def validate(self):

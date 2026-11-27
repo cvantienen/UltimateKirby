@@ -68,6 +68,14 @@ fn read_some<R: Read + ?Sized, F: FnMut() -> bool>(
             Ok(0) => return Err(HttpError::Truncated),
             Ok(n) => return Ok(n),
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
             Err(_) => return Err(HttpError::Io),
         }
     }
@@ -148,11 +156,14 @@ pub fn read_request<R: Read + ?Sized, F: FnMut() -> bool>(
         (Method::Get, Some(n)) if n != 0 => return Err(HttpError::Malformed),
         (_, n) => n.unwrap_or(0),
     };
-    let token = token.ok_or(HttpError::Malformed)?;
+    let token = token.unwrap_or_default();
     let mut body = vec![0; length];
     let mut offset = 0;
     while offset < length {
         offset += read_some(reader, &mut body[offset..], &mut allowed)?;
+    }
+    if !allowed() {
+        return Err(HttpError::Cancelled);
     }
     Ok(Request {
         method,
@@ -187,6 +198,14 @@ fn write_all<W: Write + ?Sized, F: FnMut() -> bool>(
             Ok(0) => return Err(HttpError::Io),
             Ok(n) => bytes = &bytes[n..],
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
             Err(_) => return Err(HttpError::Io),
         }
     }

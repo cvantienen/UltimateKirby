@@ -2,12 +2,13 @@
 import json
 import socket
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from workbench import LanClient, lan_endpoint
+from workbench import LanClient, LanDatagramPeer, lan_endpoint
 
 
 def reply(body, status=200, headers=b'', length=None):
@@ -83,6 +84,27 @@ class LanTests(unittest.TestCase):
             self.client.perform('logs')
         self.assertEqual(len(self.peers), 1)
 
+    def test_tokenless_http_default_and_explicit_transport_validation(self):
+        for token in [None, '']:
+            self.responses.append(reply({'protocol': 1, 'training': True, 'editing': True}))
+            arguments = {} if token is None else {'token': token}
+            self.client.perform('connect', host='10.0.0.1', port=4242, **arguments)
+            self.assertNotIn(b'X-Kirby-Token:', self.peers[-1].sent)
+        count = len(self.peers)
+        with self.assertRaises(RuntimeError):
+            self.client.perform('connect', host='10.0.0.1', port=4242, transport='auto')
+        self.assertEqual(len(self.peers), count)
+
+    def test_network_errors_are_specific_and_redacted(self):
+        for exception, message in [(ConnectionRefusedError('secret draft'), 'connection refused'),
+                                   (TimeoutError('secret draft'), 'timed out'),
+                                   (OSError('secret draft'), 'network connection failed')]:
+            with patch('workbench.socket.socket', side_effect=exception):
+                with self.assertRaisesRegex(RuntimeError, message) as caught:
+                    self.client.perform('connect', host='10.0.0.1', port=4242)
+            self.assertNotIn('secret draft', str(caught.exception))
+            self.assertFalse(self.client.connected)
+
     def test_complete_text_preview_revision_and_save(self):
         self.connect()
         text = self.load()['text']
@@ -109,6 +131,35 @@ class LanTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'Connect explicitly'):
             self.client.perform('save', text=text, confirmed=True)
         self.assertEqual(len(self.peers), count)
+
+    def test_save_server_failure_warns_disk_may_have_changed(self):
+        self.connect()
+        text = self.load()['text']
+        with patch('workbench.transfer.validate_sequences'):
+            self.client.perform('preview', text=text)
+        self.responses.append(reply(b'', 500))
+        with self.assertRaisesRegex(RuntimeError, 'disk may have changed'):
+            self.client.perform('save', text=text, confirmed=True)
+        self.assertFalse(self.client.connected)
+
+    def test_disconnect_after_transport_cannot_publish_session_state(self):
+        for operation in ['connect', 'load', 'logs']:
+            with self.subTest(operation=operation):
+                self.connect()
+                def completed_request(*args):
+                    self.client.disconnect()
+                    if operation == 'connect':
+                        return b'{"protocol":1,"training":true,"editing":true}', {}
+                    if operation == 'logs':
+                        return b'{"next":1,"dropped":0,"entries":[]}', {}
+                    return b'[kirby.settings]\nx=1\n', {'x-kirby-revision': 'abc'}
+                with patch.object(self.client, '_request', side_effect=completed_request):
+                    with self.assertRaisesRegex(RuntimeError, 'Session disconnected'):
+                        self.client.perform(operation, host='10.0.0.1', port=4242, token='x' * 32)
+                self.assertFalse(self.client.connected)
+                self.assertIsNone(self.client.original)
+                self.assertIsNone(self.client.revision)
+                self.assertEqual(self.client.next, 0)
 
     def test_save_requires_exact_validated_draft_and_stale_save_disconnects(self):
         self.connect()
@@ -224,13 +275,199 @@ class LanTests(unittest.TestCase):
         for host in ['localhost', '8.8.8.8', '127.0.0.1', '169.254.1.1', '::1', 'https://192.168.1.1']:
             with self.assertRaises(ValueError):
                 lan_endpoint(host, 4242)
-        for token in ['x\r\nHost: evil', 'with space', '', 'é']:
+        for token in ['x\r\nHost: evil', 'with space', 'é']:
             with self.assertRaises(RuntimeError):
                 self.client.perform('connect', host='10.0.0.1', port=4242, token=token)
         self.assertEqual(self.peers, [])
 
 
+class UdpLanTests(unittest.TestCase):
+    def test_real_udp_chunks_retries_peer_filtering_and_single_save(self):
+        header = LanDatagramPeer.header
+        original = '[unknown.settings]\nvalue=1\n' + '# preserved\n' * 220
+        updated = original + '# new draft\n'
+        requests, saves, errors = [], [], []
+        transfers = {}
+        stop = threading.Event()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server, \
+             socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as rogue:
+            server.bind(('127.0.0.1', 0))
+            server.settimeout(.1)
+            dropped_ack = set()
+            dropped_fetch = set()
+
+            def serve():
+                try:
+                    while not stop.is_set():
+                        try:
+                            packet, source = server.recvfrom(1042)
+                        except TimeoutError:
+                            continue
+                        magic, kind, transfer_id, index, total = header.unpack(packet[:17])
+                        self.assertEqual(magic, b'KALE')
+                        self.assertNotEqual(transfer_id, 0)
+                        if kind == 1:
+                            self.assertTrue(1 <= total <= 520)
+                            self.assertLessEqual(len(packet) - 17, 1024)
+                            transfer = transfers.setdefault(transfer_id, {'chunks': {}, 'total': total})
+                            self.assertEqual(transfer['total'], total)
+                            transfer['chunks'][index] = packet[17:]
+                            ack = header.pack(b'KALE', 2, transfer_id, index, total)
+                            # A connected UDP socket must ignore even a valid ACK from another endpoint.
+                            rogue.sendto(ack, source)
+                            server.sendto(header.pack(b'KALE', 2, transfer_id ^ 1, index, total), source)
+                            server.sendto(header.pack(b'KALE', 2, transfer_id, index + 1, total), source)
+                            request = b''.join(transfer['chunks'][n] for n in sorted(transfer['chunks']))
+                            is_save = request.startswith(b'PUT ')
+                            if is_save and index + 1 == total and transfer_id not in dropped_ack:
+                                dropped_ack.add(transfer_id)
+                            else:
+                                server.sendto(ack, source)
+                            if len(transfer['chunks']) == total and 'response' not in transfer:
+                                requests.append((transfer_id, request))
+                                if request.startswith(b'GET /status '):
+                                    response = reply({'protocol': 1, 'training': True, 'editing': True})
+                                elif request.startswith(b'GET /sequences '):
+                                    response = reply(original.encode(), headers=b'X-Kirby-Revision: aBc012\r\n')
+                                elif is_save:
+                                    self.assertIn(b'X-Kirby-Revision: aBc012\r\n', request)
+                                    saves.append(request.split(b'\r\n\r\n', 1)[1])
+                                    response = reply({'saved': True, 'reloaded': True})
+                                else:
+                                    raise AssertionError('Unexpected request')
+                                self.assertNotIn(b'X-Kirby-Token:', request)
+                                transfer['response'] = response
+                                transfer['ready_at'] = time.monotonic() + (.6 if is_save else 0)
+                        else:
+                            self.assertEqual((kind, total, packet[17:]), (3, 0, b''))
+                            transfer = transfers[transfer_id]
+                            if time.monotonic() < transfer['ready_at']:
+                                continue
+                            # Lost fetches are safe to repeat using the original request ID.
+                            if (transfer_id, index) not in dropped_fetch:
+                                dropped_fetch.add((transfer_id, index))
+                                continue
+                            response = transfer['response']
+                            count = (len(response) + 1023) // 1024
+                            server.sendto(header.pack(b'KALE', 4, transfer_id, index + 1, count)
+                                          + b'out of order', source)
+                            server.sendto(header.pack(b'KALE', 4, transfer_id, index, count)
+                                          + response[index * 1024:(index + 1) * 1024], source)
+                except Exception as error:
+                    errors.append(error)
+
+            thread = threading.Thread(target=serve, daemon=True)
+            thread.start()
+            client = LanClient()
+            try:
+                with patch('workbench.lan_endpoint', return_value=server.getsockname()):
+                    self.assertTrue(client.perform('connect', host='10.0.0.1', port=4242,
+                                                   transport='udp')['connected'])
+                self.assertEqual(client.perform('load')['text'], original)
+                with patch('workbench.transfer.validate_sequences'):
+                    client.perform('preview', text=updated)
+                self.assertEqual(client.perform('save', text=updated, confirmed=True),
+                                 {'saved': True, 'reloaded': True})
+                self.assertEqual(saves, [updated.encode()])
+                self.assertEqual(len(requests), 3)
+                self.assertEqual(len({transfer_id for transfer_id, _ in requests}), 3)
+            finally:
+                client.disconnect()
+                stop.set()
+                thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(errors, [])
+
+    def test_lost_udp_save_response_never_resubmits_or_changes_transport(self):
+        header = LanDatagramPeer.header
+        stop = threading.Event()
+        request_ids, fetches = set(), []
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server:
+            server.bind(('127.0.0.1', 0))
+            server.settimeout(.1)
+            def serve():
+                while not stop.is_set():
+                    try:
+                        packet, source = server.recvfrom(1042)
+                    except TimeoutError:
+                        continue
+                    _, kind, transfer_id, index, total = header.unpack(packet[:17])
+                    if kind == 1:
+                        request_ids.add(transfer_id)
+                        server.sendto(header.pack(b'KALE', 2, transfer_id, index, total), source)
+                    else:
+                        fetches.append(transfer_id)
+            thread = threading.Thread(target=serve, daemon=True)
+            thread.start()
+            client = LanClient()
+            client.host, client.port = server.getsockname()
+            client.transport, client.connected = 'udp', True
+            client.original = client.preview_text = '[unknown.settings]\nvalue=1\n'
+            client.revision = 'abc'
+            try:
+                with self.assertRaisesRegex(RuntimeError, 'timed out.*disk may have changed'):
+                    client.perform('save', text=client.preview_text, confirmed=True)
+                count = len(request_ids)
+                with self.assertRaisesRegex(RuntimeError, 'Connect explicitly'):
+                    client.perform('save', text='anything', confirmed=True)
+                self.assertEqual(count, 1)
+                self.assertEqual(request_ids, set(fetches))
+                self.assertGreater(len(fetches), 3)
+                self.assertEqual(client.transport, 'udp')
+            finally:
+                stop.set()
+                thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+
+    def test_udp_ack_timeout_is_bounded_without_http_fallback(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server:
+            server.bind(('127.0.0.1', 0))
+            server.settimeout(.1)
+            with patch('workbench.lan_endpoint', return_value=server.getsockname()):
+                client = LanClient()
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    client.perform('connect', host='10.0.0.1', port=4242, transport='udp')
+            packets = []
+            while True:
+                try:
+                    packets.append(server.recv(1042))
+                except TimeoutError:
+                    break
+            self.assertEqual(len(packets), 3)
+            self.assertEqual(len(set(packets)), 1)
+            self.assertFalse(client.connected)
+
+
 class LoopbackLanTests(unittest.TestCase):
+    def test_real_http_tokenless_connect(self):
+        headers = []
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                headers.append(dict(self.headers))
+                body = b'{"protocol":1,"training":true,"editing":true}'
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Connection', 'close')
+                self.end_headers()
+                self.wfile.write(body)
+        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            client = LanClient()
+            try:
+                with patch('workbench.lan_endpoint', return_value=server.server_address):
+                    self.assertTrue(client.perform('connect', host='10.0.0.1', port=4242)['connected'])
+                self.assertEqual(len(headers), 1)
+                self.assertNotIn('X-Kirby-Token', headers[0])
+            finally:
+                client.disconnect()
+                server.shutdown()
+                thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+
     def test_real_http_session_framing_auth_revision_save_and_logs(self):
         token = 'loopback-fixture-secret-0123456789012345'
         original = '[unknown.settings]\nvalue=1\n'

@@ -9,8 +9,8 @@ Examples (run from the project root; default FTP port 5000):
     python3 tools/upload_switch.py 192.0.2.10 -v 1.1.2 -s --root /sdcard
 
 Reads AutoSmashMod/Latestbuild-<version>/silent or /diagnostic (default: silent).
-Always reads sequences.txt from this project's deployment directory at upload time.
-By default uploads an inactive sequences.upload.txt copy.
+By default reads deployment sequences.txt and uploads an inactive sequences.upload.txt copy.
+--preserve-sequences uploads release files only, leaving device sequence files untouched.
 --replace-sequences --smash-closed backs up and replaces active sequences.txt.
 Never builds, extracts archives, or reads the old UPLOAD folder.
 Close Smash and start the Switch FTP server first.
@@ -101,7 +101,7 @@ def ftp_ip(value: str) -> str:
         raise argparse.ArgumentTypeError("Supply the Switch IP address, without ftp:// or a port") from error
 
 
-def upload_payloads(source: Path, *, replace_sequences: bool = False) -> tuple[tuple[PurePosixPath, bytes], ...]:
+def upload_payloads(source: Path, *, replace_sequences: bool = False, preserve_sequences: bool = False) -> tuple[tuple[PurePosixPath, bytes], ...]:
     """Read prepared binaries/config, current deployment sequences, and optional ZIP."""
     summary = source / "RELEASE_SUMMARY.txt"
     candidates = list(source.glob("RELEASE_SUMMARY-*.txt"))
@@ -121,13 +121,16 @@ def upload_payloads(source: Path, *, replace_sequences: bool = False) -> tuple[t
     if payloads[-1][1][0x10:0x14] != b"NRO0":
         raise RuntimeError("libkirby_assist.nro does not have the expected NRO header")
     verify_build_variant(payloads[-1][1], payloads[1][1])
-    sequence_path = DEPLOYMENT_SEQUENCES
-    if sequence_path.is_symlink() or not sequence_path.is_file():
-        raise RuntimeError(f"Required deployment sequence file is missing or not a regular file: {sequence_path}")
-    sequence_bytes = assemble(sequence_path)
-    # Validate the frozen upload bytes before backup, verification or FTP writes.
-    validate_sequences(sequence_bytes)
-    payloads.insert(-1, (ACTIVE_SEQUENCES if replace_sequences else SEQUENCES, sequence_bytes))
+    if preserve_sequences and replace_sequences:
+        raise ValueError('Cannot preserve and replace sequences together')
+    if not preserve_sequences:
+        sequence_path = DEPLOYMENT_SEQUENCES
+        if sequence_path.is_symlink() or not sequence_path.is_file():
+            raise RuntimeError(f"Required deployment sequence file is missing or not a regular file: {sequence_path}")
+        sequence_bytes = assemble(sequence_path)
+        # Validate the frozen upload bytes before backup, verification or FTP writes.
+        validate_sequences(sequence_bytes)
+        payloads.insert(-1, (ACTIVE_SEQUENCES if replace_sequences else SEQUENCES, sequence_bytes))
     # Ignore obsolete profile files in older prepared folders; they are not
     # part of the upload allowlist.
     archives = list(source.glob("kirby_assist-*-source.zip"))
@@ -236,17 +239,21 @@ def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
                  user: str = "anonymous", password: str = "", dry_run: bool = False,
                  verify_only: bool = False, version: str | None = None,
                  variant: str | None = None, replace_sequences: bool = False,
+                 preserve_sequences: bool = False,
                  allow_diagnostic_on_silent_ip: bool = False) -> None:
     root_path = PurePosixPath(ftp_root(root))
-    payloads = upload_payloads(source, replace_sequences=replace_sequences)
+    payloads = upload_payloads(source, replace_sequences=replace_sequences, preserve_sequences=preserve_sequences)
     verify_selection(payloads, version, variant)
     plan = tuple((str(root_path / remote), data) for remote, data in payloads)
     operation = "verification" if verify_only else "update"
     backup = root_path / "ultimate/kirby_assist/bak"
     print(f"Source: {source}\nFTP {operation} to {host}:{port}; {len(plan)} selected files:", flush=True)
-    print(f"Sequences source (current deployment): {DEPLOYMENT_SEQUENCES}", flush=True)
-    print("Active sequences.txt will be backed up and replaced." if replace_sequences else
-          "Active sequences.txt is preserved; sequences.upload.txt is a separate, inactive copy.", flush=True)
+    if preserve_sequences:
+        print('Device sequence files are untouched; this release uses the current device sequences.txt.', flush=True)
+    else:
+        print(f"Sequences source (current deployment): {DEPLOYMENT_SEQUENCES}", flush=True)
+        print("Active sequences.txt will be backed up and replaced." if replace_sequences else
+              "Active sequences.txt is preserved; sequences.upload.txt is a separate, inactive copy.", flush=True)
     for remote, data in plan:
         print(f"  {remote} ({len(data):,} bytes; SHA-256 {hashlib.sha256(data).hexdigest()})", flush=True)
     if not verify_only:
@@ -324,7 +331,9 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--root", type=ftp_root, default="/", help="Server's SD-root prefix (default: /)")
     parser.add_argument("--user", default="anonymous", help="FTP login (default: anonymous)")
     parser.add_argument("--password-env", help="Read FTP password from this environment variable")
-    parser.add_argument("--replace-sequences", action="store_true", help="back up and replace active sequences.txt instead of staging an inactive copy")
+    sequence_mode = parser.add_mutually_exclusive_group()
+    sequence_mode.add_argument("--replace-sequences", action="store_true", help="back up and replace active sequences.txt instead of staging an inactive copy")
+    sequence_mode.add_argument("--preserve-sequences", action="store_true", help="upload/verify release files only; do not read or write active or staged sequences")
     parser.add_argument("--allow-diagnostic-on-silent-ip", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--smash-closed", action="store_true", help="confirm Smash is fully closed; required for active sequence replacement")
     mode = parser.add_mutually_exclusive_group()
@@ -349,6 +358,7 @@ def main() -> None:
                      dry_run=options.dry_run, verify_only=options.verify_only,
                      version=options.version, variant=options.variant,
                      replace_sequences=options.replace_sequences,
+                     preserve_sequences=options.preserve_sequences,
                      allow_diagnostic_on_silent_ip=options.allow_diagnostic_on_silent_ip)
     except (OSError, RuntimeError) as error:
         raise SystemExit(str(error)) from error

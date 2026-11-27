@@ -1,4 +1,9 @@
 //! Explicitly activated, inbound-only diagnostic transport. No controller or game APIs.
+#[path = "network.rs"]
+mod network;
+use network::socket_result;
+#[path = "lan_udp.rs"]
+mod udp;
 use std::{
     io,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream},
@@ -10,7 +15,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/lan_editor.txt";
 const LEASE: Duration = Duration::from_millis(100);
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static STATUS: Mutex<Option<String>> = Mutex::new(None);
@@ -96,7 +100,7 @@ fn toggle_inner() -> Result<(), String> {
     if let Some(handle) = worker.take() {
         let _ = handle.join();
     }
-    set_status("STARTING — reading lan_editor.txt and opening network listener");
+    set_status("STARTING — opening HTTP and UDP listeners (default port 4242)");
     ENABLED.store(true, Ordering::Release);
     match std::thread::Builder::new()
         .name("kirby-diagnostic-http".into())
@@ -122,7 +126,26 @@ struct Config {
     token: String,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            local: SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 4242),
+            peer: Ipv4Addr::UNSPECIFIED,
+            token: String::new(),
+        }
+    }
+}
+
 impl Config {
+    fn permits(&self, peer: Ipv4Addr) -> bool {
+        if self.peer.is_unspecified() {
+            peer.is_private()
+        } else {
+            peer == self.peer
+        }
+    }
+
+    #[cfg(test)]
     fn parse(source: &str) -> Result<Self, String> {
         let mut local = None;
         let mut peer = None;
@@ -167,11 +190,12 @@ impl Config {
         Ok(Self {
             local: SocketAddrV4::new(local, port.ok_or("Missing port")?),
             peer,
-            token: token.ok_or("Missing token (32..128 URL-safe characters)")?,
+            token: token.unwrap_or_default(),
         })
     }
 }
 
+#[cfg(test)]
 fn private_ip(text: &str) -> Result<Ipv4Addr, String> {
     text.parse::<Ipv4Addr>()
         .ok()
@@ -202,18 +226,18 @@ fn finish(result: Result<(), String>) {
     }
 }
 
+#[cfg(test)]
 fn load_config(path: &std::path::Path) -> Result<Config, String> {
     use std::io::Read;
     let mut source = String::new();
-    std::fs::File::open(path)
-        .map_err(|error| {
-            if error.kind() == io::ErrorKind::NotFound {
-                "Setup required: create /ultimate/kirby_assist/lan_editor.txt on SD (switch_ip, computer_ip, port, token)".to_owned()
-            } else {
-                "Cannot open lan_editor.txt on SD; check file access".to_owned()
-            }
-        })?
-        .take(2049)
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Config::default()),
+        Err(_) => {
+            return Err("Cannot open optional lan_editor.txt on SD; check file access".into())
+        }
+    };
+    file.take(2049)
         .read_to_string(&mut source)
         .map_err(|_| "Cannot read LAN setup as UTF-8")?;
     if source.len() > 2048 {
@@ -223,38 +247,80 @@ fn load_config(path: &std::path::Path) -> Result<Config, String> {
 }
 
 fn serve() -> Result<(), String> {
-    let config = load_config(std::path::Path::new(CONFIG_PATH))?;
+    // File-free activation must not inherit stale addresses or keys from an old setup.
+    let config = Config::default();
     if !enabled() || !fresh(true) {
         return Ok(());
     }
     // The installed Switch std backend owns socket/NIFM initialization. It may
     // wait on the OS; never run this on a game callback or finalize shared NIFM.
-    let listener = TcpListener::bind(config.local)
+    let listener = socket_result(TcpListener::bind(config.local))
         .map_err(|e| format!("Cannot bind configured Switch address: {e}"))?;
-    listener.set_nonblocking(true).map_err(|e| e.to_string())?;
+    socket_result(listener.set_nonblocking(true))
+        .map_err(|e| format!("Cannot set LAN listener nonblocking: {e}"))?;
+    let datagrams = socket_result(std::net::UdpSocket::bind(config.local))
+        .map_err(|e| format!("Cannot bind UDP editor: {e}"))?;
+    socket_result(datagrams.set_nonblocking(true))
+        .map_err(|e| format!("Cannot set UDP editor nonblocking: {e}"))?;
     listener_ready();
     crate::logging::write_owned(format!(
-        "LAN: listening on {}; paired inbound HTTP only; no route-isolation claim",
+        "LAN: HTTP + UDP on {}; private peers, no authentication; Training gates active",
         config.local
     ));
+    std::thread::scope(|scope| {
+        let worker = scope.spawn(|| {
+            let result = udp::serve(datagrams, &config);
+            if result.is_err() {
+                revoke();
+            }
+            result
+        });
+        let result = serve_http(listener, &config);
+        if result.is_ok() && enabled() {
+            set_status("Training observation expired; reopen editor and activate again");
+        }
+        revoke();
+        let udp_result = worker
+            .join()
+            .map_err(|_| "UDP editor worker failed".to_owned())?;
+        result.and(udp_result)
+    })
+}
+
+fn serve_http(listener: TcpListener, config: &Config) -> Result<(), String> {
     while enabled() && fresh(false) {
-        match listener.accept() {
-            Ok((mut stream, SocketAddr::V4(peer))) if *peer.ip() == config.peer => {
-                stream
-                    .set_read_timeout(Some(Duration::from_millis(200)))
-                    .map_err(|e| e.to_string())?;
-                stream
-                    .set_write_timeout(Some(Duration::from_millis(200)))
-                    .map_err(|e| e.to_string())?;
+        match socket_result(listener.accept()) {
+            Ok((mut stream, SocketAddr::V4(peer))) if config.permits(*peer.ip()) => {
+                if let Err(error) = socket_result(stream.set_nonblocking(false)) {
+                    crate::logging::write_owned(format!(
+                        "LAN: client blocking setup failed: {error}"
+                    ));
+                    continue;
+                }
+                let timeouts =
+                    socket_result(stream.set_read_timeout(Some(Duration::from_millis(200))))
+                        .and_then(|_| {
+                            socket_result(
+                                stream.set_write_timeout(Some(Duration::from_millis(200))),
+                            )
+                        });
+                if let Err(error) = timeouts {
+                    crate::logging::write_owned(format!(
+                        "LAN: client timeout setup failed: {error}"
+                    ));
+                    continue;
+                }
                 if let Err(error) = handle(&mut stream, &config) {
                     crate::logging::write_owned(format!("LAN: request failed: {error}"));
-                    return Err("Transport failure".into());
+                    // A failed client request must not disable the listener for everyone.
+                    continue;
                 }
             }
             Ok(_) => {} // Unpaired peers are closed without parsing or replying.
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                 std::thread::sleep(Duration::from_millis(10))
             }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => return Err(format!("Accept failed: {error}")),
         }
     }
@@ -262,15 +328,26 @@ fn serve() -> Result<(), String> {
 }
 
 fn handle(stream: &mut TcpStream, config: &Config) -> Result<(), String> {
-    use kirby_assist_core::diagnostic_http::{self as http, Method, Route};
+    use kirby_assist_core::diagnostic_http as http;
     let started = Instant::now();
     let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
     let request = http::read_request(
-        &mut std::io::BufReader::with_capacity(4096, &mut *stream),
+        &mut std::io::BufReader::with_capacity(4096, network::Stream(stream)),
         allowed,
     )
     .map_err(|e| format!("{e:?}"))?;
-    if !http::constant_time_eq(&request.token, &config.token) {
+    dispatch(&mut network::Stream(stream), config, request, started)
+}
+
+fn dispatch<W: std::io::Write>(
+    stream: &mut W,
+    config: &Config,
+    request: kirby_assist_core::diagnostic_http::Request,
+    started: Instant,
+) -> Result<(), String> {
+    use kirby_assist_core::diagnostic_http::{self as http, Method, Route};
+    let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
+    if !config.token.is_empty() && !http::constant_time_eq(&request.token, &config.token) {
         return respond(
             stream,
             403,
@@ -282,7 +359,7 @@ fn handle(stream: &mut TcpStream, config: &Config) -> Result<(), String> {
     match (request.method, request.route) {
         (Method::Get, Route::Status) => {
             let body = format!(
-                "{{\"protocol\":1,\"training\":true,\"editing\":{}}}",
+                "{{\"protocol\":1,\"training\":true,\"udp_port\":4242,\"telemetry_port\":4243,\"editing\":{}}}",
                 fresh(true)
             );
             respond(stream, 200, body.as_bytes(), None, allowed)
@@ -353,8 +430,8 @@ fn handle(stream: &mut TcpStream, config: &Config) -> Result<(), String> {
     }
 }
 
-fn respond(
-    stream: &mut TcpStream,
+fn respond<W: std::io::Write>(
+    stream: &mut W,
     status: u16,
     body: &[u8],
     revision: Option<&str>,
@@ -380,7 +457,7 @@ mod tests {
     static TEST_GATE: Mutex<()> = Mutex::new(());
 
     #[test]
-    fn missing_setup_failure_stays_visible_without_starting_network() {
+    fn missing_setup_uses_file_free_private_peer_defaults() {
         let _serial = TEST_GATE.lock().unwrap();
         let directory = std::env::temp_dir().join(format!(
             "kirby-lan-setup-{}-{}",
@@ -390,18 +467,12 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
-        let error = load_config(&directory.join("lan_editor.txt"))
-            .err()
-            .unwrap();
-        observe(true, true);
-        ENABLED.store(true, Ordering::Release);
-        set_status("STARTING");
-        finish(Err(error));
-        assert!(!enabled());
-        assert!(status().unwrap().contains("Setup required"));
-        assert!(status().unwrap().contains("lan_editor.txt"));
-        observe(true, true);
-        assert!(status().unwrap().contains("Setup required"));
+        let config = load_config(&directory.join("lan_editor.txt")).unwrap();
+        assert!(config.token.is_empty());
+        assert!(config.local.ip().is_unspecified());
+        assert!(config.permits("192.168.1.20".parse().unwrap()));
+        assert!(!config.permits("8.8.8.8".parse().unwrap()));
+        assert!(!config.permits(Ipv4Addr::LOCALHOST));
     }
 
     #[test]
@@ -446,6 +517,107 @@ mod tests {
     }
 
     #[test]
+    fn malformed_http_client_does_not_stop_next_tokenless_request() {
+        use std::io::{Read, Write};
+        let _serial = TEST_GATE.lock().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        observe(true, true);
+        ENABLED.store(true, Ordering::Release);
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                serve_http(
+                    listener,
+                    &Config {
+                        peer: Ipv4Addr::LOCALHOST,
+                        ..Config::default()
+                    },
+                )
+            });
+            let mut bad = TcpStream::connect(address).unwrap();
+            bad.write_all(b"GET /invalid HTTP/1.1\r\n\r\n").unwrap();
+            let mut discarded = Vec::new();
+            bad.read_to_end(&mut discarded).unwrap();
+            assert!(enabled());
+            observe(true, true);
+            let mut good = TcpStream::connect(address).unwrap();
+            good.write_all(b"GET /status HTTP/1.1\r\n\r\n").unwrap();
+            let mut response = String::new();
+            good.read_to_string(&mut response).unwrap();
+            assert!(response.contains("200 OK"), "{response}");
+            revoke();
+            server.join().unwrap().unwrap();
+        });
+    }
+
+    #[test]
+    fn udp_roundtrip_chunks_tokenless_save_and_rejects_completed_id_replay() {
+        use std::net::UdpSocket;
+        let _serial = TEST_GATE.lock().unwrap();
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let address = socket.local_addr().unwrap();
+        let client = UdpSocket::bind("127.0.0.1:0").unwrap();
+        client.connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .unwrap();
+        let config = Config {
+            peer: Ipv4Addr::LOCALHOST,
+            ..Config::default()
+        };
+        observe(true, true);
+        ENABLED.store(true, Ordering::Release);
+        let packet = |kind: u8, id: u64, index: u16, total: u16, body: &[u8]| {
+            let mut bytes = b"KALE".to_vec();
+            bytes.push(kind);
+            bytes.extend(id.to_be_bytes());
+            bytes.extend(index.to_be_bytes());
+            bytes.extend(total.to_be_bytes());
+            bytes.extend(body);
+            bytes
+        };
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| udp::serve(socket, &config));
+            let body = vec![b'x'; 1500];
+            let mut wire = format!(
+                "PUT /sequences HTTP/1.1\r\nX-Kirby-Revision: abc\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            )
+            .into_bytes();
+            wire.extend(body);
+            let chunks: Vec<_> = wire.chunks(1024).collect();
+            let mut response = [0u8; 1041];
+            for id in [1, 2] {
+                for (index, chunk) in chunks.iter().enumerate() {
+                    observe(true, true);
+                    let request = packet(1, id, index as u16, chunks.len() as u16, chunk);
+                    client.send(&request).unwrap();
+                    let n = client.recv(&mut response).unwrap();
+                    assert_eq!(n, 17);
+                    assert_eq!(response[4], 2);
+                    // Repeated upload chunks are acknowledged, not appended or executed twice.
+                    client.send(&request).unwrap();
+                    assert_eq!(client.recv(&mut response).unwrap(), 17);
+                }
+                client.send(&packet(3, id, 0, 0, &[])).unwrap();
+                let n = client.recv(&mut response).unwrap();
+                assert_eq!(response[4], 4);
+                assert!(std::str::from_utf8(&response[17..n])
+                    .unwrap()
+                    .contains("\"saved\":true"));
+            }
+            client
+                .send(&packet(1, 1, 0, chunks.len() as u16, chunks[0]))
+                .unwrap();
+            assert!(client.recv(&mut response).is_err());
+            revoke();
+            server.join().unwrap().unwrap();
+        });
+    }
+
+    #[test]
     fn paired_request_reads_logs_and_bad_token_never_reads_sequences() {
         use std::io::{Read, Write};
         let _serial = TEST_GATE.lock().unwrap();
@@ -478,6 +650,84 @@ mod tests {
             handle(&mut stream, &config).unwrap();
             drop(stream);
             assert!(client.join().unwrap().contains(expected));
+            revoke();
+        }
+    }
+
+    #[test]
+    fn paired_editor_flow_reports_admission_revision_and_save_result() {
+        use std::io::{Read, Write};
+        let _serial = TEST_GATE.lock().unwrap();
+        let token = "0123456789abcdef0123456789abcdef";
+        let source = b"[yoshi.roll.grab]\nactions=grab\n";
+        let revision = kirby_assist_core::diagnostic_http::revision(source);
+        for (method, route, editing, body, expected, detail) in [
+            (
+                "GET",
+                "/status",
+                false,
+                &b""[..],
+                "200 OK",
+                "\"editing\":false",
+            ),
+            (
+                "GET",
+                "/sequences",
+                false,
+                &b""[..],
+                "200 OK",
+                revision.as_str(),
+            ),
+            (
+                "PUT",
+                "/sequences",
+                false,
+                &source[..],
+                "403 Forbidden",
+                "Open the Training editor",
+            ),
+            (
+                "PUT",
+                "/sequences",
+                true,
+                &source[..],
+                "200 OK",
+                "\"saved\":true",
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let mut wire = format!(
+                "{method} {route} HTTP/1.1\r\nX-Kirby-Token: {token}\r\nX-Kirby-Revision: {revision}\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            ).into_bytes();
+            wire.extend_from_slice(body);
+            let client = std::thread::spawn(move || {
+                let mut stream = TcpStream::connect(address).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                stream.write_all(&wire).unwrap();
+                let mut response = String::new();
+                stream.read_to_string(&mut response).unwrap();
+                response
+            });
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            observe(true, editing);
+            ENABLED.store(true, Ordering::Release);
+            let config = Config {
+                local: SocketAddrV4::new(Ipv4Addr::LOCALHOST, 4242),
+                peer: Ipv4Addr::LOCALHOST,
+                token: token.into(),
+            };
+            handle(&mut stream, &config).unwrap();
+            drop(stream);
+            let response = client.join().unwrap();
+            assert!(response.contains(expected), "{response}");
+            assert!(response.contains(detail), "{response}");
             revoke();
         }
     }

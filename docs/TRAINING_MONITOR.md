@@ -49,6 +49,45 @@ A repeatable trial:
 5. Compare diagnostic instrumentation ON/OFF, then silent independently. Instrumentation
    has its own overhead and cannot certify unchanged whole-system performance.
 
+## Read-only telemetry dashboard
+
+Launching `python3 tools/workbench.py` starts the local telemetry receiver alongside
+the browser workbench. Open **Training telemetry** in the sidebar to use the
+embedded dashboard, or choose **Open full dashboard**. First startup can compile
+the existing Rust host example using offline Cargo; opening it never builds or
+uploads a Switch release. Receiver startup failures appear in the page. Closing
+Workbench stops its receiver.
+
+No SD pairing file or manual key is needed. Enter the Diagnostic Switch's private
+IPv4 and telemetry UDP port (4243), then activate **Live telemetry UDP** explicitly
+in Training. Receiver subscription does not activate the Switch mode. The stream
+is unauthenticated and unencrypted by default: use only a trusted private LAN.
+Training LAN editing is a separate service and is not needed to view telemetry.
+
+- **Object** selects an observed battle-object ID, not a controller/player slot.
+  Coverage is bounded; absence does not prove an object does not exist.
+- **Publication group** selects object state, controller input, or attack slot
+  0–7. Groups are separate publications, not an atomic whole-frame snapshot.
+- **Field filter** searches names, wire types and source labels in displayed rows.
+  It does not change what the Switch samples. **Available values only** hides
+  missing values; unavailable is not zero.
+- **Schema reference** shows the field catalog even without a live observation.
+  Select a field for source/type interpretation and exact raw bits. Native numeric
+  IDs are not guessed into names. Physical input precedes mapping; mapped input
+  may include existing assistance and is not physical input.
+- **Freeze values** freezes the displayed snapshot, not the receiver or game.
+  Freshness still ages. Records are stale at 250 ms and expire at one second.
+- Numeric charts retain at most 240 browser-observed points over 60 seconds;
+  throughput charts retain at most 120. Browser polling can miss publications.
+  Approximate graph numbers do not replace exact integer/bit strings in the table.
+  **Clear charts** affects only browser history. **Export visible CSV** exports
+  the current filtered rows, not all observations or chart history.
+- `sample_us` measures sender publication microseconds since activation, and
+  `sequence` orders all session publications. Neither is an engine-frame counter,
+  synchronized clock, ping or end-to-end latency. Sequence gaps count unseen
+  positions; sender drops report a separate queue/worker counter. Do not add them
+  into a purported network-loss percentage.
+
 ## What measurements mean
 
 - **Microseconds** measure sampled local elapsed time;1000 microseconds is1 ms.

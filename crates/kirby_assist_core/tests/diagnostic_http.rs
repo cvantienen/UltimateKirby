@@ -29,6 +29,73 @@ fn routes_and_binary_body_are_preserved() {
 }
 
 #[test]
+fn transient_socket_timeouts_retry_only_within_request_gate() {
+    struct Delayed {
+        bytes: Cursor<Vec<u8>>,
+        attempts: usize,
+        output: Vec<u8>,
+    }
+    impl Read for Delayed {
+        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+            self.attempts += 1;
+            if self.attempts <= 2 {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            self.bytes.read(bytes)
+        }
+    }
+    impl Write for Delayed {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.attempts += 1;
+            if self.attempts <= 2 {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            self.output.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut stream = Delayed {
+        bytes: Cursor::new(b"GET /status HTTP/1.1\r\n\r\n".to_vec()),
+        attempts: 0,
+        output: Vec::new(),
+    };
+    assert_eq!(
+        read_request(&mut stream, || true).unwrap().route,
+        Route::Status
+    );
+    stream.attempts = 0;
+    write_response(&mut stream, &response(), || true).unwrap();
+    assert!(stream.output.starts_with(b"HTTP/1.1 200"));
+    stream.attempts = 0;
+    let mut checks = 0;
+    assert_eq!(
+        read_request(&mut stream, || {
+            checks += 1;
+            checks <= 2
+        }),
+        Err(HttpError::Cancelled)
+    );
+    assert_eq!(stream.attempts, 2);
+}
+
+#[test]
+fn tokenless_requests_preserve_revision_and_body_validation() {
+    assert_eq!(parse(b"GET /status HTTP/1.1\r\n\r\n").unwrap().token, "");
+    let request =
+        parse(b"PUT /sequences HTTP/1.1\r\nX-Kirby-Revision: abc\r\nContent-Length: 3\r\n\r\nxyz")
+            .unwrap();
+    assert_eq!(request.revision.as_deref(), Some("abc"));
+    assert_eq!(request.body, b"xyz");
+    assert_eq!(
+        parse(b"PUT /sequences HTTP/1.1\r\n\r\n"),
+        Err(HttpError::Malformed)
+    );
+}
+
+#[test]
 fn rejects_ambiguous_headers_and_request_framing() {
     for headers in [
         "X-Kirby-Token: a\r\nx-kirby-token: b\r\nContent-Length: 0",
@@ -41,7 +108,6 @@ fn rejects_ambiguous_headers_and_request_framing() {
         "X-Kirby-Token: a\r\nContent-Length: 18446744073709551616",
         "X-Kirby-Token: a\r\n folded: x\r\nContent-Length: 0",
         "X-Kirby-Token: a\r\nInvalid\r\nContent-Length: 0",
-        "Content-Length: 0",
     ] {
         let wire = format!("PUT /sequences HTTP/1.1\r\n{headers}\r\n\r\n");
         assert_eq!(
@@ -190,6 +256,38 @@ fn gate_cancels_header_body_and_partial_writes_before_io() {
         Err(HttpError::Cancelled)
     );
     assert_eq!(stream.writes, limit);
+}
+
+#[test]
+fn permission_revoked_during_final_read_rejects_completed_request() {
+    use std::cell::Cell;
+    struct RevokingReader<'a> {
+        bytes: &'a [u8],
+        allowed: &'a Cell<bool>,
+    }
+    impl Read for RevokingReader<'_> {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            let count = self.bytes.read(buffer)?;
+            if self.bytes.is_empty() {
+                self.allowed.set(false);
+            }
+            Ok(count)
+        }
+    }
+    for wire in [
+        &b"GET /sequences HTTP/1.1\r\nX-Kirby-Token: secret\r\n\r\n"[..],
+        &b"PUT /sequences HTTP/1.1\r\nX-Kirby-Token: secret\r\nContent-Length: 3\r\n\r\nabc"[..],
+    ] {
+        let allowed = Cell::new(true);
+        let mut reader = RevokingReader {
+            bytes: wire,
+            allowed: &allowed,
+        };
+        assert_eq!(
+            read_request(&mut reader, || allowed.get()),
+            Err(HttpError::Cancelled)
+        );
+    }
 }
 
 #[test]

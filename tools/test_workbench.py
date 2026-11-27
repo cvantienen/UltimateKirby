@@ -177,6 +177,16 @@ class HistoryAndLauncherTests(unittest.TestCase):
             h.append({"id": "unfinished", "status": "started"})
             self.assertEqual(h.rows()[-1]["status"], "started")
 
+    def test_completion_marker_requires_exact_verified_manifest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'log'
+            manifest = '  /plugin.nro (3 bytes; SHA-256 ' + 'a' * 64 + ')\n'
+            for output in [manifest + 'FTP update complete: all 1 files verified by read-back SHA-256.\n',
+                           manifest + 'Uploaded and verified /other.nro\nFTP update complete: all 1 files verified by read-back SHA-256.\n',
+                           manifest + 'Uploaded and verified /plugin.nro\nFTP update complete: all 2 files verified by read-back SHA-256.\n']:
+                path.write_text(output)
+                self.assertFalse(receipts(path)['verified_deployment'])
+
     def test_planned_manifest_alone_is_not_shipped_and_lock_excludes_second_session(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "log"
@@ -293,6 +303,20 @@ class HistoryAndLauncherTests(unittest.TestCase):
             row = app.history.rows()[-1]
             self.assertEqual(len(row["result"]["artifacts"]), 2)
             self.assertEqual(row["status"], "success")
+
+    def test_diagnostic_release_only_never_prepares_silent_sequences(self):
+        with tempfile.TemporaryDirectory() as folder:
+            app = workbench.Workbench(History(Path(folder)))
+            with patch.object(app, 'prepare_silent_sequences') as prepare, \
+                 patch.object(app, 'execute', return_value={'exit_code': 0}) as execute, \
+                 patch.object(workbench.upload_switch, 'selected_source', return_value=Path(folder)), \
+                 patch.object(workbench.upload_switch, 'upload_payloads', return_value=[]) as payloads:
+                self.assertTrue(app.upload_release('2.2.5', [(app.host('diagnostic'), 'diagnostic')]))
+            prepare.assert_not_called()
+            argv = execute.call_args.args[0]
+            self.assertIn('--preserve-sequences', argv)
+            self.assertNotIn('--replace-sequences', argv)
+            payloads.assert_called_once_with(Path(folder), replace_sequences=False, preserve_sequences=True)
 
     def test_upload_decline_prevents_write_commands(self):
         with tempfile.TemporaryDirectory() as folder:

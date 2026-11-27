@@ -29,6 +29,22 @@ fn resign(bytes: &mut [u8]) {
     bytes[body..].copy_from_slice(&mac.finalize().into_bytes());
 }
 #[test]
+fn unauthenticated_lan_wire_is_explicit_and_never_downgrades_keyed_mode() {
+    let mut buffer = [0; 1200];
+    let s = sample();
+    let n = encode(&s, b"", &mut buffer).unwrap();
+    assert_eq!(&buffer[4..6], &2u16.to_le_bytes());
+    assert_eq!(&buffer[n - 32..n], &[0; 32]);
+    assert_eq!(decode(&buffer[..n], b"").unwrap(), s);
+    assert!(decode(&buffer[..n], KEY).is_err());
+    buffer[n - 1] = 1;
+    assert!(decode(&buffer[..n], b"").is_err());
+    let n = encode(&s, KEY, &mut buffer).unwrap();
+    assert!(decode(&buffer[..n], b"").is_err());
+    buffer[4] = 2;
+    assert!(decode(&buffer[..n], b"").is_err());
+}
+#[test]
 fn roundtrip_preserves_validity_raw_bits_and_little_endian() {
     let s = sample();
     let mut buffer = [0u8; 1200];
@@ -121,6 +137,24 @@ fn config_accepts_private_addresses_and_boundary_ports() {
     ))
     .is_ok());
 }
+#[test]
+fn config_size_limit_matches_native_setup_admission() {
+    let mut source = config(
+        "10.0.0.1",
+        "10.0.0.2",
+        "1234",
+        std::str::from_utf8(KEY).unwrap(),
+    );
+    source.push('#');
+    source.extend(std::iter::repeat('x').take(2048 - source.len()));
+    assert!(Config::parse(&source).is_ok());
+    source.push('x');
+    assert_eq!(
+        Config::parse(&source),
+        Err("Telemetry setup exceeds 2048 bytes")
+    );
+}
+
 #[test]
 fn config_rejects_unsafe_ambiguous_and_incomplete_inputs() {
     let key = std::str::from_utf8(KEY).unwrap();

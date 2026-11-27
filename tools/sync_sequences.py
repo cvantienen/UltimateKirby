@@ -104,9 +104,34 @@ def replace_fighter(source: bytes, destination: bytes, fighter: str) -> tuple[by
 def store_verified(ftp: ftplib.FTP, path: str, data: bytes) -> None:
     ftp.storbinary(f"STOR {path}", io.BytesIO(data))
     digest = hashlib.sha256()
-    ftp.retrbinary(f"RETR {path}", digest.update)
+    received = 0
+    def verify(block: bytes) -> None:
+        nonlocal received
+        received += len(block)
+        if received > len(data):
+            raise RuntimeError(f"SHA-256 read-back exceeds expected length: {path}")
+        digest.update(block)
+    ftp.retrbinary(f"RETR {path}", verify)
     if digest.digest() != hashlib.sha256(data).digest():
         raise RuntimeError(f"SHA-256 read-back verification failed: {path}")
+
+
+def read_bounded_existing(ftp: ftplib.FTP) -> bytes | None:
+    class BoundedFTP:
+        def retrbinary(self, command, consume):
+            received = 0
+            def bounded(block):
+                nonlocal received
+                received += len(block)
+                if received > MAX_BYTES:
+                    raise RuntimeError('Destination sequences.txt exceeds 512 KiB; nothing changed')
+                consume(block)
+            return ftp.retrbinary(command, bounded)
+
+        def nlst(self, path):
+            return ftp.nlst(path)
+
+    return read_existing(BoundedFTP(), ACTIVE)
 
 
 def sync_sequences(*, source_variant: str = "diagnostic", port: int = 5000, dry_run: bool = False,
@@ -137,7 +162,7 @@ def sync_sequences(*, source_variant: str = "diagnostic", port: int = 5000, dry_
     with ftplib.FTP() as ftp:
         ftp.connect(destination_host, port, timeout=15)
         ftp.login()
-        original = read_existing(ftp, ACTIVE)
+        original = read_bounded_existing(ftp)
         if fighter is not None:
             if original is None:
                 raise RuntimeError("Destination active file is missing; fighter transfer stopped")
@@ -164,7 +189,7 @@ def sync_sequences(*, source_variant: str = "diagnostic", port: int = 5000, dry_
         (snapshot / "transfer-result.txt").write_bytes(updated)
         print(f"Local snapshots: {snapshot}", flush=True)
         # Reject a concurrent in-game/FTP edit before touching the active file.
-        if read_existing(ftp, ACTIVE) != original:
+        if read_bounded_existing(ftp) != original:
             raise RuntimeError("Destination changed during preparation; nothing overwritten")
         if original is not None:
             # A failed backup must never be followed by an active write.
@@ -172,7 +197,7 @@ def sync_sequences(*, source_variant: str = "diagnostic", port: int = 5000, dry_
                 store_verified(ftp, REMOTE_BACKUP, original)
             except (OSError, EOFError, ftplib.Error, RuntimeError) as error:
                 raise RuntimeError(f"{destination_variant.capitalize()} backup failed; its active file is unchanged. {error}") from error
-        if read_existing(ftp, ACTIVE) != original:
+        if read_bounded_existing(ftp) != original:
             raise RuntimeError("Destination changed before replacement; nothing overwritten")
         try:
             store_verified(ftp, ACTIVE, updated)

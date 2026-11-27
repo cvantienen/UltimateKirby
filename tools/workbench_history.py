@@ -37,7 +37,7 @@ class Tee:
 
 def receipts(path: Path) -> dict:
     manifests, verified = {}, []
-    complete = False
+    complete = None
     with path.open(errors="replace") as log:
         for line in log:
             match = re.match(r"\s+(/.+) \(([\d,]+) bytes; SHA-256 ([0-9a-f]{64})\)", line)
@@ -45,10 +45,12 @@ def receipts(path: Path) -> dict:
                 manifests[match[1]] = {"path": match[1], "bytes": int(match[2].replace(",", "")), "sha256": match[3]}
             if line.startswith("Uploaded and verified "):
                 verified.append(line.strip().removeprefix("Uploaded and verified "))
-            if line.startswith("FTP update complete: all "):
-                complete = True
+            match = re.fullmatch(r"FTP update complete: all ([0-9]+) files verified by read-back SHA-256\.\s*", line)
+            if match:
+                complete = int(match[1])
     return {"payloads": list(manifests.values()), "verified_files": verified,
-            "verified_deployment": complete}
+            "verified_deployment": complete is not None and complete > 0
+            and complete == len(manifests) == len(verified) and set(verified) == set(manifests)}
 
 
 class History:

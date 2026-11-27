@@ -1,4 +1,5 @@
-//! Authenticated, read-only Training observations; never controller commands.
+//! Read-only Training observations; never controller commands.
+//! Empty keys select explicitly unauthenticated LAN packets; nonempty keys require HMAC.
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::net::{Ipv4Addr, SocketAddrV4};
@@ -8,7 +9,15 @@ pub const FIELD_COUNT: usize = 64;
 pub const PACKET_LEN: usize = 604;
 const MAGIC: &[u8; 4] = b"KATM";
 const VERSION: u16 = 1;
+const LAN_VERSION: u16 = 2;
 const TAG_LEN: usize = 32;
+pub const SUBSCRIPTION: &[u8] = b"KATM SUBSCRIBE 1";
+pub const TELEMETRY_PORT: u16 = 4243;
+pub const SUBSCRIBER_LEASE: std::time::Duration = std::time::Duration::from_secs(3);
+
+pub fn private_peer(peer: SocketAddrV4) -> bool {
+    peer.port() != 0 && peer.ip().is_private() && !matches!(peer.ip().octets()[3], 0 | 255)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sample {
@@ -229,6 +238,9 @@ fn private_ip(value: &str) -> Result<Ipv4Addr, &'static str> {
 }
 impl Config {
     pub fn parse(source: &str) -> Result<Self, &'static str> {
+        if source.len() > 2048 {
+            return Err("Telemetry setup exceeds 2048 bytes");
+        }
         let mut values: [Option<&str>; 4] = [None; 4];
         for line in source.lines() {
             let line = line.trim();
@@ -274,7 +286,7 @@ impl Config {
 }
 
 pub fn encode(sample: &Sample, key: &[u8], out: &mut [u8; 1200]) -> Result<usize, &'static str> {
-    if !valid_token(key) {
+    if !key.is_empty() && !valid_token(key) {
         return Err("invalid token");
     }
     if sample.group > 9 {
@@ -289,7 +301,7 @@ pub fn encode(sample: &Sample, key: &[u8], out: &mut [u8; 1200]) -> Result<usize
         }};
     }
     put!(*MAGIC);
-    put!(VERSION.to_le_bytes());
+    put!((if key.is_empty() { LAN_VERSION } else { VERSION }).to_le_bytes());
     put!(sample.group.to_le_bytes());
     put!(sample.session.to_le_bytes());
     put!(sample.sequence.to_le_bytes());
@@ -309,9 +321,13 @@ pub fn encode(sample: &Sample, key: &[u8], out: &mut [u8; 1200]) -> Result<usize
     for value in sample.values.into_iter().flatten() {
         put!(value.to_le_bytes());
     }
-    let mut mac = Hmac::<Sha256>::new_from_slice(key).map_err(|_| "invalid key")?;
-    mac.update(&out[..pos]);
-    put!(mac.finalize().into_bytes());
+    if key.is_empty() {
+        put!([0u8; TAG_LEN]);
+    } else {
+        let mut mac = Hmac::<Sha256>::new_from_slice(key).map_err(|_| "invalid key")?;
+        mac.update(&out[..pos]);
+        put!(mac.finalize().into_bytes());
+    }
     debug_assert_eq!(pos, 60 + valid.count_ones() as usize * 8 + TAG_LEN);
     Ok(pos)
 }
@@ -324,14 +340,25 @@ pub fn decode(bytes: &[u8], key: &[u8]) -> Result<Sample, &'static str> {
     if bytes.len() != 60 + valid.count_ones() as usize * 8 + TAG_LEN {
         return Err("invalid packet length");
     }
-    if !valid_token(key) {
+    if !key.is_empty() && !valid_token(key) {
         return Err("invalid token");
     }
+    let version = u16::from_le_bytes([bytes[4], bytes[5]]);
+    let expected_version = if key.is_empty() { LAN_VERSION } else { VERSION };
+    if version != expected_version {
+        return Err("unsupported version");
+    }
     let body = bytes.len() - TAG_LEN;
-    let mut mac = Hmac::<Sha256>::new_from_slice(key).map_err(|_| "invalid key")?;
-    mac.update(&bytes[..body]);
-    mac.verify_slice(&bytes[body..])
-        .map_err(|_| "authentication failed")?;
+    if key.is_empty() {
+        if bytes[body..].iter().any(|b| *b != 0) {
+            return Err("invalid unauthenticated tag");
+        }
+    } else {
+        let mut mac = Hmac::<Sha256>::new_from_slice(key).map_err(|_| "invalid key")?;
+        mac.update(&bytes[..body]);
+        mac.verify_slice(&bytes[body..])
+            .map_err(|_| "authentication failed")?;
+    }
     if &bytes[..4] != MAGIC {
         return Err("invalid magic");
     }
@@ -344,7 +371,7 @@ pub fn decode(bytes: &[u8], key: &[u8]) -> Result<Sample, &'static str> {
             <$ty>::from_le_bytes(raw)
         }};
     }
-    if read!(u16, 2) != VERSION {
+    if read!(u16, 2) != expected_version {
         return Err("unsupported version");
     }
     let group = read!(u16, 2);

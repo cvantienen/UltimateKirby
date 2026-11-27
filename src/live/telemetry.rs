@@ -10,7 +10,24 @@ use std::time::{Duration, Instant};
 
 static SAMPLING: AtomicBool = AtomicBool::new(false);
 static LAST: Mutex<Option<Instant>> = Mutex::new(None);
-static PROJECTILES: Mutex<[Option<u32>; 32]> = Mutex::new([None; 32]);
+static PROJECTILES: Mutex<ProjectileRoster> = Mutex::new(ProjectileRoster {
+    session: 0,
+    ids: [None; 32],
+});
+struct ProjectileRoster {
+    session: u64,
+    ids: [Option<u32>; 32],
+}
+impl ProjectileRoster {
+    fn current(&mut self) -> &mut [Option<u32>; 32] {
+        let session = transport::session();
+        if self.session != session {
+            self.session = session;
+            self.ids = [None; 32];
+        }
+        &mut self.ids
+    }
+}
 struct SamplingGuard;
 impl Drop for SamplingGuard {
     fn drop(&mut self) {
@@ -38,7 +55,8 @@ pub(super) unsafe fn remember_attack(object: *mut game::Object) {
     ) {
         return;
     }
-    if let Ok(mut ids) = PROJECTILES.try_lock() {
+    if let Ok(mut roster) = PROJECTILES.try_lock() {
+        let ids = roster.current();
         if !ids.contains(&Some(id)) {
             ids.rotate_right(1);
             ids[0] = Some(id);
@@ -54,8 +72,8 @@ pub(super) unsafe fn observe(object: *mut game::Object) {
     let training = game::is_training_mode();
     transport::observe(training);
     if !training {
-        if let Ok(mut ids) = PROJECTILES.try_lock() {
-            *ids = [None; 32];
+        if let Ok(mut roster) = PROJECTILES.try_lock() {
+            roster.ids = [None; 32];
         }
         return;
     }
@@ -81,12 +99,19 @@ pub(super) unsafe fn observe(object: *mut game::Object) {
     for id in ids.into_iter().flatten() {
         sample_object(id);
     }
-    let projectiles = PROJECTILES.try_lock().map(|ids| *ids).unwrap_or([None; 32]);
+    let projectiles = PROJECTILES
+        .try_lock()
+        .map(|mut roster| *roster.current())
+        .unwrap_or([None; 32]);
     for id in projectiles.into_iter().flatten() {
         if game::is_active(id) {
             sample_object(id);
-        } else if let Ok(mut ids) = PROJECTILES.try_lock() {
-            for entry in ids.iter_mut().filter(|entry| **entry == Some(id)) {
+        } else if let Ok(mut roster) = PROJECTILES.try_lock() {
+            for entry in roster
+                .current()
+                .iter_mut()
+                .filter(|entry| **entry == Some(id))
+            {
                 *entry = None;
             }
         }
@@ -337,7 +362,11 @@ unsafe fn sample_object(id: u32) {
         }
     }
     v[30] = Some(active);
-    if !game::is_active(id) || game::module_accessor(id) != object || !game::is_training_mode() {
+    if !game::is_training_mode() {
+        transport::revoke();
+        return;
+    }
+    if !game::is_active(id) || game::module_accessor(id) != object {
         return;
     }
     transport::publish(sample);
@@ -417,8 +446,11 @@ unsafe fn sample_object(id: u32) {
                 }
             }
         }
-        if !game::is_active(id) || game::module_accessor(id) != object || !game::is_training_mode()
-        {
+        if !game::is_training_mode() {
+            transport::revoke();
+            return;
+        }
+        if !game::is_active(id) || game::module_accessor(id) != object {
             return;
         }
         transport::publish(attack);

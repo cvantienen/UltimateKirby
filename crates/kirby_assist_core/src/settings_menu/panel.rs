@@ -103,7 +103,7 @@ impl MenuSelection {
                 if row == fighter_tuning::COUNT + 1 {
                     "Read-only live telemetry | Left/Right or A: toggle".into()
                 } else if row == fighter_tuning::COUNT {
-                    "Left/Right or A: toggle LAN editor HTTP service".into()
+                    "Left/Right or A: toggle LAN editor HTTP + UDP (4242)".into()
                 } else {
                     fighter_tuning::HINTS[row].into()
                 },
@@ -132,7 +132,7 @@ impl MenuSelection {
         #[cfg(feature = "diagnostic-logging")]
         if i == fighter_tuning::COUNT + 1 {
             return format!(
-                "{} Live telemetry UDP: {} | read-only{}",
+                "{} Live telemetry UDP: {} | port 4243 | read-only{}",
                 if selected { ">" } else { " " },
                 if self.telemetry_enabled { "STREAMING" } else { "OFF" },
                 self.telemetry_status.as_ref().map_or(String::new(), |s| format!(" | {s}"))
@@ -141,7 +141,7 @@ impl MenuSelection {
         #[cfg(feature = "diagnostic-logging")]
         if i == fighter_tuning::COUNT {
             return format!(
-                "{} LAN editor HTTP: {} | Left/Right or A: toggle{}{}",
+                "{} LAN editor HTTP + UDP: {} | port 4242 | Left/Right or A: toggle{}{}",
                 if selected { ">" } else { " " },
                 if self.lan_enabled { "ON" } else { "OFF" },
                 if self.lan_editing_allowed() {
