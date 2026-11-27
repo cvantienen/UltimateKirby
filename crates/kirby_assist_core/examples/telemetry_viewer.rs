@@ -194,13 +194,21 @@ impl State {
                         ValueKind::Boolean => if raw == 0 { "false".into() } else { "true".into() },
                         ValueKind::Hex => format!("0x{raw:016x}"),
                     };
-                    json!({ "raw": format!("0x{raw:016x}"), "display": display })
+                    let meaning = if sample.category == 0 && matches!((sample.group, i), (0, 0 | 1) | (10, 8)) {
+                        i32::try_from(raw as i64).ok().and_then(|status| {
+                            let name = kirby_assist_core::diagnostics::modes::native_name(status);
+                            (name != "other native action").then_some(name)
+                        })
+                    } else { None };
+                    json!({ "raw": format!("0x{raw:016x}"), "display": display, "meaning": meaning })
                 })
             }).collect();
             json!({ "object_id": format!("0x{:08x}", sample.object_id), "group": sample.group,
                 "category": sample.category, "kind": sample.kind, "session": format!("0x{:016x}", sample.session),
                 "sequence": sample.sequence.to_string(), "sample_us": sample.sample_us.to_string(),
-                "age_ms": age.as_millis() as u64, "stale": age >= STALE, "values": values })
+                "age_ms": age.as_millis() as u64, "stale": age >= STALE, "values": values,
+                "mode": kirby_assist_core::telemetry::feature_label(sample, false),
+                "recipe": kirby_assist_core::telemetry::feature_label(sample, true) })
         }).collect();
         objects.sort_by_key(|v| {
             (
@@ -217,12 +225,100 @@ impl State {
             "session_history_full": self.retired.len() >= 128, "objects": objects })
     }
 }
+fn field_label(name: &str) -> String {
+    match name {
+        "status" => "Fighter action / status",
+        "previous_status" => "Previous fighter action",
+        "situation" => "Ground / air situation ID",
+        "motion" => "Animation (motion hash)",
+        "motion_frame" => "Animation frame",
+        "motion_rate" => "Animation playback rate",
+        "motion_end_frame" => "Animation end frame",
+        "stopped" => "Animation stopped",
+        "damage_stopped" => "Victim hitlag",
+        "hitstop_remaining" => "Remaining hitlag frames",
+        "damage_percent" => "Damage (%)",
+        "hit_status" => "Hurtbox status ID",
+        "cancel_enabled" => "Action cancel enabled",
+        "cancel_frame" => "Animation cancel frame",
+        "normal_hit_frame" => "Normal hurtbox frame",
+        "clatter_time" => "Grab / bury escape timer",
+        "capture_link" => "Captured / grabbed link",
+        "capture_stop_link" => "Capture-stop link",
+        "hit_infliction" => "Hit contact observed",
+        "shield_infliction" => "Shield contact observed",
+        "attack_active_mask" => "Active hitbox slots (mask)",
+        "shield_stun_frames" => "Shieldstun frames",
+        "cliff_hit_normal_frame" => "Ledge invulnerability end frame",
+        "reaction_frames" => "Hitstun reaction frames",
+        "passive_disabled" => "Tech disabled flag",
+        "can_passive" => "Tech in place allowed",
+        "can_passive_fb" => "Tech roll allowed",
+        "can_passive_wall" => "Wall tech allowed",
+        "can_passive_wall_jump" => "Wall-tech jump allowed",
+        "can_passive_ceiling" => "Ceiling tech allowed",
+        "can_catch" => "Grab transition allowed",
+        "can_jump_squat" => "Button jump-squat transition allowed",
+        "can_jump_squat_native" => "Jump-squat transition allowed",
+        "can_guard" => "Shield transition allowed",
+        "can_escape_air" => "Air-dodge transition allowed",
+        "can_attack" => "Attack transition allowed",
+        "can_special_lw" => "Down-special transition allowed",
+        "power" => "Hitbox damage",
+        "kbg" => "Knockback growth",
+        "fkb" => "Fixed knockback",
+        "bkb" => "Base knockback",
+        "hitlag" => "Hitlag multiplier",
+        "sdi" => "Smash DI multiplier",
+        "slip" => "Trip parameter",
+        "gamewatch_oil_gauge" => "Oil Panic bucket gauge",
+        "node" => "Hitbox bone hash",
+        _ => return name.replace('_', " "),
+    }
+    .into()
+}
 fn schema() -> Value {
+    use kirby_assist_core::{action_owner::Owner, diagnostics::modes};
     let group = |g| {
         fields(g).iter().enumerate().filter(|(_, f)| f.name != "reserved")
-        .map(|(i, f)| json!({ "index": i, "name": f.name, "kind": format!("{:?}", f.kind), "source": f.source })).collect::<Vec<_>>()
+        .map(|(i, f)| json!({ "index": i, "name": f.name, "label": field_label(f.name), "kind": format!("{:?}", f.kind), "source": f.source })).collect::<Vec<_>>()
     };
-    json!({ "object": group(0), "attack": group(1), "input": group(9), "field_count": FIELD_COUNT })
+    let mut features = vec![];
+    for (i, (label, description, safety)) in [
+        ("Auto-tech", "Requests a shield-button tech only when collision prediction and native tech readiness permit it; does not change tech lockout.", modes::SAFETY_TECH_GUARD),
+        ("Auto-mash", "Cycles stick inputs in supported grab, bury or other escape states; not continuous attacking.", modes::SAFETY_MASH),
+        ("SDI — smash directional influence", "Pulses the stick during eligible hitlag to shift position. Separate from launch DI.", modes::SAFETY_SDI),
+        ("DI — directional influence", "Requests a launch-direction stick near the end of victim hitlag. Physical input and safety gates still apply.", modes::SAFETY_DI),
+    ].into_iter().enumerate() {
+        features.push(json!({"label":label, "description":description, "configured_index":16+i, "owner":modes::bit(Owner::Safety), "safety":safety}));
+    }
+    for (i, owner) in [
+        Owner::OptionRead,
+        Owner::Ledge,
+        Owner::RollRead,
+        Owner::Trip,
+        Owner::Fair,
+        Owner::Trump,
+        Owner::Defense,
+        Owner::Turbo,
+        Owner::Posture,
+        Owner::OutOfShield,
+        Owner::GrabDodge,
+        Owner::Reflect,
+        Owner::Counter,
+        Owner::Spacing,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        features.push(
+            json!({"label":modes::name(owner), "description":modes::purpose(owner),
+            "configured_index":20+i, "owner":modes::bit(owner), "safety":null}),
+        );
+    }
+    json!({ "object": group(0), "attack": group(1), "input": group(9), "policy": group(10),
+        "features":features, "feature":group(11), "feature_group_start":11,
+        "field_count": FIELD_COUNT, "policy_group":10 })
 }
 fn valid_headers(request: &str, port: u16) -> Option<&str> {
     let mut lines = request.split("\r\n");
@@ -426,6 +522,64 @@ mod tests {
             values: [None; FIELD_COUNT],
         }
     }
+    #[test]
+    fn analytical_schema_keeps_configuration_separate_and_names_only_known_fighter_states() {
+        let schema = schema();
+        let features = schema["features"].as_array().unwrap();
+        assert_eq!(
+            features.len(),
+            kirby_assist_core::telemetry::POLICY_FEATURE_COUNT
+        );
+        for (i, feature) in features.iter().enumerate() {
+            let index = feature["configured_index"].as_u64().unwrap() as usize;
+            assert_eq!(index, 16 + i);
+            assert!(fields(10)[index]
+                .source
+                .starts_with("configured preference"));
+        }
+        let now = Instant::now();
+        let mut state = State::new();
+        let mut fighter = sample(1, 1, 42, 0);
+        fighter.values[0] = Some(kirby_assist_core::native_states::status::WAIT as u64);
+        fighter.values[1] = Some(0x1_0000_0000);
+        state.accept(fighter, 100, now);
+        let snapshot = state.snapshot(now);
+        assert_eq!(snapshot["objects"][0]["values"][0]["meaning"], "standing");
+        assert!(snapshot["objects"][0]["values"][1]["meaning"].is_null());
+        fighter.category = 1;
+        fighter.sequence = 2;
+        state.accept(fighter, 100, now);
+        assert!(state.snapshot(now)["objects"][0]["values"][0]["meaning"].is_null());
+    }
+
+    #[test]
+    fn feature_labels_and_final_mapped_values_are_independent_observations() {
+        let now = Instant::now();
+        let mut state = State::new();
+        let mut detail = kirby_assist_core::telemetry::FeatureDetail::new(
+            Some(true),
+            "Ledge jump",
+            "My <recipe>",
+        )
+        .sample(42, 6, 5)
+        .unwrap();
+        detail.session = 1;
+        detail.sequence = 1;
+        state.accept(detail, 300, now);
+        let mut mapped = sample(1, 2, 42, 9);
+        mapped.values[11] = Some(0x123);
+        state.accept(mapped, 100, now);
+        let snapshot = state.snapshot(now);
+        let rows = snapshot["objects"].as_array().unwrap();
+        let detail = rows.iter().find(|v| v["group"] == 16).unwrap();
+        let mapped = rows.iter().find(|v| v["group"] == 9).unwrap();
+        assert_eq!(detail["mode"], "Ledge jump");
+        assert_eq!(detail["recipe"], "My <recipe>");
+        assert_eq!(mapped["values"][11]["raw"], "0x0000000000000123");
+        assert!(mapped["mode"].is_null());
+        assert!(!rows.iter().any(|v| v["group"] == 10));
+    }
+
     #[test]
     fn subscription_renews_and_receives_on_the_same_ephemeral_socket() {
         let server = UdpSocket::bind("127.0.0.1:0").unwrap();

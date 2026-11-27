@@ -1,65 +1,148 @@
-//! Diagnostic-only logger. Game hooks enqueue; a worker batches console/SD I/O.
-//! Silent builds exclude this module and its thread/channel entirely.
-//! Technical: Queues diagnostic messages and batches console/SD output on a worker
-//! rather than inside native callbacks.
-//! Plain English: This module writes optional logs in the background so gameplay
-//! callbacks stay lightweight.
-use std::{
-    fs::OpenOptions,
-    io::{BufWriter, Write},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        mpsc::{self, Receiver, SyncSender, TrySendError},
-        OnceLock,
-    },
-    time::{Duration, Instant},
+//! Bounded Training-session diagnostics retained only in RAM for the live HTTP view.
+//! Hooks use a nonblocking queue; report formatting stays on the lazy worker.
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    mpsc::{self, Receiver, SyncSender, TrySendError},
+    Mutex, OnceLock,
 };
+use std::time::Duration;
 
-/// SD-card destination for ordinary diagnostic messages.
-const LOG_PATH: &str = "sd:/ultimate/kirby_assist/status.log";
-/// SD-card destination for performance summaries.
-const PERFORMANCE_PATH: &str = "sd:/ultimate/kirby_assist/performance.log";
-/// Maximum number of pending messages in the nonblocking sync queue.
 const QUEUE_CAPACITY: usize = 128;
-/// Receiver timeout and periodic flush interval.
-const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
-/// Typed queue payloads consumed by the background writer.
+const REPORT_INTERVAL: Duration = Duration::from_millis(250);
+// Odd generations are active. Every transition invalidates in-flight work.
+static SESSION: AtomicUsize = AtomicUsize::new(0);
+static SENDER: OnceLock<SyncSender<Envelope>> = OnceLock::new();
+static STARTED: AtomicBool = AtomicBool::new(false);
+static LIVE_LOGS: OnceLock<Mutex<LiveLogs>> = OnceLock::new();
+static SNAPSHOT_EPOCH: AtomicUsize = AtomicUsize::new(0);
+#[cfg(test)]
+static SNAPSHOT_CARD: Mutex<Option<(usize, usize, std::ffi::CString)>> = Mutex::new(None);
+#[cfg(test)]
+pub(crate) static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+#[derive(Default)]
+struct LiveLogs {
+    session: usize,
+    buffer: kirby_assist_core::diagnostic_http::LogBuffer,
+}
+
+struct Envelope {
+    session: usize,
+    message: Message,
+}
+
 enum Message {
-    /// Plain owned diagnostic text.
+    Wake,
     Text(String),
-    /// Mode report tagged with the snapshot-cache generation.
     Modes(usize, Box<kirby_assist_core::diagnostics::modes::Report>),
-    /// Owned configuration diagnostic payload.
     Configuration(Box<kirby_assist_core::diagnostics::modes::Configuration>),
-    /// Owned bounded grab-trace report.
     Grab(Box<crate::grab_diagnostics::Report>),
-    /// Owned ledge calibration report.
     Calibration(Box<crate::calibration::Report>),
 }
-/// One-time sender used by callbacks to enqueue messages without blocking.
-static SENDER: OnceLock<SyncSender<Message>> = OnceLock::new();
-/// Counts messages rejected because the bounded queue was full.
-static DROPPED: AtomicUsize = AtomicUsize::new(0);
-static LIVE_LOGS: OnceLock<std::sync::Mutex<kirby_assist_core::diagnostic_http::LogBuffer>> = OnceLock::new();
 
-fn live_output(text: &str) {
-    let logs = LIVE_LOGS.get_or_init(|| std::sync::Mutex::new(Default::default()));
-    logs.lock().unwrap_or_else(|e| e.into_inner()).push(text);
+pub fn active() -> bool {
+    session() != 0
+}
+
+/// Zero is inactive; nonzero tokens identify one uninterrupted Training session.
+pub fn session() -> u64 {
+    let generation = SESSION.load(Ordering::Acquire);
+    if generation & 1 != 0 {
+        generation as u64
+    } else {
+        0
+    }
+}
+
+fn current(session: usize) -> bool {
+    session & 1 != 0 && SESSION.load(Ordering::Acquire) == session
+}
+
+/// Called on every frame, including inactive frames, before diagnostic producers.
+pub fn observe(training: bool) {
+    let previous = SESSION.load(Ordering::Acquire);
+    if (previous & 1 != 0) == training {
+        return;
+    }
+    if SESSION
+        .compare_exchange(
+            previous,
+            previous.wrapping_add(1),
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        )
+        .is_err()
+    {
+        return;
+    }
+    clear_snapshot();
+    crate::calibration::clear();
+    crate::performance::observe(training);
+    if let Some(logs) = LIVE_LOGS.get() {
+        if let Ok(mut logs) = logs.try_lock() {
+            *logs = LiveLogs::default();
+        }
+    }
+    if training {
+        start();
+    }
+    enqueue(|| Message::Wake);
+}
+
+/// Never creates a worker or emits startup output outside Training.
+pub fn start() {
+    if !active() || STARTED.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
+    if std::thread::Builder::new()
+        .name("kirby-assist-log".into())
+        .spawn(move || writer_loop(receiver))
+        .is_ok()
+    {
+        let _ = SENDER.set(sender);
+    }
+}
+
+fn live_output(session: usize, text: &str) {
+    if !current(session) {
+        return;
+    }
+    let logs = LIVE_LOGS.get_or_init(|| Mutex::new(LiveLogs::default()));
+    let mut logs = logs.lock().unwrap_or_else(|e| e.into_inner());
+    if !current(session) {
+        return;
+    }
+    if logs.session != session {
+        *logs = LiveLogs {
+            session,
+            ..Default::default()
+        };
+    }
+    logs.buffer.push(text);
 }
 
 pub(crate) fn live_logs(after: u64) -> String {
-    let logs = LIVE_LOGS.get_or_init(|| std::sync::Mutex::new(Default::default()));
-    logs.lock().unwrap_or_else(|e| e.into_inner()).logs_json(after)
+    let session = SESSION.load(Ordering::Acquire);
+    let empty = || kirby_assist_core::diagnostic_http::LogBuffer::default().logs_json(after);
+    if !current(session) {
+        return empty();
+    }
+    let Some(logs) = LIVE_LOGS.get() else {
+        return empty();
+    };
+    let logs = logs.lock().unwrap_or_else(|e| e.into_inner());
+    if logs.session != session || !current(session) {
+        return empty();
+    }
+    let json = logs.buffer.logs_json(after);
+    if current(session) {
+        json
+    } else {
+        empty()
+    }
 }
 
-// Generation tags prevent a queued report from an old match repopulating the UI.
-/// Generation counter invalidating stale mode snapshots.
-static SNAPSHOT_EPOCH: AtomicUsize = AtomicUsize::new(0);
-#[cfg(test)]
-/// Nonblocking cached card text paired with the generation that created it.
-static SNAPSHOT_CARD: std::sync::Mutex<Option<(usize, std::ffi::CString)>> =
-    std::sync::Mutex::new(None);
-/// Advances the cache generation and clears any currently cached card.
 pub fn clear_snapshot() {
     SNAPSHOT_EPOCH.fetch_add(1, Ordering::AcqRel);
     #[cfg(test)]
@@ -67,26 +150,26 @@ pub fn clear_snapshot() {
         *card = None;
     }
 }
+
 #[cfg(test)]
-/// Publishes text only if its generation remains current across locking.
-fn publish_snapshot(epoch: usize, text: String) {
-    if epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+fn publish_snapshot(session: usize, epoch: usize, text: String) {
+    if !current(session) || epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
         return;
     }
     if let Ok(text) = std::ffi::CString::new(text) {
         if let Ok(mut card) = SNAPSHOT_CARD.lock() {
-            if epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
-                *card = Some((epoch, text));
+            if current(session) && epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+                *card = Some((session, epoch, text));
             }
         }
     }
 }
+
 #[cfg(test)]
-/// Calls `draw` only while a nonblocking lock holds a current cached card.
 pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
     if let Ok(card) = SNAPSHOT_CARD.try_lock() {
-        if let Some((epoch, text)) = card.as_ref() {
-            if *epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+        if let Some((session, epoch, text)) = card.as_ref() {
+            if current(*session) && *epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
                 draw(text);
                 return true;
             }
@@ -95,256 +178,156 @@ pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
     false
 }
 
-/// Startup I/O happens before hooks are installed. Gameplay never opens files.
-/// Creates diagnostic files, starts the bounded channel, and launches its writer.
-pub fn start() {
-    if SENDER.get().is_some() {
+fn bounded_text(message: &str) -> &str {
+    let mut end = message
+        .len()
+        .min(kirby_assist_core::diagnostic_http::MAX_LOG_EVENT_BYTES);
+    while !message.is_char_boundary(end) {
+        end -= 1;
+    }
+    &message[..end]
+}
+
+pub fn write(message: &str) {
+    enqueue(|| Message::Text(bounded_text(message).to_owned()));
+}
+
+pub fn write_owned(message: String) {
+    write_owned_for_session(session(), message);
+}
+
+pub fn write_owned_for_session(session: u64, mut message: String) {
+    enqueue_for_session(session, || {
+        message.truncate(bounded_text(&message).len());
+        // Do not retain the caller's potentially unbounded allocation in the queue.
+        Message::Text(message.into_boxed_str().into_string())
+    });
+}
+
+pub fn write_grab(report: crate::grab_diagnostics::Report) {
+    enqueue(|| Message::Grab(Box::new(report)));
+}
+
+pub fn write_calibration(report: crate::calibration::Report) {
+    enqueue(|| Message::Calibration(Box::new(report)));
+}
+
+pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
+    write_modes_for_session(session(), report);
+}
+
+pub fn write_modes_for_session(
+    session: u64,
+    report: kirby_assist_core::diagnostics::modes::Report,
+) {
+    enqueue_for_session(session, || {
+        Message::Modes(SNAPSHOT_EPOCH.load(Ordering::Acquire), Box::new(report))
+    });
+}
+
+pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
+    enqueue(|| Message::Configuration(Box::new(config)));
+}
+
+fn enqueue(message: impl FnOnce() -> Message) {
+    enqueue_for_session(session(), message);
+}
+
+fn enqueue_for_session(session: u64, message: impl FnOnce() -> Message) {
+    let Ok(session) = usize::try_from(session) else {
+        return;
+    };
+    if !current(session) {
         return;
     }
-    live_output(concat!("Kirby Assist diagnostic build ", env!("CARGO_PKG_VERSION"), "; bounded live logging; LAN disabled until Training editor activation"));
-    if let Err(error) = std::fs::create_dir_all("sd:/ultimate/kirby_assist") {
-        eprintln!("[kirby_assist] diagnostic log directory failed: {error}; expected {LOG_PATH}");
-        live_output(&format!("LOG DIRECTORY ERROR: {error}; expected {LOG_PATH}"));
-    }
-    for path in [LOG_PATH, PERFORMANCE_PATH] {
-        if let Err(error) = std::fs::write(
-            path,
-            concat!(
-                "Kirby Assist diagnostic build ",
-                env!("CARGO_PKG_VERSION"),
-                "; queued logging; files reset at plugin start\n"
-            ),
-        ) {
-            eprintln!("[kirby_assist] diagnostic startup log failed: {error}; expected {path}");
-            live_output(&format!("LOG STARTUP ERROR: {error}; expected {path}"));
-        }
-    }
-    let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
-    // Spawn failure disables logging instead of panicking or falling back to
-    // blocking file writes from a gameplay hook. Dropping the handle detaches.
-    match std::thread::Builder::new()
-        .name("kirby-assist-log".into())
-        .spawn(move || writer_loop(receiver))
-    {
-        Ok(_) => { let _ = SENDER.set(sender); }
-        Err(error) => eprintln!("[kirby_assist] diagnostic writer thread failed: {error}; startup header only at {LOG_PATH}"),
-    }
-}
-
-/// Copies borrowed text and queues it for asynchronous output.
-pub fn write(message: &str) {
-    write_owned(message.to_owned());
-}
-
-/// Enqueues owned text if the background logger has started.
-pub fn write_owned(message: String) {
-    if let Some(sender) = SENDER.get() {
-        enqueue_message(sender, &DROPPED, Message::Text(message));
-    }
-}
-
-/// Transfers a completed grab report into the bounded writer queue.
-pub fn write_grab(report: crate::grab_diagnostics::Report) {
-    if let Some(sender) = SENDER.get() {
-        enqueue_message(sender, &DROPPED, Message::Grab(Box::new(report)));
-    }
-}
-/// Transfers a completed calibration report into the bounded writer queue.
-pub fn write_calibration(report: crate::calibration::Report) {
-    if let Some(sender) = SENDER.get() {
-        enqueue_message(sender, &DROPPED, Message::Calibration(Box::new(report)));
-    }
-}
-
-/// Queues a mode report tagged for generation-safe card publication.
-pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(
             sender,
-            &DROPPED,
-            Message::Modes(SNAPSHOT_EPOCH.load(Ordering::Acquire), Box::new(report)),
+            Envelope {
+                session,
+                message: message(),
+            },
         );
     }
 }
-/// Queues an owned configuration snapshot for asynchronous formatting.
-pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
-    if let Some(sender) = SENDER.get() {
-        enqueue_message(sender, &DROPPED, Message::Configuration(Box::new(config)));
-    }
-}
 
-/// Attempts a nonblocking send and accounts for rejected queue entries.
-fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message: Message) {
+fn enqueue_message(sender: &SyncSender<Envelope>, message: Envelope) {
+    if !current(message.session) {
+        return;
+    }
     crate::performance::health::queue_enter();
-    match sender.try_send(message) {
-        Ok(()) => {}
-        Err(error) => {
-            crate::performance::health::queue_leave();
-            if matches!(error, TrySendError::Full(_)) {
-                dropped.fetch_add(1, Ordering::Relaxed);
-            }
+    if let Err(error) = sender.try_send(message) {
+        crate::performance::health::queue_leave();
+        if matches!(error, TrySendError::Full(_)) {
+            crate::performance::health::event(crate::performance::health::Event::LogDropped);
         }
-    }
-}
-#[cfg(test)]
-/// Test-only generic variant for verifying bounded queue semantics.
-fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
-    if let Err(TrySendError::Full(_)) = sender.try_send(message) {
-        dropped.fetch_add(1, Ordering::Relaxed);
-    }
-}
-/// Opens an append-only buffered log and degrades to console on failure.
-fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
-    match OpenOptions::new().create(true).append(true).open(path) {
-        Ok(file) => Some(BufWriter::with_capacity(16 * 1024, file)),
-        Err(error) => {
-            eprintln!(
-                "[kirby_assist] diagnostic log open failed: {error}; console only; expected {path}"
-            );
-            live_output(&format!("LOG OPEN ERROR: {error}; expected {path}"));
-            None
-        }
-    }
-}
-/// Flushes a file buffer and disables that file sink if flushing fails.
-fn flush_log(
-    file: &mut Option<BufWriter<std::fs::File>>,
-    console: &mut BufWriter<std::io::Stdout>,
-    path: &str,
-) {
-    if let Some(error) = file.as_mut().and_then(|f| f.flush().err()) {
-        let _ = writeln!(
-            console,
-            "[kirby_assist] LOG FLUSH ERROR: {error}; continuing console logging; expected {path}"
-        );
-        live_output(&format!("LOG FLUSH ERROR: {error}; SD log may be incomplete: {path}"));
-        *file = None;
     }
 }
 
-/// Drains the bounded queue, formats reports, samples performance,
-/// and periodically flushes output sinks.
-fn writer_loop(receiver: Receiver<Message>) {
-    // Both files share the existing worker; no extra logging thread/queue.
-    let mut file = open_log(LOG_PATH);
-    let mut performance_file = open_log(PERFORMANCE_PATH);
-    let mut console = BufWriter::with_capacity(16 * 1024, std::io::stdout());
-    let mut flushed = Instant::now();
+fn writer_loop(receiver: Receiver<Envelope>) {
     loop {
-        match receiver.recv_timeout(FLUSH_INTERVAL) {
+        let received = if active() {
+            receiver.recv_timeout(REPORT_INTERVAL)
+        } else {
+            receiver
+                .recv()
+                .map_err(|_| mpsc::RecvTimeoutError::Disconnected)
+        };
+        match received {
             Ok(message) => {
-                let _batch_time = crate::performance::health::Trace::new(
-                    crate::performance::health::Lane::LogWork,
-                );
                 crate::performance::health::queue_leave();
-                output_message(&mut file, &mut console, message);
+                output_message(message);
                 for message in receiver.try_iter().take(63) {
                     crate::performance::health::queue_leave();
-                    output_message(&mut file, &mut console, message);
+                    output_message(message);
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                flush_log(&mut file, &mut console, LOG_PATH);
-                flush_log(&mut performance_file, &mut console, PERFORMANCE_PATH);
-                let _ = console.flush();
-                break;
-            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
-        let dropped = DROPPED.swap(0, Ordering::Relaxed);
-        if crate::live::feature_activity_allowed() {
-            let _report_time =
-                crate::performance::health::Trace::new(crate::performance::health::Lane::LogWork);
+        let session = SESSION.load(Ordering::Acquire);
+        if current(session) {
             if let Some(report) = crate::performance::report() {
-                output_performance(&mut performance_file, &mut console, &report);
+                live_output(session, &report);
             }
-        }
-        if dropped != 0 {
-            crate::performance::health::add_event(
-                crate::performance::health::Event::LogDropped,
-                dropped,
-            );
-            output(
-                &mut file,
-                &mut console,
-                &format!("diagnostic queue: dropped {dropped} messages; gameplay did not wait"),
-            );
-        }
-        if flushed.elapsed() >= FLUSH_INTERVAL {
-            let _flush_time =
-                crate::performance::health::Trace::new(crate::performance::health::Lane::LogFlush);
-            flush_log(&mut file, &mut console, LOG_PATH);
-            flush_log(&mut performance_file, &mut console, PERFORMANCE_PATH);
-            let _ = console.flush();
-            flushed = Instant::now();
+        } else if let Some(logs) = LIVE_LOGS.get() {
+            if let Ok(mut logs) = logs.try_lock() {
+                if !active() {
+                    *logs = LiveLogs::default();
+                }
+            }
         }
     }
 }
 
-/// Dispatches each typed queue message to formatting and output sinks.
-fn output_message(
-    file: &mut Option<BufWriter<std::fs::File>>,
-    console: &mut BufWriter<std::io::Stdout>,
-    message: Message,
-) {
-    match message {
-        Message::Text(message) => output(file, console, &message),
+fn output_message(envelope: Envelope) {
+    let session = envelope.session;
+    if !current(session) {
+        return;
+    }
+    let _work = crate::performance::health::Trace::new(crate::performance::health::Lane::LogWork);
+    let text = match envelope.message {
+        Message::Wake => return,
+        Message::Text(text) => text,
         Message::Modes(epoch, report) => {
             #[cfg(test)]
-            publish_snapshot(epoch, report.card_text());
+            publish_snapshot(session, epoch, report.card_text());
             #[cfg(not(test))]
             let _ = epoch;
-            output(file, console, &report.format());
+            report.format()
         }
-        Message::Configuration(config) => output(file, console, &config.format()),
-        Message::Grab(report) => output(file, console, &report.format()),
+        Message::Configuration(config) => config.format(),
+        Message::Grab(report) => report.format(),
         Message::Calibration(report) => {
-            let formatted = report.format();
-            crate::calibration::publish(&report);
-            output(file, console, &formatted);
+            if current(session) {
+                crate::calibration::publish(&report);
+            }
+            report.format()
         }
-    }
-}
-
-/// Writes formatted performance data to the dedicated performance log.
-fn output_performance(
-    file: &mut Option<BufWriter<std::fs::File>>,
-    console: &mut BufWriter<std::io::Stdout>,
-    report: &str,
-) {
-    output_to(file, console, report, PERFORMANCE_PATH);
-}
-
-/// Writes ordinary diagnostic text to the status log.
-fn output(
-    file: &mut Option<BufWriter<std::fs::File>>,
-    console: &mut BufWriter<std::io::Stdout>,
-    message: &str,
-) {
-    output_to(file, console, message, LOG_PATH);
-}
-/// Writes to console and optional file, retiring a failed file sink.
-fn output_to(
-    file: &mut Option<BufWriter<std::fs::File>>,
-    console: &mut BufWriter<std::io::Stdout>,
-    message: &str,
-    path: &str,
-) {
-    live_output(message);
-    // BufWriter owns a stdout handle, not its lock. No global console lock is
-    // held while waiting for another queue message. Batch flushes run here only.
-    let _ = writeln!(console, "[kirby_assist] {message}");
-    if let Some(error) = file
-        .as_mut()
-        .and_then(|file| writeln!(file, "{message}").err())
-    {
-        let _ = writeln!(console, "[kirby_assist] LOG FILE ERROR: {error}. Continuing console logging; SD log may be incomplete: {path}");
-        live_output(&format!("LOG FILE ERROR: {error}; SD log may be incomplete: {path}"));
-        *file = None;
-    }
+    };
+    live_output(session, &text);
 }
 
 #[cfg(test)]
-/// Logging queue, report-routing, and stale-snapshot regression tests.
 #[path = "../../tests/unit/diagnostics/logging.rs"]
 mod tests;

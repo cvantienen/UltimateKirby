@@ -26,7 +26,6 @@ pub(super) struct TechAssessment {
     /// Remaining native damage-stop frames.
     pub(super) remaining_stop: u64,
     /// Stable diagnostic label for the native gate that matched.
-    #[cfg_attr(not(feature = "diagnostic-logging"), allow(dead_code))]
     pub(super) reason: &'static str,
 }
 

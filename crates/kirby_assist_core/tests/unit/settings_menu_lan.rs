@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
+fn lan_switch_is_training_only_and_never_autoactivates() {
     let presets = MenuPresets::EMPTY;
     let mut m = MenuSelection::new(&presets);
     m.begin_match();
@@ -10,17 +10,9 @@ fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
     m.input(MAPPER_MINUS, &presets);
     m.input(0, &presets);
     m.set_training_category(4);
-    #[cfg(feature = "diagnostic-logging")]
     m.change_tuning_group(false);
     let panel = m.recipe_panel(&presets);
-    assert_eq!(
-        panel
-            .body
-            .iter()
-            .any(|line| line.contains("LAN editor HTTP")),
-        cfg!(feature = "diagnostic-logging")
-    );
-    #[cfg(feature = "diagnostic-logging")]
+    assert!(panel.body.iter().any(|line| line.contains("LAN editor HTTP")));
     {
         assert!(!m.lan_enabled && !m.lan_toggle_requested);
         for _ in 0..crate::fighter_tuning::COUNT {
@@ -60,6 +52,7 @@ fn lan_switch_is_diagnostic_training_only_and_never_autoactivates() {
             .any(|s| s.contains("HTTP + UDP: ON") && s.contains("Listener unavailable")));
         m.input_with_editing(0, &presets, false);
         assert!(!m.lan_toggle_requested && !m.lan_editing_allowed());
+        assert!(!m.lan_enabled && m.lan_status.is_none());
         assert!(!m
             .recipe_panel(&presets)
             .body
@@ -77,7 +70,6 @@ fn telemetry_switch_is_training_only_and_does_not_edit_saved_tuning() {
     m.input(MAPPER_MINUS, &presets);
     m.input(0, &presets);
     m.set_training_category(4);
-    #[cfg(feature = "diagnostic-logging")]
     {
         m.change_tuning_group(false);
         m.tuning_row = crate::fighter_tuning::COUNT + 1;
@@ -99,15 +91,18 @@ fn telemetry_switch_is_training_only_and_does_not_edit_saved_tuning() {
         m.input(0, &presets);
         m.input(DPAD_DOWN, &presets);
         assert_eq!(m.tuning_row, crate::fighter_tuning::COUNT + 1);
+        m.telemetry_enabled = true;
+        m.telemetry_status = Some("Streaming".into());
         m.input_with_editing(0, &presets, false);
         m.input_with_editing(MAPPER_A, &presets, false);
         assert!(!m.telemetry_toggle_requested);
+        assert!(!m.telemetry_enabled && m.telemetry_status.is_none());
+        m.input_with_editing(0, &presets, true);
+        assert!(!m.telemetry_enabled && !m.lan_enabled, "re-entry does not reactivate transports");
     }
-    #[cfg(not(feature = "diagnostic-logging"))]
     assert!(!m.recipe_panel(&presets).body.iter().any(|s| s.contains("telemetry")));
 }
 
-#[cfg(feature = "diagnostic-logging")]
 #[test]
 fn remote_editing_requires_open_clean_training_menu() {
     let p = MenuPresets::EMPTY;

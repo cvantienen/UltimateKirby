@@ -631,7 +631,6 @@ mod save {
         }
     }
 }
-#[cfg(feature = "diagnostic-logging")]
 mod performance {
     pub mod health {
         pub enum Event {
@@ -653,10 +652,8 @@ mod performance {
     }
 }
 mod publisher {
-    #[cfg(feature = "diagnostic-logging")]
     use super::view::SavedChoice;
     use super::*;
-    #[cfg(feature = "diagnostic-logging")]
     use std::ffi::CString;
     use std::sync::{
         atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},

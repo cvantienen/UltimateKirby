@@ -466,19 +466,12 @@ pub struct MenuSelection {
     pub tuning_row: usize,
     /// Runtime tuning save requested value used by MenuSelection..
     pub tuning_save_requested: bool,
-    #[cfg(feature = "diagnostic-logging")]
     pub lan_toggle_requested: bool,
-    #[cfg(feature = "diagnostic-logging")]
     pub lan_enabled: bool,
-    #[cfg(feature = "diagnostic-logging")]
     pub lan_status: Option<String>,
-    #[cfg(feature = "diagnostic-logging")]
     pub telemetry_toggle_requested: bool,
-    #[cfg(feature = "diagnostic-logging")]
     pub telemetry_enabled: bool,
-    #[cfg(feature = "diagnostic-logging")]
     pub telemetry_status: Option<String>,
-    #[cfg(feature = "diagnostic-logging")]
     pub saved_tuning: crate::fighter_tuning::Tuning,
     /// Training category tabs have focus instead of the selected page.
     pub training_tab_focus: bool,
@@ -521,7 +514,6 @@ pub struct MenuSelection {
 impl MenuSelection {
     /// Estimated owned payload, not allocator bookkeeping or game memory.
     /// Diagnostic adapter calls only after revisions, never scans on idle polls.
-    #[cfg(feature = "diagnostic-logging")]
     pub fn diagnostic_retained(&self) -> (usize, usize, usize) {
         let (recipes, editor_bytes) = self.editor.as_ref().map_or((0, 0), |e| e.retained());
         let (drafts, catalog_bytes) = self.catalog.as_ref().map_or((0, 0), |c| {
@@ -818,7 +810,7 @@ impl MenuSelection {
     /// Rows hidden by the build, the fighter or the reaction mode.
     fn row_available(&self, row: MenuRow) -> bool {
         match row {
-            MenuRow::Performance | MenuRow::TestLatency => cfg!(feature = "diagnostic-logging"),
+            MenuRow::Performance | MenuRow::TestLatency => !self.lightweight,
             MenuRow::RollRead | MenuRow::AutoCounter => false,
             MenuRow::ShieldPressure | MenuRow::SpotPunish => !self.simplified_reactions,
             MenuRow::IdleCrouch => self.y_fighter_kind == crate::fighter_kinds::KIRBY,
@@ -945,8 +937,7 @@ impl MenuSelection {
     /// Checks whether the tuning section is visible.
     fn tuning_visible(&self, i: usize) -> bool {
         if i >= crate::fighter_tuning::COUNT {
-            return i < crate::fighter_tuning::COUNT + 2
-                && cfg!(feature = "diagnostic-logging") && !self.lightweight;
+            return i < crate::fighter_tuning::COUNT + 2 && !self.lightweight;
         }
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
             && i != crate::fighter_tuning::AUTO_GRAB_FAR
@@ -1002,7 +993,7 @@ impl MenuSelection {
 
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     fn tuning_visible_index(&self, row: usize) -> usize {
-        (row..crate::fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging")))
+        (row..crate::fighter_tuning::COUNT + 2)
             .find(|i| self.tuning_group_visible(*i))
             .or_else(|| (0..crate::fighter_tuning::COUNT + 2).find(|i| self.tuning_group_visible(*i)))
             .unwrap_or(0)
@@ -1035,14 +1026,12 @@ impl MenuSelection {
             .is_some_and(|e| e.edited((slot as usize, index)))
             || self.draft(slot, index).is_some_and(|d| d.dirty)
     }
-    #[cfg(feature = "diagnostic-logging")]
     pub fn lan_has_unsaved_edits(&self) -> bool {
         self.tuning != self.saved_tuning
             || self.catalog.as_ref()
                 .is_some_and(|c| c.drafts.values().any(|d| d.dirty))
             || self.editor.as_ref().is_some_and(|e| e.has_unsaved_edits())
     }
-    #[cfg(feature = "diagnostic-logging")]
     pub fn lan_editing_allowed(&self) -> bool {
         !self.menu_hidden
             && !self.lightweight
@@ -1156,6 +1145,8 @@ impl MenuSelection {
         self.delete_requested = false;
         self.default_requested = false;
         self.tuning_save_requested = false;
+        self.lan_toggle_requested = false;
+        self.telemetry_toggle_requested = false;
     }
 
     /// Resets the inputs.

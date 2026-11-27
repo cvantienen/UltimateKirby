@@ -7,14 +7,14 @@ pub(super) fn publish_hud(selection: &MenuSelection, player_index: u32) {
 }
 
 /// Records that a menu publish could not acquire its required locks.
-fn menu_retry() -> bool {
-    #[cfg(feature = "diagnostic-logging")]
-    crate::performance::health::event(crate::performance::health::Event::MenuRetry);
+fn menu_retry(training: bool) -> bool {
+    if training {
+        crate::performance::health::event(crate::performance::health::Event::MenuRetry);
+    }
     false
 }
 /// Estimated owned payload of one cached view, for the retained-memory gauge.
 /// Sums struct storage and owned string/vector capacities for a snapshot.
-#[cfg(feature = "diagnostic-logging")]
 fn snapshot_bytes(v: &Snapshot) -> usize {
     let lines_bytes = |lines: &Vec<CString>| {
         lines.capacity() * std::mem::size_of::<CString>()
@@ -42,8 +42,9 @@ pub(super) fn publish(
     selection: &MenuSelection,
     auto_mash: bool,
 ) -> bool {
-    #[cfg(feature = "diagnostic-logging")]
-    crate::performance::health::event(crate::performance::health::Event::MenuPublish);
+    if !selection.lightweight {
+        crate::performance::health::event(crate::performance::health::Event::MenuPublish);
+    }
     LIGHTWEIGHT_REQUESTED.store(selection.lightweight, Ordering::Release);
     REQUESTED_FIGHTER.store(profile.fighter_kind, Ordering::Release);
     // Training input is frozen during a save, and the save gate prevents
@@ -83,24 +84,24 @@ pub(super) fn publish(
         }
     }
     let Some(_save_gate) = super::save::try_ui_edit() else {
-        return menu_retry();
+        return menu_retry(!selection.lightweight);
     };
     let Ok(mut view) = VIEW.try_lock() else {
-        return menu_retry();
+        return menu_retry(!selection.lightweight);
     };
     DEFERRED_CLEAR.store(false, Ordering::Release);
-    #[cfg(feature = "diagnostic-logging")]
-    let _build_time =
-        crate::performance::health::Trace::new(crate::performance::health::Lane::MenuBuild);
-    #[cfg(feature = "diagnostic-logging")]
-    crate::performance::health::event(crate::performance::health::Event::MenuBuild);
+    let _build_time = (!selection.lightweight).then(|| {
+        crate::performance::health::Trace::new(crate::performance::health::Lane::MenuBuild)
+    });
+    if !selection.lightweight {
+        crate::performance::health::event(crate::performance::health::Event::MenuBuild);
+    }
     let Ok(next) = view::build(profile, selection, auto_mash, generation) else {
         return false;
     };
     // Publish a complete replacement before retiring the old snapshot.
     let retired = view.replace(next);
-    #[cfg(feature = "diagnostic-logging")]
-    if let Some(v) = view.as_ref() {
+    if let Some(v) = view.as_ref().filter(|_| !selection.lightweight) {
         crate::performance::health::view_bytes(snapshot_bytes(v));
     }
     drop(view);

@@ -15,20 +15,33 @@ pub(crate) fn socket_result<T>(result: io::Result<T>) -> io::Result<T> {
     })
 }
 
-pub(crate) struct Stream<'a>(pub(crate) &'a mut std::net::TcpStream);
+pub(crate) struct Stream<'a, F>(pub(crate) &'a mut std::net::TcpStream, pub(crate) F);
 
-impl io::Read for Stream<'_> {
-    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        socket_result(io::Read::read(self.0, buffer))
+fn permission(allowed: impl Fn() -> bool) -> io::Result<()> {
+    if allowed() {
+        Ok(())
+    } else {
+        Err(io::ErrorKind::PermissionDenied.into())
     }
 }
 
-impl io::Write for Stream<'_> {
+impl<F: Fn() -> bool> io::Read for Stream<'_, F> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        permission(&self.1)?;
+        let result = socket_result(io::Read::read(self.0, buffer));
+        permission(&self.1)?;
+        result
+    }
+}
+
+impl<F: Fn() -> bool> io::Write for Stream<'_, F> {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        permission(&self.1)?;
         socket_result(io::Write::write(self.0, buffer))
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        permission(&self.1)?;
         socket_result(io::Write::flush(self.0))
     }
 }
@@ -63,6 +76,39 @@ mod tests {
             assert_eq!(error.kind(), kind);
             assert!(error.to_string().contains(&code.to_string()));
         }
+    }
+
+    #[test]
+    fn revoked_stream_neither_reads_nor_writes() {
+        use std::io::{Read, Write};
+        use std::net::{TcpListener, TcpStream};
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut socket, _) = listener.accept().unwrap();
+        peer.write_all(b"request").unwrap();
+        let mut bytes = [0; 7];
+        {
+            let mut guarded = Stream(&mut socket, || false);
+            assert_eq!(
+                guarded.read(&mut bytes).unwrap_err().kind(),
+                io::ErrorKind::PermissionDenied
+            );
+            assert_eq!(
+                guarded.write(b"response").unwrap_err().kind(),
+                io::ErrorKind::PermissionDenied
+            );
+            assert_eq!(
+                guarded.flush().unwrap_err().kind(),
+                io::ErrorKind::PermissionDenied
+            );
+        }
+        socket.read_exact(&mut bytes).unwrap();
+        assert_eq!(&bytes, b"request");
+        peer.set_nonblocking(true).unwrap();
+        assert_eq!(
+            peer.read(&mut bytes).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
     }
 
     #[test]

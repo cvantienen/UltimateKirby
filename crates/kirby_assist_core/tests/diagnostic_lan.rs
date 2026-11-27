@@ -1,4 +1,3 @@
-#![cfg(feature = "diagnostic-logging")]
 #![allow(dead_code)]
 mod logging {
     pub fn write(_: &str) {}

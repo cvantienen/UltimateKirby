@@ -31,7 +31,6 @@ pub unsafe fn ray_check(
     ray_displacement: *const Vector2,
     check_passable_ground: bool,
 ) -> u64 {
-    #[cfg(feature = "diagnostic-logging")]
     crate::performance::ray();
     native_ray_check(
         module_accessor,

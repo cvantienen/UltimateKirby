@@ -73,8 +73,8 @@ pub struct Timeline {
     /// Runtime facing jumps value used by Timeline..
     facing_jumps: [u8; MAX_ACTIONS],
     /// Runtime end reason value used by Timeline..
-    #[cfg(feature = "diagnostic-logging")]
     pub(super) end_reason: Option<&'static str>,
+    pub(super) diagnostics_enabled: bool,
 }
 
 /// One observation shared by every step handler of a sample.
@@ -199,8 +199,8 @@ impl Timeline {
             grounded_automatic_actions: false,
             automatic_ground_steps: 0,
             facing_jumps: facing_jumps(actions),
-            #[cfg(feature = "diagnostic-logging")]
             end_reason: None,
+            diagnostics_enabled: false,
             spatial_steps: step_mask(actions, is_spatial),
             ground_steps: step_mask(actions, moves_on_ground),
             entered: false,
@@ -268,8 +268,7 @@ impl Timeline {
     }
     /// Completes the active operation and records its final state.
     fn finish(&mut self, _reason: &'static str) -> ControllerOutput {
-        #[cfg(feature = "diagnostic-logging")]
-        {
+        if self.diagnostics_enabled {
             self.end_reason.get_or_insert(_reason);
         }
         self.done = true;

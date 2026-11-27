@@ -55,11 +55,8 @@ impl MenuSelection {
         presets: &MenuPresets,
         allow_editing: bool,
     ) -> u32 {
-        #[cfg(feature = "diagnostic-logging")]
-        {
-            self.lan_toggle_requested = false;
-            self.telemetry_toggle_requested = false;
-        }
+        self.lan_toggle_requested = false;
+        self.telemetry_toggle_requested = false;
         if self.rule_binding_stamp != Some(self.recipe_revision) {
             self.refresh_rule_bindings(presets, buttons);
             self.rule_binding_stamp = Some(self.recipe_revision);
@@ -164,6 +161,10 @@ impl MenuSelection {
     fn change_layout(&mut self, presets: &MenuPresets, allow_editing: bool) {
         self.lightweight = !allow_editing;
         if self.lightweight {
+            self.lan_enabled = false;
+            self.lan_status = None;
+            self.telemetry_enabled = false;
+            self.telemetry_status = None;
             if !self.lightweight_initialized {
                 self.menu_hidden = false;
                 self.lightweight_initialized = true;
@@ -364,7 +365,6 @@ impl MenuSelection {
         let repeat = self
             .hold
             .step(if s.pad.count_ones() == 1 { s.pad } else { 0 });
-        #[cfg(feature = "diagnostic-logging")]
         if self.tuning_row >= crate::fighter_tuning::COUNT
             && !s.toggled
             && (s.pressed & MAPPER_A != 0 || s.pad_pressed() && s.pad & DPAD_SIDES != 0)
@@ -416,8 +416,7 @@ impl MenuSelection {
     /// Next visible fighter-setting row, wrapping; stays put when none is visible.
     fn next_tuning_row(&self, forward: bool) -> usize {
         let mut row = self.tuning_row;
-        let count =
-            crate::fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging"));
+        let count = crate::fighter_tuning::COUNT + 2;
         for _ in 0..count {
             row = cycle(row, count, forward);
             if self.tuning_group_visible(row) {

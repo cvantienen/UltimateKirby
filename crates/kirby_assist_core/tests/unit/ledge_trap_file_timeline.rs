@@ -1510,19 +1510,38 @@ fn timeline_groundless_raw_dash_does_not_wait_for_native_dash_or_retry() {
     assert_eq!(sample(&mut t, ctx(2.0)).requested, MAPPER_A);
     assert_eq!(sample(&mut t, ctx(3.0)).requested, 0);
 }
-#[cfg(feature = "diagnostic-logging")]
 #[test]
 fn diagnostic_finish_reason_distinguishes_completion_from_missed_native_updates() {
     let mut done = timeline("wait:1,jab");
+    done.diagnostics_enabled = true;
     for frame in 0..=2 {
         sample(&mut done, ctx(frame as f32));
     }
     assert_eq!(done.end_reason, Some("completed"));
     let mut gap = timeline("wait:8,jab");
+    gap.diagnostics_enabled = true;
     sample(&mut gap, ctx(0.0));
     sample(&mut gap, ctx(3.0));
     assert_eq!(gap.end_reason, Some("native_clock_gap"));
 }
+#[test]
+fn diagnostic_collection_is_opt_in_and_does_not_change_timeline_output() {
+    let mut silent = timeline("wait:1,jab");
+    let mut diagnostic = timeline("wait:1,jab");
+    diagnostic.diagnostics_enabled = true;
+    for frame in 0..=2 {
+        assert_eq!(sample(&mut silent, ctx(frame as f32)), sample(&mut diagnostic, ctx(frame as f32)));
+    }
+    assert_eq!(silent.end_reason, None);
+    assert_eq!(diagnostic.end_reason, Some("completed"));
+    let mut trap = LedgeTrap::default();
+    trap.file_timeline = Some(diagnostic);
+    trap.last_timeline_end = Some("completed");
+    trap.diagnostics(false);
+    assert_eq!(trap.last_timeline_end, None);
+    assert_eq!(trap.file_timeline.as_ref().unwrap().end_reason, None);
+}
+
 #[test]
 fn held_a_survives_internal_observation_gaps_without_retriggering() {
     use crate::native_input::{ButtonTrace, MapperButtonOverlay};

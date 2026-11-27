@@ -36,9 +36,15 @@ class BuildTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
                 builder.parse_options(args)
 
-    def test_both_variants_enable_gui_but_only_diagnostic_enables_logging(self):
+    def test_both_variants_enable_gui_and_preserve_compatibility_feature(self):
         self.assertEqual(builder.variant_features(False), ["imgui-menu"])
         self.assertEqual(builder.variant_features(True), ["imgui-menu", "diagnostic-logging"])
+
+    def test_packaging_rejects_each_sd_sink_but_allows_training_ram_messages(self):
+        self.assertFalse(any(builder.verify_no_sd_logging(b"tech observation: Training RAM").values()))
+        for marker in builder.LOG_MARKERS:
+            with self.subTest(marker=marker), self.assertRaisesRegex(RuntimeError, "SD diagnostic logging"):
+                builder.verify_no_sd_logging(b"NRO fixture" + marker)
 
     def test_upload_flag_runs_the_fixed_versioned_uploader_command(self):
         with patch.object(builder.subprocess, "run") as run:

@@ -1,6 +1,6 @@
 # Read-only Training telemetry
 
-This feature is compiled only with `diagnostic-logging`. It is disabled by default and requires explicit activation in Training each session. It does not change fighter status, hitboxes, motion rates, physics, or assistance decisions. There are no remote controller commands, memory-address queries, or setters.
+This feature is available in every build, independently of the compatibility `diagnostic-logging` flag. It is disabled by default and requires explicit activation in Training each session. It does not change fighter status, hitboxes, motion rates, physics, or assistance decisions. There are no remote controller commands, memory-address queries, or setters.
 
 ## Setup
 
@@ -13,12 +13,12 @@ The explicitly activated Switch listens for telemetry subscriptions on **UDP 424
 Start the computer viewer from the repository root:
 
 ```sh
-cargo run --offline --manifest-path crates/kirby_assist_core/Cargo.toml --features diagnostic-logging --example telemetry_viewer
+cargo run --offline --manifest-path crates/kirby_assist_core/Cargo.toml --example telemetry_viewer
 ```
 
 Open `http://127.0.0.1:8765/` and enter the Switch IPv4 address and telemetry port (4243). An optional single numeric argument chooses a different localhost HTTP port. The UDP receiver binds an ephemeral port and accepts observations only from the selected Switch endpoint; changing endpoints clears the observation state. The browser server binds only localhost and never serves arbitrary files. Stop the viewer with Ctrl-C.
 
-In the diagnostic mod, enter Training with Ultimate Training Modpack, open the Kirby Assist menu with Minus, select Fighter Settings, then use `L + Left/Right` to reach Developer tools. Select **Live telemetry UDP**, then press A or Left/Right to toggle. The sequence editor is activated separately and listens on **UDP and TCP 4242**. In Workbench's Training LAN tab, enter the Switch IPv4 address, use port 4242, and select UDP (preferred) or HTTP. There is no SD setup file or manual key. UDP transfers chunk the complete file with acknowledgments and preserve revision checks, validation, explicit save confirmation, and the existing SD save/reload path. Fragment retries retain the same transfer ID; saves are not automatically resubmitted or switched to another transport. If an acknowledgment is lost, reconnect and load the current file before deciding what to do next.
+In any build, enter Training with Ultimate Training Modpack, open the Kirby Assist menu with Minus, select Fighter Settings, then use `L + Left/Right` to reach Developer tools. Select **Live telemetry UDP**, then press A or Left/Right to toggle. The sequence editor is activated separately and listens on **UDP and TCP 4242**. In Workbench's Training LAN tab, enter the Switch IPv4 address, use port 4242, and select UDP (preferred) or HTTP. There is no SD setup file or manual key. UDP transfers chunk the complete file with acknowledgments and preserve revision checks, validation, explicit save confirmation, and the existing SD save/reload path. Fragment retries retain the same transfer ID; saves are not automatically resubmitted or switched to another transport. If an acknowledgment is lost, reconnect and load the current file before deciding what to do next.
 
 The menu shows STREAMING after the UDP socket is ready, not a verified connection acknowledgement. The receiver shows whether fresh observations are actually arriving. Socket/configuration failures appear on the menu row. Leaving Training or losing the 250 ms observation lease stops streaming and requires explicit reactivation. Telemetry remains available with gameplay assists disabled; only menu-owned controller inputs are consumed while navigating.
 
@@ -32,7 +32,11 @@ If activation still fails, record the complete menu status, including the operat
 
 ## Viewer
 
-Select an object and group, search fields, browse the schema, and select a numeric field for a bounded history graph. Raw integers and hashes are preserved exactly as strings. Floats retain the original f32 bits. Unknown/nonfinite/unavailable fields are not converted to zero. The viewer marks data stale after 250 ms and expires old groups after one second. It reports packet gaps, reordering, rejected/wrong-source traffic, sender drops, throughput, and session changes.
+The main analytical panel shows the selected fighter’s action, damage, animation frame, hitlag and shieldstun, followed by every automatic feature family. It distinguishes enabled/disabled **preferences**, present **proposals**, the **selected arbitration owner**, and unknown/unavailable observations. A selected proposal is not a delivery receipt or proof that Smash executed an action. The four safety helpers (tech, mash, SDI and DI) are individually identified; grouped defense/posture/rule features retain their existing ownership grouping. Feature descriptions explain prerequisites without inventing a reason a particular tool did not act. Per-family detail records copy readable configured modes and selected recipe labels from the current menu, profile and resolved settings; held triggers remain separate from configured preferences. Missing matching Training selection/profile stays unknown instead of being reported as disabled. Built-in recipe names come from their actual saved builtin identity, not guesses based on display text. The dashboard displays only observed scope, competing-proposal and released-hold constraints, never infers a failed gate merely because a proposal is absent.
+
+Policy observations have their own freshness clock. After 250 ms, analytical facts become unknown/stale, including while frozen. Unavailable configuration is not disabled, invalid policy scope suppresses cached action evidence, and native action names are supplied only for known fighter statuses. Exact raw identifiers remain available; weapon/item statuses are not interpreted as fighter states.
+
+Select an object and group, search Smash labels or wire names, browse the schema, and select a numeric field for a bounded history graph. Raw integers and hashes are preserved exactly as strings. Floats retain the original f32 bits. Unknown/nonfinite/unavailable fields are not converted to zero. The viewer marks data stale after 250 ms and expires old groups after one second. It reports packet gaps, reordering, rejected/wrong-source traffic, sender drops, throughput, and session changes.
 
 ## Current coverage and limitations
 
@@ -54,7 +58,7 @@ All scalar encoding is explicit little endian. Each packet is `92 + 8 * popcount
 | --- | --- | --- |
 | 0 | 4 bytes | `KATM` magic |
 | 4 | u16 | Version 1 authenticated / version 2 token-free |
-| 6 | u16 | Group: 0 object state, 1–8 attack slots 0–7, 9 input |
+| 6 | u16 | Group: 0 object state, 1–8 attack slots 0–7, 9 input, 10 assist policy, 11–28 feature details |
 | 8 | u64 | Stream session |
 | 16 | u64 | Publication sequence |
 | 24 | u64 | Publication microseconds since activation |
@@ -65,6 +69,10 @@ All scalar encoding is explicit little endian. Each packet is `92 + 8 * popcount
 | 52 | u64 | Field validity bitset |
 | 60 | packed u64 values | Present fields in ascending bit order |
 | final 32 bytes | Tag | v1 HMAC-SHA256 over preceding bytes; v2 all zero (not authenticated) |
+
+Groups 10–28 are additive: groups 0–9, authentication versions and packet size/layout are unchanged. Older viewers reject the unknown group rather than interpreting it as an attack; update viewer and mod together for policy coverage. Policy fields 0–10 contain validity, selected-owner bit, proposed-owner mask, commitment, requested buttons, safety proposals, readiness, optional hit observation, status, motion and stop. Fields 16–33 hold optional configured booleans for tech, mash, SDI, DI, dodge follow-up, ledge trap, roll read, trip, fair, trump, defense, turbo, posture, out-of-shield, grab dodge, reflect, counter and spacing. Policy sampling copies existing arbitration data without additional native queries, at most once per 16 ms per stream session. It can miss short pulses; it is neither atomic with group 9 nor evidence of final delivery. Collection remains Training-only and uses the same bounded mailbox.
+
+Groups 11–28 provide one detail record per feature in the same order. Fields 0–2 are optional configured preference, observed hold trigger and constraint mask; words 8–19 and 20–31 encode copied mode and recipe labels (96 UTF-8 bytes each, little-endian words, zero-padded). Truncation preserves character boundaries. Missing/incomplete/malformed labels remain unknown. Detail collection admits at most one 18-record batch per 100 ms, before copying labels, with no native queries or heap allocations. Details are independently fresh for 250 ms and can be lost separately. Constraint bits are: 1 invalid policy scope, 2 stopped, 4 readiness unavailable, 8 another selected owner, 16 required hold released; only report relevant observed facts, not guessed causal explanations. Zero means no reported constraint, not proven eligibility. Group 9’s final mapped buttons and stick appear separately in the analytical summary; they confirm mapper output only, never which tool caused it or whether Smash executed the move.
 
 Signed values are sign-extended into u64; floats use their f32 bits in the low 32 bits; bools are 0/1. The token-free viewer accepts only v2 packets with the expected zero tag, valid groups/lengths and selected source endpoint. The portable codec retains keyed v1 support, verifies its MAC, and rejects mixing keyed and token-free modes. Stale/reordered packet sequences are rejected. Remembered retired sessions are bounded; restart the viewer if its session-history capacity is exhausted. HMAC does not provide universal replay prevention across receiver restarts.
 

@@ -171,7 +171,6 @@ pub(super) unsafe fn incoming_fighter_attack(
     velocity: [f32; 2],
     envelope: kirby_assist_core::autopilot_guard::Envelope,
 ) -> bool {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Shield);
 
     let roster = reads.roster();
@@ -313,7 +312,6 @@ pub(super) unsafe fn ground_support(
     position: [f32; 2],
     vx: f32,
 ) -> [bool; 2] {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Ground);
     // A partially initialized/reset pose must never reach native collision rays.
     if !position
@@ -345,7 +343,6 @@ pub(super) unsafe fn posture_opponent(
     own: *mut game::Object,
     own_id: u32,
 ) -> Option<[f32; 2]> {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Posture);
     // roster consists of all potential fighter IDs in the current match.
     let roster = reads.roster()?;
@@ -447,7 +444,6 @@ pub(super) unsafe fn combat_targets(
     watch_trip: bool,
     watch_sdi: bool,
 ) -> ([Option<TripTarget>; 8], f32) {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Trip);
     let roster = reads.roster();
     let own_x = reads.pos_x(own);
@@ -545,7 +541,6 @@ pub(super) unsafe fn rule_targets(
         watch_events,
         sequence_follow,
     } = query;
-    #[cfg(feature = "diagnostic-logging")]
     let _scope = crate::performance::Scope::new(crate::performance::Part::Roll);
     let mut targets = [None; 8];
     let mut following = None;
@@ -837,7 +832,6 @@ pub(super) unsafe fn nearest_ledge_opponent(
     own_id: u32,
     settings: AssistSettings,
 ) -> Option<Opponent> {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Ledge);
     let (tracked, locked_spot, roster, preview) = {
         let state = STATE.lock().ok()?;
@@ -1025,7 +1019,6 @@ pub(super) unsafe fn grab_targets(
     own: *mut game::Object,
     own_id: u32,
 ) -> [Option<kirby_assist_core::spot_dodge::Target>; 8] {
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Grabs);
     let mut targets = [None; 8];
     let Some(roster) = reads.roster() else {

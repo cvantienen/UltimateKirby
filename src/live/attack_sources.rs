@@ -39,8 +39,7 @@ pub(super) fn forget(id: u32) {
 /// Chains the native attack command, then records eligible active weapon/item IDs.
 unsafe fn remember_attack(lua_state: u64) {
     original!()(lua_state);
-    #[cfg(feature = "diagnostic-logging")]
-    if crate::diagnostics::telemetry::ready() {
+    if crate::logging::active() && game::is_training_mode() && crate::diagnostics::telemetry::ready() {
         super::telemetry::remember_attack(game::lua_object(lua_state));
     }
     if !TRACKING.load(Ordering::Relaxed) || !super::feature_activity_allowed() {

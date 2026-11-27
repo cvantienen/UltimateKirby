@@ -241,21 +241,37 @@ pub fn event(e: Event) {
 }
 /// Adds `n` occurrences to an event's lifetime counter.
 pub fn add_event(e: Event, n: usize) {
+    if !super::enabled() {
+        return;
+    }
     COUNTS[e as usize].fetch_add(n, Relaxed);
 }
 /// Reservations precede try_send so a fast receiver cannot underflow the gauge.
 /// Occupancy is approximate during handoff and capped at the actual channel limit.
 /// Reserves one approximate queue slot and updates the capped peak.
 pub fn queue_enter() {
+    if !super::enabled() {
+        return;
+    }
     let n = DEPTH.fetch_add(1, Relaxed) + 1;
     PEAK_DEPTH.fetch_max(n.min(128), Relaxed);
 }
 /// Releases one previously reserved queue slot.
 pub fn queue_leave() {
-    DEPTH.fetch_sub(1, Relaxed);
+    if super::enabled() {
+        decrement(&DEPTH);
+    }
+}
+
+fn decrement(counter: &AtomicUsize) {
+    let value = counter.load(Relaxed);
+    let _ = counter.compare_exchange(value, value.saturating_sub(1), Relaxed, Relaxed);
 }
 /// Publishes current retained-menu counts and updates the payload peak.
 pub fn retained(profiles: usize, recipes: usize, drafts: usize, bytes: usize) {
+    if !super::enabled() {
+        return;
+    }
     PROFILES.store(profiles, Relaxed);
     RECIPES.store(recipes, Relaxed);
     DRAFTS.store(drafts, Relaxed);
@@ -264,24 +280,34 @@ pub fn retained(profiles: usize, recipes: usize, drafts: usize, bytes: usize) {
 }
 /// Publishes current cached-view bytes and updates the view peak.
 pub fn view_bytes(bytes: usize) {
+    if !super::enabled() {
+        return;
+    }
     VIEW.store(bytes, Relaxed);
     PEAK_VIEW.fetch_max(bytes, Relaxed);
 }
 /// RAII marker for a currently active background worker.
-pub struct Worker;
+pub struct Worker(Option<usize>);
+static WORKER_SESSION: AtomicUsize = AtomicUsize::new(0);
 impl Worker {
     /// Increments active-worker counters and records a save-start event.
     pub fn start() -> Self {
+        if !super::enabled() {
+            return Self(None);
+        }
+        let epoch = WORKER_SESSION.load(Relaxed);
         event(Event::SaveStarted);
         let n = ACTIVE.fetch_add(1, Relaxed) + 1;
         PEAK_ACTIVE.fetch_max(n, Relaxed);
-        Self
+        Self(Some(epoch))
     }
 }
 impl Drop for Worker {
     /// Decrements the active-worker count when the marker is dropped.
     fn drop(&mut self) {
-        ACTIVE.fetch_sub(1, Relaxed);
+        if self.0 == Some(WORKER_SESSION.load(Relaxed)) {
+            decrement(&ACTIVE);
+        }
     }
 }
 
@@ -357,6 +383,27 @@ pub fn draw_tick(now: Instant) {
         MISSED.fetch_add(1, Relaxed);
     }
 }
+pub(super) fn reset_session() {
+    WORKER_SESSION.fetch_add(1, Relaxed);
+    for value in CALLS.iter().chain(COUNTS.iter()).chain([
+        &DEPTH,
+        &PEAK_DEPTH,
+        &ACTIVE,
+        &PEAK_ACTIVE,
+        &PROFILES,
+        &RECIPES,
+        &DRAFTS,
+        &RETAINED,
+        &PEAK_RETAINED,
+        &VIEW,
+        &PEAK_VIEW,
+        &MISSED,
+    ]) {
+        value.store(0, Relaxed);
+    }
+    clear_window();
+}
+
 /// Restarts the aggregate window while preserving lifetime atomics.
 pub fn clear_window() {
     if let Ok(mut w) = WINDOW.try_lock() {
@@ -534,7 +581,7 @@ fn review(
         );
     }
     if t[Lane::LogFlush as usize].max >= 5_000_000 || t[Lane::LogWork as usize].max >= 5_000_000 {
-        flag("LOGGER_COST","A diagnostic write/format batch exceeded 5ms on its worker. Logging may affect the test; silent excludes it.");
+        flag("LOGGER_COST","A diagnostic write/format batch exceeded 5ms on its worker. Logging may affect the test; disable performance sampling to compare.");
     }
     if workers > 1 || save_age >= 2 {
         flag("SAVE_WORKER","Multiple save workers or a worker remains active across windows without completion. Inspect save counts and SD activity.");

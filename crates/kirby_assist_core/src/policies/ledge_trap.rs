@@ -168,7 +168,6 @@ mod attempt {
     include!("../../tests/unit/policy_ledge_trap_attempt.rs");
 }
 pub(crate) use attempt::NativeAttempt;
-#[cfg(feature = "diagnostic-logging")]
 mod diagnostics {
     //! Read-only file-timeline telemetry. No inferred fighter scheduling constants.
     use super::{AssistSettings, ControllerOutput, GameplayContext, LedgeTrap, Opponent};
@@ -711,7 +710,6 @@ mod identity {
 mod visits;
 use crate::gameplay::{ControllerOutput, GameplayContext, Opponent};
 use crate::settings::AssistSettings;
-#[cfg(feature = "diagnostic-logging")]
 pub use diagnostics::{
     CalibrationFrame, CalibrationKind, CalibrationMove, NativeRule, RollGrabSnapshot,
 };
@@ -861,9 +859,9 @@ pub struct LedgeTrap {
     observed_velocity: [f32; 2],
     /// Runtime file timeline value used by LedgeTrap..
     file_timeline: Option<file_timeline::Timeline>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Runtime last timeline end value used by LedgeTrap..
     last_timeline_end: Option<&'static str>,
+    diagnostics_enabled: bool,
     /// Runtime complete value used by LedgeTrap..
     complete: bool,
     /// Runtime visit consumed value used by LedgeTrap..
@@ -876,10 +874,25 @@ pub struct LedgeTrap {
     last_tick: Option<i64>,
 }
 impl LedgeTrap {
+    /// Enables copied diagnostic evidence without changing policy decisions.
+    pub fn diagnostics(&mut self, enabled: bool) {
+        self.diagnostics_enabled = enabled;
+        if !enabled {
+            self.last_timeline_end = None;
+        }
+        if let Some(timeline) = self.file_timeline.as_mut() {
+            timeline.diagnostics_enabled = enabled;
+            if !enabled {
+                timeline.end_reason = None;
+            }
+        }
+    }
+
     /// Arm a one-shot input preview; never synthesize opponent status or game state.
     pub fn request_preview(&mut self, slot: PresetSlot) {
         *self = Self {
             preview: Some(slot),
+            diagnostics_enabled: self.diagnostics_enabled,
             ..Self::default()
         };
     }
@@ -994,7 +1007,10 @@ impl LedgeTrap {
             || !ctx.gameplay
             || self.last_tick.is_some_and(|last| tick < last)
         {
-            *self = Self::default();
+            *self = Self {
+                diagnostics_enabled: self.diagnostics_enabled,
+                ..Self::default()
+            };
             return ControllerOutput::default();
         }
         self.last_tick = Some(tick);
@@ -1073,7 +1089,9 @@ impl LedgeTrap {
         let Some(sequence) = settings.sequence_overrides[slot as usize] else {
             return self.end_visit();
         };
-        self.file_timeline = Some(file_timeline::Timeline::new(sequence, enemy));
+        let mut timeline = file_timeline::Timeline::new(sequence, enemy);
+        timeline.diagnostics_enabled = self.diagnostics_enabled;
+        self.file_timeline = Some(timeline);
         self.continue_timeline(settings, ctx, Some(enemy))
     }
     /// Complete this visit without a response (or after an unusable observation).
@@ -1093,8 +1111,7 @@ impl LedgeTrap {
         let timeline = self.file_timeline.as_mut().expect("active timeline");
         let out = timeline.sample(settings, ctx, enemy, self.anchor, self.inward);
         if timeline.finished() {
-            #[cfg(feature = "diagnostic-logging")]
-            {
+            if self.diagnostics_enabled {
                 self.last_timeline_end = timeline.end_reason;
             }
             self.file_timeline = None;

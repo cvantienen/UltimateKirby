@@ -1,4 +1,3 @@
-#![cfg(feature = "diagnostic-logging")]
 use hmac::{Hmac, Mac};
 use kirby_assist_core::telemetry::{decode, encode, Config, Sample, FIELD_COUNT, PACKET_LEN};
 use sha2::Sha256;
@@ -77,7 +76,7 @@ fn rejects_tampering_wrong_keys_lengths_versions_and_groups() {
     resign(&mut changed[..len]);
     assert!(decode(&changed[..len], KEY).is_err());
     changed = buffer;
-    changed[6] = 10;
+    changed[6] = 29;
     resign(&mut changed[..len]);
     assert!(decode(&changed[..len], KEY).is_err());
     changed = buffer;
@@ -85,7 +84,7 @@ fn rejects_tampering_wrong_keys_lengths_versions_and_groups() {
     resign(&mut changed[..len]);
     assert!(decode(&changed[..len], KEY).is_err());
     let mut invalid = sample();
-    invalid.group = 10;
+    invalid.group = 29;
     assert!(encode(&invalid, KEY, &mut buffer).is_err());
     assert!(encode(&sample(), b"short", &mut buffer).is_err());
 }
@@ -113,6 +112,77 @@ fn full_empty_and_input_packets_use_popcount_length() {
     resign(&mut extra);
     assert!(decode(&extra, KEY).is_err());
 }
+#[test]
+fn policy_observations_preserve_unknown_configuration_and_invalid_scope() {
+    use kirby_assist_core::{action_owner::Owner, diagnostics::modes, telemetry::policy_sample};
+    let mut snapshot = modes::Snapshot {
+        winner: Some(Owner::Safety),
+        present: modes::bit(Owner::Safety),
+        committed: false,
+        requested: 0,
+        stick: None,
+        status: 0,
+        motion: 0,
+        native_frame: 0,
+        stopped: false,
+        can_act: false,
+        hit: None,
+        valid: true,
+        safety: modes::SAFETY_DI,
+    };
+    let mut configured = [None; 18];
+    configured[3] = Some(true);
+    configured[0] = Some(false);
+    let sample = policy_sample(42, 6, snapshot, configured);
+    assert_eq!(sample.values[16], Some(0));
+    assert_eq!(sample.values[17], None);
+    assert_eq!(sample.values[19], Some(1));
+    assert_eq!(sample.values[7], None);
+    assert_eq!(sample.values[1], Some(u64::from(modes::bit(Owner::Safety))));
+    for key in [KEY, b"".as_slice()] {
+        let mut buffer = [0; 1200];
+        let length = encode(&sample, key, &mut buffer).unwrap();
+        assert!(length <= PACKET_LEN);
+        assert_eq!(decode(&buffer[..length], key).unwrap(), sample);
+    }
+    snapshot.valid = false;
+    snapshot.hit = Some(true);
+    let sample = policy_sample(42, 6, snapshot, configured);
+    assert_eq!(sample.values[0], Some(0));
+    assert!(sample.values[1..16].iter().all(Option::is_none));
+    assert_eq!(sample.values[19], Some(1));
+}
+
+#[test]
+fn feature_details_are_bounded_utf8_and_preserve_missing_vs_explicit_choices() {
+    use kirby_assist_core::telemetry::{feature_label, FeatureDetail, POLICY_FEATURE_COUNT};
+    let mut detail = FeatureDetail::new(Some(false), &"🦀".repeat(30), "None selected");
+    detail.held = Some(false);
+    detail.blockers = Some(16);
+    for feature in 0..POLICY_FEATURE_COUNT {
+        let sample = detail.sample(42, 6, feature).unwrap();
+        assert_eq!(feature_label(&sample, false).unwrap(), "🦀".repeat(24));
+        assert_eq!(
+            feature_label(&sample, true).as_deref(),
+            Some("None selected")
+        );
+        assert_eq!(sample.values[..3], [Some(0), Some(0), Some(16)]);
+        let mut bytes = [0; 1200];
+        let size = encode(&sample, b"", &mut bytes).unwrap();
+        assert!(size <= PACKET_LEN);
+        assert_eq!(decode(&bytes[..size], b"").unwrap(), sample);
+    }
+    assert!(detail.sample(42, 6, POLICY_FEATURE_COUNT).is_none());
+    let mut unknown = FeatureDetail::new(None, "", "").sample(42, 6, 0).unwrap();
+    assert!(feature_label(&unknown, false).is_none());
+    unknown.values[8..20].fill(Some(0));
+    unknown.values[8] = Some(0xff);
+    assert!(feature_label(&unknown, false).is_none());
+    unknown.values[8] = Some(u64::from_le_bytes(*b"a\0\0\0\0\0\0\0"));
+    unknown.values[19] = None;
+    assert!(feature_label(&unknown, false).is_none());
+}
+
 fn config(switch: &str, computer: &str, port: &str, token: &str) -> String {
     format!("# local trusted LAN\nswitch_ip={switch}\ncomputer_ip={computer}\nport={port}\ntoken={token}\n")
 }

@@ -53,12 +53,12 @@ pub(super) fn recover_saved_file() -> Result<(), String> {
     save::recover()
 }
 
-#[cfg(all(feature = "diagnostic-logging", not(test)))]
+#[cfg(not(test))]
 pub(crate) fn lan_read() -> Result<(Vec<u8>, String), String> {
     save::lan_read()
 }
 
-#[cfg(all(feature = "diagnostic-logging", not(test)))]
+#[cfg(not(test))]
 pub(crate) fn lan_write(body: &[u8], revision: &str, allowed: impl Fn() -> bool) -> Result<(), String> {
     save::lan_write(body, revision, allowed)
 }
@@ -99,9 +99,9 @@ pub(super) fn poll_maintenance() {
     #[cfg(feature = "imgui-menu")]
     menu::finish_deferred_clear();
     let cleanup = cleanup_pending() && !super::MASTER_IN_MATCH.load(Ordering::Acquire);
-    #[cfg(all(feature = "diagnostic-logging", not(test)))]
+    #[cfg(not(test))]
     let reload_check = crate::diagnostics::lan::reload_pending();
-    #[cfg(not(all(feature = "diagnostic-logging", not(test))))]
+    #[cfg(test)]
     let reload_check = false;
     if !cleanup && !save::has_result() && !reload_check {
         return;
@@ -109,7 +109,7 @@ pub(super) fn poll_maintenance() {
     let Ok(mut state) = super::STATE.try_lock() else {
         return;
     };
-    #[cfg(all(feature = "diagnostic-logging", not(test)))]
+    #[cfg(not(test))]
     if crate::diagnostics::lan::take_reload() {
         state.cancel();
         state.settings_menu = None;
@@ -163,8 +163,9 @@ impl ResolvedSettings {
         if self.is_current(selection) {
             return;
         }
-        #[cfg(feature = "diagnostic-logging")]
-        crate::performance::health::event(crate::performance::health::Event::Resolve);
+        if !selection.lightweight {
+            crate::performance::health::event(crate::performance::health::Event::Resolve);
+        }
         self.settings = Some(selection.settings(&profile.menu_options, profile.apply(base)));
         self.choices = Some(selection.choices);
         self.recipe_revision = Some(selection.recipe_revision);
@@ -235,7 +236,6 @@ fn end_preview(selection: &mut MenuSelection) {
     }
 }
 
-#[cfg(feature = "diagnostic-logging")]
 #[derive(Default)]
 /// Caches diagnostic configuration and retained-memory accounting revisions.
 struct DiagnosticState {
@@ -279,7 +279,6 @@ pub(super) struct SettingsMenu {
     open_requested: bool,
     /// Defers restoration of saved training state until gameplay resumes.
     resume_saved_state: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Deduplicates diagnostic configuration and retained-memory snapshots.
     diagnostics: DiagnosticState,
 }
@@ -311,7 +310,13 @@ impl SettingsMenu {
     pub fn for_fighter(&self, kind: i32) -> Option<&Self> {
         (self.kind == Some(kind)).then_some(self)
     }
-    #[cfg(feature = "diagnostic-logging")]
+    /// Borrows the current Training selection for read-only diagnostic labels.
+    pub(super) fn diagnostic_selection(&self, kind: i32) -> Option<&MenuSelection> {
+        if !crate::logging::active() {
+            return None;
+        }
+        self.for_fighter(kind)?.current().filter(|s| !s.lightweight)
+    }
     /// Finds a cached display label for a saved menu choice.
     pub fn selected_choice_labels(&self, kind: i32, slot: PresetSlot) -> Option<(&str, &str)> {
         let selection = self.for_fighter(kind)?.current()?;
@@ -337,16 +342,12 @@ impl SettingsMenu {
         result: save::ResultMessage,
         profiles: Option<&FighterProfiles>,
     ) -> bool {
-        #[cfg(feature = "diagnostic-logging")]
-        {
-            self.diagnostics.retained_stamp = None;
-        }
+        self.diagnostics.retained_stamp = None;
         let result_kind = result.kind;
         let Some(saved) = self.selections.get_mut(&result_kind) else {
             return false;
         };
         if let Some(tuning) = result.tuning {
-            #[cfg(feature = "diagnostic-logging")]
             if result.success {
                 saved.saved_tuning = tuning;
             }
@@ -472,10 +473,9 @@ impl SettingsMenu {
     pub fn grab_dodge_enabled(&self) -> bool {
         self.scoped().is_some_and(|s| s.grab_dodge)
     }
-    #[cfg(feature = "diagnostic-logging")]
     /// Returns the current Performance diagnostic option.
     pub fn diagnostic_options(&self) -> bool {
-        self.current().is_some_and(|s| s.performance)
+        self.current().is_some_and(|s| !s.lightweight && s.performance)
     }
     /// Reads out-of-shield assistance from the scoped selection.
     pub fn out_of_shield_enabled(&self) -> bool {
@@ -628,7 +628,7 @@ impl SettingsMenu {
     }
     /// Ends match scope and conditionally releases retained session data.
     pub fn end_match(&mut self) {
-        #[cfg(feature = "diagnostic-logging")]
+        self.display_battle(false);
         crate::performance::clear();
         self.resume_saved_state = false;
         self.open_requested = false;
@@ -646,7 +646,6 @@ impl SettingsMenu {
             self.auto_mash = None;
             self.passthrough_buttons = None;
         }
-        #[cfg(feature = "diagnostic-logging")]
         {
             self.diagnostics = DiagnosticState::default();
             if outside_match {
@@ -660,7 +659,10 @@ impl SettingsMenu {
     }
     /// Updates ImGui battle visibility without affecting menu state.
     pub fn display_battle(&self, active: bool) {
-        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        if !active {
+            crate::logging::observe(false);
+        }
+        #[cfg(not(test))]
         if !active {
             crate::diagnostics::lan::revoke();
             crate::diagnostics::telemetry::revoke();
@@ -689,23 +691,28 @@ impl SettingsMenu {
             damage_defaults,
             training,
         } = input;
-        #[cfg(feature = "diagnostic-logging")]
-        let _timing =
-            crate::performance::health::Trace::new(crate::performance::health::Lane::MenuInput);
-        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
+        let available = available && profile.is_some();
+        if !available || !training {
+            crate::logging::observe(false);
+            self.diagnostics = DiagnosticState::default();
+        }
+        let _timing = (available && training).then(|| {
+            crate::performance::health::Trace::new(crate::performance::health::Lane::MenuInput)
+        });
+        #[cfg(not(test))]
         let other_drafts_clean = self.selections.iter().all(|(saved_kind, s)| {
             Some(*saved_kind) == kind || !s.lan_has_unsaved_edits()
         });
-        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        #[cfg(not(test))]
         crate::diagnostics::lan::observe(
             available && training,
             available && training && other_drafts_clean && kind == self.kind
                 && self.selections.get(&kind.unwrap_or(-1))
                     .is_some_and(|s| s.lan_editing_allowed()),
         );
-        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        #[cfg(not(test))]
         crate::diagnostics::telemetry::observe(available && training);
-        let profile = kind.and_then(|kind| PROFILES.get()?.profile(kind));
         let (Some(kind), Some(profile)) = (kind, profile.filter(|_| available)) else {
             #[cfg(feature = "imgui-menu")]
             menu::clear_battle_hud();
@@ -717,7 +724,7 @@ impl SettingsMenu {
             return false;
         };
         if self.kind != Some(kind) {
-            self.switch_fighter(kind);
+            self.switch_fighter(kind, training);
         }
         self.selections
             .entry(kind)
@@ -758,8 +765,7 @@ impl SettingsMenu {
         self.native_buttons = selection.native_buttons(buttons);
         self.builtin_consumed = selection.builtin_consumed;
         self.rules.refresh(kind, selection, options);
-        #[cfg(feature = "diagnostic-logging")]
-        crate::performance::set_test_latency(selection.test_latency);
+        crate::performance::set_test_latency(if training { selection.test_latency } else { 0 });
         if self.open_requested {
             self.open_requested = false;
             selection.show_quick();
@@ -780,7 +786,7 @@ impl SettingsMenu {
                 || selection.autopilot_held(buttons));
         self.resolved.refresh(selection, profile, base);
         request_saves(selection, kind, options, training);
-        #[cfg(all(feature = "diagnostic-logging", not(test)))]
+        #[cfg(not(test))]
         {
             crate::diagnostics::lan::observe(
                 training,
@@ -809,31 +815,33 @@ impl SettingsMenu {
                 bump_content(selection);
             }
         }
-        #[cfg(feature = "diagnostic-logging")]
-        self.diagnostics
-            .log_configuration(kind, profile, selection, *auto_mash);
+        if training && crate::logging::active() {
+            self.diagnostics
+                .log_configuration(kind, profile, selection, *auto_mash);
+        }
         #[cfg(feature = "imgui-menu")]
         if self.view_revision != Some(selection.revision)
             && menu::publish(profile, selection, *auto_mash)
         {
             self.view_revision = Some(selection.revision);
         }
-        #[cfg(feature = "diagnostic-logging")]
-        self.diagnostics.record_retained(
-            (kind, selection.revision),
-            &self.selections,
-            self.rules.rules.as_deref(),
-        );
+        if training && crate::logging::active() {
+            self.diagnostics.record_retained(
+                (kind, selection.revision),
+                &self.selections,
+                self.rules.rules.as_deref(),
+            );
+        }
         changed
     }
     /// A different native fighter replaces every cached per-fighter view.
     /// Invalidates cross-fighter state and retains only the newly active fighter entry.
-    fn switch_fighter(&mut self, kind: i32) {
+    fn switch_fighter(&mut self, kind: i32, training: bool) {
         #[cfg(feature = "imgui-menu")]
         menu::clear_battle_hud();
-        #[cfg(feature = "diagnostic-logging")]
-        crate::performance::health::event(crate::performance::health::Event::FighterChange);
-        #[cfg(feature = "diagnostic-logging")]
+        if training {
+            crate::performance::health::event(crate::performance::health::Event::FighterChange);
+        }
         crate::calibration::clear();
         self.invalidate();
         self.selections.retain(|saved_kind, _| *saved_kind == kind);
@@ -883,10 +891,7 @@ fn new_selection(
         s.choices[slot as usize] = profile.menu_options.list(slot).options.len()
             + kirby_assist_core::button_bindings::Builtin::Counter.visible_template_offset().unwrap();
     }
-    #[cfg(feature = "diagnostic-logging")]
-    {
-        s.saved_tuning = s.tuning;
-    }
+    s.saved_tuning = s.tuning;
     s.tuning_values = kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
     s.tuning_values[11] = if grab_default { 1.0 } else { 0.0 };
     s.grab_dodge = s.tuning.grab_dodge_default(grab_default);
@@ -1009,7 +1014,6 @@ fn recipe_job(
 
 /// Row positions in core's diagnostic `Configuration` table. Row 10 is a
 /// removed slot kept only so later rows stay aligned.
-#[cfg(feature = "diagnostic-logging")]
 /// Stable indices that align local menu selections with diagnostic configuration rows.
 mod config_rows {
     use super::PresetSlot;
@@ -1053,7 +1057,6 @@ mod config_rows {
     ];
 }
 
-#[cfg(feature = "diagnostic-logging")]
 /// Produces the stable row-aligned diagnostic representation for a selection.
 fn configuration(
     kind: i32,
@@ -1094,7 +1097,6 @@ fn configuration(
         .with_reflect(selection.auto_reflect)
 }
 
-#[cfg(feature = "diagnostic-logging")]
 impl DiagnosticState {
     /// Log the visible configuration once per change, never per frame.
     fn log_configuration(

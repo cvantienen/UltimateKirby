@@ -164,7 +164,10 @@ impl LedgeTrap {
                     || (self.file_timeline.is_none()
                         && (visit.new_visit || self.complete && visit.allowed))
                 {
-                    *self = Self::default();
+                    *self = Self {
+                        diagnostics_enabled: self.diagnostics_enabled,
+                        ..Self::default()
+                    };
                 }
                 let continuing = self.file_timeline.is_some() && self.target == Some(e.id);
                 if !continuing && !visit.allowed {

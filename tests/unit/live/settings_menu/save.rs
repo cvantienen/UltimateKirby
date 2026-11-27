@@ -561,7 +561,6 @@ fn unchanged_settings_save_reloads_disk_catalog_instead_of_stale_runtime_data() 
     assert!(!temp.exists());
 }
 
-#[cfg(feature = "diagnostic-logging")]
 #[test]
 fn lan_save_checks_revision_permission_and_preserves_universal_settings() {
     let directory = Directory::new();

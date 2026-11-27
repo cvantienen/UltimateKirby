@@ -329,7 +329,7 @@ impl Report {
         );
         let _ = writeln!(text, "Wait: {}", readable_gate(self.last_wait));
         let _ = writeln!(text, "End: {}", self.end.replace('_', " "));
-        text.push_str("? = unobserved. Full evidence: status.log");
+        text.push_str("? = unobserved. Full evidence: Training live logs");
         text
     }
 

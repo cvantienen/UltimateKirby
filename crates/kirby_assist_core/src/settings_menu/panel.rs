@@ -108,7 +108,7 @@ impl MenuSelection {
                     fighter_tuning::HINTS[row].into()
                 },
             ],
-            body: (0..fighter_tuning::COUNT + 2 * usize::from(cfg!(feature = "diagnostic-logging")))
+            body: (0..fighter_tuning::COUNT + 2)
                 .filter(|i| self.tuning_group_visible(*i))
                 .map(|i| self.tuning_line(i, i == row))
                 .collect(),
@@ -129,7 +129,6 @@ impl MenuSelection {
     }
     /// One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
-        #[cfg(feature = "diagnostic-logging")]
         if i == fighter_tuning::COUNT + 1 {
             return format!(
                 "{} Live telemetry UDP: {} | port 4243 | read-only{}",
@@ -138,7 +137,6 @@ impl MenuSelection {
                 self.telemetry_status.as_ref().map_or(String::new(), |s| format!(" | {s}"))
             );
         }
-        #[cfg(feature = "diagnostic-logging")]
         if i == fighter_tuning::COUNT {
             return format!(
                 "{} LAN editor HTTP + UDP: {} | port 4242 | Left/Right or A: toggle{}{}",

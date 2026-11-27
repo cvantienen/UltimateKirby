@@ -1,5 +1,4 @@
 //! Execute the production native sampler on the host with copied ABI data and read-only stubs.
-#![cfg(feature = "diagnostic-logging")]
 #![allow(dead_code, unused_imports)]
 use kirby_assist_core::{native_states as native, telemetry::Sample};
 use std::{cell::RefCell, sync::Mutex, time::Duration};
@@ -485,6 +484,78 @@ fn nonfinite_values_and_missing_geometry_remain_unknown() {
     let sample = attack();
     assert_eq!(sample.values[0], Some(1));
     assert!(sample.values[1..].iter().all(Option::is_none));
+}
+
+#[test]
+fn policy_publication_is_bounded_read_only_and_requires_an_active_lease() {
+    let _serial = SERIAL.lock().unwrap();
+    reset();
+    let snapshot = kirby_assist_core::diagnostics::modes::Snapshot {
+        winner: None,
+        present: 0,
+        committed: false,
+        requested: 0,
+        stick: None,
+        status: 0,
+        motion: 0,
+        native_frame: 0,
+        stopped: false,
+        can_act: false,
+        hit: None,
+        valid: false,
+        safety: 0,
+    };
+    with_world(|w| {
+        w.ready = false;
+        w.session = 1234;
+    });
+    sampler::publish_policy(42, 6, snapshot, [None; 18]);
+    with_world(|w| {
+        assert!(w.samples.is_empty());
+        w.ready = true;
+    });
+    sampler::publish_policy(42, 6, snapshot, [None; 18]);
+    sampler::publish_policy(42, 6, snapshot, [None; 18]);
+    with_world(|w| {
+        assert_eq!(w.samples.len(), 1);
+        assert_eq!(
+            w.samples[0].group,
+            kirby_assist_core::telemetry::POLICY_GROUP
+        );
+        assert_eq!(w.reads, 0);
+        w.session += 1;
+    });
+    sampler::publish_policy(42, 6, snapshot, [None; 18]);
+    with_world(|w| assert_eq!(w.samples.len(), 2));
+}
+
+#[test]
+fn feature_detail_batches_are_throttled_and_revocation_blocks_publication() {
+    let _serial = SERIAL.lock().unwrap();
+    reset();
+    with_world(|w| {
+        w.session = 9876;
+        w.ready = false;
+    });
+    assert!(!sampler::feature_details_due());
+    with_world(|w| w.ready = true);
+    assert!(sampler::feature_details_due());
+    assert!(!sampler::feature_details_due());
+    let details =
+        [kirby_assist_core::telemetry::FeatureDetail::new(Some(true), "Held", "Example"); 18];
+    sampler::publish_feature_details(42, 6, details);
+    with_world(|w| {
+        assert_eq!(w.samples.len(), 18);
+        assert_eq!(w.reads, 0);
+        w.ready = false;
+    });
+    sampler::publish_feature_details(42, 6, details);
+    with_world(|w| {
+        assert_eq!(w.samples.len(), 18);
+        w.ready = true;
+        w.session += 1;
+    });
+    assert!(sampler::feature_details_due());
 }
 
 #[test]

@@ -8,7 +8,7 @@ use std::{
     io,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex,
     },
     thread::JoinHandle,
@@ -19,7 +19,10 @@ const LEASE: Duration = Duration::from_millis(100);
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static STATUS: Mutex<Option<String>> = Mutex::new(None);
 static RELOAD: AtomicBool = AtomicBool::new(false);
-static OBSERVATION: Mutex<Option<(Instant, bool)>> = Mutex::new(None);
+// Revocation must invalidate leases even when their mutex cannot be acquired.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+static ACTIVATION: AtomicU64 = AtomicU64::new(0);
+static OBSERVATION: Mutex<Option<(Instant, bool, u64)>> = Mutex::new(None);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 pub(crate) fn observe(training: bool, editing: bool) {
@@ -27,12 +30,29 @@ pub(crate) fn observe(training: bool, editing: bool) {
         revoke();
         return;
     }
+    let generation = GENERATION.load(Ordering::Acquire);
     if let Ok(mut observation) = OBSERVATION.try_lock() {
-        *observation = Some((Instant::now(), editing));
+        let generation = if observation
+            .is_some_and(|(seen, _, old)| old == generation && seen.elapsed() >= LEASE)
+        {
+            match GENERATION.compare_exchange(
+                generation,
+                generation.wrapping_add(1),
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => generation.wrapping_add(1),
+                Err(_) => return,
+            }
+        } else {
+            generation
+        };
+        *observation = Some((Instant::now(), editing, generation));
     }
 }
 
 pub(crate) fn revoke() {
+    GENERATION.fetch_add(1, Ordering::AcqRel);
     ENABLED.store(false, Ordering::Release);
     if let Ok(mut observation) = OBSERVATION.try_lock() {
         *observation = None;
@@ -41,6 +61,7 @@ pub(crate) fn revoke() {
 
 pub(crate) fn enabled() -> bool {
     ENABLED.load(Ordering::Acquire)
+        && ACTIVATION.load(Ordering::Acquire) == GENERATION.load(Ordering::Acquire)
 }
 
 pub(crate) fn status() -> Option<String> {
@@ -71,8 +92,16 @@ pub(crate) fn take_reload() -> bool {
 
 fn fresh(editing: bool) -> bool {
     OBSERVATION.try_lock().ok().is_some_and(|observation| {
-        observation.is_some_and(|(seen, open)| seen.elapsed() < LEASE && (!editing || open))
+        observation.is_some_and(|(seen, open, generation)| {
+            generation == GENERATION.load(Ordering::Acquire)
+                && seen.elapsed() < LEASE
+                && (!editing || open)
+        })
     })
+}
+
+fn authorized(generation: u64) -> bool {
+    enabled() && fresh(false) && generation == GENERATION.load(Ordering::Acquire)
 }
 
 pub(crate) fn toggle() -> Result<(), String> {
@@ -87,9 +116,9 @@ fn toggle_inner() -> Result<(), String> {
     if enabled() {
         revoke();
         set_status("Disabled explicitly");
-        crate::logging::write("LAN: disabled explicitly");
         return Ok(());
     }
+    let generation = GENERATION.load(Ordering::Acquire);
     if !fresh(true) {
         return Err("Open the Training editor before activating LAN".into());
     }
@@ -101,11 +130,16 @@ fn toggle_inner() -> Result<(), String> {
         let _ = handle.join();
     }
     set_status("STARTING — opening HTTP and UDP listeners (default port 4242)");
+    ACTIVATION.store(generation, Ordering::Release);
     ENABLED.store(true, Ordering::Release);
+    if !authorized(generation) || !fresh(true) {
+        ENABLED.store(false, Ordering::Release);
+        return Err("Open the Training editor before activating LAN".into());
+    }
     match std::thread::Builder::new()
         .name("kirby-diagnostic-http".into())
         .stack_size(2 * 1024 * 1024)
-        .spawn(run)
+        .spawn(move || run(generation))
     {
         Ok(handle) => {
             *worker = Some(handle);
@@ -203,8 +237,8 @@ fn private_ip(text: &str) -> Result<Ipv4Addr, String> {
         .ok_or_else(|| "Use a numeric RFC1918 private IPv4 address".into())
 }
 
-fn run() {
-    finish(serve());
+fn run(generation: u64) {
+    finish(serve(generation));
 }
 
 fn finish(result: Result<(), String>) {
@@ -215,13 +249,9 @@ fn finish(result: Result<(), String>) {
             if was_enabled {
                 set_status("Training observation expired; reopen editor and activate again");
             }
-            crate::logging::write("LAN: listener closed; explicit activation required");
         }
         Err(error) => {
             set_status(error.clone());
-            crate::logging::write_owned(format!(
-                "LAN: stopped: {error}; explicit activation required"
-            ));
         }
     }
 }
@@ -246,10 +276,10 @@ fn load_config(path: &std::path::Path) -> Result<Config, String> {
     Config::parse(&source)
 }
 
-fn serve() -> Result<(), String> {
+fn serve(generation: u64) -> Result<(), String> {
     // File-free activation must not inherit stale addresses or keys from an old setup.
     let config = Config::default();
-    if !enabled() || !fresh(true) {
+    if !authorized(generation) || !fresh(true) {
         return Ok(());
     }
     // The installed Switch std backend owns socket/NIFM initialization. It may
@@ -258,15 +288,17 @@ fn serve() -> Result<(), String> {
         .map_err(|e| format!("Cannot bind configured Switch address: {e}"))?;
     socket_result(listener.set_nonblocking(true))
         .map_err(|e| format!("Cannot set LAN listener nonblocking: {e}"))?;
+    if !authorized(generation) {
+        return Ok(());
+    }
     let datagrams = socket_result(std::net::UdpSocket::bind(config.local))
         .map_err(|e| format!("Cannot bind UDP editor: {e}"))?;
     socket_result(datagrams.set_nonblocking(true))
         .map_err(|e| format!("Cannot set UDP editor nonblocking: {e}"))?;
+    if !authorized(generation) {
+        return Ok(());
+    }
     listener_ready();
-    crate::logging::write_owned(format!(
-        "LAN: HTTP + UDP on {}; private peers, no authentication; Training gates active",
-        config.local
-    ));
     std::thread::scope(|scope| {
         let worker = scope.spawn(|| {
             let result = udp::serve(datagrams, &config);
@@ -288,13 +320,13 @@ fn serve() -> Result<(), String> {
 }
 
 fn serve_http(listener: TcpListener, config: &Config) -> Result<(), String> {
-    while enabled() && fresh(false) {
+    let generation = ACTIVATION.load(Ordering::Acquire);
+    while authorized(generation) {
         match socket_result(listener.accept()) {
-            Ok((mut stream, SocketAddr::V4(peer))) if config.permits(*peer.ip()) => {
-                if let Err(error) = socket_result(stream.set_nonblocking(false)) {
-                    crate::logging::write_owned(format!(
-                        "LAN: client blocking setup failed: {error}"
-                    ));
+            Ok((mut stream, SocketAddr::V4(peer)))
+                if authorized(generation) && config.permits(*peer.ip()) =>
+            {
+                if socket_result(stream.set_nonblocking(true)).is_err() {
                     continue;
                 }
                 let timeouts =
@@ -304,14 +336,10 @@ fn serve_http(listener: TcpListener, config: &Config) -> Result<(), String> {
                                 stream.set_write_timeout(Some(Duration::from_millis(200))),
                             )
                         });
-                if let Err(error) = timeouts {
-                    crate::logging::write_owned(format!(
-                        "LAN: client timeout setup failed: {error}"
-                    ));
+                if timeouts.is_err() {
                     continue;
                 }
-                if let Err(error) = handle(&mut stream, &config) {
-                    crate::logging::write_owned(format!("LAN: request failed: {error}"));
+                if handle(&mut stream, config).is_err() {
                     // A failed client request must not disable the listener for everyone.
                     continue;
                 }
@@ -330,13 +358,20 @@ fn serve_http(listener: TcpListener, config: &Config) -> Result<(), String> {
 fn handle(stream: &mut TcpStream, config: &Config) -> Result<(), String> {
     use kirby_assist_core::diagnostic_http as http;
     let started = Instant::now();
-    let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
+    let generation = ACTIVATION.load(Ordering::Acquire);
+    let allowed = || authorized(generation) && started.elapsed() < Duration::from_secs(2);
     let request = http::read_request(
-        &mut std::io::BufReader::with_capacity(4096, network::Stream(stream)),
+        &mut std::io::BufReader::with_capacity(4096, network::Stream(stream, allowed)),
         allowed,
     )
     .map_err(|e| format!("{e:?}"))?;
-    dispatch(&mut network::Stream(stream), config, request, started)
+    dispatch(
+        &mut network::Stream(stream, || authorized(generation)),
+        config,
+        request,
+        started,
+        generation,
+    )
 }
 
 fn dispatch<W: std::io::Write>(
@@ -344,9 +379,13 @@ fn dispatch<W: std::io::Write>(
     config: &Config,
     request: kirby_assist_core::diagnostic_http::Request,
     started: Instant,
+    generation: u64,
 ) -> Result<(), String> {
     use kirby_assist_core::diagnostic_http::{self as http, Method, Route};
-    let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
+    let allowed = || authorized(generation) && started.elapsed() < Duration::from_secs(2);
+    if !allowed() {
+        return Err("Training authorization expired".into());
+    }
     if !config.token.is_empty() && !http::constant_time_eq(&request.token, &config.token) {
         return respond(
             stream,
@@ -370,16 +409,13 @@ fn dispatch<W: std::io::Write>(
         }
         (Method::Get, Route::Sequences) => match crate::live::settings_menu::lan_read() {
             Ok((body, revision)) => respond(stream, 200, &body, Some(&revision), allowed),
-            Err(error) => {
-                crate::logging::write_owned(format!("LAN: read rejected: {error}"));
-                respond(
-                    stream,
-                    409,
-                    b"{\"error\":\"File unavailable or save busy; see live logs\"}",
-                    None,
-                    allowed,
-                )
-            }
+            Err(_) => respond(
+                stream,
+                409,
+                b"{\"error\":\"File unavailable or save busy; see live logs\"}",
+                None,
+                allowed,
+            ),
         },
         (Method::Put, Route::Sequences) => {
             if !fresh(true) {
@@ -392,32 +428,26 @@ fn dispatch<W: std::io::Write>(
                 );
             }
             let save_allowed =
-                || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(10);
+                || authorized(generation) && started.elapsed() < Duration::from_secs(10);
             match crate::live::settings_menu::lan_write(
                 &request.body,
                 request.revision.as_deref().unwrap_or(""),
                 || save_allowed() && fresh(true),
             ) {
-                Ok(()) => {
-                    crate::logging::write("LAN SAVE: canonical SD file verified and catalog reloaded; fighter menu refresh pending");
-                    respond(
-                        stream,
-                        200,
-                        b"{\"saved\":true,\"reloaded\":true}",
-                        None,
-                        save_allowed,
-                    )
-                }
-                Err(error) => {
-                    crate::logging::write_owned(format!("LAN SAVE: rejected: {error}"));
-                    respond(
-                        stream,
-                        409,
-                        b"{\"error\":\"Save rejected; reload file and inspect live logs\"}",
-                        None,
-                        save_allowed,
-                    )
-                }
+                Ok(()) => respond(
+                    stream,
+                    200,
+                    b"{\"saved\":true,\"reloaded\":true}",
+                    None,
+                    save_allowed,
+                ),
+                Err(_) => respond(
+                    stream,
+                    409,
+                    b"{\"error\":\"Save rejected; reload file and inspect live logs\"}",
+                    None,
+                    save_allowed,
+                ),
             }
         }
         _ => respond(
@@ -479,6 +509,7 @@ mod tests {
     fn listener_status_changes_only_after_binding_and_failures_hide_secrets() {
         let _serial = TEST_GATE.lock().unwrap();
         observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         ENABLED.store(true, Ordering::Release);
         set_status("STARTING");
         listener_ready();
@@ -491,8 +522,13 @@ mod tests {
         assert!(status().unwrap().contains("port"));
         assert!(!status().unwrap().contains(secret));
         observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         ENABLED.store(true, Ordering::Release);
-        *OBSERVATION.lock().unwrap() = Some((Instant::now() - LEASE, true));
+        *OBSERVATION.lock().unwrap() = Some((
+            Instant::now() - LEASE,
+            true,
+            GENERATION.load(Ordering::Acquire),
+        ));
         finish(Ok(()));
         assert!(status().unwrap().contains("observation expired"));
     }
@@ -506,14 +542,98 @@ mod tests {
         assert!(toggle().is_err());
         observe(true, true);
         assert!(fresh(true));
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         ENABLED.store(true, Ordering::Release);
         observe(true, false);
         assert!(fresh(false));
         assert!(!fresh(true));
-        *OBSERVATION.lock().unwrap() = Some((Instant::now() - LEASE, true));
+        *OBSERVATION.lock().unwrap() = Some((
+            Instant::now() - LEASE,
+            true,
+            GENERATION.load(Ordering::Acquire),
+        ));
         assert!(!fresh(false));
         observe(false, false);
         assert!(!enabled());
+    }
+
+    #[test]
+    fn contended_revocation_and_expiry_cannot_reactivate_old_leases() {
+        let _serial = TEST_GATE.lock().unwrap();
+        observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        let old = GENERATION.load(Ordering::Acquire);
+        {
+            let _observation = OBSERVATION.lock().unwrap();
+            revoke();
+        }
+        assert!(!fresh(true));
+        assert!(toggle().is_err());
+        observe(true, true);
+        assert!(!authorized(old));
+        assert!(!enabled());
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        *OBSERVATION.lock().unwrap() = Some((
+            Instant::now() - LEASE,
+            true,
+            GENERATION.load(Ordering::Acquire),
+        ));
+        observe(true, true);
+        assert!(!enabled());
+        assert!(fresh(true));
+        revoke();
+    }
+
+    #[test]
+    fn revoked_request_cannot_dispatch_or_send_udp_in_a_new_activation() {
+        let _serial = TEST_GATE.lock().unwrap();
+        observe(true, true);
+        let old = GENERATION.load(Ordering::Acquire);
+        revoke();
+        observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        let request = kirby_assist_core::diagnostic_http::read_request(
+            &mut std::io::Cursor::new(b"GET /sequences HTTP/1.1\r\n\r\n"),
+            || true,
+        )
+        .unwrap();
+        let mut output = Vec::new();
+        assert!(dispatch(
+            &mut output,
+            &Config::default(),
+            request,
+            Instant::now(),
+            old
+        )
+        .is_err());
+        assert!(output.is_empty());
+        let sender = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let receiver = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        assert_eq!(
+            udp::send(
+                &sender,
+                receiver.local_addr().unwrap(),
+                2,
+                1,
+                0,
+                1,
+                &[],
+                old
+            )
+            .unwrap_err()
+            .kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        assert_eq!(
+            receiver.recv(&mut [0; 64]).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        revoke();
+        assert!(serve(old).is_ok());
     }
 
     #[test]
@@ -524,6 +644,7 @@ mod tests {
         listener.set_nonblocking(true).unwrap();
         let address = listener.local_addr().unwrap();
         observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         ENABLED.store(true, Ordering::Release);
         std::thread::scope(|scope| {
             let server = scope.spawn(|| {
@@ -568,6 +689,7 @@ mod tests {
             ..Config::default()
         };
         observe(true, true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         ENABLED.store(true, Ordering::Release);
         let packet = |kind: u8, id: u64, index: u16, total: u16, body: &[u8]| {
             let mut bytes = b"KALE".to_vec();
@@ -641,6 +763,7 @@ mod tests {
             });
             let (mut stream, _) = listener.accept().unwrap();
             observe(true, true);
+            ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
             ENABLED.store(true, Ordering::Release);
             let config = Config {
                 local: SocketAddrV4::new(Ipv4Addr::LOCALHOST, 4242),
@@ -717,6 +840,7 @@ mod tests {
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
             observe(true, editing);
+            ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
             ENABLED.store(true, Ordering::Release);
             let config = Config {
                 local: SocketAddrV4::new(Ipv4Addr::LOCALHOST, 4242),

@@ -3,6 +3,29 @@
 //! without modifying native game state.
 //! Plain English: This module safely starts or pauses Kirby Assist for the local player.
 use super::*;
+
+static OBSERVED_TRAINING: AtomicBool = AtomicBool::new(false);
+static CLEAR_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// Refreshes Training authorization independently of assistance and local-player routing.
+pub(super) fn observe_training_tools(training: bool) {
+    if OBSERVED_TRAINING.swap(training, Ordering::AcqRel) != training {
+        CLEAR_PENDING.store(true, Ordering::Release);
+    }
+    if CLEAR_PENDING.load(Ordering::Acquire) {
+        if let Ok(mut state) = STATE.try_lock() {
+            if CLEAR_PENDING.swap(false, Ordering::AcqRel) {
+                state.clear_diagnostics();
+            }
+        }
+    }
+    crate::logging::observe(training && !CLEAR_PENDING.load(Ordering::Acquire));
+    if !training {
+        crate::diagnostics::lan::revoke();
+        crate::diagnostics::telemetry::revoke();
+    }
+}
+
 /// Check if feature activity is allowed based on the runtime and local participant status.
 /// Requires both the master runtime flag and local participant flag to be set.
 pub(crate) fn feature_activity_allowed() -> bool {
@@ -101,7 +124,6 @@ fn suspend_route(selected_index: Option<i32>) {
             reset_state(&mut state);
             TRAINING_PASSTHROUGH.store(false, Ordering::Relaxed);
             TRAINING_MODAL_HANDOFF.store(false, Ordering::Relaxed);
-            #[cfg(feature = "diagnostic-logging")]
             {
                 crate::performance::set_enabled(false);
                 crate::performance::clear();
@@ -130,7 +152,6 @@ pub(super) fn set_runtime_enabled(enabled: bool) {
     }
     TRAINING_PASSTHROUGH.store(false, Ordering::Relaxed);
     TRAINING_MODAL_HANDOFF.store(false, Ordering::Relaxed);
-    #[cfg(feature = "diagnostic-logging")]
     {
         crate::performance::set_enabled(false);
         crate::performance::clear();

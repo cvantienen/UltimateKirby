@@ -18,6 +18,10 @@ static SERIAL: Mutex<()> = Mutex::new(());
 static CLEANUPS: AtomicUsize = AtomicUsize::new(0);
 static MENU_ENDS: AtomicUsize = AtomicUsize::new(0);
 static TOAST: AtomicBool = AtomicBool::new(false);
+static DIAGNOSTIC_RESETS: AtomicUsize = AtomicUsize::new(0);
+static DIAGNOSTIC_ACTIVE: AtomicBool = AtomicBool::new(false);
+static LAN_ACTIVE: AtomicBool = AtomicBool::new(false);
+static TELEMETRY_ACTIVE: AtomicBool = AtomicBool::new(false);
 struct Menu;
 impl Menu {
     fn display_battle(&self, active: bool) {
@@ -42,6 +46,9 @@ struct State {
     pending_track: Option<u32>,
 }
 impl State {
+    fn clear_diagnostics(&mut self) {
+        DIAGNOSTIC_RESETS.fetch_add(1, Ordering::Relaxed);
+    }
     fn cancel(&mut self) {
         self.requested = 0;
         self.owned = 0;
@@ -75,21 +82,66 @@ mod settings_menu {
         super::TOAST.store(on, super::Ordering::Relaxed);
     }
 }
-#[cfg(feature = "diagnostic-logging")]
 mod performance {
     pub fn set_enabled(_: bool) {}
     pub fn clear() {}
 }
-#[cfg(feature = "diagnostic-logging")]
 mod calibration {
     pub fn clear() {}
 }
-#[cfg(feature = "diagnostic-logging")]
 mod logging {
     pub fn clear_snapshot() {}
+    pub fn observe(training: bool) {
+        super::DIAGNOSTIC_ACTIVE.store(training, super::Ordering::Release);
+    }
+}
+mod diagnostics {
+    pub mod lan {
+        pub fn revoke() {
+            crate::LAN_ACTIVE.store(false, crate::Ordering::Release);
+        }
+    }
+    pub mod telemetry {
+        pub fn revoke() {
+            crate::TELEMETRY_ACTIVE.store(false, crate::Ordering::Release);
+        }
+    }
 }
 #[path = "../../../src/live/runtime.rs"]
 mod runtime;
+
+#[test]
+fn training_tools_clear_before_collection_and_revoke_even_when_state_is_busy() {
+    let _serial = SERIAL.lock().unwrap();
+    runtime::observe_training_tools(false);
+    DIAGNOSTIC_RESETS.store(0, Ordering::Relaxed);
+    let state = STATE.lock().unwrap();
+    runtime::observe_training_tools(true);
+    assert!(!DIAGNOSTIC_ACTIVE.load(Ordering::Acquire));
+    assert_eq!(DIAGNOSTIC_RESETS.load(Ordering::Relaxed), 0);
+    drop(state);
+    runtime::observe_training_tools(true);
+    assert!(DIAGNOSTIC_ACTIVE.load(Ordering::Acquire));
+    assert_eq!(DIAGNOSTIC_RESETS.load(Ordering::Relaxed), 1);
+    runtime::observe_training_tools(true);
+    assert_eq!(DIAGNOSTIC_RESETS.load(Ordering::Relaxed), 1);
+
+    LAN_ACTIVE.store(true, Ordering::Release);
+    TELEMETRY_ACTIVE.store(true, Ordering::Release);
+    let state = STATE.lock().unwrap();
+    runtime::observe_training_tools(false);
+    assert!(!DIAGNOSTIC_ACTIVE.load(Ordering::Acquire));
+    assert!(!LAN_ACTIVE.load(Ordering::Acquire));
+    assert!(!TELEMETRY_ACTIVE.load(Ordering::Acquire));
+    drop(state);
+    runtime::observe_training_tools(false);
+    assert_eq!(DIAGNOSTIC_RESETS.load(Ordering::Relaxed), 2);
+    runtime::observe_training_tools(true);
+    assert_eq!(DIAGNOSTIC_RESETS.load(Ordering::Relaxed), 3);
+    assert!(!LAN_ACTIVE.load(Ordering::Acquire));
+    assert!(!TELEMETRY_ACTIVE.load(Ordering::Acquire));
+    runtime::observe_training_tools(false);
+}
 
 fn seed() -> kirby_assist_core::session::SessionTicket {
     RUNTIME_ENABLED.store(true, Ordering::Release);

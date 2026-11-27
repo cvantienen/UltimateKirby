@@ -47,21 +47,15 @@ ACTIVE_SEQUENCES = PurePosixPath("ultimate/kirby_assist/sequences.txt")
 SUMMARY = PurePosixPath("ultimate/kirby_assist/RELEASE_SUMMARY.txt")
 SOURCE_ZIP = PurePosixPath("ultimate/kirby_assist/kirby_assist-source.zip")
 
-# Match the builder's explicit diagnostic markers; no Cargo/build imports needed.
+# Reject legacy SD log sinks regardless of the selected build label.
 LOG_MARKERS = (
     b"sd:/ultimate/kirby_assist/status.log",
     b"sd:/ultimate/kirby_assist/performance.log",
-    b"[kirby_assist]",
-    b"tech observation:",
-    b"ledge observation:",
-    b"ledge mapper:",
-    b"tech ZR applied:",
-    b"NOT INSTALLED:",
 )
 
 
 def verify_build_variant(binary: bytes, summary: bytes) -> str:
-    """Reject mislabeled or partially diagnostic prepared NROs before FTP."""
+    """Reject legacy SD log sinks before FTP; variant labels no longer imply logging."""
     try:
         text = summary.decode("utf-8")
     except UnicodeDecodeError as error:
@@ -72,18 +66,12 @@ def verify_build_variant(binary: bytes, summary: bytes) -> str:
     expected = labels[0].strip().lower() if labels else None
     if expected not in (None, "silent", "diagnostic"):
         raise RuntimeError("Release summary Build label must be SILENT or DIAGNOSTIC")
-    present = [marker in binary for marker in LOG_MARKERS]
-    if any(present) and not all(present):
-        missing = ", ".join(marker.decode() for marker, found in zip(LOG_MARKERS, present) if not found)
-        raise RuntimeError(f"Incomplete diagnostic NRO markers; refusing upload. Missing: {missing}")
-    actual = "diagnostic" if all(present) else "silent"
-    if expected is not None and actual != expected:
-        raise RuntimeError(f"Build mismatch: summary says {expected.upper()}, NRO markers indicate {actual.upper()}")
-    if actual == "diagnostic" and expected is None:
-        raise RuntimeError("Diagnostic NRO requires a matching summary with Build: DIAGNOSTIC; copy both from the diagnostic folder")
-    print(f"Local build check passed: {actual.upper()} NRO "
-          f"({'all diagnostic markers present' if actual == 'diagnostic' else 'diagnostic markers absent'}).", flush=True)
-    return actual
+    if any(marker in binary for marker in LOG_MARKERS):
+        raise RuntimeError("SD diagnostic logging is forbidden in every build; refusing upload")
+    variant = expected or "silent"
+    print(f"Local build check passed: {variant.upper()} label; SD log markers absent. "
+          "Binary marker checks do not prove runtime Training isolation.", flush=True)
+    return variant
 
 
 def ftp_root(value: str) -> str:
@@ -262,8 +250,10 @@ def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
         print("Dry run: no FTP connection or remote changes.", flush=True)
         return
     binary = next(data for remote, data in payloads if remote == PLUGIN)
+    summary = next(data for remote, data in payloads if remote == SUMMARY)
+    variant = verify_build_variant(binary, summary)
     if (not verify_only and host.endswith(".106") and not allow_diagnostic_on_silent_ip
-            and all(marker in binary for marker in LOG_MARKERS)):
+            and variant == "diagnostic"):
         try:
             answer = input("Are you sure you want to upload diagnostic? Type yes to continue [default: no]: ")
         except (EOFError, KeyboardInterrupt):

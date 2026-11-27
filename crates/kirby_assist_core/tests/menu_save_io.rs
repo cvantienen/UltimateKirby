@@ -12,7 +12,6 @@ mod live {
     mod menu_save;
 }
 
-#[cfg(feature = "diagnostic-logging")]
 #[allow(dead_code)]
 #[path = "../../../src/diagnostics/performance.rs"]
 mod performance;

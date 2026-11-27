@@ -1,5 +1,3 @@
-#![cfg(feature = "diagnostic-logging")]
-
 use kirby_assist_core::diagnostic_http::*;
 use std::io::{self, Cursor, Read, Write};
 

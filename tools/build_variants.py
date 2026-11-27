@@ -54,18 +54,18 @@ SOURCE_ARCHIVE_EXCLUDES = {
     "site",
 }
 SOURCE_ARCHIVE_EXCLUDED_FILES = {".DS_Store"}
-# These are our explicit logger/message markers, not a test for all possible
-# metadata, crash reporting, or telemetry in the console/runtime.
+# Forbidden legacy SD sinks in every variant; live RAM messages are allowed.
 LOG_MARKERS = (
     b"sd:/ultimate/kirby_assist/status.log",
     b"sd:/ultimate/kirby_assist/performance.log",
-    b"[kirby_assist]",
-    b"tech observation:",
-    b"ledge observation:",
-    b"ledge mapper:",
-    b"tech ZR applied:",
-    b"NOT INSTALLED:",
 )
+
+
+def verify_no_sd_logging(binary: bytes) -> dict[str, bool]:
+    markers = {marker.decode(): marker in binary for marker in LOG_MARKERS}
+    if any(markers.values()):
+        raise RuntimeError(f"SD diagnostic logging is forbidden in every build: {markers}")
+    return markers
 
 
 def read_release_summary() -> bytes:
@@ -129,19 +129,12 @@ def build_variant(name: str, env: dict[str, str]) -> Path:
     binary = (ROOT / "target/aarch64-skyline-switch/release/libkirby_assist.nro").read_bytes()
     if binary[0x10:0x14] != b"NRO0":
         raise RuntimeError("Build did not produce the expected NRO format")
-    markers = {marker.decode(): marker in binary for marker in LOG_MARKERS}
-    if any(present != diagnostic for present in markers.values()):
-        raise RuntimeError(f"Unexpected {name} logging marker results: {markers}")
+    markers = verify_no_sd_logging(binary)
 
-    # Both variants share all gameplay settings. Only tech_debug differs, and a
-    # silent binary ignores it regardless because its logging code is absent.
+    # Both variants provide Training-only RAM diagnostics; tech_debug selects details.
     config = (ROOT / "deployment" / CONFIG).read_text()
     config = config.replace("tech_debug = true", f"tech_debug = {str(diagnostic).lower()}")
-    heading = (
-        "# SILENT: plugin file/console logging is compiled out; tech_debug cannot enable it.\n"
-        if not diagnostic else
-        "# DIAGNOSTIC: file/console logging is compiled in; tech_debug enables tech details.\n"
-    )
+    heading = f"# {name.upper()}: Training-only live analysis; no SD or console logs.\n"
     config = (heading + config).encode()
     install = f"""Kirby Assist {RELEASE_VERSION} - {name.upper()} BUILD
 
@@ -181,17 +174,14 @@ The flat bak directory keeps one previous installed set, overwritten each upload
 Other files remain untouched. Building never uploads.
 
 
-Silent: no explicit plugin file/console logger, startup log creation, or detailed
-message collection. It still reads config. tech_debug cannot enable logging.
-It does not delete old files or change Skyline/OS/game crash reports or telemetry.
-A missing/invalid config or unsupported signature produces no silent diagnostic;
-use the diagnostic variant to troubleshoot instead.
-
-Diagnostic: startup/basic logs plus detailed tech logs with tech_debug = true.
-Output goes to console; ordinary evidence goes to SD:/ultimate/kirby_assist/status.log,
-while enabled Perf timing/health reports go to SD:/ultimate/kirby_assist/performance.log. The first line
-identifies 'Kirby Assist diagnostic build {RELEASE_VERSION}'. tech_debug = false reduces details,
-but does not disable startup/basic logging in this variant.
+Both variants: Training-only live editor and analytical telemetry, with bounded
+session-only RAM diagnostics. Neither build creates SD diagnostic files or writes
+console logs, including at startup. tech_debug only selects Training detail.
+Outside Training, the lightweight menu is unchanged and plugin diagnostic
+collection and network services are disabled. LAN/telemetry require explicit
+Training activation and are revoked on exit; re-entering does not reactivate them.
+Existing configuration and explicit sequence saves are not diagnostic logs.
+Old files are not deleted. Skyline/OS/game crash reports are outside this plugin.
 
 Neither variant hides the plugin or guarantees indistinguishability/ban protection.
 Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification steps.
@@ -204,7 +194,8 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         "release_optimized": True,
         "cargo_features": variant_features(diagnostic),
         "requires_imgui_smash_host": True,
-        "explicit_plugin_logging": diagnostic,
+        "explicit_plugin_logging": False,
+        "training_live_analysis": True,
         "logging_marker_checks": markers,
         "plugin_sha256": hashlib.sha256(binary).hexdigest(),
         "config_sha256": hashlib.sha256(config).hexdigest(),
@@ -249,7 +240,7 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         for relative, data in files.items():
             if archive.read(relative) != data:
                 raise RuntimeError(f"Packaged bytes differ: {relative}")
-    print(f"Verified {output.name}: {len(binary):,}-byte NRO; explicit logging={diagnostic}", flush=True)
+    print(f"Verified {output.name}: {len(binary):,}-byte NRO; SD log markers absent", flush=True)
     return output
 
 def copy_release_output(source: Path, destination: Path) -> None:

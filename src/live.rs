@@ -18,16 +18,13 @@
 //! Plain English: This is the bridge between Smash's callbacks and the helper
 //! modules that decide what buttons to send.
 
-// In silent builds, this macro removes both the log call and its arguments.
-#[cfg(feature = "diagnostic-logging")]
+// Do not even format diagnostic messages without fresh Training authorization.
 macro_rules! log {
     ($message:expr $(,)?) => {
-        crate::logging::write($message)
+        if crate::logging::active() {
+            crate::logging::write($message)
+        }
     };
-}
-#[cfg(not(feature = "diagnostic-logging"))]
-macro_rules! log {
-    ($message:expr $(,)?) => {{}};
 }
 
 // Keep hook/session orchestration here; native layouts and read-only queries
@@ -83,18 +80,16 @@ use controller::{selected_controller, trace, write_trace, ControllerRestore, Map
 use kirby_assist_core::action_owner::{ActionOwnership, Intent, Owner};
 use kirby_assist_core::training_test;
 use observations::{combat_targets, fighter_ids, human_fighter, nearest_ledge_opponent};
-use runtime::set_runtime_enabled;
+use runtime::{observe_training_tools, set_runtime_enabled};
 use state::State;
 use tech::assess_tech;
 
 /// Coordinates Training Modpack input handoff and passthrough state.
 mod training;
-#[cfg(feature = "diagnostic-logging")]
 mod telemetry;
 
 use crate::game_ffi as game;
 use kirby_assist_core::combat_assist::{SdiContext, SdiState};
-#[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::diagnostics::DiagnosticGate;
 use kirby_assist_core::fighter_profiles::FighterProfiles;
 use kirby_assist_core::gameplay::{ControllerOutput, GameplayContext};
@@ -109,7 +104,6 @@ use kirby_assist_core::manual_controls::{
     ManualContext, ManualOverlay, TurboOutput, TurboState, TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{controller_index, MAPPER_L, MAPPER_PLUS, MAPPER_ZR};
-#[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X, MAPPER_Y};
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::settings::AssistSettings;
@@ -167,22 +161,16 @@ fn refresh_master_match_lock(ready_go: Option<bool>) {
 // holding it, since a native call can re-enter another hooked function.
 /// Resolved executable offset for the supported native mapper hook.
 static MAPPING_OFFSET: AtomicUsize = AtomicUsize::new(0);
-#[cfg(feature = "diagnostic-logging")]
 /// Number of attack slots sampled by diagnostic comparison paths.
 const ATTACK_SLOT_COUNT: i32 = 8;
-#[cfg(feature = "diagnostic-logging")]
 /// Diagnostic count of mapper callbacks observed.
 static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
-#[cfg(feature = "diagnostic-logging")]
 /// Diagnostic count of controller-route mismatches.
 static ROUTE_MISMATCHES: AtomicUsize = AtomicUsize::new(0);
-#[cfg(feature = "diagnostic-logging")]
 /// Prevents repeated logs for an unavailable route.
 static ROUTE_UNAVAILABLE_LOGGED: AtomicBool = AtomicBool::new(false);
-#[cfg(feature = "diagnostic-logging")]
 /// Remaining diagnostic polls for manual-grab comparison.
 static MANUAL_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
-#[cfg(feature = "diagnostic-logging")]
 /// Remaining diagnostic polls for automatic-grab comparison.
 static AUTOMATIC_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
 /// Resolved native fighter-manager slot/address value.
@@ -205,7 +193,10 @@ static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 static STATE: Mutex<State> = Mutex::new(State::new());
 /// Applies current menu diagnostic options to the background recorder.
 fn sync_diagnostic_options() {
-    #[cfg(feature = "diagnostic-logging")]
+    if !crate::logging::active() {
+        crate::performance::set_enabled(false);
+        return;
+    }
     {
         let perf = STATE
             .lock()
@@ -282,9 +273,8 @@ unsafe fn map_controls(
     wrapper: *mut c_void,
     arg: bool,
 ) {
-    #[cfg(feature = "diagnostic-logging")]
+    observe_training_tools(game::is_training_mode());
     let telemetry_input = mapper::capture_telemetry_input(wrapper, index);
-    #[cfg(feature = "diagnostic-logging")]
     if !RUNTIME_ENABLED.load(Ordering::Acquire)
         || CONFIG.get().is_some_and(|c| !c.controls.enabled)
     {
@@ -296,12 +286,10 @@ unsafe fn map_controls(
     }
     let Some(admission) = mapper::admit_mapper_callback(wrapper, index) else {
         original!()(mappings, index, output, wrapper, arg);
-        #[cfg(feature = "diagnostic-logging")]
         mapper::publish_telemetry_input(telemetry_input, output);
         return;
     };
     let session_ticket = admission.session_ticket;
-    #[cfg(feature = "diagnostic-logging")]
     let _mapping_time =
         crate::performance::health::Trace::new(crate::performance::health::Lane::Mapping);
     // Installed Training Modpack + actual Training Mode, in both builds.
@@ -315,7 +303,6 @@ unsafe fn map_controls(
         training_test::active(training_mode.is_some(), training_mode.unwrap_or(false));
     if training_test_mode && mapper::enter_training_passthrough(&admission, index) {
         original!()(mappings, index, output, wrapper, arg);
-        #[cfg(feature = "diagnostic-logging")]
         mapper::publish_telemetry_input(telemetry_input, output);
         return;
     }
@@ -331,7 +318,6 @@ unsafe fn map_controls(
         mapper::prepare_mapper_overlay(admission, index, output, training_mode, training_test_mode)
     else {
         original!()(mappings, index, output, wrapper, arg);
-        #[cfg(feature = "diagnostic-logging")]
         mapper::publish_telemetry_input(telemetry_input, output);
         return;
     };
@@ -342,13 +328,11 @@ unsafe fn map_controls(
             saved.restore();
         }
         original!()(mappings, index, output, wrapper, arg);
-        #[cfg(feature = "diagnostic-logging")]
         mapper::publish_telemetry_input(telemetry_input, output);
         return;
     }
     original!()(mappings, index, output, wrapper, arg);
     mapper::finish_mapper_overlay(output, index, session_ticket, preparation);
-    #[cfg(feature = "diagnostic-logging")]
     mapper::publish_telemetry_input(telemetry_input, output);
 }
 
@@ -364,9 +348,10 @@ unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
     if category != 0 || object.is_null() {
         return flags;
     }
+    let training = game::is_training_mode();
+    observe_training_tools(training);
     observe_master_presence(object);
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if training {
         install_mapper_if_ready();
         telemetry::observe(object);
     }
@@ -430,10 +415,7 @@ fn publish_startup_config(config: Box<Config>) {
 /// Loads catalogs, validates executable bindings, resolves managers,
 /// then installs required hooks in dependency order.
 pub fn install() {
-    // Silent builds only READ configuration: no directory/file creation or
-    // console output is compiled into this plugin's normal startup path.
-    #[cfg(feature = "diagnostic-logging")]
-    crate::logging::start();
+    // Diagnostics start lazily after Training authorization, never at plugin load.
     if let Err(_error) = kirby_assist_core::fighter_data::initialize() {
         log!(&format!("NOT INSTALLED: {_error}"));
         return;
@@ -445,9 +427,7 @@ pub fn install() {
             return;
         }
     };
-    #[cfg(feature = "diagnostic-logging")]
     log!(&format!("GLOBAL MODES: assistance={}, auto-tech={}, auto-SDI={}, automatic fair-hit follow-up={}, defensive ledge shield={}. Saved fighter choices are listed separately when selected. Detailed snapshots are batched at most 4 times/second; input requests, native move starts and hit evidence are reported separately.", config.controls.enabled, config.controls.auto_tech, config.auto_sdi, config.kirby_fair1_smash, config.autopilot_shield));
-    #[cfg(feature = "diagnostic-logging")]
     log!(&format!("AUTO DI CONFIG: enabled={}, mode={:?}, legacy threshold={:.2}. Adaptive uses survival; Escape requires explicit selection. DI owns the final 3 victim-hitstop frames; SDI never falls back there. DI and SDI share exclusive stick ownership through hitstop.", config.auto_di.enabled, config.auto_di.mode, config.auto_di.survival_speed));
     log!(&format!("AUTO SPOT DODGE: enabled={}; ordinary standing/dash/pivot grabs only, bounded per-fighter proximity forecast, one accepted request per grab with optional configured follow-up; incoming-grab defense waits for committed sequences and yields to native safety.", config.auto_spot_dodge));
     publish_startup_config(config);
@@ -460,10 +440,7 @@ pub fn install() {
         sequences.len()
     ));
     let _ = SEQUENCES.set(Mutex::new(sequences));
-    if !config.controls.enabled && !cfg!(feature = "diagnostic-logging") {
-        log!("disabled in config; no hooks installed");
-        return;
-    }
+    // Keep Training editor/telemetry available even with assistance disabled.
     // Parse static grab reference facts before any gameplay hooks can run.
     if let Err(_error) = kirby_assist_core::fighter_data::prepare_grab_references() {
         log!(&format!("NOT INSTALLED: {_error}"));

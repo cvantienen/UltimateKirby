@@ -5,6 +5,84 @@ use sha2::Sha256;
 use std::net::{Ipv4Addr, SocketAddrV4};
 
 pub const FIELD_COUNT: usize = 64;
+/// Additive observation group; older receivers reject it without misdecoding it.
+pub const POLICY_GROUP: u16 = 10;
+pub const POLICY_FEATURE_COUNT: usize = 18;
+pub const FEATURE_GROUP_START: u16 = 11;
+pub const MAX_GROUP: u16 = FEATURE_GROUP_START + POLICY_FEATURE_COUNT as u16 - 1;
+const LABEL_BYTES: usize = 96;
+
+/// Fixed-size copied labels: no native pointers, allocations, or arbitrary queries.
+#[derive(Clone, Copy, Debug)]
+pub struct FeatureDetail {
+    pub configured: Option<bool>,
+    pub held: Option<bool>,
+    pub blockers: Option<u64>,
+    mode: [u8; LABEL_BYTES],
+    recipe: [u8; LABEL_BYTES],
+}
+impl FeatureDetail {
+    pub fn new(configured: Option<bool>, mode: &str, recipe: &str) -> Self {
+        fn label(text: &str) -> [u8; LABEL_BYTES] {
+            let mut end = text.len().min(LABEL_BYTES);
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            let mut value = [0; LABEL_BYTES];
+            value[..end].copy_from_slice(&text.as_bytes()[..end]);
+            value
+        }
+        Self {
+            configured,
+            held: None,
+            blockers: None,
+            mode: label(mode),
+            recipe: label(recipe),
+        }
+    }
+    pub fn sample(self, object_id: u32, kind: i32, feature: usize) -> Option<Sample> {
+        if feature >= POLICY_FEATURE_COUNT {
+            return None;
+        }
+        let mut sample = Sample {
+            object_id,
+            kind,
+            group: FEATURE_GROUP_START + feature as u16,
+            ..Sample::default()
+        };
+        sample.values[0] = self.configured.map(u64::from);
+        sample.values[1] = self.held.map(u64::from);
+        sample.values[2] = self.blockers;
+        for (offset, bytes) in [(8, self.mode), (20, self.recipe)] {
+            if bytes[0] == 0 {
+                continue;
+            }
+            for (index, word) in bytes.chunks_exact(8).enumerate() {
+                sample.values[offset + index] = Some(u64::from_le_bytes(word.try_into().unwrap()));
+            }
+        }
+        Some(sample)
+    }
+}
+/// Decode only complete, valid UTF-8 copied labels; malformed/missing is unknown.
+pub fn feature_label(sample: &Sample, recipe: bool) -> Option<String> {
+    if !(FEATURE_GROUP_START..=MAX_GROUP).contains(&sample.group) {
+        return None;
+    }
+    let offset = if recipe { 20 } else { 8 };
+    let mut bytes = [0; LABEL_BYTES];
+    for (i, word) in sample.values[offset..offset + LABEL_BYTES / 8]
+        .iter()
+        .enumerate()
+    {
+        bytes[i * 8..i * 8 + 8].copy_from_slice(&(*word)?.to_le_bytes());
+    }
+    let end = bytes.iter().position(|v| *v == 0).unwrap_or(LABEL_BYTES);
+    if end == 0 {
+        return None;
+    }
+    std::str::from_utf8(&bytes[..end]).ok().map(str::to_owned)
+}
 /// Maximum encoded length; sparse packets use 92 + 8 bytes per present field.
 pub const PACKET_LEN: usize = 604;
 const MAGIC: &[u8; 4] = b"KATM";
@@ -208,11 +286,172 @@ pub const INPUT_FIELDS: [Field; FIELD_COUNT] = {
     f[15] = field!("mapped_right_y", Signed);
     f
 };
+/// Configured preferences and current arbitration evidence are separate observations.
+/// Neither a proposal nor a selected owner proves the game accepted an action.
+pub const POLICY_FIELDS: [Field; FIELD_COUNT] = {
+    let mut f = [RESERVED; FIELD_COUNT];
+    f[0] = Field {
+        name: "observation_valid",
+        kind: ValueKind::Boolean,
+        source: "fresh mapper policy scope; not a delivery receipt",
+    };
+    f[1] = Field {
+        name: "selected_owner",
+        kind: ValueKind::Hex,
+        source: "arbitration owner bit; zero means no selected owner",
+    };
+    f[2] = Field {
+        name: "proposed_owners",
+        kind: ValueKind::Hex,
+        source: "arbitration proposal mask; not delivered input",
+    };
+    f[3] = Field {
+        name: "committed",
+        kind: ValueKind::Boolean,
+        source: "selected policy owns a committed input sequence",
+    };
+    f[4] = Field {
+        name: "requested_buttons",
+        kind: ValueKind::Hex,
+        source: "policy request before final mapper delivery",
+    };
+    f[5] = Field {
+        name: "safety_proposals",
+        kind: ValueKind::Hex,
+        source: "tech, mash, SDI, DI proposals; not delivery receipts",
+    };
+    f[6] = Field {
+        name: "can_act",
+        kind: ValueKind::Boolean,
+        source: "policy movement readiness; not every move is legal",
+    };
+    f[7] = Field {
+        name: "hit_confirmed",
+        kind: ValueKind::Boolean,
+        source: "optional policy hit observation; absent means unknown",
+    };
+    f[8] = Field {
+        name: "status",
+        kind: ValueKind::Signed,
+        source: "native status observed by mapper policy",
+    };
+    f[9] = Field {
+        name: "motion",
+        kind: ValueKind::Hex,
+        source: "native motion observed by mapper policy",
+    };
+    f[10] = Field {
+        name: "stopped",
+        kind: ValueKind::Boolean,
+        source: "native animation stop observed by mapper policy",
+    };
+    let names = [
+        "auto_tech",
+        "auto_mash",
+        "auto_sdi",
+        "auto_di",
+        "dodge_follow_up",
+        "ledge_trap",
+        "roll_read",
+        "trip_follow_up",
+        "fair_follow_up",
+        "ledge_trump",
+        "defense",
+        "turbo",
+        "posture",
+        "out_of_shield",
+        "grab_dodge",
+        "reflect",
+        "counter",
+        "spacing",
+    ];
+    let mut i = 0;
+    while i < POLICY_FEATURE_COUNT {
+        f[16 + i] = Field {
+            name: names[i],
+            kind: ValueKind::Boolean,
+            source: "configured preference; not active or delivered; absent means unknown",
+        };
+        i += 1;
+    }
+    f
+};
+
+pub fn policy_sample(
+    object_id: u32,
+    kind: i32,
+    snapshot: crate::diagnostics::modes::Snapshot,
+    configured: [Option<bool>; POLICY_FEATURE_COUNT],
+) -> Sample {
+    let mut sample = Sample {
+        object_id,
+        kind,
+        group: POLICY_GROUP,
+        ..Sample::default()
+    };
+    let v = &mut sample.values;
+    v[0] = Some(u64::from(snapshot.valid));
+    // Invalid policy scope must not turn stale/absent context into confirmed facts.
+    if snapshot.valid {
+        v[1] = Some(
+            snapshot
+                .winner
+                .map_or(0, |o| u64::from(crate::diagnostics::modes::bit(o))),
+        );
+        v[2] = Some(u64::from(snapshot.present));
+        v[3] = Some(u64::from(snapshot.committed));
+        v[4] = Some(u64::from(snapshot.requested));
+        v[5] = Some(u64::from(snapshot.safety));
+        v[6] = Some(u64::from(snapshot.can_act));
+        v[7] = snapshot.hit.map(u64::from);
+        v[8] = Some(snapshot.status as i64 as u64);
+        v[9] = Some(snapshot.motion);
+        v[10] = Some(u64::from(snapshot.stopped));
+    }
+    for (i, configured) in configured.into_iter().enumerate() {
+        v[16 + i] = configured.map(u64::from);
+    }
+    sample
+}
+
+pub const FEATURE_FIELDS: [Field; FIELD_COUNT] = {
+    let mut f = [RESERVED; FIELD_COUNT];
+    f[0] = Field {
+        name: "configured",
+        kind: ValueKind::Boolean,
+        source: "effective preference; not active or delivered",
+    };
+    f[1] = Field {
+        name: "hold_trigger",
+        kind: ValueKind::Boolean,
+        source: "observed hold trigger; absent if not applicable or unknown",
+    };
+    f[2] = Field {
+        name: "observed_constraints",
+        kind: ValueKind::Hex,
+        source:
+            "scope invalid, stopped, not ready, other owner, hold released; not exhaustive causes",
+    };
+    let mut i = 8;
+    while i < 32 {
+        f[i] = Field {
+            name: "label_utf8_word",
+            kind: ValueKind::Hex,
+            source: "bounded copied UTF-8 label; mode words8–19, recipe words20–31",
+        };
+        i += 1;
+    }
+    f
+};
+
 pub fn fields(group: u16) -> &'static [Field; FIELD_COUNT] {
     match group {
         0 => &FIELDS,
+        1..=8 => &ATTACK_FIELDS,
         9 => &INPUT_FIELDS,
-        _ => &ATTACK_FIELDS,
+        POLICY_GROUP => &POLICY_FIELDS,
+        FEATURE_GROUP_START..=MAX_GROUP => &FEATURE_FIELDS,
+        _ => &[RESERVED; FIELD_COUNT],
     }
 }
 
@@ -289,7 +528,7 @@ pub fn encode(sample: &Sample, key: &[u8], out: &mut [u8; 1200]) -> Result<usize
     if !key.is_empty() && !valid_token(key) {
         return Err("invalid token");
     }
-    if sample.group > 9 {
+    if sample.group > MAX_GROUP {
         return Err("invalid group");
     }
     let mut pos = 0;
@@ -375,7 +614,7 @@ pub fn decode(bytes: &[u8], key: &[u8]) -> Result<Sample, &'static str> {
         return Err("unsupported version");
     }
     let group = read!(u16, 2);
-    if group > 9 {
+    if group > MAX_GROUP {
         return Err("invalid group");
     }
     let session = read!(u64, 8);

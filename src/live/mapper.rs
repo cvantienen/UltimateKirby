@@ -40,7 +40,6 @@ struct Arbitration {
     tech_takeover: bool,
     /// Whether mash currently takes over another button owner.
     mash_takeover: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Per-owner arbitration intent snapshot.
     intents: [Intent; 15],
 }
@@ -106,7 +105,6 @@ struct MapperDeliveryFeedback {
     auto_up_special: Option<(i64, u32, Owner)>,
     /// Whether the native mapper applied a tech action.
     tech_applied: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Proposed and delivered grab masks plus gating reason for diagnostics.
     grab_delivery: Option<(u32, u32, u32, &'static str)>,
 }
@@ -153,12 +151,11 @@ pub(super) unsafe fn admit_mapper_callback(
         session_ticket,
     })
 }
-#[cfg(feature = "diagnostic-logging")]
 pub(super) unsafe fn capture_telemetry_input(wrapper: *mut c_void, index: i32) -> Option<kirby_assist_core::telemetry::Sample> {
-    if !crate::diagnostics::telemetry::ready() { return None; }
+    if !game::is_training_mode() || !crate::logging::active() || !crate::diagnostics::telemetry::ready() { return None; }
     let config = CONFIG.get().map(Box::as_ref)?;
     let controller = selected_controller(wrapper, index, config.player_index)?;
-    if (*controller).connected == 0 || !game::is_training_mode() { return None; }
+    if (*controller).connected == 0 { return None; }
     let id = super::fighter_ids()?.into_iter().flatten().find(|id| {
         let object = game::module_accessor(*id);
         !object.is_null() && game::battle_object_id(object) == *id
@@ -166,22 +163,30 @@ pub(super) unsafe fn capture_telemetry_input(wrapper: *mut c_void, index: i32) -
     })?;
     Some(super::controller::telemetry_input(controller, id, game::fighter_kind(id)))
 }
-#[cfg(feature = "diagnostic-logging")]
 pub(super) unsafe fn publish_telemetry_input(sample: Option<kirby_assist_core::telemetry::Sample>, output: *mut c_void) {
     let Some(mut sample) = sample else { return; };
-    if output.is_null() || !game::is_training_mode() || !game::is_active(sample.object_id) { return; }
+    if output.is_null() || !game::is_training_mode() || !crate::logging::active() || !game::is_active(sample.object_id) { return; }
     super::controller::telemetry_mapped(&mut sample, &*output.cast::<MappedInputs>());
     crate::diagnostics::telemetry::publish(sample);
 }
 
 /// Diagnostic menu-only path. It consumes menu input but never evaluates assistance.
-#[cfg(feature = "diagnostic-logging")]
 pub(super) unsafe fn prepare_telemetry_menu(wrapper: *mut c_void, index: i32) -> Option<ControllerRestore> {
+    let training = game::is_training_mode();
+    if !training {
+        crate::logging::observe(false);
+        crate::diagnostics::telemetry::observe(false);
+        return None;
+    }
+    if !crate::logging::active() { return None; }
+    crate::diagnostics::telemetry::observe(true);
     let config = CONFIG.get().map(Box::as_ref)?;
     let controller = selected_controller(wrapper, index, config.player_index)?;
-    let training = game::is_training_mode();
-    crate::diagnostics::telemetry::observe(training && (*controller).connected != 0);
-    if !training || (*controller).connected == 0 { return None; }
+    crate::diagnostics::telemetry::observe((*controller).connected != 0);
+    if (*controller).connected == 0 {
+        crate::logging::observe(false);
+        return None;
+    }
     let ids = super::fighter_ids()?;
     let id = ids.into_iter().flatten().find(|id| {
         let object = game::module_accessor(*id);
@@ -419,7 +424,8 @@ fn record_mapped_tech(
     state: &mut State,
     guard: bool,
     tech_applied: bool,
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+    diagnostics_current: bool,
+    messages: &mut Vec<String>,
 ) {
     if guard && !state.last_mapped_guard {
         if let Some(tech) = state.tech_input.as_mut() {
@@ -429,8 +435,7 @@ fn record_mapped_tech(
                 tech.mapped_human_guard();
             }
         }
-        #[cfg(feature = "diagnostic-logging")]
-        if tech_applied
+        if diagnostics_current && crate::logging::active() && tech_applied
             && CONFIG
                 .get()
                 .is_some_and(|config| config.controls.tech_debug)
@@ -440,13 +445,13 @@ fn record_mapped_tech(
     }
 }
 
-#[cfg(feature = "diagnostic-logging")]
 /// Records whether a proposed grab reached mapped buttons and calibration traces.
 fn record_mapped_grab_diagnostics(
     state: &mut State,
     mapped: &MappedInputs,
     grab_delivery: Option<(u32, u32, u32, &'static str)>,
 ) {
+    if !crate::logging::active() { return; }
     if let Some((proposed, applied, pressed, gate)) = grab_delivery {
         state.grab_trace.mapped(
             proposed,
@@ -470,7 +475,8 @@ unsafe fn record_mapped_delivery(
     session_ticket: SessionTicket,
     publication: Option<(u64, i64, u32)>,
     feedback: MapperDeliveryFeedback,
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+    diagnostic_session: u64,
+    messages: &mut Vec<String>,
 ) {
     let mapped = &*output.cast::<MappedInputs>();
     let guard = mapped.buttons
@@ -539,17 +545,19 @@ unsafe fn record_mapped_delivery(
         feedback.auto_dodge,
     );
     record_mapped_up_special(&mut state, mapped, feedback.auto_up_special);
+    let diagnostics_current = diagnostic_session != 0 && diagnostic_session == crate::logging::session();
     record_mapped_tech(
         &mut state,
         guard,
         feedback.tech_applied,
-        #[cfg(feature = "diagnostic-logging")]
+        diagnostics_current,
         messages,
     );
     state.last_mapped_guard = guard;
     state.last_mapped_stick = Some([mapped.left_x as f32 / 127., mapped.left_y as f32 / 127.]);
-    #[cfg(feature = "diagnostic-logging")]
-    record_mapped_grab_diagnostics(&mut state, mapped, feedback.grab_delivery);
+    if diagnostics_current {
+        record_mapped_grab_diagnostics(&mut state, mapped, feedback.grab_delivery);
+    }
 }
 /// The selected controller's physical input, read before any assist is applied,
 /// plus the static settings every overlay stage consults.
@@ -617,14 +625,13 @@ fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_
 unsafe fn bind_mapper_index(
     state: &mut State,
     frame: &OverlayFrame,
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+    messages: &mut Vec<String>,
 ) {
     if state.mapping_index != Some(frame.index) {
         state.cancel();
         state.associated_object = None;
         state.mapping_index = Some(frame.index);
-        #[cfg(feature = "diagnostic-logging")]
-        {
+        if crate::logging::active() {
             state.mapper_confirmed = false;
             messages.push(format!(
                 "selected local controller {} bound to mapper {} (npad={}, style={})",
@@ -635,8 +642,7 @@ unsafe fn bind_mapper_index(
             ));
         }
     }
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         state.mapper_confirmed = true;
     }
 }
@@ -646,7 +652,7 @@ unsafe fn update_mapper_menu_and_input(
     frame: &OverlayFrame,
     menu_ready_go: Option<bool>,
     menu_training_mode: bool,
-    #[cfg(feature = "diagnostic-logging")] diagnostics: &mut MapperDiagnostics,
+    diagnostics: &mut MapperDiagnostics,
 ) {
     let Ok(mut state) = STATE.lock() else {
         return;
@@ -662,15 +668,13 @@ unsafe fn update_mapper_menu_and_input(
     bind_mapper_index(
         &mut state,
         frame,
-        #[cfg(feature = "diagnostic-logging")]
         &mut diagnostics.messages,
     );
     let policy_buttons = observe_raw_input(&mut state, frame);
     let kind = state.menu_fighter_kind;
     run_settings_menu(&mut state, frame, policy_buttons, menu_training_mode, kind);
     apply_menu_modes(&mut state, frame, kind);
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         diagnostics.trump_pressed = trump_input_pressed(&state, frame.physical);
     }
 }
@@ -853,10 +857,10 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
         if !ledge_held {
             state.action_owner.release(Owner::Ledge);
         }
-        #[cfg(feature = "diagnostic-logging")]
-        state.grab_trace.reset("autopilot_released_or_mode_changed");
-        #[cfg(feature = "diagnostic-logging")]
-        state.calibration.reset("autopilot released/mode changed");
+        if crate::logging::active() {
+            state.grab_trace.reset("autopilot_released_or_mode_changed");
+            state.calibration.reset("autopilot released/mode changed");
+        }
         state.ledge_active = ledge_held;
         state.ledge_walk_motion = None;
         state.autopilot_guarding = false;
@@ -876,7 +880,6 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
 }
 
 /// Diagnostic only: a D-pad/X/Y press while the trump hold is configured.
-#[cfg(feature = "diagnostic-logging")]
 fn trump_input_pressed(state: &State, physical: ButtonTrace) -> bool {
     physical.pressed
         & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
@@ -922,7 +925,6 @@ unsafe fn refresh_selected_fighter(index: i32) {
     }
 }
 
-#[cfg(feature = "diagnostic-logging")]
 /// Tuple of manual/automatic grab comparison state copied for logging.
 type GrabMappingComparison = (
     bool,
@@ -935,10 +937,10 @@ type GrabMappingComparison = (
     [f32; 2],
     [f32; 2],
 );
-/// Diagnostic-build reports collected while preparing the overlay and written after mapping.
-#[cfg(feature = "diagnostic-logging")]
+/// Training reports collected while preparing the overlay and written after mapping.
 #[derive(Default)]
 struct MapperDiagnostics {
+    session: u64,
     /// Whether the current poll pressed the configured trump input.
     trump_pressed: bool,
     /// Ledge edge timestamp captured for diagnostic reporting.
@@ -966,7 +968,6 @@ pub(super) struct MapperPreparation {
     feedback: MapperDeliveryFeedback,
     /// D-pad bits reserved by helper logic and filtered from mapped output.
     reserved_dpad: u32,
-    #[cfg(feature = "diagnostic-logging")]
     /// Diagnostic data deferred until mapping completes.
     diagnostics: MapperDiagnostics,
 }
@@ -1367,7 +1368,7 @@ fn sample_damage_sticks(
     fresh: bool,
     mash_stick: Option<[f32; 2]>,
     physical_stick: [f32; 2],
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+    messages: &mut Vec<String>,
 ) -> DamageStickSample {
     let defaults = [config.auto_di.enabled, config.auto_sdi];
     let [di_enabled, sdi_enabled] = state.settings_menu.as_ref().zip(state.fighter_kind)
@@ -1395,8 +1396,7 @@ fn sample_damage_sticks(
     {
         state.di = None;
     }
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         let decision = di_stick.and_then(|_| state.di.as_ref().and_then(|di| di.decision()));
         if state.last_di_diagnostic != decision {
             if let Some(d) = decision {
@@ -1459,14 +1459,13 @@ fn pass_monitor_chord(config: &Config, physical: ButtonTrace) -> bool {
 }
 
 /// Diagnostic only: records the first poll of every mapper index.
-#[cfg(feature = "diagnostic-logging")]
 unsafe fn note_observed_mapper(
     index: i32,
     controller: *mut controller::Controller,
     config: &Config,
     messages: &mut Vec<String>,
 ) {
-    if SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0 {
+    if crate::logging::active() && SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0 {
         messages.push(format!("mapper observed index {index}: npad={}, style={}, connected={}; configured local controller={}", (*controller).npad, (*controller).style, (*controller).connected, config.player_index));
     }
 }
@@ -1491,11 +1490,11 @@ pub(super) unsafe fn prepare_mapper_overlay(
         session_ticket,
     } = admission;
     let mut prep = MapperPreparation::default();
+    prep.diagnostics.session = crate::logging::session();
     sync_diagnostic_options();
     if output.is_null() {
         return Some(prep);
     }
-    #[cfg(feature = "diagnostic-logging")]
     note_observed_mapper(index, controller, config, &mut prep.diagnostics.messages);
     // Read physical input before applying any assist. Reusing last
     // output as "human input" would keep automated buttons latched.
@@ -1525,7 +1524,6 @@ pub(super) unsafe fn prepare_mapper_overlay(
         &frame,
         master_ready_go,
         menu_training_mode,
-        #[cfg(feature = "diagnostic-logging")]
         &mut prep.diagnostics,
     );
     // Restore 1.0.4's immediate pre-map refresh without its roster
@@ -1546,13 +1544,11 @@ pub(super) unsafe fn prepare_mapper_overlay(
 /// Runs every overlay stage for one admitted poll while holding the state lock.
 unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut MapperPreparation) {
     let gate = poll_gate(state, frame);
-    #[cfg(feature = "diagnostic-logging")]
     track_input_expiry(state, &gate);
     let mut samples = sample_tools(state, frame, &gate, prep);
     let arbitration = arbitrate_owner(state, &gate, &samples, prep);
     samples.turbo_output.stick = winner_left_stick(&arbitration, &samples);
     state.cancel_non_owner(arbitration.winner);
-    #[cfg(feature = "diagnostic-logging")]
     report_mode_snapshot(state, frame, &gate, &samples, &arbitration, prep);
     let request = compose_native_request(state, &gate, &samples, &arbitration, prep);
     let manual = apply_manual_overlay(state, frame, &samples, &arbitration, &request);
@@ -1566,7 +1562,6 @@ unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut Ma
         prep,
     );
     let modified = plan_delivery_feedback(state, frame, &arbitration, &samples, &manual, prep);
-    #[cfg(feature = "diagnostic-logging")]
     report_overlay_diagnostics(state, frame, &gate, &arbitration, &manual, modified, prep);
     commit_overlay(
         state,
@@ -1595,7 +1590,6 @@ struct PollGate {
     native_grab: bool,
     /// Fresh auto-mash stick proposal, if active.
     mash_stick: Option<[f32; 2]>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Poll timestamp reused by diagnostics to avoid another clock read.
     now: Instant,
 }
@@ -1650,14 +1644,13 @@ fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
         manual_scope,
         native_grab,
         mash_stick,
-        #[cfg(feature = "diagnostic-logging")]
         now,
     }
 }
 
 /// Diagnostic only: reports the transition into an expired-input state once.
-#[cfg(feature = "diagnostic-logging")]
 fn track_input_expiry(state: &mut State, gate: &PollGate) {
+    if !crate::logging::active() { return; }
     let expired = gate.manual_scope
         && state.menu_battle_active
         && !gate.fresh
@@ -1811,7 +1804,6 @@ fn sample_tools(
         0
     };
     prep.reserved_dpad |= menu_consumed & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
-    #[cfg(feature = "diagnostic-logging")]
     report_trump_input(state, gate, prep);
     let damage = sample_damage_sticks(
         state,
@@ -1820,7 +1812,6 @@ fn sample_tools(
         fresh,
         mash_stick,
         physical_stick,
-        #[cfg(feature = "diagnostic-logging")]
         &mut prep.diagnostics.messages,
     );
     ToolSamples {
@@ -1838,9 +1829,8 @@ fn sample_tools(
 }
 
 /// Diagnostic only: describes the trump input of a poll that pressed its binding.
-#[cfg(feature = "diagnostic-logging")]
 fn report_trump_input(state: &State, gate: &PollGate, prep: &mut MapperPreparation) {
-    if prep.diagnostics.trump_pressed {
+    if crate::logging::active() && prep.diagnostics.trump_pressed {
         prep.diagnostics.messages.push(format!(
             "trump input: scope={}, fresh={}, action={}, stick={:?}, reserved={:#x}",
             gate.manual_scope,
@@ -1983,7 +1973,6 @@ fn arbitrate_owner(
         tech_press,
         tech_takeover,
         mash_takeover,
-        #[cfg(feature = "diagnostic-logging")]
         intents,
     }
 }
@@ -2014,7 +2003,6 @@ fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option
 }
 
 /// Diagnostic only: reports a movement override and feeds the mode recorder.
-#[cfg(feature = "diagnostic-logging")]
 fn report_mode_snapshot(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2023,6 +2011,7 @@ fn report_mode_snapshot(
     arbitration: &Arbitration,
     prep: &mut MapperPreparation,
 ) {
+    if !crate::logging::active() { return; }
     let OverlayFrame { physical_stick, .. } = *frame;
     let PollGate {
         now,
@@ -2118,6 +2107,61 @@ fn report_mode_snapshot(
             0
         }),
     };
+    if let Some((object_id, kind)) = state.associated_object.zip(state.fighter_kind)
+        .filter(|_| crate::diagnostics::telemetry::ready()) {
+        let config = frame.config;
+        let menu = state.settings_menu.as_ref();
+        let [di, sdi] = menu.map_or([config.auto_di.enabled, config.auto_sdi], |m| {
+            m.damage_sticks(kind, [config.auto_di.enabled, config.auto_sdi])
+        });
+        let mut configured = [None; 18];
+        configured[0] = Some(menu.map_or(config.controls.auto_tech, |m| m.auto_tech(config.controls.auto_tech)));
+        configured[1] = Some(menu.map_or(config.controls.auto_mash, |m| m.auto_mash(config.controls.auto_mash)));
+        configured[2] = Some(sdi);
+        configured[3] = Some(di);
+        configured[7] = Some(kind == kirby_assist_core::fighter_kinds::KIRBY && config.down_tilt_trip_smash);
+        configured[8] = Some(kind == kirby_assist_core::fighter_kinds::KIRBY && config.kirby_fair1_smash);
+        configured[10] = Some(config.autopilot_shield);
+        if let Some(menu) = menu.and_then(|m| m.for_fighter(kind)) {
+            configured[4] = Some(menu.grab_dodge_enabled() && menu.grab_dodge_sequence().is_some());
+            configured[5] = Some(menu.sequence_enabled(config.assist.enabled));
+            configured[6] = Some(menu.rule_config().is_some());
+            let (idle, tilt) = menu.posture_modes();
+            configured[12] = Some(idle || tilt || config.auto_turn_tilts_active && config.auto_turn_tilts.any());
+            configured[13] = Some(menu.out_of_shield_enabled());
+            configured[14] = Some(menu.grab_dodge_enabled());
+            if let Some(selection) = menu.diagnostic_selection(kind) {
+                configured[15] = Some(selection.auto_reflect);
+                configured[16] = Some(selection.auto_counter);
+                configured[17] = Some(selection.l_spacing_selected());
+            }
+        }
+        if let Some((selection, profile)) = menu.and_then(|m| m.diagnostic_selection(kind))
+            .zip(PROFILES.get().and_then(|profiles| profiles.profile(kind))) {
+            use kirby_assist_core::button_bindings::Builtin;
+            let mut trump = false;
+            let mut turbo = false;
+            let mut counter = configured[16].unwrap_or(false);
+            for slot in kirby_assist_core::fighter_profiles::presets::PresetSlot::BUTTONS {
+                match selection.choice_builtin(&profile.menu_options, slot, selection.choices[slot as usize]) {
+                    Some(Builtin::LedgeTrump) => trump = true,
+                    Some(Builtin::TurboTeabag) => turbo = true,
+                    Some(Builtin::Counter | Builtin::CounterToggle) => counter = true,
+                    _ => {}
+                }
+            }
+            configured[9] = Some(trump);
+            configured[11] = Some(turbo);
+            configured[16] = Some(counter);
+        }
+        if super::telemetry::feature_details_due() {
+            publish_feature_details(state, frame, gate, snapshot, object_id, kind, configured);
+        }
+        super::telemetry::publish_policy(object_id, kind, Snapshot {
+            valid: snapshot.valid && manual_context.is_some(),
+            ..snapshot
+        }, configured);
+    }
     // Reuse the mapper's timestamp; do not read another clock per poll.
     let origin = *state.mode_log_origin.get_or_insert(now);
     let ms = now
@@ -2125,6 +2169,94 @@ fn report_mode_snapshot(
         .as_millis()
         .min(u128::from(u64::MAX)) as u64;
     prep.diagnostics.mode_report = state.mode_diagnostics.sample(snapshot, ms);
+}
+
+/// Publishes copied configuration labels without deriving preferences from proposals.
+fn publish_feature_details(
+    state: &State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    snapshot: kirby_assist_core::diagnostics::modes::Snapshot,
+    object_id: u32,
+    kind: i32,
+    configured: [Option<bool>; 18],
+) {
+    use kirby_assist_core::{fighter_profiles::presets::PresetSlot, telemetry::FeatureDetail};
+    let modes = [
+        "Collision-timed Guard", "Mash pulse", "Hitstop stick displacement", "Final-hitstop launch influence",
+        "Own grab-dodge follow-up", "Held/toggled ledge recipes", "Automatic event recipes",
+        "Kirby down-tilt trip follow-up", "Kirby Fair1 hit follow-up", "Bound ledge trump",
+        "Ledge defensive shield", "Bound Turbo movement", "Idle crouch / tilt facing",
+        "Shield-hit recipes", "Incoming grab avoidance", "Projectile reflect/absorb",
+        "Bound melee counter", "Held L spacing",
+    ];
+    let mut details = std::array::from_fn(|i| FeatureDetail::new(configured[i], modes[i], "Built-in policy"));
+    let menu = state.settings_menu.as_ref().and_then(|m| m.for_fighter(kind));
+    if let Some(menu) = menu {
+        let slot = state.ledge.as_ref().and_then(LedgeTrap::calibration_slot).or(menu.preview_slot());
+        details[5] = FeatureDetail::new(configured[5], modes[5], slot
+            .and_then(|slot| menu.selected_choice_labels(kind, slot)).map_or("No active recipe", |(_, name)| name));
+        details[5].held = Some(state.ledge_active);
+        details[9].held = Some(menu.ledge_trump_held());
+        details[10].held = Some(state.ledge_active);
+        details[11].held = Some(gate.policy_buttons & TURBO_TRIGGER != 0);
+        details[16].held = Some(menu.counter_held());
+        details[17].held = Some(menu.auto_spacing_held());
+        if let Some((selection, profile)) = menu.diagnostic_selection(kind)
+            .zip(PROFILES.get().and_then(|profiles| profiles.profile(kind))) {
+            use kirby_assist_core::button_bindings::Builtin;
+            for slot in PresetSlot::BUTTONS {
+                let index = selection.choices[slot as usize];
+                let feature = match selection.choice_builtin(&profile.menu_options, slot, index) {
+                    Some(Builtin::LedgeTrump) => Some(9),
+                    Some(Builtin::TurboTeabag) => Some(11),
+                    Some(Builtin::Counter | Builtin::CounterToggle) => Some(16),
+                    _ => None,
+                };
+                if let Some((i, (_, name))) = feature.zip(selection.choice_labels(&profile.menu_options, slot, index)) {
+                    let held = details[i].held;
+                    details[i] = FeatureDetail::new(configured[i], modes[i], name);
+                    details[i].held = held;
+                }
+            }
+            let (idle, tilt) = menu.posture_modes();
+            let tilt = tilt || frame.config.auto_turn_tilts_active && frame.config.auto_turn_tilts.any();
+            details[12] = FeatureDetail::new(configured[12], match (idle, tilt) {
+                (true, true) => "Idle crouch + tilt facing",
+                (true, false) => "Idle crouch",
+                (false, true) => "Tilt facing",
+                _ => "Posture helpers disabled",
+            }, "Built-in policy");
+            if let Some(rules) = menu.automatic_rules() {
+                use kirby_assist_core::reaction_rules::Trigger;
+                for i in [4, 6, 13] {
+                    let candidate = rules.rules.iter().flatten().find(|candidate| match i {
+                        4 => candidate.sequence.reaction.trigger == Trigger::AutoGrabDodged,
+                        13 => matches!(candidate.sequence.reaction.trigger, Trigger::AutoShieldGrab | Trigger::AutoShieldBackup),
+                        _ => matches!(candidate.sequence.reaction.trigger, Trigger::AutoRoll | Trigger::AutoSpot | Trigger::AutoAir),
+                    });
+                    let label = candidate.and_then(|candidate| {
+                        selection.choice_labels(&profile.menu_options, *PresetSlot::ALL.get(candidate.slot)?, candidate.index)
+                    }).map_or("None selected", |(_, name)| name);
+                    details[i] = FeatureDetail::new(configured[i], "Automatic; first configured recipe", label);
+                }
+            }
+        }
+    }
+    let owners = [Owner::Safety, Owner::Safety, Owner::Safety, Owner::Safety,
+        Owner::OptionRead, Owner::Ledge, Owner::RollRead, Owner::Trip, Owner::Fair,
+        Owner::Trump, Owner::Defense, Owner::Turbo, Owner::Posture, Owner::OutOfShield,
+        Owner::OptionRead, Owner::Reflect, Owner::Counter, Owner::Spacing];
+    for (i, detail) in details.iter_mut().enumerate() {
+        let present = snapshot.present & kirby_assist_core::diagnostics::modes::bit(owners[i]) != 0;
+        // Readiness is feature-specific: a generic stopped/can_act flag is not
+        // a blocker. Only report scope, actual losing proposals, and holds.
+        let mut blockers = u64::from(!snapshot.valid || state.manual_context.is_none());
+        if present && snapshot.winner.is_some_and(|winner| winner != owners[i]) { blockers |= 8; }
+        if detail.held == Some(false) && detail.configured == Some(true) { blockers |= 16; }
+        detail.blockers = Some(blockers);
+    }
+    super::telemetry::publish_feature_details(object_id, kind, details);
 }
 
 /// The button masks and stick packets the winning owner asks the native mapper to treat as its input.
@@ -2576,7 +2708,6 @@ fn plan_delivery_feedback(
 }
 
 /// Diagnostic only: grab-delivery traces, ledge edge, queued logs and the grab mapping comparison.
-#[cfg(feature = "diagnostic-logging")]
 fn report_overlay_diagnostics(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2605,6 +2736,7 @@ fn report_overlay_diagnostics(
         mash_takeover,
         ..
     } = *arbitration;
+    if !crate::logging::active() { return; }
     let diagnostics = &mut prep.diagnostics;
     let messages = &mut diagnostics.messages;
     if state.grab_trace.active() || state.calibration.active() {
@@ -2722,8 +2854,7 @@ unsafe fn commit_overlay(
     } = *arbitration;
     let cancel_stick = request.cancel_stick;
     state.last_output_buttons = modified.held;
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         state.buttons_modified |= modified != physical;
     }
     // Mutation is confined to the verified controller
@@ -2791,22 +2922,20 @@ pub(super) unsafe fn finish_mapper_overlay(
         adjustments,
         feedback,
         reserved_dpad,
-        #[cfg(feature = "diagnostic-logging")]
         diagnostics,
     } = preparation;
-    #[cfg(feature = "diagnostic-logging")]
     let grab_delivery = feedback.grab_delivery;
-    #[cfg(feature = "diagnostic-logging")]
     let MapperDiagnostics {
+        session: diagnostic_session,
         trump_pressed,
         ledge_edge,
         grab_mapping_comparison,
         mut messages,
         mode_report,
     } = diagnostics;
-    #[cfg(feature = "diagnostic-logging")]
+    let diagnostics_current = diagnostic_session != 0 && diagnostic_session == crate::logging::session();
     let native_grab_mapping =
-        if grab_mapping_comparison.is_some() && restore.is_some() && !output.is_null() {
+        if diagnostics_current && grab_mapping_comparison.is_some() && restore.is_some() && !output.is_null() {
             Some((*output.cast::<MappedInputs>()).buttons)
         } else {
             None
@@ -2826,58 +2955,57 @@ pub(super) unsafe fn finish_mapper_overlay(
             session_ticket,
             publication,
             feedback,
-            #[cfg(feature = "diagnostic-logging")]
+            diagnostic_session,
             &mut messages,
         );
     }
-    #[cfg(feature = "diagnostic-logging")]
-    if let (
-        Some((
-            automatic,
-            owner,
-            requested,
-            physical,
-            applied,
-            physical_stick,
-            applied_stick,
-            physical_triggers,
-            applied_triggers,
-        )),
-        Some(native),
-    ) = (grab_mapping_comparison, native_grab_mapping)
-    {
-        let mapped = &*output.cast::<MappedInputs>();
-        messages.push(format!(
-            "grab mapping comparison: source={}, owner={owner:?}, requested={requested:#x}, physical={physical:?}, applied={applied:?}, physical_stick={physical_stick:?}, applied_stick={applied_stick:?}, physical_triggers={physical_triggers:?}, applied_triggers={applied_triggers:?}, native_buttons={native:#x}, final_buttons={:#x}, final_left=({},{})",
-            if automatic { "automatic" } else { "manual" },
-            mapped.buttons,
-            mapped.left_x,
-            mapped.left_y,
-        ));
-    }
-    #[cfg(feature = "diagnostic-logging")]
-    if trump_pressed {
-        let mapped = &*output.cast::<MappedInputs>();
-        messages.push(format!(
-            "trump mapped: buttons={:#x}, left=({},{})",
-            mapped.buttons, mapped.left_x, mapped.left_y
-        ));
-    }
-    #[cfg(feature = "diagnostic-logging")]
-    if let Some(requested) = ledge_edge.filter(|_| grab_delivery.is_none()) {
-        let mapped = &*output.cast::<MappedInputs>();
-        messages.push(format!(
-            "ledge mapper: raw_request={requested:#x}, mapped_buttons={:#x}, left=({},{})",
-            mapped.buttons, mapped.left_x, mapped.left_y
-        ));
-        if requested & (MAPPER_X | MAPPER_A) == (MAPPER_X | MAPPER_A) {
+    if diagnostics_current {
+        if let (
+            Some((
+                automatic,
+                owner,
+                requested,
+                physical,
+                applied,
+                physical_stick,
+                applied_stick,
+                physical_triggers,
+                applied_triggers,
+            )),
+            Some(native),
+        ) = (grab_mapping_comparison, native_grab_mapping)
+        {
+            let mapped = &*output.cast::<MappedInputs>();
             messages.push(format!(
-                "short-hop mapped pair: jump={}, jump_mini={}, attack={}, neutral_stick={}; native ATTACK_AIR/attack_air_n still confirms acceptance",
-                mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP != 0,
-                mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP_MINI != 0,
-                mapped.buttons & kirby_assist_core::native_input::MAPPED_ATTACK != 0,
-                mapped.left_x == 0 && mapped.left_y == 0,
+                "grab mapping comparison: source={}, owner={owner:?}, requested={requested:#x}, physical={physical:?}, applied={applied:?}, physical_stick={physical_stick:?}, applied_stick={applied_stick:?}, physical_triggers={physical_triggers:?}, applied_triggers={applied_triggers:?}, native_buttons={native:#x}, final_buttons={:#x}, final_left=({},{})",
+                if automatic { "automatic" } else { "manual" },
+                mapped.buttons,
+                mapped.left_x,
+                mapped.left_y,
             ));
+        }
+        if trump_pressed {
+            let mapped = &*output.cast::<MappedInputs>();
+            messages.push(format!(
+                "trump mapped: buttons={:#x}, left=({},{})",
+                mapped.buttons, mapped.left_x, mapped.left_y
+            ));
+        }
+        if let Some(requested) = ledge_edge.filter(|_| grab_delivery.is_none()) {
+            let mapped = &*output.cast::<MappedInputs>();
+            messages.push(format!(
+                "ledge mapper: raw_request={requested:#x}, mapped_buttons={:#x}, left=({},{})",
+                mapped.buttons, mapped.left_x, mapped.left_y
+            ));
+            if requested & (MAPPER_X | MAPPER_A) == (MAPPER_X | MAPPER_A) {
+                messages.push(format!(
+                    "short-hop mapped pair: jump={}, jump_mini={}, attack={}, neutral_stick={}; native ATTACK_AIR/attack_air_n still confirms acceptance",
+                    mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP != 0,
+                    mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP_MINI != 0,
+                    mapped.buttons & kirby_assist_core::native_input::MAPPED_ATTACK != 0,
+                    mapped.left_x == 0 && mapped.left_y == 0,
+                ));
+            }
         }
     }
     // Restore every field we changed, including C-stick and repeat flags.
@@ -2887,12 +3015,10 @@ pub(super) unsafe fn finish_mapper_overlay(
     if let Some(saved) = restore {
         saved.restore();
     }
-    #[cfg(feature = "diagnostic-logging")]
     if let Some(report) = mode_report {
-        crate::logging::write_modes(report);
+        crate::logging::write_modes_for_session(diagnostic_session, report);
     }
-    #[cfg(feature = "diagnostic-logging")]
     for message in messages {
-        crate::logging::write_owned(message);
+        crate::logging::write_owned_for_session(diagnostic_session, message);
     }
 }

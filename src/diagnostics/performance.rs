@@ -8,6 +8,8 @@
 pub mod health;
 #[cfg(test)]
 use std::ffi::CStr;
+#[cfg(test)]
+pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use std::{
     ffi::CString,
     fmt::Write,
@@ -61,6 +63,7 @@ const LABELS: [&str; N] = [
 static TEST_LATENCY: AtomicUsize = AtomicUsize::new(0);
 /// Enables optional diagnostic instrumentation.
 static ENABLED: AtomicBool = AtomicBool::new(false);
+static TRAINING: AtomicBool = AtomicBool::new(false);
 /// Indicates that the current root observation was selected for sampling.
 static SAMPLE: AtomicBool = AtomicBool::new(false);
 /// Monotonic invocation counter used for one-in-sixteen sampling.
@@ -193,7 +196,14 @@ pub fn latency_text(label: Option<u8>) -> String {
 }
 /// Reads the diagnostics-enabled flag.
 pub fn enabled() -> bool {
-    ENABLED.load(Ordering::Relaxed)
+    TRAINING.load(Ordering::Acquire) && ENABLED.load(Ordering::Relaxed)
+}
+
+pub fn observe(training: bool) {
+    if TRAINING.swap(training, Ordering::AcqRel) != training {
+        clear();
+        health::reset_session();
+    }
 }
 /// Changes diagnostics enablement and invalidates prior data on transitions.
 pub fn set_enabled(on: bool) {
@@ -347,7 +357,7 @@ fn observation_report() -> Option<String> {
             snapshot.rays[i]
         );
     }
-    compact.push_str("Sampled times, not FPS. Full gauges: performance.log");
+    compact.push_str("Sampled times, not FPS. Full gauges: Training live logs");
     let mut text = String::from("PERFORMANCE: sampled 1/16 local observations, ~5s window\nInclusive elapsed CPU-side time; nested rows overlap. Not GPU load/FPS.\n");
     let _ = writeln!(
         text,

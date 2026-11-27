@@ -16,10 +16,7 @@
 mod game_ffi;
 /// Declares the Switch runtime integration and hook orchestration.
 mod live;
-// The diagnostic logger is absent from silent builds, not just disabled
-// by a setting. Config cannot enable it without rebuilding.
-#[cfg(feature = "diagnostic-logging")]
-/// Includes optional diagnostic storage and reporting in diagnostic builds.
+/// Training-only, memory-backed analysis and explicitly activated live tools.
 mod diagnostics {
     /// Provides calibration capture and analysis routines.
     pub(crate) mod calibration;
@@ -32,7 +29,6 @@ mod diagnostics {
     /// Provides runtime performance measurements and reports.
     pub(crate) mod performance;
 }
-#[cfg(feature = "diagnostic-logging")]
 use diagnostics::{calibration, grab_diagnostics, logging, performance};
 
 // This attribute generates the native entry point/module metadata Skyline needs.

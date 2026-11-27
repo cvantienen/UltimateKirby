@@ -70,7 +70,7 @@ fn quick_selector_cycles_saved_recipes_only_and_cannot_edit_or_manage() {
 }
 
 #[test]
-fn diagnostic_only_rows_are_available_only_in_diagnostics() {
+fn diagnostic_rows_are_available_only_in_training() {
     let profiles = file_profiles();
     let presets = &profiles.profile(6).unwrap().menu_options;
     let mut menu = MenuSelection::new(presets);
@@ -85,13 +85,13 @@ fn diagnostic_only_rows_are_available_only_in_diagnostics() {
     menu.input(0, presets);
     menu.input(DPAD_DOWN, presets);
     assert_eq!(menu.row, MenuRow::AutoMash);
-    assert_eq!(
-        menu.row_visible(MenuRow::Performance),
-        cfg!(feature = "diagnostic-logging")
-    );
+    assert!(menu.row_visible(MenuRow::Performance));
     assert!(menu.row_visible(MenuRow::GrabDodge));
     assert!(!menu.performance && menu.grab_dodge && menu.out_of_shield);
     assert!(menu.spot_punish && !menu.auto_tech);
+    menu.input_with_editing(0, presets, false);
+    assert!(!menu.row_visible(MenuRow::Performance));
+    assert!(!menu.row_visible(MenuRow::TestLatency));
 }
 
 #[test]
@@ -388,16 +388,13 @@ fn editor_and_modes_pages_keep_navigation_and_settings_separate() {
 }
 
 #[test]
-fn latency_trial_label_is_diagnostic_only_and_does_not_change_recipe_timing() {
+fn latency_trial_label_is_training_only_and_does_not_change_recipe_timing() {
     let profiles = file_profiles();
     let p = &profiles.profile(6).unwrap().menu_options;
     let mut m = MenuSelection::new(p);
     m.show_modes();
-    assert_eq!(
-        m.row_visible(MenuRow::TestLatency),
-        cfg!(feature = "diagnostic-logging")
-    );
-    if cfg!(feature = "diagnostic-logging") {
+    assert!(m.row_visible(MenuRow::TestLatency));
+    {
         let before = m.settings(p, Default::default());
         m.row = MenuRow::TestLatency;
         m.input(0, p);
@@ -469,12 +466,12 @@ fn fighter_groups_cover_available_settings_once_and_skip_empty_groups() {
         let mut m = MenuSelection::new(&presets);
         m.y_fighter_kind = kind;
         m.set_training_category(4);
-        let expected = (0..=crate::fighter_tuning::COUNT)
+        let expected = (0..crate::fighter_tuning::COUNT + 2)
             .filter(|i| m.tuning_visible(*i))
             .collect::<Vec<_>>();
         let mut seen = Vec::new();
         loop {
-            let rows = (0..=crate::fighter_tuning::COUNT)
+            let rows = (0..crate::fighter_tuning::COUNT + 2)
                 .filter(|i| m.tuning_group_visible(*i))
                 .collect::<Vec<_>>();
             assert!(!rows.is_empty());

@@ -52,7 +52,9 @@ const EMPTY: Sample = Sample {
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static READY: AtomicBool = AtomicBool::new(false);
-static OBSERVED: AtomicBool = AtomicBool::new(false);
+// A renewed observation cannot authorize an older activation or queued sample.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+static ACTIVATION: AtomicU64 = AtomicU64::new(0);
 static SESSION: AtomicU64 = AtomicU64::new(0);
 static DROPPED: AtomicU64 = AtomicU64::new(0);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
@@ -64,6 +66,7 @@ static MAILBOX: Mutex<Mailbox> = Mutex::new(Mailbox {
     sequence: 0,
     seen: None,
     started: None,
+    generation: 0,
 });
 struct Mailbox {
     values: [Sample; CAPACITY],
@@ -72,8 +75,14 @@ struct Mailbox {
     sequence: u64,
     seen: Option<Instant>,
     started: Option<Instant>,
+    generation: u64,
 }
 impl Mailbox {
+    fn authorized(&self, generation: u64) -> bool {
+        self.generation == generation
+            && self.seen.is_some_and(|t| t.elapsed() < LEASE)
+            && generation == GENERATION.load(Ordering::Acquire)
+    }
     fn push(&mut self, mut sample: Sample) {
         self.sequence = self.sequence.wrapping_add(1);
         sample.sequence = self.sequence;
@@ -98,9 +107,15 @@ impl Mailbox {
 }
 pub(crate) fn enabled() -> bool {
     ENABLED.load(Ordering::Acquire)
+        && ACTIVATION.load(Ordering::Acquire) == GENERATION.load(Ordering::Acquire)
 }
 pub(crate) fn ready() -> bool {
-    enabled() && READY.load(Ordering::Acquire)
+    enabled()
+        && READY.load(Ordering::Acquire)
+        && MAILBOX
+            .try_lock()
+            .ok()
+            .is_some_and(|mailbox| mailbox.authorized(ACTIVATION.load(Ordering::Acquire)))
 }
 pub(crate) fn status() -> Option<String> {
     STATUS.try_lock().ok().and_then(|s| s.clone())
@@ -109,9 +124,9 @@ pub(crate) fn session() -> u64 {
     SESSION.load(Ordering::Acquire)
 }
 pub(crate) fn revoke() {
+    GENERATION.fetch_add(1, Ordering::AcqRel);
     ENABLED.store(false, Ordering::Release);
     READY.store(false, Ordering::Release);
-    OBSERVED.store(false, Ordering::Release);
     if let Ok(mut mailbox) = MAILBOX.try_lock() {
         mailbox.seen = None;
         mailbox.len = 0;
@@ -122,17 +137,44 @@ pub(crate) fn observe(training: bool) {
         revoke();
         return;
     }
+    let generation = GENERATION.load(Ordering::Acquire);
     if let Ok(mut mailbox) = MAILBOX.try_lock() {
+        let generation = if mailbox.generation == generation
+            && mailbox.seen.is_some_and(|t| t.elapsed() >= LEASE)
+        {
+            match GENERATION.compare_exchange(
+                generation,
+                generation.wrapping_add(1),
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => generation.wrapping_add(1),
+                Err(_) => return,
+            }
+        } else {
+            generation
+        };
+        if mailbox.generation != generation {
+            mailbox.len = 0;
+        }
+        mailbox.generation = generation;
         mailbox.seen = Some(Instant::now());
-        OBSERVED.store(true, Ordering::Release);
     }
 }
+fn authorized(generation: u64) -> bool {
+    enabled()
+        && MAILBOX
+            .lock()
+            .ok()
+            .is_some_and(|mailbox| mailbox.authorized(generation))
+}
 pub(crate) fn publish(mut sample: Sample) {
+    let generation = ACTIVATION.load(Ordering::Acquire);
     if !ready() {
         return;
     }
     if let Ok(mut mailbox) = MAILBOX.try_lock() {
-        if !ready() || !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
+        if !enabled() || !READY.load(Ordering::Acquire) || !mailbox.authorized(generation) {
             return;
         }
         sample.session = SESSION.load(Ordering::Acquire);
@@ -161,7 +203,8 @@ pub(crate) fn toggle() -> Result<(), String> {
     let mut mailbox = MAILBOX
         .try_lock()
         .map_err(|_| "Telemetry sampler busy; retry")?;
-    if !OBSERVED.load(Ordering::Acquire) || !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
+    let generation = GENERATION.load(Ordering::Acquire);
+    if !mailbox.authorized(generation) {
         return Err("Activate telemetry in Training only".into());
     }
     mailbox.len = 0;
@@ -177,11 +220,17 @@ pub(crate) fn toggle() -> Result<(), String> {
     if let Ok(mut status) = STATUS.try_lock() {
         *status = None;
     }
+    ACTIVATION.store(generation, Ordering::Release);
     ENABLED.store(true, Ordering::Release);
+    if !mailbox.authorized(generation) || !enabled() {
+        ENABLED.store(false, Ordering::Release);
+        return Err("Activate telemetry in Training only".into());
+    }
+    drop(mailbox);
     match std::thread::Builder::new()
         .name("kirby-telemetry".into())
         .stack_size(256 * 1024)
-        .spawn(run)
+        .spawn(move || run(generation))
     {
         Ok(handle) => {
             *worker = Some(handle);
@@ -193,8 +242,8 @@ pub(crate) fn toggle() -> Result<(), String> {
         }
     }
 }
-fn run() {
-    let result = serve();
+fn run(generation: u64) {
+    let result = serve(generation);
     revoke();
     if let Err(error) = result {
         if let Ok(mut status) = STATUS.lock() {
@@ -202,31 +251,47 @@ fn run() {
         }
     }
 }
-fn serve() -> Result<(), String> {
+fn serve(generation: u64) -> Result<(), String> {
+    if !authorized(generation) {
+        return Ok(());
+    }
     let socket = socket_result(UdpSocket::bind((
         Ipv4Addr::UNSPECIFIED,
         telemetry::TELEMETRY_PORT,
     )))
     .map_err(|e| format!("Telemetry bind: {e}"))?;
-    serve_socket(socket, None)
+    serve_socket(socket, None, generation)
 }
 #[cfg(test)]
 fn serve_config(config: Config) -> Result<(), String> {
+    let generation = ACTIVATION.load(Ordering::Acquire);
+    if !authorized(generation) {
+        return Ok(());
+    }
     let socket = socket_result(UdpSocket::bind(config.switch))
         .map_err(|e| format!("Telemetry bind: {e}"))?;
-    serve_socket(socket, Some(config))
+    serve_socket(socket, Some(config), generation)
 }
-fn serve_socket(socket: UdpSocket, config: Option<Config>) -> Result<(), String> {
+fn serve_socket(socket: UdpSocket, config: Option<Config>, generation: u64) -> Result<(), String> {
+    if !authorized(generation) {
+        return Ok(());
+    }
     socket_result(socket.set_nonblocking(true))
         .map_err(|e| format!("Telemetry nonblocking setup: {e}"))?;
     let mut subscriber = None;
     let mut subscription = [0; 64];
     let mut bytes = [0; 1200];
-    while enabled() {
+    while authorized(generation) {
         // Bound receive work even under LAN flooding; oversized/truncated requests cannot match.
         for _ in 0..32 {
+            if !authorized(generation) {
+                return Ok(());
+            }
             match socket_result(socket.recv_from(&mut subscription)) {
                 Ok((n, peer)) => {
+                    if !authorized(generation) {
+                        return Ok(());
+                    }
                     subscribe(&mut subscriber, &subscription[..n], peer, Instant::now())
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
@@ -241,7 +306,7 @@ fn serve_socket(socket: UdpSocket, config: Option<Config>) -> Result<(), String>
         let mut mailbox = MAILBOX
             .lock()
             .map_err(|_| "Telemetry mailbox unavailable")?;
-        if !mailbox.seen.is_some_and(|t| t.elapsed() < LEASE) {
+        if !enabled() || !mailbox.authorized(generation) {
             break;
         }
         let sample = if peer.is_some() {
@@ -254,7 +319,7 @@ fn serve_socket(socket: UdpSocket, config: Option<Config>) -> Result<(), String>
         if let (Some(sample), Some(peer)) = (sample, peer) {
             let key = config.as_ref().map_or(&[][..], |c| c.token.as_bytes());
             let n = telemetry::encode(&sample, key, &mut bytes).map_err(str::to_owned)?;
-            if !ready() {
+            if !authorized(generation) || sample.session != session() {
                 break;
             }
             match socket_result(socket.send_to(&bytes[..n], peer)) {
@@ -365,6 +430,7 @@ mod tests {
             sequence: 0,
             seen: None,
             started: None,
+            generation: 0,
         };
         for id in 0..CAPACITY as u32 + 6 {
             let mut sample = EMPTY;
@@ -410,7 +476,10 @@ mod tests {
         assert_eq!(toggle(), Err("Activate telemetry in Training only".into()));
         assert!(!enabled());
         observe(true);
-        assert!(OBSERVED.load(Ordering::Acquire));
+        assert!(MAILBOX
+            .lock()
+            .unwrap()
+            .authorized(GENERATION.load(Ordering::Acquire)));
         revoke();
     }
     #[test]
@@ -428,6 +497,102 @@ mod tests {
         observe(false);
         assert!(!ready());
     }
+    #[test]
+    fn expired_or_revoked_startup_does_not_bind_or_reuse_queued_samples() {
+        let _guard = TEST_GATE.lock().unwrap();
+        revoke();
+        observe(true);
+        let old = GENERATION.load(Ordering::Acquire);
+        ACTIVATION.store(old, Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        {
+            let mut mailbox = MAILBOX.lock().unwrap();
+            mailbox.seen = Some(Instant::now() - LEASE);
+            mailbox.push(EMPTY);
+        }
+        let occupied = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let SocketAddr::V4(address) = occupied.local_addr().unwrap() else {
+            unreachable!()
+        };
+        let config = || Config {
+            switch: address,
+            computer: address,
+            token: "abcdefghijklmnopqrstuvwxyz012345".into(),
+        };
+        assert!(serve_config(config()).is_ok());
+        observe(true);
+        assert!(!enabled());
+        assert!(!authorized(old));
+        assert_eq!(MAILBOX.lock().unwrap().len, 0);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        {
+            let mut mailbox = MAILBOX.lock().unwrap();
+            mailbox.push(EMPTY);
+            revoke();
+        }
+        assert!(serve_config(config()).is_ok());
+        observe(true);
+        assert_eq!(MAILBOX.lock().unwrap().len, 0);
+        assert!(!enabled());
+        revoke();
+    }
+
+    #[test]
+    fn old_worker_cannot_send_queued_data_after_reactivation() {
+        let _guard = TEST_GATE.lock().unwrap();
+        revoke();
+        observe(true);
+        let old = GENERATION.load(Ordering::Acquire);
+        revoke();
+        observe(true);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+        SESSION.store(99, Ordering::Release);
+        MAILBOX.lock().unwrap().push(EMPTY);
+        let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let receiver = UdpSocket::bind("127.0.0.1:0").unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        let SocketAddr::V4(peer) = receiver.local_addr().unwrap() else {
+            unreachable!()
+        };
+        let SocketAddr::V4(local) = sender.local_addr().unwrap() else {
+            unreachable!()
+        };
+        assert!(serve_socket(
+            sender,
+            Some(Config {
+                switch: local,
+                computer: peer,
+                token: "abcdefghijklmnopqrstuvwxyz012345".into()
+            }),
+            old
+        )
+        .is_ok());
+        assert_eq!(
+            receiver.recv(&mut [0; 1200]).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        assert_eq!(MAILBOX.lock().unwrap().len, 1);
+        let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
+        assert!(serve_socket(
+            sender,
+            Some(Config {
+                switch: local,
+                computer: peer,
+                token: "abcdefghijklmnopqrstuvwxyz012345".into()
+            }),
+            GENERATION.load(Ordering::Acquire),
+        )
+        .is_ok());
+        assert_eq!(
+            receiver.recv(&mut [0; 1200]).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        assert_eq!(MAILBOX.lock().unwrap().len, 0);
+        revoke();
+    }
+
     #[test]
     fn worker_sends_authenticated_snapshot_and_stops_when_training_is_revoked() {
         let _guard = TEST_GATE.lock().unwrap();
@@ -455,6 +620,9 @@ mod tests {
         expected.session = 1;
         expected.sequence = 1;
         expected.values[7] = Some(u64::from(2.5f32.to_bits()));
+        observe(true);
+        SESSION.store(expected.session, Ordering::Release);
+        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
         {
             let mut mailbox = MAILBOX.lock().unwrap();
             mailbox.len = 0;

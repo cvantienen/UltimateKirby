@@ -81,7 +81,6 @@ impl<K: PartialEq> Default for DiagnosticGate<K> {
 #[path = "../tests/unit/diagnostics.rs"]
 mod tests;
 
-#[cfg(feature = "diagnostic-logging")]
 pub mod modes {
     //! Diagnostic-only copied evidence. No game reads, formatting or allocation in sample.
     use crate::{action_owner::Owner, native_input::*};
@@ -122,7 +121,7 @@ pub mod modes {
         ("Grab dodge", "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish."),
         ("Auto tech", "Handles native tech windows; physical input can still override."),
         ("Ledge trump", "Uses the held trump trigger, a known floor edge and native movement readiness."),
-        ("Performance gauge", "Records the training performance gauge to performance.log."),
+        ("Performance gauge", "Shows Training callback timing and queue health in the live RAM analysis feed; never writes a file."),
         ("X button recipe", RECIPE_HELP),
         ("Y button recipe", RECIPE_HELP),
         ("D-pad Up binding", BINDING_HELP),
@@ -483,7 +482,7 @@ pub mod modes {
             }
             let _ = writeln!(
                 text,
-                "Hit: {}. Full details: status.log",
+                "Hit: {}. Full details: Training live analysis",
                 if self.hit_seen {
                     "flag observed; victim unverified"
                 } else {

@@ -25,7 +25,6 @@ use std::{
 #[path = "view.rs"]
 /// Builds owned menu-text snapshots for the renderer.
 mod view;
-#[cfg(feature = "diagnostic-logging")]
 use view::SavedChoice;
 use view::Snapshot;
 #[path = "lightweight.rs"]
@@ -236,13 +235,15 @@ pub(super) fn set_battle_active(active: bool) {
     if !active {
         clear_battle_hud();
     }
-    #[cfg(feature = "diagnostic-logging")]
     if was_active && !active {
         crate::calibration::clear();
         crate::logging::clear_snapshot();
     }
-    #[cfg(not(feature = "diagnostic-logging"))]
-    let _ = was_active;
+    if !active {
+        crate::logging::observe(false);
+        crate::diagnostics::lan::revoke();
+        crate::diagnostics::telemetry::revoke();
+    }
 }
 /// Invalidates menu requests and defers owned snapshot destruction.
 pub(super) fn clear() {
@@ -270,7 +271,6 @@ pub(super) fn finish_deferred_clear() {
         DEFERRED_CLEAR.store(false, Ordering::Release);
         drop(view);
         drop(old);
-        #[cfg(feature = "diagnostic-logging")]
         crate::performance::health::view_bytes(0);
     }
 }
@@ -348,11 +348,13 @@ unsafe extern "C" fn draw() {
     if !active {
         clear_battle_hud();
     }
-    #[cfg(feature = "diagnostic-logging")]
-    let _draw_time = active
+    let training = BATTLE_ACTIVE.load(Ordering::Acquire)
+        && presence_fresh(now) == Some(true)
+        && super::super::game::is_training_mode();
+    super::super::observe_training_tools(training);
+    let _draw_time = training
         .then(|| crate::performance::health::Trace::new(crate::performance::health::Lane::Draw));
-    #[cfg(feature = "diagnostic-logging")]
-    if active {
+    if training {
         crate::performance::health::draw_tick(now);
     }
     // Profile/editor cleanup and save completion run on the existing mapper
@@ -363,7 +365,7 @@ unsafe extern "C" fn draw() {
     // callback. Show confirmation only after the chord instead of leaving a
     // label across unrelated menus and single-player screens.
     let status = toast.filter(|_| !super::super::MASTER_IN_MATCH.load(Ordering::Acquire) || active);
-    let menu_active = active || cfg!(feature = "diagnostic-logging");
+    let menu_active = active || training;
     let menu_requested = battle_active && MENU_VISIBLE.load(Ordering::Acquire) && menu_active;
     let hud = (battle_active && active && presence_fresh(now) == Some(true))
         .then(|| BATTLE_HUD.current())
@@ -414,7 +416,9 @@ unsafe extern "C" fn draw() {
         lightweight::draw(view, display, scale);
         return;
     }
-    draw_card(view, display, scale);
+    if training {
+        draw_card(view, display, scale);
+    }
 }
 
 /// Window flags shared by every overlay: never focused, clickable or persisted.
@@ -465,7 +469,7 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32) {
         },
     );
     // Anchor by the window's corner so auto-sized pages grow into the screen.
-    let (menu_position, menu_pivot) = if cfg!(feature = "diagnostic-logging") {
+    let (menu_position, menu_pivot) = if !view.lightweight {
         (
             ImVec2_c {
                 x: display.x - 8.0 * scale,
@@ -684,7 +688,7 @@ unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
         + 8.0 * scale;
     // Reserve room below the diagnostic editor for its cached logs.
     let limit = display.y
-        * if cfg!(feature = "diagnostic-logging") {
+        * if !view.lightweight {
             0.72
         } else {
             0.90

@@ -190,7 +190,7 @@ class UploadTests(unittest.TestCase):
     def test_workbench_override_skips_hardcoded_silent_ip_diagnostic_guard(self):
         fake = FakeFTP()
         (self.source / "RELEASE_SUMMARY.txt").write_bytes(b"Build: DIAGNOSTIC\n")
-        diagnostic_binary = self.binary + b"".join(builder.LOG_MARKERS)
+        diagnostic_binary = self.binary + b"Training RAM diagnostics"
         (self.source / "libkirby_assist.nro").write_bytes(diagnostic_binary)
         payloads = builder.upload_payloads(self.source)
         for remote, data in payloads:
@@ -287,7 +287,7 @@ class UploadTests(unittest.TestCase):
             builder.upload_payloads(self.source)
 
     def test_diagnostic_variant_is_checked_before_any_connection(self):
-        binary = self.binary + b"|".join(builder.LOG_MARKERS)
+        binary = self.binary + b"Training RAM diagnostics"
         (self.source / "libkirby_assist.nro").write_bytes(binary)
         (self.source / "RELEASE_SUMMARY.txt").write_bytes(b"Kirby Assist 1.1.0\nBuild: DIAGNOSTIC\n\nChanges")
         def connect_after_check():
@@ -299,7 +299,7 @@ class UploadTests(unittest.TestCase):
         confirmation.assert_not_called()
 
     def test_diagnostic_confirmation_decline_or_missing_input_never_connects(self):
-        (self.source / "libkirby_assist.nro").write_bytes(self.binary + b"|".join(builder.LOG_MARKERS))
+        (self.source / "libkirby_assist.nro").write_bytes(self.binary)
         (self.source / "RELEASE_SUMMARY.txt").write_bytes(b"Build: DIAGNOSTIC")
         for answer in ["no", "", "y", EOFError(), KeyboardInterrupt()]:
             kwargs = {"side_effect": answer} if isinstance(answer, BaseException) else {"return_value": answer}
@@ -308,7 +308,7 @@ class UploadTests(unittest.TestCase):
                 ftp.assert_not_called()
 
     def test_diagnostic_dry_run_and_verify_only_do_not_prompt(self):
-        binary = self.binary + b"|".join(builder.LOG_MARKERS)
+        binary = self.binary
         (self.source / "libkirby_assist.nro").write_bytes(binary)
         (self.source / "RELEASE_SUMMARY.txt").write_bytes(b"Build: DIAGNOSTIC")
         fake = FakeFTP()
@@ -320,10 +320,11 @@ class UploadTests(unittest.TestCase):
             confirmation.assert_not_called()
         self.assertEqual(fake.stores, [])
 
-    def test_mismatched_partial_or_unlabeled_diagnostic_files_never_connect(self):
+    def test_sd_logging_and_invalid_build_labels_never_connect(self):
         diagnostic = self.binary + b"|".join(builder.LOG_MARKERS)
         for binary, summary in [
-            (self.binary, b"Build: DIAGNOSTIC"),
+            (self.binary, b"Build: UNKNOWN"),
+            (diagnostic, b"Build: DIAGNOSTIC"),
             (diagnostic, b"Build: SILENT"),
             (self.binary + builder.LOG_MARKERS[0], b"Build: DIAGNOSTIC"),
             (diagnostic, b"Unlabeled legacy summary"),

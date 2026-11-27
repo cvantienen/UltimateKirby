@@ -358,6 +358,16 @@ impl MenuSelection {
             .map(|source| (source.id(), source.name()))
     }
 
+    /// Resolves saved or template helper identity without copying its input sequence.
+    pub fn choice_builtin(
+        &self,
+        presets: &MenuPresets,
+        slot: PresetSlot,
+        index: usize,
+    ) -> Option<Builtin> {
+        self.source(presets, slot, index).and_then(|source| source.builtin())
+    }
+
     /// Returns an optional `choice` value.
     pub fn choice<'a>(
         &'a self,

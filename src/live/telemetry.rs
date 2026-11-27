@@ -10,6 +10,70 @@ use std::time::{Duration, Instant};
 
 static SAMPLING: AtomicBool = AtomicBool::new(false);
 static LAST: Mutex<Option<Instant>> = Mutex::new(None);
+static LAST_POLICY: Mutex<Option<(u64, Instant)>> = Mutex::new(None);
+static LAST_DETAILS: Mutex<Option<(u64, Instant)>> = Mutex::new(None);
+
+/// Admit copied labels before constructing them; no native reads or blocking.
+pub(super) fn feature_details_due() -> bool {
+    if !transport::ready() {
+        return false;
+    }
+    let session = transport::session();
+    let Ok(mut last) = LAST_DETAILS.try_lock() else {
+        return false;
+    };
+    if last.is_some_and(|(previous, at)| {
+        previous == session && at.elapsed() < Duration::from_millis(100)
+    }) {
+        return false;
+    }
+    *last = Some((session, Instant::now()));
+    true
+}
+
+/// Called only after feature_details_due admits this bounded batch.
+pub(super) fn publish_feature_details(
+    object_id: u32,
+    kind: i32,
+    details: [kirby_assist_core::telemetry::FeatureDetail;
+        kirby_assist_core::telemetry::POLICY_FEATURE_COUNT],
+) {
+    if !transport::ready() {
+        return;
+    }
+    for (index, detail) in details.into_iter().enumerate() {
+        if let Some(sample) = detail.sample(object_id, kind, index) {
+            transport::publish(sample);
+        }
+    }
+}
+
+/// Copies existing policy evidence only. The caller must already hold a current
+/// Training admission; no native queries or blocking locks occur here.
+pub(super) fn publish_policy(
+    object_id: u32,
+    kind: i32,
+    snapshot: kirby_assist_core::diagnostics::modes::Snapshot,
+    configured: [Option<bool>; kirby_assist_core::telemetry::POLICY_FEATURE_COUNT],
+) {
+    if !transport::ready() {
+        return;
+    }
+    let session = transport::session();
+    let Ok(mut last) = LAST_POLICY.try_lock() else {
+        return;
+    };
+    if last.is_some_and(|(previous, at)| {
+        previous == session && at.elapsed() < Duration::from_millis(16)
+    }) {
+        return;
+    }
+    *last = Some((session, Instant::now()));
+    drop(last);
+    transport::publish(kirby_assist_core::telemetry::policy_sample(
+        object_id, kind, snapshot, configured,
+    ));
+}
 static PROJECTILES: Mutex<ProjectileRoster> = Mutex::new(ProjectileRoster {
     session: 0,
     ids: [None; 32],

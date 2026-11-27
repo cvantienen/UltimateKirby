@@ -132,21 +132,13 @@ pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
         return;
     }
-    let diagnostic = cfg!(feature = "diagnostic-logging");
     igSetNextWindowPos(
         ImVec2_c {
-            x: if diagnostic {
-                display.x - 8.0 * scale
-            } else {
-                8.0 * scale
-            },
+            x: 8.0 * scale,
             y: 8.0 * scale,
         },
         ImGuiCond_Always as _,
-        ImVec2_c {
-            x: if diagnostic { 1.0 } else { 0.0 },
-            y: 0.0,
-        },
+        ImVec2_c { x: 0.0, y: 0.0 },
     );
     // Natural text width, bounded for unusually long saved names. A fixed wrap
     // limit lets ImGui fit short text without per-frame text measurements.

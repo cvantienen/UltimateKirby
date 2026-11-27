@@ -1,11 +1,5 @@
-#![cfg(feature = "diagnostic-logging")]
 #![allow(unexpected_cfgs)]
-mod live {
-    pub fn feature_activity_allowed() -> bool {
-        true
-    }
-}
-// Exercise the real logger/recorders on the host without opening SD files.
+// Exercise the real RAM logger and recorders on the host.
 #[allow(dead_code)]
 #[path = "../../../src/diagnostics/logging.rs"]
 mod diagnostic_logger;
@@ -17,7 +11,6 @@ mod calibration;
 #[path = "../../../src/diagnostics/grab_diagnostics.rs"]
 mod grab_diagnostics;
 
-#[cfg(feature = "diagnostic-logging")]
 #[allow(dead_code)]
 #[path = "../../../src/diagnostics/performance.rs"]
 mod performance;

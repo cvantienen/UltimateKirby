@@ -17,18 +17,19 @@
 <header><div><div class="eyebrow">Training observatory</div><h1>Live telemetry</h1><p class="muted">Inspect observations. Understand the stream. Never control the game.</p></div><span id="connection" class="badge" role="status">Waiting for receiver</span></header>
 <div class="notice"><strong>Read-only · Training · trusted private LAN only.</strong> Default packets are not authenticated or encrypted. This page has no game-control channel. Missing fields mean unavailable, never zero.</div>
 <section class="panel" aria-labelledby="connect-title"><h2 id="connect-title">Connect to Diagnostic telemetry</h2><form id="connect" class="actions"><label for="switch-host">Switch private IPv4<input id="switch-host" placeholder="192.168.1.142" autocomplete="off" required></label><label for="switch-port">Telemetry UDP port<input id="switch-port" type="number" min="1" max="65535" value="4243" required></label><button id="connect-submit" type="submit">Connect explicitly</button></form><p id="connect-status" class="muted" role="status">No config file or manual key is needed. Activate Live telemetry UDP explicitly on Diagnostic in Training. Connecting resets this receiver’s observations; it does not activate the Switch stream.</p></section>
-<div class="cards">
+<section class="panel" aria-labelledby="analysis-title" style="margin-top:16px"><h2 id="analysis-title">Fighter state &amp; automatic assistance</h2><p class="muted">Main analysis for the object selected below. Native observations, configured preferences and policy proposals are separate evidence. Unknown never means disabled. Selected means arbitration selected the tool — not that Smash executed its action.</p><dl id="fighter-summary" class="metadata"></dl><div class="table-wrap"><table><thead><tr><th>Automatic feature / mode</th><th>Configured / selected mode</th><th>Current policy evidence</th><th>Recipe / observed constraints</th><th>Purpose / limits</th></tr></thead><tbody id="features"><tr><td colspan="5">Waiting for schema</td></tr></tbody></table></div><p><small>Policy snapshots are independently sampled (group 10), not atomic with native state or controller input. Group 9 is a confirmed final mapper-output observation, not proof an action executed or attribution to a particular tool. Feature detail groups 11–28 copy resolved mode/recipe labels (96 UTF-8 bytes each) and only known constraints; missing evidence never invents a blocking reason. Short pulses can be missed.</small></p></section>
+<details><summary>Receiver health &amp; stream counters</summary><div class="cards">
 <div class="card"><div class="label">Accepted throughput</div><div id="packet-rate" class="number">—</div><small>packets / second · receiver window</small></div>
 <div class="card"><div class="label">Payload throughput</div><div id="byte-rate" class="number">—</div><small>KiB / second · accepted UDP payloads</small></div>
 <div class="card"><div class="label">Observed objects</div><div id="object-count" class="number">0</div><small id="group-count">0 current object / group records</small></div>
 <div class="card"><div class="label">Sequence gaps</div><div id="gap-count" class="number">0</div><small>Missing sequence positions, not confirmed losses</small></div>
-</div>
+</div></details>
 <div class="grid">
 <section class="panel" aria-labelledby="fields-title">
-<div class="section-title"><h2 id="fields-title">Observation explorer</h2><div class="actions"><button id="pause" type="button" aria-pressed="false">Freeze values</button><button id="export" type="button" disabled>Export visible CSV</button></div></div>
+<div class="section-title"><h2 id="fields-title">Detailed observations &amp; raw wire reference</h2><div class="actions"><button id="pause" type="button" aria-pressed="false">Freeze values</button><button id="export" type="button" disabled>Export visible CSV</button></div></div>
 <div class="filters">
 <label>Object<select id="object"><option value="">No observed objects</option></select></label>
-<label>Publication group<select id="group"><option value="0">Object state · group 0</option><option value="9">Controller input · group 9</option><option value="1">Attack slot 0 · group 1</option><option value="2">Attack slot 1 · group 2</option><option value="3">Attack slot 2 · group 3</option><option value="4">Attack slot 3 · group 4</option><option value="5">Attack slot 4 · group 5</option><option value="6">Attack slot 5 · group 6</option><option value="7">Attack slot 6 · group 7</option><option value="8">Attack slot 7 · group 8</option></select></label>
+<label>Publication group<select id="group"><option value="0">Object state · group 0</option><option value="9">Controller input · group 9</option><option value="10">Assist policy · group 10</option><option value="1">Attack slot 0 · group 1</option><option value="2">Attack slot 1 · group 2</option><option value="3">Attack slot 2 · group 3</option><option value="4">Attack slot 3 · group 4</option><option value="5">Attack slot 4 · group 5</option><option value="6">Attack slot 5 · group 6</option><option value="7">Attack slot 6 · group 7</option><option value="8">Attack slot 7 · group 8</option></select></label>
 <label>Field filter<input id="search" type="search" placeholder="Name, wire type, or source" autocomplete="off"></label>
 </div>
 <div class="checks"><label><input id="schema-mode" type="checkbox">Schema reference (ignore live values)</label><label><input id="available-only" type="checkbox">Available values only</label></div>
@@ -67,8 +68,9 @@ let schemas = null, state = null, lastFetch = 0, fetching = false, connected = f
 let frozen = false, frozenState = null, frozenAt = 0, selectedField = null;
 let history = [], rateHistory = [], historyKey = '', historySequence = null, lastRate = -Infinity;
 let session = null, previous = new Map(), highlights = new Map(), visible = [], referenceKey = null;
-const groupName = g => g === 0 ? 'Object state' : g === 9 ? 'Controller input' : 'Attack slot ' + (g - 1);
-const schemaFor = g => !schemas ? [] : g === 0 ? schemas.object : g === 9 ? schemas.input : schemas.attack;
+const groupName = g => g === 0 ? 'Fighter / object state' : g === 9 ? 'Controller input' : g === 10 ? 'Assist policy' : g >= 11 ? 'Feature detail · ' + (schemas?.features?.[g - 11]?.label || g) : 'Hitbox slot ' + (g - 1);
+const schemaFor = g => !schemas ? [] : g === 0 ? schemas.object : g === 9 ? schemas.input : g === 10 ? schemas.policy || [] : g >= 11 ? schemas.feature || [] : schemas.attack;
+const displayValue = value => value?.meaning ? value.meaning + ' (' + value.display + ')' : value?.display ?? 'Unknown / unavailable';
 const isNumeric = f => ['Float', 'Signed', 'Unsigned'].includes(f.kind) && !f.source.startsWith('unavailable');
 const text = (tag, value, className) => { const e = document.createElement(tag); e.textContent = value; if (className) e.className = className; return e; };
 function metadata(target, entries) { target.replaceChildren(); for (const [name, value] of entries) target.append(text('dt', name), text('dd', value)); }
@@ -89,7 +91,7 @@ function syncObjects() {
 function syncGraph() {
   const old = $('graph').value, list = schemaFor(Number($('group').value)).filter(isNumeric);
   $('graph').replaceChildren();
-  for (const f of list) { const option = text('option', f.name); option.value = String(f.index); $('graph').append(option); }
+  for (const f of list) { const option = text('option', f.label || f.name); option.value = String(f.index); $('graph').append(option); }
   if (list.some(f => String(f.index) === old)) $('graph').value = old;
 }
 function recordHistory(v) {
@@ -131,6 +133,8 @@ function drawChart(id, labelId, points, now, unit) {
   svg.setAttribute('aria-label', label.textContent + '. Horizontal axis: receiver observation time over 60 seconds.');
 }
 function explanation(f) {
+  if (f.source.startsWith('configured')) return 'Enabled is a preference, not evidence this tool is running. Disabled is a confirmed preference only when a value is present. Missing means configuration is unknown.';
+  if (f.name.startsWith('can_')) return 'Native transition permission at this observation, not proof a move was requested or executed. Other safety, distance, timing and user-input gates may still prevent assistance.';
   if (f.source.startsWith('unavailable')) return 'This getter is not verified. No observation is supplied; unavailable is not false or zero.';
   if (f.source === 'telemetry coverage limit') return 'A collection capacity, not a count of currently observed objects.';
   if (f.name.startsWith('physical_')) return 'Physical controller bits observed before input mapping. Hex is a bitmask; no unverified button-name mapping is guessed.';
@@ -148,16 +152,58 @@ function renderReference(v, list) {
   if (referenceKey === nextKey) return;
   referenceKey = nextKey; target.replaceChildren();
   if (!f) { target.append(text('p', 'Select any field name for its interpretation and exact raw reference.', 'muted')); return; }
-  target.append(text('h3', f.name), text('p', explanation(f), 'muted'));
+  target.append(text('h3', f.label || f.name), text('p', explanation(f), 'muted'));
   const dl = document.createElement('dl'); dl.className = 'metadata';
   metadata(dl, [['Wire index', String(f.index)], ['Type', f.kind], ['Source', f.source], ['Value', value ? value.display : 'unavailable'], ['Raw u64 bits', value ? value.raw : '—']]); target.append(dl);
   if (value) { const button = text('button', 'Copy exact raw bits'); button.type = 'button'; button.onclick = async () => { try { await navigator.clipboard.writeText(value.raw); button.textContent = 'Copied'; } catch (_) { button.textContent = 'Copy unavailable; select raw text above'; } }; target.append(button); }
+}
+function renderAnalysis(v) {
+  const records = v.data?.objects || [], object = $('object').value;
+  const record = group => records.find(o => o.object_id === object && o.group === group);
+  const age = o => o ? o.age_ms + Math.max(0, v.now - (frozen ? frozenAt : lastFetch)) : Infinity;
+  const native = record(0), policy = record(10), nativeFresh = !v.schema && age(native) < 250;
+  const policyFresh = !v.schema && age(policy) < 250, valid = policyFresh && policy?.values[0]?.display === 'true';
+  const field = i => nativeFresh ? displayValue(native?.values[i]) : 'Unknown / stale';
+  metadata($('fighter-summary'), [['Selected object', object || 'None'], ['Observed action', field(0)],
+    ['Previous action', field(1)], ['Damage (%)', field(19)], ['Animation frame', field(4)],
+    ['Victim hitlag', field(17)], ['Hitlag remaining', field(18)], ['Shieldstun frames', field(37)],
+    ['Policy evidence', valid ? (frozen ? 'Frozen · fresh at displayed age' : 'Fresh arbitration snapshot') : policyFresh ? 'Invalid / unavailable policy scope' : 'Unknown / stale (no current policy snapshot)'],
+    ['Final mapped buttons (group 9)', !v.schema && age(record(9)) < 250 ? displayValue(record(9)?.values[11]) : 'Unknown / stale'],
+    ['Final mapped left stick (group 9)', !v.schema && age(record(9)) < 250 ? [12,13].map(i => displayValue(record(9)?.values[i])).join(', ') : 'Unknown / stale'],
+    ['Delivery evidence limit', 'Final mapper output is observed separately; game execution and per-tool attribution are not confirmed.']]);
+  const bits = i => { const raw = policy?.values[i]?.raw; return raw === undefined ? null : BigInt(raw); };
+  const present = valid ? bits(2) : null, selected = valid ? bits(1) : null, safety = valid ? bits(5) : null;
+  $('features').replaceChildren();
+  for (const [index, f] of (schemas.features || []).entries()) {
+    const detail = record(11 + index), detailFresh = !v.schema && age(detail) < 250;
+    const configured = detailFresh ? detail?.values[0]?.display : policyFresh ? policy?.values[f.configured_index]?.display : null;
+    const enabled = configured === 'true' ? 'Enabled preference' : configured === 'false' ? 'Disabled preference' : 'Unknown';
+    const proposed = f.safety !== null ? safety === null ? null : (safety & BigInt(f.safety)) !== 0n : present === null ? null : (present & BigInt(f.owner)) !== 0n;
+    const winner = selected === null ? null : (selected & BigInt(f.owner)) !== 0n;
+    const evidence = proposed === null ? 'Unknown / stale' : !proposed ? 'No current proposal' : winner ? 'Selected proposal (not delivery)' : 'Proposed; not selected';
+    const constraints = [];
+    if (!detailFresh) constraints.push('Details unknown / stale');
+    else {
+      const hold = detail.values[1]?.display, raw = detail.values[2]?.raw;
+      if (hold !== undefined) constraints.push(hold === 'true' ? 'Hold trigger pressed' : 'Hold trigger released');
+      if (raw === undefined) constraints.push('Constraint evidence unavailable');
+      else {
+        const flags = BigInt(raw);
+        for (const [bit, label] of [[1,'Policy scope unavailable'],[2,'Animation stopped'],[4,'Native readiness not confirmed'],[8,'Different input owner selected'],[16,'Required hold not pressed']]) if ((flags & BigInt(bit)) !== 0n) constraints.push(label);
+        if (!constraints.length) constraints.push('No reported constraints (not proof eligible)');
+      }
+    }
+    const configCell = text('td', enabled); configCell.append(text('div', detailFresh ? detail.mode || 'Mode unavailable' : 'Mode unknown / stale', 'muted'));
+    const recipeCell = text('td', detailFresh ? detail.recipe || 'Recipe unavailable / not reported' : 'Recipe unknown / stale'); recipeCell.append(text('div', constraints.join(' · '), 'muted'));
+    const tr = document.createElement('tr'); tr.append(text('td', f.label), configCell, text('td', evidence), recipeCell, text('td', f.description)); $('features').append(tr);
+  }
 }
 function render() {
   const v = view(), elapsed = v.now - lastFetch, live = connected && elapsed < 250 && state?.status === 'streaming';
   $('connection').classList.toggle('live', live);
   $('connection').textContent = !connected || elapsed >= 250 ? 'Receiver unavailable / stale' : live ? 'Streaming' : 'Waiting / stream stale';
   if (!schemas) return;
+  renderAnalysis(v);
   $('packet-rate').textContent = state ? state.packets_per_second.toFixed(1) : '—';
   $('byte-rate').textContent = state ? (state.bytes_per_second / 1024).toFixed(2) : '—';
   $('object-count').textContent = String(new Set((state?.objects || []).filter(o => o.age_ms + elapsed < 1000).map(o => o.object_id)).size);
@@ -171,12 +217,12 @@ function render() {
   const search = $('search').value.trim().toLowerCase();
   for (const f of list) {
     const value = !v.schema && !v.expired ? v.o?.values[f.index] : null;
-    if (![f.name, f.kind, f.source].join(' ').toLowerCase().includes(search) || (!v.schema && $('available-only').checked && !value)) continue;
+    if (![f.name, f.label || '', f.kind, f.source].join(' ').toLowerCase().includes(search) || (!v.schema && $('available-only').checked && !value)) continue;
     const raw = value?.raw ?? null, tr = document.createElement('tr');
     if (!frozen && !v.schema && !v.expired) { if (previous.has(f.index) && previous.get(f.index) !== raw) highlights.set(f.index, v.now + 500); previous.set(f.index, raw); }
     if (!v.schema && v.stale) tr.classList.add('stale'); if ((highlights.get(f.index) || 0) > v.now) tr.classList.add('changed'); if (selectedField === f.index) tr.classList.add('selected');
-    const cell = document.createElement('td'), button = text('button', f.name, 'field-button'); button.type = 'button'; button.dataset.fieldIndex = String(f.index); button.onclick = () => { selectedField = f.index; render(); }; cell.append(button, text('div', 'index ' + f.index, 'muted')); tr.append(cell);
-    tr.append(text('td', v.schema ? '— (schema)' : value ? value.display : 'unavailable'), text('td', value ? value.raw : '—', 'raw'));
+    const cell = document.createElement('td'), button = text('button', f.label || f.name, 'field-button'); button.type = 'button'; button.dataset.fieldIndex = String(f.index); button.onclick = () => { selectedField = f.index; render(); }; cell.append(button, text('div', f.name + ' · index ' + f.index, 'muted')); tr.append(cell);
+    tr.append(text('td', v.schema ? '— (schema)' : value ? displayValue(value) : 'Unknown / unavailable'), text('td', value ? value.raw : '—', 'raw'));
     const source = document.createElement('td'); source.append(text('div', f.kind), text('small', f.source)); tr.append(source); $('rows').append(tr); visible.push({ f, value });
   }
   if (!visible.length) { const tr = document.createElement('tr'), td = text('td', 'No fields match these filters. Schema mode ignores “Available values only”.', 'empty'); td.colSpan = 4; tr.append(td); $('rows').append(tr); }
@@ -194,7 +240,11 @@ async function poll() {
   if (fetching) return; fetching = true;
   const generation = setupGeneration;
   try {
-    if (!schemas) { schemas = await getJSON('/schema'); syncGraph(); }
+    if (!schemas) {
+      schemas = await getJSON('/schema');
+      for (const [index, f] of (schemas.features || []).entries()) { const option = text('option', f.label + ' · details'); option.value = String(11 + index); $('group').append(option); }
+      syncGraph();
+    }
     const next = await getJSON('/state'), now = performance.now();
     if (generation !== setupGeneration) return;
     if (next.session !== session) { history = []; rateHistory = []; historySequence = null; previous.clear(); highlights.clear(); lastRate = -Infinity; session = next.session; }

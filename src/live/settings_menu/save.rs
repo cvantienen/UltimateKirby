@@ -297,14 +297,11 @@ fn spawn_worker(
             // the input/render callbacks never wait or discard the snapshot.
             let ui_gate = UI_SAVE_GATE.lock().unwrap_or_else(|e| e.into_inner());
             drop(ui_gate);
-            #[cfg(feature = "diagnostic-logging")]
             let _worker = crate::performance::health::Worker::start();
-            #[cfg(feature = "diagnostic-logging")]
             let _save_time =
                 crate::performance::health::Trace::new(crate::performance::health::Lane::Save);
             let outcome = operation(&job);
             let success = outcome.is_ok();
-            #[cfg(feature = "diagnostic-logging")]
             {
                 crate::performance::health::event(crate::performance::health::Event::SaveCompleted);
                 if !success {
@@ -328,7 +325,6 @@ fn spawn_worker(
         }) {
         Ok(handle) => Some(handle),
         Err(error) => {
-            #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::SaveFailed);
             publish(ResultMessage::failure(
                 identity,
@@ -416,7 +412,6 @@ fn reload_saved_catalog(
     Ok(kirby_assist_core::sequence_config::Catalog::parse(&source)?
         .for_build(cfg!(feature = "diagnostic-logging")))
 }
-#[cfg(feature = "diagnostic-logging")]
 pub(super) fn lan_read() -> Result<(Vec<u8>, String), String> {
     let _gate = try_ui_edit().ok_or("Save or menu edit busy")?;
     recover()?;
@@ -425,7 +420,6 @@ pub(super) fn lan_read() -> Result<(Vec<u8>, String), String> {
     Ok((bytes, revision))
 }
 
-#[cfg(feature = "diagnostic-logging")]
 pub(super) fn lan_write(
     bytes: &[u8],
     revision: &str,
@@ -464,7 +458,6 @@ pub(super) fn lan_write(
     Ok(())
 }
 
-#[cfg(feature = "diagnostic-logging")]
 fn lan_commit_paths(
     bytes: &[u8],
     revision: &str,

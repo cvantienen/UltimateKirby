@@ -42,3 +42,33 @@ fn quiet_window_does_not_claim_system_health_and_expected_edits_need_context() {
     assert!(text.contains("not ruled out"));
     assert!(!text.contains("REVIEW ["));
 }
+
+#[test]
+fn disabled_health_collection_and_old_worker_drop_leave_new_session_clean() {
+    let _serial = super::super::TEST_LOCK.lock().unwrap();
+    super::super::set_enabled(true);
+    super::super::observe(false);
+    reset_session();
+    event(Event::MenuBuild);
+    queue_enter();
+    retained(1, 2, 3, 99);
+    view_bytes(77);
+    let inactive_worker = Worker::start();
+    assert_eq!(COUNTS[Event::MenuBuild as usize].load(Relaxed), 0);
+    assert_eq!(DEPTH.load(Relaxed), 0);
+    assert_eq!(RETAINED.load(Relaxed), 0);
+    assert_eq!(VIEW.load(Relaxed), 0);
+    assert_eq!(ACTIVE.load(Relaxed), 0);
+    super::super::observe(true);
+    let stale_worker = Worker::start();
+    super::super::observe(false);
+    super::super::observe(true);
+    let current_worker = Worker::start();
+    drop(stale_worker);
+    drop(inactive_worker);
+    assert_eq!(ACTIVE.load(Relaxed), 1);
+    drop(current_worker);
+    assert_eq!(ACTIVE.load(Relaxed), 0);
+    super::super::observe(false);
+    super::super::set_enabled(false);
+}

@@ -3,7 +3,6 @@
 //! implements their cancellation and reset semantics.
 //! Plain English: This is the runtime's shared memory for the current player
 //! session and active helpers.
-#[cfg(feature = "diagnostic-logging")]
 use super::observation::LedgeDiagnostic;
 use super::*;
 use kirby_assist_core::kirby::{FairFollowup, TripFollowup};
@@ -91,10 +90,8 @@ pub(super) struct State {
     pub(super) turbo_ready: bool,
     /// Tracks exclusive action ownership and priority arbitration.
     pub(super) action_owner: ActionOwnership,
-    #[cfg(feature = "diagnostic-logging")]
     /// Last diagnostic owner that blocked movement.
     pub(super) last_movement_blocker: Option<Owner>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Whether the most recent diagnostic request expired before mapping.
     pub(super) last_input_expired: bool,
     /// Kirby forward-air follow-up policy state.
@@ -186,63 +183,72 @@ pub(super) struct State {
     // Native observation order is separate from mapper polling frequency.
     /// Monotonic wrapping fence for accepted observation publication.
     pub(super) observation_sequence: u64,
-    #[cfg(feature = "diagnostic-logging")]
     /// Last scenario log state used to suppress duplicate reports.
     pub(super) last_logged_scenario: (bool, bool),
-    #[cfg(feature = "diagnostic-logging")]
     /// Diagnostic confirmation that the mapper route was observed.
     pub(super) mapper_confirmed: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Diagnostic flag indicating an input field was altered.
     pub(super) buttons_modified: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Suppresses repeated button-modification diagnostic events.
     pub(super) button_mod_logged: bool,
     // Last game-visible buttons, distinct from the restored physical memory.
     // This tells the tech pulser whether it must release ZR before re-pressing.
     /// Last mapped button bitfield observed by the game.
     pub(super) last_output_buttons: u32,
-    #[cfg(feature = "diagnostic-logging")]
     /// Last tech diagnostic key and reason tuple.
     pub(super) last_tech_diagnostic: Option<(i32, i32, &'static str)>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Deferred tech diagnostic text awaiting logger output.
     pub(super) pending_tech_log: Option<String>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Deferred combat diagnostic text awaiting logger output.
     pub(super) pending_combat_log: Option<String>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Last combat diagnostic transition and target tuple.
     pub(super) last_combat_diagnostic: (bool, bool, u32),
-    #[cfg(feature = "diagnostic-logging")]
     /// Rate gate for ledge diagnostic snapshots.
     pub(super) ledge_diagnostics: DiagnosticGate<LedgeDiagnostic>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Recorder for diagnostic scenario/mode events.
     pub(super) mode_diagnostics: kirby_assist_core::diagnostics::modes::Recorder,
-    #[cfg(feature = "diagnostic-logging")]
     /// Wall-clock origin for mode diagnostics.
     pub(super) mode_log_origin: Option<Instant>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Optional hit-confirmation fact associated with the mode trace.
     pub(super) mode_hit: Option<bool>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Last automatic-DI decision emitted for diagnostics.
     pub(super) last_di_diagnostic: Option<kirby_assist_core::auto_di::Decision>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Wall-clock origin for ledge diagnostic timing.
     pub(super) ledge_log_origin: Option<Instant>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Deferred ledge diagnostic text awaiting logger output.
     pub(super) pending_ledge_log: Option<String>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Fixed-storage trace of grab request and mapper evidence.
     pub(super) grab_trace: crate::grab_diagnostics::GrabTrace,
-    #[cfg(feature = "diagnostic-logging")]
     /// Recorder for diagnostic calibration samples.
     pub(super) calibration: crate::calibration::Recorder,
 }
 impl State {
+    /// Discards old Training captures without submitting unfinished reports.
+    pub(super) fn clear_diagnostics(&mut self) {
+        self.last_logged_scenario = (false, false);
+        self.mapper_confirmed = false;
+        self.buttons_modified = false;
+        self.button_mod_logged = false;
+        self.last_tech_diagnostic = None;
+        self.pending_tech_log = None;
+        self.pending_combat_log = None;
+        self.last_combat_diagnostic = (false, false, 0);
+        self.ledge_diagnostics = DiagnosticGate::new();
+        self.mode_diagnostics = kirby_assist_core::diagnostics::modes::Recorder::new();
+        self.mode_log_origin = None;
+        self.mode_hit = None;
+        self.last_di_diagnostic = None;
+        self.ledge_log_origin = None;
+        self.pending_ledge_log = None;
+        self.last_movement_blocker = None;
+        self.last_input_expired = false;
+        if let Some(ledge) = self.ledge.as_mut() {
+            ledge.diagnostics(false);
+        }
+        self.grab_trace = crate::grab_diagnostics::GrabTrace::new();
+        self.calibration = crate::calibration::Recorder::new();
+    }
+
     /// Keep edge histories while discarding automatic plans under ledge priority.
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();
@@ -328,8 +334,7 @@ impl State {
                     .as_ref()
                     .is_some_and(LedgeTrap::needs_response_observation)
             {
-                #[cfg(feature = "diagnostic-logging")]
-                {
+                if crate::logging::active() {
                     self.grab_trace.reset("action_owner_preempted");
                     self.calibration
                         .reset("action owner preempted ledge response");
@@ -418,9 +423,7 @@ impl State {
             manual_overlay: None,
             turbo_ready: false,
             action_owner: ActionOwnership::new(),
-            #[cfg(feature = "diagnostic-logging")]
             last_movement_blocker: None,
-            #[cfg(feature = "diagnostic-logging")]
             last_input_expired: false,
             fair_followup: None,
             fair_output: ControllerOutput::NONE,
@@ -467,40 +470,23 @@ impl State {
             evaluated_tick: None,
             observation_setup: kirby_assist_core::observation::ObservationSetup::new(),
             observation_sequence: 0,
-            #[cfg(feature = "diagnostic-logging")]
             last_logged_scenario: (false, false),
-            #[cfg(feature = "diagnostic-logging")]
             mapper_confirmed: false,
-            #[cfg(feature = "diagnostic-logging")]
             buttons_modified: false,
-            #[cfg(feature = "diagnostic-logging")]
             button_mod_logged: false,
             last_output_buttons: 0,
-            #[cfg(feature = "diagnostic-logging")]
             last_tech_diagnostic: None,
-            #[cfg(feature = "diagnostic-logging")]
             pending_tech_log: None,
-            #[cfg(feature = "diagnostic-logging")]
             pending_combat_log: None,
-            #[cfg(feature = "diagnostic-logging")]
             last_combat_diagnostic: (false, false, 0),
-            #[cfg(feature = "diagnostic-logging")]
             ledge_diagnostics: DiagnosticGate::new(),
-            #[cfg(feature = "diagnostic-logging")]
             mode_diagnostics: kirby_assist_core::diagnostics::modes::Recorder::new(),
-            #[cfg(feature = "diagnostic-logging")]
             mode_log_origin: None,
-            #[cfg(feature = "diagnostic-logging")]
             mode_hit: None,
-            #[cfg(feature = "diagnostic-logging")]
             last_di_diagnostic: None,
-            #[cfg(feature = "diagnostic-logging")]
             ledge_log_origin: None,
-            #[cfg(feature = "diagnostic-logging")]
             pending_ledge_log: None,
-            #[cfg(feature = "diagnostic-logging")]
             grab_trace: crate::grab_diagnostics::GrabTrace::new(),
-            #[cfg(feature = "diagnostic-logging")]
             calibration: crate::calibration::Recorder::new(),
         }
     }
@@ -525,7 +511,6 @@ impl State {
         self.posture_side_aliases = Default::default();
         self.posture_floor_safe = false;
         self.action_owner = ActionOwnership::new();
-        #[cfg(feature = "diagnostic-logging")]
         {
             self.last_movement_blocker = None;
             self.last_input_expired = false;
@@ -563,8 +548,7 @@ impl State {
         if let Some(tech) = self.tech_input.as_mut() {
             tech.cancel_request();
         }
-        #[cfg(feature = "diagnostic-logging")]
-        {
+        if crate::logging::active() {
             self.grab_trace.reset("menu_choice_or_manual_tool_changed");
             self.calibration.reset("menu choice/manual tool changed");
         }
@@ -572,12 +556,11 @@ impl State {
     /// Advances match-session state and yields its current publication ticket.
     pub(super) fn update_match(&mut self, ready: bool) -> Option<SessionTicket> {
         if self.session.update(ready) || !ready {
-            #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::StateReset);
-            #[cfg(feature = "diagnostic-logging")]
-            self.grab_trace.reset("match_session_ended");
-            #[cfg(feature = "diagnostic-logging")]
-            self.calibration.reset("match session ended");
+            if crate::logging::active() {
+                self.grab_trace.reset("match_session_ended");
+                self.calibration.reset("match session ended");
+            }
             let session = self.session;
             let mut settings_menu = self.settings_menu.take();
             if let Some(settings_menu) = settings_menu.as_mut() {
@@ -606,8 +589,7 @@ impl State {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
         self.counter = kirby_assist_core::auto_counter::Counter::new();
         self.clear_tool_proposals();
-        #[cfg(feature = "diagnostic-logging")]
-        {
+        if crate::logging::active() {
             self.grab_trace.reset("session_or_controller_cancelled");
             self.calibration.reset("session/controller cancelled");
         }
@@ -640,7 +622,6 @@ impl State {
         self.ledge_walk_motion = None;
         self.ledge_active = false;
         self.last_output_buttons = 0;
-        #[cfg(feature = "diagnostic-logging")]
         {
             self.last_tech_diagnostic = None;
             self.pending_tech_log = None;

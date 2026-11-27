@@ -13,7 +13,6 @@ struct Wrapper {
     controller: *mut controller::Controller,
 }
 
-#[cfg(feature = "diagnostic-logging")]
 #[test]
 fn diagnostic_menu_consumes_only_reserved_input_and_telemetry_is_read_only() {
     let mut c: controller::Controller = unsafe { std::mem::zeroed() };
@@ -47,6 +46,33 @@ fn diagnostic_menu_consumes_only_reserved_input_and_telemetry_is_read_only() {
     assert_eq!(unsafe { controller::trace(&c) }, before);
     assert_eq!(c.autorepeat, [15, 42, 43]);
     assert!(c.right_stick_y.is_nan());
+}
+
+#[test]
+fn native_diagnostic_entrypoints_remain_training_only_in_every_build() {
+    let mapper = include_str!("../../../src/live/mapper.rs");
+    let capture = mapper.split("pub(super) unsafe fn capture_telemetry_input").nth(1).unwrap()
+        .split("pub(super) unsafe fn publish_telemetry_input").next().unwrap();
+    assert!(capture.find("!game::is_training_mode()").unwrap() < capture.find("selected_controller(").unwrap());
+    let publish = mapper.split("pub(super) unsafe fn publish_telemetry_input").nth(1).unwrap()
+        .split("pub(super) unsafe fn prepare_telemetry_menu").next().unwrap();
+    assert!(publish.find("!game::is_training_mode()").unwrap() < publish.find("telemetry_mapped(").unwrap());
+    for source in [mapper, include_str!("../../../src/live/observation.rs"), include_str!("../../../src/live/state.rs")] {
+        assert!(!source.contains("#[cfg(feature = \"diagnostic-logging\")]"));
+    }
+    let state = include_str!("../../../src/live/state.rs");
+    let clear = state.split("pub(super) fn clear_diagnostics").nth(1).unwrap()
+        .split("/// Keep edge histories").next().unwrap();
+    assert!(clear.contains("self.pending_tech_log = None"));
+    assert!(clear.contains("self.grab_trace = crate::grab_diagnostics::GrabTrace::new()"));
+    assert!(clear.contains("self.calibration = crate::calibration::Recorder::new()"));
+    assert!(!clear.contains(".reset("));
+    assert!(mapper.contains("prep.diagnostics.session = crate::logging::session()"));
+    assert!(mapper.contains("write_modes_for_session(diagnostic_session, report)"));
+    assert!(mapper.contains("write_owned_for_session(diagnostic_session, message)"));
+    assert!(mapper.contains("if super::telemetry::feature_details_due()"));
+    assert!(mapper.contains("selection.choice_builtin("));
+    assert!(mapper.contains("valid: snapshot.valid && manual_context.is_some()"));
 }
 
 #[test]

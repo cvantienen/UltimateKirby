@@ -1,5 +1,6 @@
 //! Bounded stop-and-wait transport for the same gated editor requests as HTTP.
-use super::{enabled, fresh, network::socket_result, Config};
+use super::{authorized, network::socket_result, Config, ACTIVATION};
+use std::sync::atomic::Ordering;
 use std::{
     io,
     net::{SocketAddr, UdpSocket},
@@ -72,7 +73,7 @@ impl Transfer {
     }
 }
 
-fn send(
+pub(super) fn send(
     socket: &UdpSocket,
     peer: SocketAddr,
     kind: u8,
@@ -80,6 +81,7 @@ fn send(
     index: usize,
     total: usize,
     payload: &[u8],
+    generation: u64,
 ) -> io::Result<()> {
     let mut bytes = [0u8; HEADER + CHUNK];
     bytes[..4].copy_from_slice(b"KALE");
@@ -88,18 +90,21 @@ fn send(
     bytes[13..15].copy_from_slice(&(index as u16).to_be_bytes());
     bytes[15..17].copy_from_slice(&(total as u16).to_be_bytes());
     bytes[HEADER..HEADER + payload.len()].copy_from_slice(payload);
+    if !authorized(generation) {
+        return Err(io::ErrorKind::PermissionDenied.into());
+    }
     socket_result(socket.send_to(&bytes[..HEADER + payload.len()], peer)).map(|_| ())
 }
 
-fn execute(request: &[u8], config: &Config) -> Vec<u8> {
+fn execute(request: &[u8], config: &Config, generation: u64) -> Vec<u8> {
     let started = Instant::now();
-    let allowed = || enabled() && fresh(false) && started.elapsed() < Duration::from_secs(2);
+    let allowed = || authorized(generation) && started.elapsed() < Duration::from_secs(2);
     let mut input = io::Cursor::new(request);
     let parsed = kirby_assist_core::diagnostic_http::read_request(&mut input, allowed);
     let mut output = Vec::new();
     match parsed {
         Ok(request) if input.position() as usize == input.get_ref().len() => {
-            let _ = super::dispatch(&mut output, config, request, started);
+            let _ = super::dispatch(&mut output, config, request, started, generation);
         }
         _ => {
             let _ = super::respond(
@@ -120,7 +125,8 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
     let mut completed: std::collections::VecDeque<(SocketAddr, u64, Instant)> =
         std::collections::VecDeque::new();
     let mut bytes = [0u8; HEADER + CHUNK + 1];
-    while enabled() && fresh(false) {
+    let generation = ACTIVATION.load(Ordering::Acquire);
+    while authorized(generation) {
         let now = Instant::now();
         completed.retain(|(_, _, seen)| now.duration_since(*seen) < LIFETIME);
         if active
@@ -128,6 +134,9 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
             .is_some_and(|t| t.started.elapsed() >= LIFETIME)
         {
             active = None;
+        }
+        if !authorized(generation) {
+            break;
         }
         let (length, peer) = match socket_result(socket.recv_from(&mut bytes)) {
             Ok(value) => value,
@@ -138,6 +147,9 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => return Err(format!("UDP editor receive: {error}")),
         };
+        if !authorized(generation) {
+            break;
+        }
         let SocketAddr::V4(address) = peer else {
             continue;
         };
@@ -176,10 +188,19 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
             if !transfer.upload(&packet) {
                 continue;
             }
-            let _ = send(&socket, peer, 2, packet.id, packet.index, packet.total, &[]);
+            let _ = send(
+                &socket,
+                peer,
+                2,
+                packet.id,
+                packet.index,
+                packet.total,
+                &[],
+                generation,
+            );
             if transfer.received == transfer.total && transfer.response.is_none() {
                 completed.push_back((peer, packet.id, Instant::now()));
-                transfer.response = Some(execute(&transfer.request, config));
+                transfer.response = Some(execute(&transfer.request, config, generation));
             }
         } else if packet.kind == 3 && packet.total == 0 && packet.payload.is_empty() {
             if let Some(transfer) = active.as_ref().filter(|t| t.matches(peer, &packet)) {
@@ -196,6 +217,7 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
                             packet.index,
                             total,
                             &response[start..end],
+                            generation,
                         );
                     }
                 }

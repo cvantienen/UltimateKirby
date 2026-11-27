@@ -26,8 +26,7 @@ impl Drop for FighterObservationGuard {
         OBSERVING_FIGHTER.store(false, Ordering::Release);
     }
 }
-// Diagnostic snapshots are absent from silent builds, including formatting.
-#[cfg(feature = "diagnostic-logging")]
+// Diagnostic snapshots are collected only during an active Training session.
 #[derive(Clone, Copy, PartialEq, Eq)]
 /// Represents a diagnostic snapshot of the ledge state for the fighter.
 /// Copies the state facts needed to explain a ledge decision.
@@ -488,7 +487,6 @@ unsafe fn refresh_observation_roster(
     if !needs_roster {
         return;
     }
-    #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::RosterScan);
     let roster = fighter_ids();
     if let Ok(mut state) = STATE.lock() {
@@ -555,8 +553,7 @@ unsafe fn admit_fighter_observation(
     // ControlModule +0x118 -> +0x58 -> +8 -> index at +8.
     // A direct ControlModule+8 read does not resolve the controller index.
     let Some(index) = controller_index(object.cast()) else {
-        #[cfg(feature = "diagnostic-logging")]
-        if feature_activity_allowed() && !ROUTE_UNAVAILABLE_LOGGED.swap(true, Ordering::Relaxed) {
+        if crate::logging::active() && feature_activity_allowed() && !ROUTE_UNAVAILABLE_LOGGED.swap(true, Ordering::Relaxed) {
             log!("fighter controller ownership chain unavailable; waiting for a valid local fighter input index");
         }
         return None;
@@ -598,15 +595,13 @@ unsafe fn admit_fighter_observation(
             && state.fighter_kind == Some(fighter_kind)
             && !state.observation_setup.needed(tick, true, discover_roster)
         {
-            #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::ObservationReuse);
             return None;
         }
         (tick, state.mapping_index)
     };
     if target != Some(index) {
-        #[cfg(feature = "diagnostic-logging")]
-        if ROUTE_MISMATCHES.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0 {
+        if crate::logging::active() && ROUTE_MISMATCHES.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0 {
             log!(&format!("human fighter input index {index}; selected physical controller's mapper is {target:?}; route cached for mapping"));
         }
         return None;
@@ -865,9 +860,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
         return;
     };
     let reads = frame::FrameReads::default();
-    #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::root();
-    #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::Observation);
     let own = observe_native_basics(&reads, object, &config);
     // Copy saved-mode flags once; no native queries happen while holding this
@@ -896,7 +889,6 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
         cancel_state();
         return;
     }
-    #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::FullObservation);
     let tech_obs = observe_tech_state(
         &reads, object, own.stopped, &config, policy.analysis_settings,
@@ -923,7 +915,6 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
             observation_sequence,
         )
     });
-    #[cfg(feature = "diagnostic-logging")]
     if let Some(notes) = _notes {
         notes.log(&pass, index);
     }
@@ -1071,7 +1062,6 @@ struct Collected {
         bool,
     )>,
     counter_aim_direction: Option<f32>,
-    #[cfg(feature = "diagnostic-logging")]
     /// Optional native activity flag used only by diagnostic reporting.
     neutral_native_activity: Option<bool>,
 }
@@ -1176,7 +1166,6 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     let damage = collect_damage(p, combat.outward);
     let oos_follow = rule_observation.and_then(|(_, _, follow)| follow);
     let oos_context = collect_oos_context(p, oos_readiness, ledge.guard_threat);
-    #[cfg(feature = "diagnostic-logging")]
     let neutral_native_activity = collect_neutral_native_activity(p, ledge.opponent);
     let reflect_observation = collect_reflect(p);
     let counter_observation = collect_counter(p);
@@ -1200,7 +1189,6 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         } else { [None; 16] },
         spacing_observation: collect_spacing(p),
         counter_aim_direction: collect_counter_aim(p),
-        #[cfg(feature = "diagnostic-logging")]
         neutral_native_activity,
     }
 }
@@ -1631,7 +1619,6 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
         && !config.assist.manual_spacing
         && !config.assist.distance_agnostic;
     let ledge_observation = if observe_ledge || observe_trump {
-        #[cfg(feature = "diagnostic-logging")]
         let _performance = crate::performance::Scope::new(crate::performance::Part::Ledge);
         let position = [reads.pos_x(object), reads.pos_y(object)];
         let velocity = [reads.speed_x(object), reads.speed_y(object)];
@@ -2147,7 +2134,6 @@ unsafe fn collect_oos_context(
     })
 }
 
-#[cfg(feature = "diagnostic-logging")]
 /// Reads native action activity used to distinguish neutral from committed states.
 /// # Safety
 /// The supplied pass must contain a live validated fighter accessor.
@@ -2161,7 +2147,7 @@ unsafe fn collect_neutral_native_activity(
         tech_obs: TechObservation { assessment, .. },
         ..
     } = *p;
-    if observe_ledge
+    if crate::logging::active() && observe_ledge
         && (ledge_opponent.is_some_and(|e| e.status == kirby_assist_core::ledge_trap::CLIFF_CLIMB)
             || STATE.lock().ok().is_some_and(|s| {
                 s.calibration.active()
@@ -2280,24 +2266,21 @@ unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
     )
 }
 
-/// Facts only the diagnostic log needs; empty in silent builds.
+/// Facts copied only while the Training diagnostic session is active.
 /// Diagnostic-only state changes collected before publication.
 #[derive(Default)]
 struct PublicationNotes {
-    #[cfg(feature = "diagnostic-logging")]
     /// Whether the first controller-button write was observed.
     first_button_write: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Whether automatic policy admission succeeded.
     acquired: bool,
-    #[cfg(feature = "diagnostic-logging")]
     /// Whether the active scenario key changed.
     scenario_changed: bool,
 }
-#[cfg(feature = "diagnostic-logging")]
 impl PublicationNotes {
-    /// Formats this observation's diagnostic facts when logging is compiled in.
+    /// Formats diagnostic facts only during an active Training session.
     fn log(&self, p: &Pass, index: i32) {
+        if !crate::logging::active() { return; }
         let Pass {
             object_id,
             tech_obs: TechObservation { clatter, tech, .. },
@@ -2340,7 +2323,6 @@ fn publish_observation(
     if !publication.accepts_at(state, observation_sequence)
         || state.associated_object != Some(object_id)
     {
-        #[cfg(feature = "diagnostic-logging")]
         crate::performance::health::event(crate::performance::health::Event::PublicationDiscard);
         return None;
     }
@@ -2376,14 +2358,12 @@ fn publish_observation(
         state.action_owner.release(Owner::Counter);
     }
     let admission = admit_automatic(state, p, c);
-    #[cfg(feature = "diagnostic-logging")]
-    let first_button_write = state.buttons_modified && !state.button_mod_logged;
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    let diagnostics = crate::logging::active();
+    let first_button_write = diagnostics && state.buttons_modified && !state.button_mod_logged;
+    if diagnostics {
         state.button_mod_logged |= first_button_write;
     }
-    #[cfg(feature = "diagnostic-logging")]
-    let acquired = state.observed_object != Some(object_id);
+    let acquired = diagnostics && state.observed_object != Some(object_id);
     sample_reactions(state, p, c, &admission);
     sample_trip(state, p, c);
     publish_damage_contexts(state, p, c, tick);
@@ -2399,8 +2379,7 @@ fn publish_observation(
         state.policy.as_ref().and_then(RawAutoControls::mash_stick)
     };
     state.request_seen = Some(now);
-    #[cfg(feature = "diagnostic-logging")]
-    let scenario_changed = {
+    let scenario_changed = diagnostics && {
         let scenario = (p.tech_obs.clatter, p.tech_obs.tech);
         let changed = state.last_logged_scenario != scenario;
         if changed {
@@ -2409,11 +2388,8 @@ fn publish_observation(
         changed
     };
     Some(PublicationNotes {
-        #[cfg(feature = "diagnostic-logging")]
         first_button_write,
-        #[cfg(feature = "diagnostic-logging")]
         acquired,
-        #[cfg(feature = "diagnostic-logging")]
         scenario_changed,
     })
 }
@@ -2533,7 +2509,6 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
 /// The reaction policies in priority order: fair follow-up, incoming-grab
 /// defense, its punish, then the OOS/roll-read arbitration.
 fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
-    #[cfg(feature = "diagnostic-logging")]
     let _combo_performance = crate::performance::Scope::new(crate::performance::Part::Combo);
     sample_fair(state, p, c, a);
     sample_spot_dodge(state, p, c, a);
@@ -2648,7 +2623,6 @@ fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) 
             let target = spot.target();
             (_previous_target, output, target)
         };
-        #[cfg(feature = "diagnostic-logging")]
         if output.requested != 0 && _previous_target.is_none() {
             log!(&format!("AUTO SPOT DODGE proposed: ordinary grab {:?} is within the configured timing/reach forecast. Down+Guard requested; protected ledge/safety priority and native readiness still apply. Native avoidance is unverified.", _current_target));
         } else if _previous_target.is_some()
@@ -2959,12 +2933,11 @@ fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     };
 }
 
-#[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 /// Advances Kirby trip-follow-up state using current target snapshots.
 fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         flags: AutomaticFlags { trip_kirby, .. },
-        tech_obs: TechObservation { clatter, tech, .. },
+        tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
     let Collected {
@@ -2979,8 +2952,7 @@ fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
         !clatter && trip_allowed,
         trip_context,
     );
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         let key = (
             kirby_followups::watching(&state.trip_followup),
             sdi_context.damage_stop && sdi_context.remaining <= 120,
@@ -3013,7 +2985,6 @@ fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64
 }
 
 /// Mash and tech sampling. Returns the policy tick, absent during hitstop.
-#[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 ///
 fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
     if state.settings_menu.as_ref().is_some_and(|menu| menu.counter_held()) {
@@ -3055,8 +3026,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
         } else {
             0
         };
-    #[cfg(feature = "diagnostic-logging")]
-    if config.controls.tech_debug {
+    if crate::logging::active() && config.controls.tech_debug {
         let relevant = (kirby_assist_core::native_states::status::DAMAGE
             ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
             .contains(&assessment.status)
@@ -3155,8 +3125,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
             native_guard,
         );
     let _requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
-    #[cfg(feature = "diagnostic-logging")]
-    if config.controls.tech_debug {
+    if crate::logging::active() && config.controls.tech_debug {
         if let Some(message) = state.pending_tech_log.as_mut() {
             message.push_str(&format!(", requested={_requested:#x}"));
         }
@@ -3191,8 +3160,7 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
     state.ledge_walk_ready = !clatter
         && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && (0..=kirby_assist_core::native_states::THROW).contains(&assessment.status);
-    #[cfg(feature = "diagnostic-logging")]
-    {
+    if crate::logging::active() {
         state.mode_hit = c
             .ledge
             .observation
@@ -3207,7 +3175,6 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
 }
 
 /// Ledge, trump and defensive-guard sampling for the observation's own context.
-#[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 ///
 fn sample_ledge(
     state: &mut State,
@@ -3231,11 +3198,9 @@ fn sample_ledge(
     context.can_act = state.turbo_ready;
     sample_trump(state, p, context, edge, tick);
     let held = sample_ledge_response(state, p, &mut context, opponent, spot, previewing, tick);
-    #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
     let positioning_action =
         sample_ledge_positioning(state, p, &context, opponent, held, previewing, tick);
     sample_defensive_guard(state, p, c, &context, held);
-    #[cfg(feature = "diagnostic-logging")]
     publish_ledge_diagnostics(
         state,
         p,
@@ -3252,10 +3217,10 @@ fn sample_ledge(
 
 /// Without a ledge observation the ledge/trump/guard policies release their history.
 fn reset_ledge_outputs(state: &mut State) {
-    #[cfg(feature = "diagnostic-logging")]
-    state.grab_trace.reset("ledge_observation_unavailable");
-    #[cfg(feature = "diagnostic-logging")]
-    state.calibration.reset("ledge observation unavailable");
+    if crate::logging::active() {
+        state.grab_trace.reset("ledge_observation_unavailable");
+        state.calibration.reset("ledge observation unavailable");
+    }
     state.autopilot_guarding = false;
     state.guard_hold = None;
     state.ledge_output = ControllerOutput::default();
@@ -3374,6 +3339,7 @@ fn sample_ledge_response(
     state.ledge_output = {
         let state = &mut *state;
         let before = state.ledge_visits.visit_epoch();
+        state.ledge.get_or_insert_with(LedgeTrap::default).diagnostics(crate::logging::active());
         let output = state
             .ledge
             .get_or_insert_with(LedgeTrap::default)
@@ -3435,7 +3401,6 @@ fn sample_ledge_positioning(
         tech_obs: TechObservation { clatter, .. },
         ..
     } = *p;
-    #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_mut))]
     let mut positioning_action = None;
     if held
         && !previewing
@@ -3469,8 +3434,7 @@ fn sample_ledge_positioning(
                 .ledge_position
                 .get_or_insert_with(LedgePosition::default)
                 .sample(tick, *context, config.assist);
-            #[cfg(feature = "diagnostic-logging")]
-            {
+            if crate::logging::active() {
                 positioning_action = state
                     .ledge_position
                     .as_ref()
@@ -3565,7 +3529,6 @@ fn sample_defensive_guard(
 }
 
 /// Calibration, grab-trace and throttled ledge-observation diagnostics.
-#[cfg(feature = "diagnostic-logging")]
 ///
 fn publish_ledge_diagnostics(
     state: &mut State,
@@ -3591,6 +3554,7 @@ fn publish_ledge_diagnostics(
         tech_obs: TechObservation { assessment, .. },
         ..
     } = *p;
+    if !crate::logging::active() { return; }
     let neutral_native_activity = c.neutral_native_activity;
     {
         let state = &mut *state;
@@ -3625,7 +3589,6 @@ fn publish_ledge_diagnostics(
             state.calibration.reset("autopilot released/other mode");
         }
     }
-    #[cfg(feature = "diagnostic-logging")]
     let grab_snapshot = if held {
         state
             .ledge
@@ -3634,7 +3597,6 @@ fn publish_ledge_diagnostics(
     } else {
         None
     };
-    #[cfg(feature = "diagnostic-logging")]
     {
         let fighter = state.fighter_kind;
         if !held {
@@ -3643,7 +3605,6 @@ fn publish_ledge_diagnostics(
             state.grab_trace.observe(grab_snapshot, fighter, now);
         }
     }
-    #[cfg(feature = "diagnostic-logging")]
     if held && grab_snapshot.is_none() {
         let key = LedgeDiagnostic {
             target: opponent.map(|enemy| enemy.id),

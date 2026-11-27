@@ -1079,7 +1079,6 @@ pub(super) struct RecipeEditor {
 }
 impl RecipeEditor {
     /// Returns the `retained` result.
-    #[cfg(feature = "diagnostic-logging")]
     pub(super) fn retained(&self) -> (usize, usize) {
         let bytes = std::mem::size_of::<Self>()
             + self.undo.as_ref().map_or(0, |undo| {
@@ -1141,7 +1140,6 @@ impl RecipeEditor {
     pub fn edited(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| r.modified)
     }
-    #[cfg(feature = "diagnostic-logging")]
     pub fn has_unsaved_edits(&self) -> bool {
         self.recipes.values().any(|r| r.modified)
     }

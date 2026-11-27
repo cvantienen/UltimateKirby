@@ -207,7 +207,6 @@ impl ControllerRestore {
     }
 }
 
-#[cfg(feature = "diagnostic-logging")]
 pub(super) unsafe fn telemetry_input(
     controller: *const Controller,
     object_id: u32,
@@ -248,7 +247,6 @@ pub(super) unsafe fn telemetry_input(
     sample.values[10] = Some(u64::from((*controller).autorepeat[0]));
     sample
 }
-#[cfg(feature = "diagnostic-logging")]
 pub(super) fn telemetry_mapped(
     sample: &mut kirby_assist_core::telemetry::Sample,
     mapped: &MappedInputs,
@@ -261,7 +259,6 @@ pub(super) fn telemetry_mapped(
         sample.values[12 + i] = Some(value as i64 as u64);
     }
 }
-#[cfg(feature = "diagnostic-logging")]
 pub(super) unsafe fn consume_diagnostic_menu(
     controller: *mut Controller,
     consumed: u32,

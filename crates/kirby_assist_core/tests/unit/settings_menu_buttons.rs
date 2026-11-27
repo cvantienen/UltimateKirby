@@ -906,7 +906,7 @@ fn match_all_supported_saved_slots_select_the_matching_payload() {
     assert!(m.editor.is_none() && m.catalog.is_none());
 }
 #[test]
-fn match_optional_fighter_modes_and_diagnostic_controls_update_their_real_values() {
+fn match_optional_fighter_modes_update_without_exposing_diagnostic_controls() {
     let p = configured();
     let mut m = MenuSelection::new(&p);
     m.input_with_editing(0, &p, false);
@@ -929,22 +929,9 @@ fn match_optional_fighter_modes_and_diagnostic_controls_update_their_real_values
         assert_eq!((m.idle_crouch, m.tilt_turn), expected);
     }
     for row in [MenuRow::Performance, MenuRow::TestLatency] {
-        assert_eq!(m.row_visible(row), cfg!(feature = "diagnostic-logging"));
-        if m.row_visible(row) {
-            m.row = row;
-            m.input_with_editing(0, &p, false);
-            let old = (m.performance, m.test_latency);
-            m.input_with_editing(MAPPER_L | DPAD_RIGHT, &p, false);
-            assert_eq!(
-                (m.performance, m.test_latency),
-                if row == MenuRow::Performance {
-                    (!old.0, old.1)
-                } else {
-                    (old.0, (old.1 + 1) % 32)
-                }
-            );
-        }
+        assert!(!m.row_visible(row));
     }
+    assert!(!m.performance && m.test_latency == 0);
 }
 
 #[test]
