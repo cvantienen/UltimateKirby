@@ -243,7 +243,7 @@ class LanTests(unittest.TestCase):
             self.responses.append(reply(result))
             with self.assertRaises(RuntimeError):
                 self.client.perform('logs')
-        html = Path(__file__).with_name('workbench_gui.html').read_text()
+        html = Path(__file__).resolve().parents[2].joinpath('workbench_gui.html').read_text()
         draw = html[html.index('function drawLanLogs()'):html.index('function lanClearLogs()')]
         self.assertIn('out.textContent=value', draw)
         self.assertNotIn('innerHTML', draw)

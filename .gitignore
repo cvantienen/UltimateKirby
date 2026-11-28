@@ -38,3 +38,17 @@ deployment/
 deployment
 data
 notes.txt
+tools/logs
+/tools/*
+!/tools/build_workbench_macos.py
+!/tools/requirements-macos.txt
+!/tools/workbench_reminal_ui/
+!/tools/app_icon/
+!/tools/app_icon/gangar.webp
+!/tools/tests/
+!/tools/tests/__init__.py
+!/tools/tests/workbench/
+!/tools/tests/workbench/__init__.py
+!/tools/tests/workbench/*.py
+/tools/build/
+/tools/dist/

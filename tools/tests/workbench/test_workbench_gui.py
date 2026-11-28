@@ -91,6 +91,8 @@ class GuiTests(unittest.TestCase):
                                         'host': '10.0.0.20', 'port': 4242, 'transport': 'udp'}, token)[0], 200)
                 perform.assert_called_once_with('connect', host='10.0.0.20', port=4242, transport='udp')
                 self.assertIn('<option value="udp" selected>', html)
+                self.assertIn("INITIAL.project_root", html)
+                self.assertIn('id="projectRoot"', html)
                 self.assertNotIn('lanToken', html)
                 self.assertFalse(self.app.history.path.exists())
                 self.assertEqual(request('POST', '/api/lan', [], token)[0], 400)
@@ -121,8 +123,32 @@ class GuiTests(unittest.TestCase):
             self.assertEqual(errors, [])
 
     @unittest.skipUnless(shutil.which('node'), 'Node required for browser JavaScript regression')
+    def test_idle_gui_shutdown_releases_workbench_after_browser_disappears(self):
+        closed = []
+        last_activity = [0]
+
+        class Server:
+            is_closed = False
+
+            def fileno(self):
+                return -1 if self.is_closed else 1
+
+            def shutdown(self):
+                self.is_closed = True
+                closed.append(True)
+
+        server = Server()
+        app = SimpleNamespace(lan=SimpleNamespace(disconnect=lambda: closed.append('lan')))
+        controller = SimpleNamespace(snapshot=lambda: {'busy': False})
+        with patch.object(gui, 'GUI_IDLE_TIMEOUT_SECONDS', 1), \
+             patch.object(gui, 'GUI_IDLE_CHECK_SECONDS', 0), \
+             patch.object(gui.time, 'sleep', return_value=None), \
+             patch.object(gui.time, 'monotonic', side_effect=[2]):
+            gui.stop_when_ui_disconnected(server, controller, app, last_activity)
+        self.assertEqual(closed, ['lan', True])
+
     def test_browser_disconnect_ignores_pending_load_and_poll_state(self):
-        html = Path(gui.__file__).with_suffix('.html').read_text()
+        html = Path(gui.__file__).resolve().parent.joinpath('workbench_gui.html').read_text()
         script = html[html.index('let lanConnected='):html.index('showLanSetup(INITIAL.lan_editor);')]
         harness = '''
 const elements = new Proxy({}, {get(target, id){return target[id] ||= {value:'',checked:false,disabled:false,textContent:'',addEventListener(){}}}});

@@ -24,7 +24,7 @@ import zipfile
 from sequence_sources import assemble, strip_comments, write_generated
 from toml_compat import tomllib
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", Path(__file__).resolve().parents[1])).expanduser().resolve()
 
 
 def read_release_version() -> str:
@@ -309,16 +309,12 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
 
 def upload_built_release() -> None:
     """Run the fixed uploader only after main has packaged both variants."""
-    subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "tools" / "upload_all_switches.py"),
-            "-v",
-            RELEASE_VERSION,
-        ],
-        cwd=ROOT,
-        check=True,
-    )
+    helper = ROOT / "tools" / "upload_all_switches.py"
+    command = [sys.executable, str(helper), "-v", RELEASE_VERSION]
+    if getattr(sys, "frozen", False) and not helper.is_file():
+        os.environ["KIRBY_ASSIST_FROZEN_ROOT"] = str(ROOT)
+        command = [sys.executable, "--workbench-helper", "upload_all_switches", "-v", RELEASE_VERSION]
+    subprocess.run(command, cwd=ROOT, check=True)
 
 
 def sha256_digest(file_obj: BinaryIO) -> bytes:

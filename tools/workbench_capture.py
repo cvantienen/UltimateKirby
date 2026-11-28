@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import threading
 
-LOG_DIRECTORY = Path(__file__).resolve().parent / 'logs'
+LOG_DIRECTORY = Path(os.environ.get('KIRBY_ASSIST_LOG_DIR', Path(__file__).resolve().parent / 'logs')).expanduser().resolve()
 
 
 def append_record(path: Path, record: dict):

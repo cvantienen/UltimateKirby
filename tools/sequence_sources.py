@@ -7,7 +7,7 @@ import re
 import tempfile
 import os
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(os.environ.get('KIRBY_ASSIST_PROJECT_ROOT', Path(__file__).resolve().parents[1])).expanduser().resolve()
 SOURCE = ROOT / 'deployment/ultimate/kirby_assist/sequences.txt'
 GENERATED = SOURCE.parent / 'assembled/sequences.txt'
 MAX_BYTES = 512 * 1024

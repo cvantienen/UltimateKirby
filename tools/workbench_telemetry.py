@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import signal
 import socket
+import shutil
+import sys
 import subprocess
 import threading
 import time
@@ -35,6 +37,14 @@ class TelemetryViewer:
                     '--features', 'diagnostic-logging', '--example', 'telemetry_viewer', '--',
                     str(self.port)]
             from workbench_capture import LOG_DIRECTORY
+            cargo = shutil.which('cargo')
+            if cargo is None and sys.platform == 'darwin':
+                bundled_cargo = Path.home() / '.cargo' / 'bin' / 'cargo'
+                cargo = str(bundled_cargo) if bundled_cargo.is_file() else None
+            if cargo is None:
+                self.status = 'Could not find Cargo. Install/configure the Rust host toolchain, then retry.'
+                return self.snapshot()
+            argv[0] = cargo
             environment = {**os.environ, 'KIRBY_TELEMETRY_CAPTURE': str(LOG_DIRECTORY / 'telemetry.txt')}
             try:
                 self.process = subprocess.Popen(argv, cwd=self.root, stdin=subprocess.DEVNULL,

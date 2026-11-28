@@ -17,6 +17,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+import os
 
 import upload_switch
 
@@ -50,14 +51,24 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main() -> None:
+    if os.environ.get("KIRBY_ASSIST_FROZEN_ROOT"):
+        import build_variants
+        import upload_switch
+        from pathlib import Path
+
+        project_root = Path(os.environ["KIRBY_ASSIST_FROZEN_ROOT"]).resolve()
+        upload_switch.PROJECT_ROOT = project_root
+        upload_switch.DEFAULT_RELEASE_ROOT = project_root.parent
+        upload_switch.DEPLOYMENT_SEQUENCES = project_root / "deployment/ultimate/kirby_assist/sequences.txt"
     options = parse_options()
     failures: list[str] = []
     uploader = Path(__file__).with_name("upload_switch.py")
+    bundled = getattr(sys, "frozen", False) and not uploader.is_file()
     for host, variant in deployment_plan(options.version):
         print(f"\n=== {host}: {variant.upper()} {options.version} ===", flush=True)
         command = [
             sys.executable,
-            str(uploader),
+            *( ["--workbench-helper", "upload_switch"] if bundled else [str(uploader)] ),
             host,
             "-v",
             options.version,

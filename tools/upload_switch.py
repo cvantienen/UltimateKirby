@@ -38,8 +38,9 @@ from pathlib import Path, PurePosixPath
 from sequence_validation import validate_sequences
 from sequence_sources import assemble
 
-DEFAULT_RELEASE_ROOT = Path(__file__).resolve().parents[2]
-DEPLOYMENT_SEQUENCES = Path(__file__).resolve().parents[1] / "deployment/ultimate/kirby_assist/sequences.txt"
+PROJECT_ROOT = Path(os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", Path(__file__).resolve().parents[1])).expanduser().resolve()
+DEFAULT_RELEASE_ROOT = PROJECT_ROOT.parent
+DEPLOYMENT_SEQUENCES = PROJECT_ROOT / "deployment/ultimate/kirby_assist/sequences.txt"
 PLUGIN = PurePosixPath("atmosphere/contents/01006A800016E000/romfs/skyline/plugins/libkirby_assist.nro")
 CONFIG = PurePosixPath("ultimate/kirby_assist/config.txt")
 SEQUENCES = PurePosixPath("ultimate/kirby_assist/sequences.upload.txt")

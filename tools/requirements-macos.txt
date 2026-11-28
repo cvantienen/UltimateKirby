@@ -1,0 +1,4 @@
+# Install with: python3 -m pip install -r tools/requirements-macos.txt
+pyinstaller==6.22.3
+pillow>=10
+-r workbench_reminal_ui/requirements.txt

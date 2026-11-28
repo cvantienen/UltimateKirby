@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Local GUI and terminal build/upload/sequence workbench. No extra packages.
+"""Local web, Textual and numbered-terminal build/upload/sequence workbench.
 
 Usage from the project directory:
     python3 tools/workbench.py
     python3 tools/workbench.py --cli
     python3 tools/workbench.py --history
+    python3 tools/workbench.py --web
+    python3 tools/workbench.py --terminal
 
-Default opens a local browser GUI: enter a version (or +1), select Switches,
+Default macOS startup asks Web or Terminal in a native chooser (Cancel does nothing).
+Other platforms default to Web; --choose requires macOS. Explicit flags bypass the
+chooser. Textual needs its requirements and an interactive terminal; packaged app
+selection opens Terminal.app before acquiring the shared-state lock. --gui remains
+an alias for --web. Web opens a local browser GUI: enter a version (or +1), select Switches,
 confirm Smash closed/FTP open once, then click Build + Upload. The build version
 is written to Cargo.toml before building. Existing build/upload helpers perform
 the work and retain their validation/backups. GUI opening never builds/uploads.
@@ -34,7 +40,8 @@ available; no Switch release build or device write occurs merely by opening this
 launcher. The GUI also starts the read-only telemetry receiver (offline Cargo may
 compile its host example). Training telemetry has its own sidebar dashboard;
 Switch streaming still requires explicit activation. Closing the GUI stops its
-receiver. --cli and --history do not start it.
+receiver. --cli and --history do not start it. The macOS app uses a saved project
+checkout and keeps logs/history outside the selected checkout.
 """
 from __future__ import annotations
 
@@ -48,6 +55,7 @@ import os
 import ipaddress
 import secrets
 import struct
+import subprocess
 import socket
 import threading
 import time
@@ -58,20 +66,36 @@ import shlex
 import sys
 import tempfile
 
+if getattr(sys, "frozen", False):
+    os.environ.setdefault("KIRBY_ASSIST_STATE_DIR", str(Path.home() / "Library/Application Support/Kirby Assist Workbench"))
+    os.environ.setdefault("KIRBY_ASSIST_LOG_DIR", str(Path(os.environ["KIRBY_ASSIST_STATE_DIR"]) / "logs"))
+
 import fighter_editor
 import sequence_sources as sources
 import sequence_transfer as transfer
 from toml_compat import tomllib
 import upload_switch
+import workbench_history
+from workbench_capture import LOG_DIRECTORY
 from upload_all_switches import TARGETS
 from workbench_history import History, ROOT, STATE, command
+import sequence_sources
+
+TOOLS_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)).resolve()
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+PROJECT_ROOT = ROOT
+if IS_FROZEN:
+    ROOT = Path(os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", Path.home() / "UltimateKirby")).expanduser().resolve()
+    STATE = Path(os.environ.get("KIRBY_ASSIST_STATE_DIR", Path.home() / "Library/Application Support/Kirby Assist Workbench")).expanduser().resolve()
+    os.environ.setdefault("KIRBY_ASSIST_STATE_DIR", str(STATE))
+    os.environ.setdefault("KIRBY_ASSIST_LOG_DIR", str(STATE / "logs"))
+DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/assembled/sequences.txt"
 
 HELPERS = ("build_variants.py", "upload_all_switches.py", "upload_switch.py",
            "upload_sequences.py", "sync_sequences.py", "sequence_validation.py",
            "sequence_sources.py")
 # The assembled bundle is the default transfer file. It is the exact file that
 # is deployed and is regenerated from the canonical fighter sources.
-DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/assembled/sequences.txt"
 
 
 def choose(title, items, *, back=True, back_label="Back"):
@@ -101,13 +125,28 @@ def confirm(label, token):
 
 def version():
     # Re-read so editing the manifest while the launcher stays open is supported.
-    return str(tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"])
+    try:
+        return str(tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"])
+    except (OSError, ValueError, KeyError):
+        if not IS_FROZEN:
+            raise
+        return ""
 
 
 def helper(name, *args):
     if name not in HELPERS:
         raise ValueError("Unknown helper")
-    return [sys.executable, str(ROOT / "tools" / name), *map(str, args)]
+    script_root = PROJECT_ROOT if (PROJECT_ROOT / "tools" / name).is_file() else TOOLS_DIR
+    if IS_FROZEN:
+        helper_module = {"build_variants.py": "build_variants", "upload_all_switches.py": "upload_all_switches",
+                         "upload_switch.py": "upload_switch", "upload_sequences.py": "upload_sequences",
+                         "sync_sequences.py": "sync_sequences", "sequence_validation.py": "sequence_validation",
+                         "sequence_sources.py": "sequence_sources"}.get(name)
+        if helper_module is None:
+            raise ValueError("Unknown bundled helper")
+        os.environ["KIRBY_ASSIST_FROZEN_ROOT"] = str(PROJECT_ROOT)
+        return [sys.executable, "--workbench-helper", helper_module, *map(str, args)]
+    return [sys.executable, str(script_root / name), *map(str, args)]
 
 
 class LanDatagramPeer:
@@ -568,6 +607,13 @@ class Workbench:
         return self.history.perform(action, details, lambda: self.execute(argv))
 
     def execute(self, argv):
+        if IS_FROZEN and Path(argv[0]).name == "cargo":
+            cargo_bin = Path.home() / ".cargo" / "bin"
+            os.environ["PATH"] = os.pathsep.join([str(cargo_bin), os.environ.get("PATH", "")])
+            result = subprocess.run(argv, cwd=PROJECT_ROOT, text=True, check=False)
+            if result.returncode:
+                raise RuntimeError(f"Cargo exited {result.returncode}; inspect the terminal output")
+            return {"exit_code": result.returncode}
         return command(argv, interactive=False) if self.noninteractive else command(argv)
 
     def build(self):
@@ -1000,27 +1046,112 @@ def session_lock(directory):
 
 
 def main():
+    global PROJECT_ROOT, ROOT, STATE, DEFAULT_FILE
+    if getattr(sys, "frozen", False) and len(sys.argv) > 2 and sys.argv[1] == "--workbench-helper":
+        import runpy
+        module = {"build_variants": "build_variants", "upload_all_switches": "upload_all_switches",
+                  "upload_switch": "upload_switch", "upload_sequences": "upload_sequences",
+                  "sync_sequences": "sync_sequences", "sequence_validation": "sequence_validation",
+                  "sequence_sources": "sequence_sources"}.get(sys.argv[2])
+        if module is None:
+            raise SystemExit("Unknown bundled helper")
+        project_root = os.environ.get("KIRBY_ASSIST_FROZEN_ROOT", "")
+        if not project_root:
+            project_file = Path.home() / "Library/Application Support/Kirby Assist Workbench/project-root.txt"
+            if project_file.is_file():
+                project_root = project_file.read_text().strip()
+        if project_root:
+            os.environ["KIRBY_ASSIST_PROJECT_ROOT"] = project_root
+        sys.argv = [module, *sys.argv[3:]]
+        runpy.run_module(module, run_name="__main__")
+        return
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--state-dir", type=Path, default=STATE, help="local history/preferences/backups directory")
     parser.add_argument("--history", action="store_true", help="show history and exit; no build/FTP")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--cli", action="store_true", help="original numbered terminal prompt")
-    mode.add_argument("--gui", action="store_true", help="local browser GUI (default)")
+    mode.add_argument("--gui", "--web", dest="gui", action="store_true", help="launch the browser GUI directly")
+    mode.add_argument("--terminal", action="store_true", help="launch the Textual terminal interface")
+    mode.add_argument("--choose", action="store_true", help="choose Web or Terminal in a native macOS window")
+    parser.add_argument("--terminal-child", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--check-terminal-bundle", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--project", type=Path, help="UltimateKirby project checkout to operate on")
     args = parser.parse_args()
+    if args.terminal_child and (not args.terminal or args.history):
+        parser.error('--terminal-child requires --terminal and cannot be used with --history')
     try:
-        state_dir = args.state_dir.expanduser().resolve()
-        if state_dir.is_relative_to(ROOT) and ".mod-workbench" not in state_dir.relative_to(ROOT).parts:
+        from workbench_reminal_ui import launcher
+        if args.check_terminal_bundle:
+            launcher.check_terminal_bundle()
+            return
+        interface = 'history' if args.history else 'cli' if args.cli else 'web' if args.gui else 'terminal' if args.terminal else None
+        if interface is None:
+            interface = launcher.choose_interface() if args.choose or sys.platform == 'darwin' else 'web'
+            if interface is None:
+                return
+        if args.terminal_child:
+            launcher.attach_terminal()
+        configured_state = Path(os.environ.get("KIRBY_ASSIST_STATE_DIR", STATE)).expanduser().resolve()
+        state_dir = args.state_dir.expanduser().resolve() if args.state_dir.expanduser().resolve() != STATE else configured_state
+        project_config = state_dir / "project-root.txt"
+        saved_project = project_config.read_text().strip() if IS_FROZEN and project_config.is_file() else ""
+        project = args.project.expanduser().resolve() if args.project else Path(saved_project or os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", PROJECT_ROOT)).expanduser().resolve()
+        if IS_FROZEN and not args.project and (not saved_project or not (project / "Cargo.toml").is_file()):
+            selection = subprocess.run(
+                ["osascript", "-e", 'POSIX path of (choose folder with prompt "Select your UltimateKirby project folder")'],
+                capture_output=True, text=True, check=False)
+            if selection.returncode:
+                raise RuntimeError("Project folder selection was cancelled")
+            project = Path(selection.stdout.strip()).expanduser().resolve()
+        manifest = project / "Cargo.toml"
+        if not manifest.is_file() or not (project / "deployment/ultimate/kirby_assist/sequences.txt").is_file():
+            raise RuntimeError("Select the root of a valid UltimateKirby project checkout (Cargo.toml and the deployment sequence source are required)")
+        if not (project / "tools" / "build_variants.py").is_file() and not (TOOLS_DIR / "build_variants.py").is_file():
+            raise RuntimeError("No build helper is available for the selected project")
+        if state_dir.is_relative_to(project) and ".mod-workbench" not in state_dir.relative_to(project).parts:
             raise RuntimeError("Keep history in .mod-workbench or outside the project so build source archives cannot include it")
+        if interface == 'terminal' and not launcher.has_terminal():
+            launcher.open_terminal(project, state_dir)
+            return
+        if IS_FROZEN:
+            project_config.parent.mkdir(parents=True, exist_ok=True)
+            project_config.write_text(str(project) + "\n")
+            os.environ["KIRBY_ASSIST_PROJECT_ROOT"] = str(project)
+            os.environ["KIRBY_ASSIST_FROZEN_ROOT"] = str(project)
+        PROJECT_ROOT = ROOT = project
+        DEFAULT_FILE = project / "deployment/ultimate/kirby_assist/assembled/sequences.txt"
+        workbench_history.ROOT = project
+        workbench_history.STATE = state_dir
+        workbench_history.TOOLS_DIR = TOOLS_DIR
+        sequence_sources.ROOT = project
+        sequence_sources.SOURCE = project / "deployment/ultimate/kirby_assist/sequences.txt"
+        sequence_sources.GENERATED = sequence_sources.SOURCE.parent / "assembled/sequences.txt"
+        sources.ROOT = project
+        sources.SOURCE = sequence_sources.SOURCE
+        sources.GENERATED = sequence_sources.GENERATED
+        upload_switch.PROJECT_ROOT = project
+        upload_switch.DEFAULT_RELEASE_ROOT = project.parent
+        upload_switch.DEPLOYMENT_SEQUENCES = sequence_sources.SOURCE
+        import build_variants
+        build_variants.ROOT = project
+        build_variants.RELEASE_VERSION = version()
+        build_variants.RELEASE_SUMMARY_NAME = f"RELEASE_SUMMARY-{build_variants.RELEASE_VERSION}.txt"
         with session_lock(state_dir):
             app = Workbench(History(state_dir))
-            if args.history:
+            if interface == 'history':
                 app.show_history()
-            elif args.cli:
+            elif interface == 'cli':
                 app.loop()
+            elif interface == 'terminal':
+                launcher.launch_terminal(app)
             else:
                 from workbench_gui import launch
                 launch(app)
     except (OSError, RuntimeError) as error:
+        if IS_FROZEN and not args.check_terminal_bundle:
+            message = str(error).replace("\\", "\\\\").replace('"', '\\"')
+            subprocess.run(["osascript", "-e", f'display dialog "{message}" with title "Kirby Assist Workbench" buttons {{"OK"}} default button "OK"'], check=False)
+            return
         parser.exit(1, f"{error}\n")
 
 

@@ -11,15 +11,21 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 import re
 import secrets
 import shlex
+import sys
 import stat
 import tempfile
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
+
+GUI_IDLE_TIMEOUT_SECONDS = 90
+GUI_IDLE_CHECK_SECONDS = 5
 
 import fighter_editor
 import sequence_sources as sources
@@ -27,6 +33,7 @@ import sequence_transfer as transfer
 from toml_compat import tomllib
 import upload_switch
 from workbench import DEFAULT_FILE, HELPERS, ROOT, TARGETS, helper, version
+import workbench
 from workbench_telemetry import TelemetryViewer
 
 
@@ -213,7 +220,7 @@ class Controller:
                 if sync_plan and sync_plan.get('original') != sources.assemble(sources.SOURCE):
                     sync_plan = self.app.prepare_silent_sequences()
                 with self.app.stage_silent_sequences(sync_plan) if sync_plan else contextlib.nullcontext():
-                    self.app.history.perform('set-version', {'version': release}, lambda: set_version(ROOT / 'Cargo.toml', release))
+                    self.app.history.perform('set-version', {'version': release}, lambda: set_version(workbench.PROJECT_ROOT / 'Cargo.toml', release))
                     self.app.build_release(target, cache)
                 if version() != release:
                     raise RuntimeError('Source version changed during build; upload cancelled')
@@ -373,14 +380,30 @@ class Controller:
         raise ValueError('Unknown editor action')
 
 
+def stop_when_ui_disconnected(server, controller, app, last_activity):
+    while server.fileno() != -1:
+        time.sleep(GUI_IDLE_CHECK_SECONDS)
+        if controller.snapshot()['busy']:
+            continue
+        if time.monotonic() - last_activity[0] > GUI_IDLE_TIMEOUT_SECONDS:
+            app.lan.disconnect()
+            server.shutdown()
+            return
+
+
+def track_gui_activity(last_activity):
+    last_activity[0] = time.monotonic()
+
+
 def launch(app):
     controller = Controller(app)
-    telemetry = TelemetryViewer(ROOT)
+    telemetry = TelemetryViewer(workbench.PROJECT_ROOT)
     from workbench_capture import LiveLogs, LOG_DIRECTORY, tail
     live_logs = LiveLogs(app.lan)
     token = secrets.token_hex(32)
-    html = Path(__file__).with_suffix('.html').read_text().replace('__TOKEN__', json.dumps(token))
-    initial = {'version': version(), 'cargo_home': app.preferences.get('cargo_home', '/private/tmp/kirby-assist-build-cargo'),
+    ui_root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+    html = (ui_root / 'workbench_gui.html').read_text().replace('__TOKEN__', json.dumps(token))
+    initial = {'version': version() or 'Project not selected', 'project_root': str(workbench.PROJECT_ROOT), 'cargo_home': app.preferences.get('cargo_home', '/private/tmp/kirby-assist-build-cargo'),
                'target': app.preferences.get('gui_target', 'all'), 'file': app.preferences.get('sequences', str(DEFAULT_FILE)),
                'source': app.preferences.get('gui_source', 'local'), 'destination': app.preferences.get('gui_destination', 'silent'),
                'source_file': str(DEFAULT_FILE),
@@ -396,6 +419,8 @@ def launch(app):
                'silent_host': app.host('silent'), 'diagnostic_host': app.host('diagnostic'),
                'lan_editor': app.lan_editor_state(), 'helpers': list(HELPERS)}
     html = html.replace('__INITIAL__', json.dumps(initial).replace('<', '\\u003c'))
+
+    last_activity = [time.monotonic()]
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -423,6 +448,7 @@ def launch(app):
             if api and (not supplied.isascii() or not secrets.compare_digest(supplied, token)):
                 self.respond(403, {'error': 'Invalid session token'})
                 return False
+            track_gui_activity(last_activity)
             return True
 
         def do_GET(self):
@@ -465,7 +491,7 @@ def launch(app):
                     return
                 try:
                     name, content_type = asset
-                    content = (Path(__file__).parent / 'workbench_ui' / name).read_text()
+                    content = (ui_root / 'workbench_ui' / name).read_text()
                     self.respond(200, content, content_type)
                 except OSError:
                     self.respond(404, {'error': 'UI asset unavailable'})
@@ -554,12 +580,17 @@ def launch(app):
     with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
         server.daemon_threads = True
         url = f'http://127.0.0.1:{server.server_port}/'
-        print('Workbench GUI:', url, flush=True)
-        print('Keep this terminal open. Use Close workbench in the window to exit.', flush=True)
+        if not getattr(sys, 'frozen', False):
+            print('Workbench GUI:', url, flush=True)
+            print('Keep this terminal open. Use Close workbench in the window to exit.', flush=True)
         try:
             telemetry.start()
             live_logs.thread.start()
             webbrowser.open(url)
+            idle_watcher = threading.Thread(
+                target=stop_when_ui_disconnected,
+                args=(server, controller, app, last_activity), daemon=True)
+            idle_watcher.start()
             server.serve_forever(poll_interval=0.3)
         except KeyboardInterrupt:
             print('\nClosing after any active operation finishes; transfers are not interrupted.', flush=True)

@@ -13,8 +13,13 @@ import subprocess
 import sys
 import uuid
 
-ROOT = Path(__file__).resolve().parents[1]
-STATE = ROOT / ".mod-workbench"
+ROOT = Path(os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", Path(__file__).resolve().parents[1])).expanduser().resolve()
+TOOLS_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)).resolve()
+STATE = Path(os.environ.get("KIRBY_ASSIST_STATE_DIR", ROOT / ".mod-workbench")).expanduser().resolve()
+if getattr(sys, "frozen", False):
+    ROOT = Path(os.environ.get("KIRBY_ASSIST_PROJECT_ROOT", ROOT)).expanduser().resolve()
+    STATE = Path(os.environ.get("KIRBY_ASSIST_STATE_DIR", Path.home() / "Library/Application Support/Kirby Assist Workbench")).expanduser().resolve()
+os.environ.setdefault("KIRBY_ASSIST_STATE_DIR", str(STATE))
 
 
 def digest(data: bytes) -> str:
@@ -120,6 +125,9 @@ class History:
 def command(argv: list[str], *, interactive: bool = True) -> dict:
     """Keep CLI confirmations; GUI closes stdin to avoid invisible prompts. No shell."""
     env = os.environ.copy()
+    if getattr(sys, "frozen", False):
+        cargo_bin = str(Path.home() / ".cargo" / "bin")
+        env["PATH"] = os.pathsep.join([cargo_bin, env.get("PATH", "")])
     env["CARGO_TERM_PROGRESS_WHEN"] = "never"
     env["CARGO_TERM_COLOR"] = "never"
     child = subprocess.Popen(argv, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

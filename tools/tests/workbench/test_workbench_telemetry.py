@@ -60,7 +60,7 @@ class TelemetryViewerTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('node'), 'Node required for setup JavaScript regression')
     def test_dashboard_setup_posts_empty_body_and_resets_frozen_data(self):
-        page = Path(__file__).resolve().parents[1] / 'crates/kirby_assist_core/examples/telemetry_viewer.html'
+        page = Path(__file__).resolve().parents[3] / 'crates/kirby_assist_core/examples/telemetry_viewer.html'
         html = page.read_text()
         script = html[html.index("$('connect').onsubmit"):html.index('setInterval(render, 100); poll();')]
         harness = '''
