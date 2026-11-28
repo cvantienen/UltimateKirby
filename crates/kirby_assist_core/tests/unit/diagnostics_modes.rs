@@ -77,6 +77,27 @@ mod tests {
             "down air"
         );
     }
+    #[test]
+    fn physical_control_state_transitions_are_logged_without_frame_spam() {
+        let mut recorder = Recorder::new();
+        let physical = Snapshot { winner: None, present: 0, ..snapshot() };
+        assert!(recorder.sample(physical, 0).is_none());
+        let airborne = Snapshot {
+            status: crate::native_states::status::ATTACK_AIR,
+            motion: crate::timing::motion_hash("attack_air_f"),
+            can_act: false,
+            ..physical
+        };
+        let report = recorder.sample(airborne, 1).unwrap();
+        assert!(report.format().contains("physical controls"));
+        assert!(report.format().contains("aerial attack"));
+        for frame in 2..1000 {
+            assert!(recorder.sample(Snapshot { native_frame: frame, ..airborne }, u64::from(frame)).is_none());
+        }
+        assert!(recorder.sample(Snapshot { valid: false, ..airborne }, 1000).unwrap()
+            .format().contains("assistance paused"));
+    }
+
     /// Regression test for `animation_frame_only_changes_do_not_spam_stable_modes`.
     #[test]
     fn animation_frame_only_changes_do_not_spam_stable_modes() {
@@ -230,15 +251,14 @@ mod tests {
         }
         assert!(left_result_space(f32::NAN, 1.0, 100.0).is_none());
     }
-    /// Regression test for `disabled_modes_do_not_log_manual_play_and_evidence_storage_is_bounded`.
     #[test]
-    fn disabled_modes_do_not_log_manual_play_and_evidence_storage_is_bounded() {
+    fn stable_physical_play_does_not_log_and_evidence_storage_is_bounded() {
         let mut r = Recorder::new();
         for ms in 0..1000 {
             let idle = Snapshot {
                 winner: None,
                 present: 0,
-                status: ms as i32,
+                native_frame: ms as u16,
                 ..snapshot()
             };
             assert!(r.sample(idle, ms).is_none());

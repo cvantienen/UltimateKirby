@@ -18,6 +18,8 @@ pub struct FeatureDetail {
     pub configured: Option<bool>,
     pub held: Option<bool>,
     pub blockers: Option<u64>,
+    pub proposed: Option<bool>,
+    pub selected: Option<bool>,
     mode: [u8; LABEL_BYTES],
     recipe: [u8; LABEL_BYTES],
 }
@@ -36,9 +38,36 @@ impl FeatureDetail {
             configured,
             held: None,
             blockers: None,
+            proposed: None,
+            selected: None,
             mode: label(mode),
             recipe: label(recipe),
         }
+    }
+    pub fn observe_policy(&mut self, snapshot: crate::diagnostics::modes::Snapshot, feature: usize) {
+        use crate::{action_owner::Owner, diagnostics::modes::bit};
+        let owners = [Owner::Safety, Owner::Safety, Owner::Safety, Owner::Safety,
+            Owner::OptionRead, Owner::Ledge, Owner::RollRead, Owner::Trip, Owner::Fair,
+            Owner::Trump, Owner::Defense, Owner::Turbo, Owner::Posture, Owner::OutOfShield,
+            Owner::GrabDodge, Owner::Reflect, Owner::Counter, Owner::Spacing];
+        let Some(&owner) = owners.get(feature) else { return; };
+        self.proposed = None;
+        self.selected = None;
+        let present = if feature < 4 {
+            snapshot.safety & (1 << feature) != 0
+        } else {
+            snapshot.present & bit(owner) != 0
+        };
+        let mut blockers = u64::from(!snapshot.valid);
+        if snapshot.valid {
+            self.proposed = Some(present);
+            self.selected = Some(present && snapshot.winner == Some(owner));
+            if present && snapshot.winner.is_some_and(|winner| winner != owner) {
+                blockers |= 8;
+            }
+        }
+        if self.held == Some(false) && self.configured == Some(true) { blockers |= 16; }
+        self.blockers = Some(blockers);
     }
     pub fn sample(self, object_id: u32, kind: i32, feature: usize) -> Option<Sample> {
         if feature >= POLICY_FEATURE_COUNT {
@@ -53,6 +82,8 @@ impl FeatureDetail {
         sample.values[0] = self.configured.map(u64::from);
         sample.values[1] = self.held.map(u64::from);
         sample.values[2] = self.blockers;
+        sample.values[3] = self.proposed.map(u64::from);
+        sample.values[4] = self.selected.map(u64::from);
         for (offset, bytes) in [(8, self.mode), (20, self.recipe)] {
             if bytes[0] == 0 {
                 continue;
@@ -345,6 +376,21 @@ pub const POLICY_FIELDS: [Field; FIELD_COUNT] = {
         kind: ValueKind::Boolean,
         source: "native animation stop observed by mapper policy",
     };
+    f[11] = Field {
+        name: "native_frame",
+        kind: ValueKind::Unsigned,
+        source: "copied policy animation frame; not a simulation tick",
+    };
+    f[12] = Field {
+        name: "proposed_stick_x",
+        kind: ValueKind::Signed,
+        source: "selected left-stick direction before mapping; absent means physical/unknown",
+    };
+    f[13] = Field {
+        name: "proposed_stick_y",
+        kind: ValueKind::Signed,
+        source: "selected left-stick direction before mapping; absent means physical/unknown",
+    };
     let names = [
         "auto_tech",
         "auto_mash",
@@ -407,6 +453,11 @@ pub fn policy_sample(
         v[8] = Some(snapshot.status as i64 as u64);
         v[9] = Some(snapshot.motion);
         v[10] = Some(u64::from(snapshot.stopped));
+        v[11] = Some(u64::from(snapshot.native_frame));
+        if let Some([x, y]) = snapshot.stick {
+            v[12] = Some(x as i64 as u64);
+            v[13] = Some(y as i64 as u64);
+        }
     }
     for (i, configured) in configured.into_iter().enumerate() {
         v[16 + i] = configured.map(u64::from);
@@ -430,7 +481,17 @@ pub const FEATURE_FIELDS: [Field; FIELD_COUNT] = {
         name: "observed_constraints",
         kind: ValueKind::Hex,
         source:
-            "scope invalid, stopped, not ready, other owner, hold released; not exhaustive causes",
+            "observed bits: 1=invalid scope, 8=another owner, 16=hold released; not exhaustive causes",
+    };
+    f[3] = Field {
+        name: "proposed",
+        kind: ValueKind::Boolean,
+        source: "feature-specific proposal in valid policy scope; not delivered input",
+    };
+    f[4] = Field {
+        name: "selected",
+        kind: ValueKind::Boolean,
+        source: "feature-specific proposal selected by arbitration; not a game receipt",
     };
     let mut i = 8;
     while i < 32 {

@@ -1,4 +1,5 @@
 """Managed receiver lifecycle tests; no device or existing pairing-file reads."""
+import http.client
 import shutil
 import subprocess
 import tempfile
@@ -94,6 +95,31 @@ if(!$('connect-status').textContent.includes('failed'))throw Error('Failure hidd
         self.assertIn('not authenticated or encrypted', html)
         self.assertIn('id="connect"', html)
 
+    @unittest.skipUnless(shutil.which('node'), 'Node required for raw dashboard regression')
+    def test_raw_dashboard_reports_loss_and_recovers_after_capture_shrinks(self):
+        page = Path(__file__).resolve().parents[2] / 'workbench_ui/dashboard.js'
+        script = page.read_text()
+        harness = '''
+const elements = new Proxy({}, {get(target,id){return target[id] ||= {value:'',checked:false,textContent:'',classList:{contains:()=>true}}}});
+const $ = id => elements[id];
+let incoming = {receiver:{status:'ready'},logs:{connected:true,dropped:12,epoch:3,error:''},
+  telemetry:{bytes:20,text:'old capture contents',truncated:false},
+  diagnostic:{bytes:0,text:'',truncated:false}};
+const api = async()=>incoming;
+'''
+        checks = '''
+(async()=>{
+await pollRaw();
+clearRaw('telemetry');
+incoming.telemetry={bytes:3,text:'new',truncated:false};
+await pollRaw();
+if($('raw-telemetry').textContent!=='new')throw Error('New capture hidden by old clear cursor');
+if(!$('rawStatus').textContent.includes('Native ring dropped 12')||!$('rawStatus').textContent.includes('Log session 3'))throw Error('Loss/session hidden');
+})().catch(error=>{console.error(error);process.exitCode=1});
+'''
+        result = subprocess.run(['node', '-e', harness + script + checks], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_proxy_is_bounded_to_owned_receiver_routes(self):
         process = Mock()
         process.poll.return_value = None
@@ -113,6 +139,10 @@ if(!$('connect-status').textContent.includes('failed'))throw Error('Failure hidd
             self.viewer.request('/connect?endpoint=192.168.1.1:4243')
         with self.assertRaises(ValueError):
             self.viewer.request('/arbitrary-file')
+        connection.getresponse.side_effect = http.client.RemoteDisconnected('receiver closed')
+        with patch('workbench_telemetry.http.client.HTTPConnection', return_value=connection):
+            with self.assertRaisesRegex(RuntimeError, 'HTTP response unavailable'):
+                self.viewer.request('/state')
         self.viewer.ready = False
         with self.assertRaises(RuntimeError):
             self.viewer.request('/state')

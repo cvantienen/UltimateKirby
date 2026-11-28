@@ -2076,7 +2076,7 @@ fn report_mode_snapshot(
             .iter()
             .any(|i| Some(i.owner) == winner && i.committed),
         requested: ledge.requested,
-        stick: turbo_output.stick.map(|stick| {
+        stick: winner_left_stick(arbitration, samples).map(|stick| {
             stick.map(|v| {
                 if v > 0.08 {
                     1
@@ -2093,7 +2093,7 @@ fn report_mode_snapshot(
         stopped: manual_context.is_some_and(|c| c.stopped),
         can_act: state.turbo_ready,
         hit: state.mode_hit,
-        valid: fresh && manual_scope,
+        valid: fresh && manual_scope && manual_context.is_some(),
         safety: (if state.tech_output.press || state.tech_output.owns_guard {
             kirby_assist_core::diagnostics::modes::SAFETY_TECH_GUARD
         } else {
@@ -2159,13 +2159,10 @@ fn report_mode_snapshot(
             configured[11] = Some(turbo);
             configured[16] = Some(counter);
         }
-        if super::telemetry::feature_details_due() {
+        if super::telemetry::feature_details_due(object_id) {
             publish_feature_details(state, frame, gate, snapshot, object_id, kind, configured);
         }
-        super::telemetry::publish_policy(object_id, kind, Snapshot {
-            valid: snapshot.valid && manual_context.is_some(),
-            ..snapshot
-        }, configured);
+        super::telemetry::publish_policy(object_id, kind, snapshot, configured);
     }
     // Reuse the mapper's timestamp; do not read another clock per poll.
     let origin = *state.mode_log_origin.get_or_insert(now);
@@ -2248,18 +2245,8 @@ fn publish_feature_details(
             }
         }
     }
-    let owners = [Owner::Safety, Owner::Safety, Owner::Safety, Owner::Safety,
-        Owner::OptionRead, Owner::Ledge, Owner::RollRead, Owner::Trip, Owner::Fair,
-        Owner::Trump, Owner::Defense, Owner::Turbo, Owner::Posture, Owner::OutOfShield,
-        Owner::OptionRead, Owner::Reflect, Owner::Counter, Owner::Spacing];
     for (i, detail) in details.iter_mut().enumerate() {
-        let present = snapshot.present & kirby_assist_core::diagnostics::modes::bit(owners[i]) != 0;
-        // Readiness is feature-specific: a generic stopped/can_act flag is not
-        // a blocker. Only report scope, actual losing proposals, and holds.
-        let mut blockers = u64::from(!snapshot.valid || state.manual_context.is_none());
-        if present && snapshot.winner.is_some_and(|winner| winner != owners[i]) { blockers |= 8; }
-        if detail.held == Some(false) && detail.configured == Some(true) { blockers |= 16; }
-        detail.blockers = Some(blockers);
+        detail.observe_policy(snapshot, i);
     }
     super::telemetry::publish_feature_details(object_id, kind, details);
 }

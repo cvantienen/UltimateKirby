@@ -86,6 +86,8 @@ class TelemetryViewer:
             if len(body) > 2 * 1024 * 1024:
                 raise ValueError('Oversized telemetry response')
             return response.status, response.getheader('Content-Type', 'text/plain'), body
+        except http.client.HTTPException as error:
+            raise RuntimeError(f'Telemetry receiver HTTP response unavailable: {error}') from error
         finally:
             connection.close()
 

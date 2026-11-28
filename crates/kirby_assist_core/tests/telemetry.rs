@@ -120,10 +120,10 @@ fn policy_observations_preserve_unknown_configuration_and_invalid_scope() {
         present: modes::bit(Owner::Safety),
         committed: false,
         requested: 0,
-        stick: None,
+        stick: Some([-1, 1]),
         status: 0,
         motion: 0,
-        native_frame: 0,
+        native_frame: 37,
         stopped: false,
         can_act: false,
         hit: None,
@@ -138,6 +138,9 @@ fn policy_observations_preserve_unknown_configuration_and_invalid_scope() {
     assert_eq!(sample.values[17], None);
     assert_eq!(sample.values[19], Some(1));
     assert_eq!(sample.values[7], None);
+    assert_eq!(sample.values[11], Some(37));
+    assert_eq!(sample.values[12], Some((-1i64) as u64));
+    assert_eq!(sample.values[13], Some(1));
     assert_eq!(sample.values[1], Some(u64::from(modes::bit(Owner::Safety))));
     for key in [KEY, b"".as_slice()] {
         let mut buffer = [0; 1200];
@@ -159,6 +162,8 @@ fn feature_details_are_bounded_utf8_and_preserve_missing_vs_explicit_choices() {
     let mut detail = FeatureDetail::new(Some(false), &"🦀".repeat(30), "None selected");
     detail.held = Some(false);
     detail.blockers = Some(16);
+    detail.proposed = Some(true);
+    detail.selected = Some(false);
     for feature in 0..POLICY_FEATURE_COUNT {
         let sample = detail.sample(42, 6, feature).unwrap();
         assert_eq!(feature_label(&sample, false).unwrap(), "🦀".repeat(24));
@@ -166,7 +171,7 @@ fn feature_details_are_bounded_utf8_and_preserve_missing_vs_explicit_choices() {
             feature_label(&sample, true).as_deref(),
             Some("None selected")
         );
-        assert_eq!(sample.values[..3], [Some(0), Some(0), Some(16)]);
+        assert_eq!(sample.values[..5], [Some(0), Some(0), Some(16), Some(1), Some(0)]);
         let mut bytes = [0; 1200];
         let size = encode(&sample, b"", &mut bytes).unwrap();
         assert!(size <= PACKET_LEN);
@@ -181,6 +186,41 @@ fn feature_details_are_bounded_utf8_and_preserve_missing_vs_explicit_choices() {
     unknown.values[8] = Some(u64::from_le_bytes(*b"a\0\0\0\0\0\0\0"));
     unknown.values[19] = None;
     assert!(feature_label(&unknown, false).is_none());
+}
+
+#[test]
+fn feature_evidence_distinguishes_safety_siblings_avoidance_and_follow_up() {
+    use kirby_assist_core::{action_owner::Owner, diagnostics::modes, telemetry::FeatureDetail};
+    let mut snapshot = modes::Snapshot {
+        winner: Some(Owner::Safety), present: modes::bit(Owner::Safety),
+        committed: false, requested: 0, stick: None, status: 0, motion: 0,
+        native_frame: 0, stopped: true, can_act: false, hit: None,
+        valid: true, safety: modes::SAFETY_DI,
+    };
+    let mut detail = FeatureDetail::new(Some(true), "", "");
+    for feature in 0..4 {
+        detail.observe_policy(snapshot, feature);
+        assert_eq!(detail.proposed, Some(feature == 3));
+        assert_eq!(detail.selected, Some(feature == 3));
+        assert_eq!(detail.blockers, Some(0));
+    }
+    snapshot.winner = Some(Owner::GrabDodge);
+    snapshot.present = modes::bit(Owner::GrabDodge);
+    detail.observe_policy(snapshot, 14);
+    assert_eq!(detail.selected, Some(true));
+    detail.observe_policy(snapshot, 4);
+    assert_eq!(detail.proposed, Some(false));
+    snapshot.present |= modes::bit(Owner::OptionRead);
+    detail.observe_policy(snapshot, 4);
+    assert_eq!(detail.proposed, Some(true));
+    assert_eq!(detail.selected, Some(false));
+    assert_eq!(detail.blockers, Some(8));
+    snapshot.valid = false;
+    detail.held = Some(false);
+    detail.observe_policy(snapshot, 4);
+    assert_eq!(detail.proposed, None);
+    assert_eq!(detail.selected, None);
+    assert_eq!(detail.blockers, Some(17));
 }
 
 fn config(switch: &str, computer: &str, port: &str, token: &str) -> String {

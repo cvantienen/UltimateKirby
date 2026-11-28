@@ -555,9 +555,97 @@ def test_assistance_analysis_distinguishes_proposal_from_delivery():
     assert rows[0][2] == 'Selected proposal (not delivery)'
     assert 'Required hold not pressed' in rows[0][5]
     assert 'do not confirm game execution' in summary
+    data['objects'][0]['values'] += [None] * 8 + [value('123', '0x7b'), value('-1', '0xffffffffffffffff'), value('0', '0x0')]
+    summary, _ = assistance_summary(schema, data, '0x1', 0, True)
+    assert 'Policy native frame: 123' in summary
+    assert 'Proposed stick X (quantized; not delivery): -1' in summary
     _, stale_rows = assistance_summary(schema, data, '0x1', 1000, True)
     assert stale_rows[0][2] == 'Unknown / stale'
     assert stale_rows[0][1] == 'Unknown'
+
+
+def test_feature_specific_proposals_override_shared_owner_masks():
+    from workbench_reminal_ui.telemetry import assistance_summary
+    def value(display, raw='0x1'):
+        return {'display': display, 'raw': raw}
+    def record(group, values):
+        return {'object_id': '0x1', 'group': group, 'age_ms': 0, 'stale': False, 'values': values}
+    features = [{'label': name, 'description': 'Input only', 'owner': 4,
+                 'safety': None, 'configured_index': 16 + i} for i, name in enumerate(['First', 'Second'])]
+    schema = {'features': features, 'feature_group_start': 11}
+    data = {'objects': [record(10, [value('true'), value('4', '0x4'), value('4', '0x4')]),
+                        record(11, [value('true'), None, None, value('true'), value('true')]),
+                        record(12, [value('true'), None, None, value('false', '0x0'), value('false', '0x0')])]}
+    _, rows = assistance_summary(schema, data, '0x1', 0, True)
+    assert rows[0][2] == 'Selected proposal (not delivery)'
+    assert rows[1][2] == 'No current proposal'
+    data['objects'] = data['objects'][:1]
+    _, rows = assistance_summary(schema, data, '0x1', 0, True)
+    assert all(row[2] == 'Unknown / stale' for row in rows)
+
+
+def test_assistance_missing_fields_and_unknown_blockers_are_not_false():
+    from workbench_reminal_ui.telemetry import assistance_summary, observation_rows
+    def record(group, values):
+        return {'object_id': '0x1', 'group': group, 'age_ms': 0, 'stale': False, 'values': values}
+    def value(display, raw):
+        return {'display': display, 'raw': raw}
+    schema = {'features': [{'label': 'Tool', 'description': 'Input only', 'owner': 4,
+                            'safety': None, 'configured_index': 16}], 'feature_group_start': 11}
+    policy = [value('true', '0x1'), value('4', 'malformed'), value('4', '0x4')] + [None] * 13 + [value('true', '0x1')]
+    detail = [None, value('true', '0x1'), value('32', '0x20')]
+    data = {'objects': [record(10, policy), record(11, detail), record(9, [None] * 14)]}
+    summary, rows = assistance_summary(schema, data, '0x1', 0, True)
+    assert rows[0][1] == 'Enabled preference'
+    assert rows[0][2] == 'Proposed; selection unknown'
+    assert 'Unknown constraint bits: 0x20' in rows[0][5]
+    assert 'Final mapped buttons: Unknown / unavailable' in summary
+    assert 'Final mapped left stick: Unknown / unavailable, Unknown / unavailable' in summary
+    detail[2] = value('invalid', 'invalid')
+    _, rows = assistance_summary(schema, data, '0x1', 0, True)
+    assert 'Constraint evidence unavailable' in rows[0][5]
+    data['objects'][0].pop('age_ms')
+    _, rows = assistance_summary(schema, data, '0x1', 0, True)
+    assert rows[0][1] == 'Unknown'
+    fields = {'policy': [{'index': 0, 'name': 'valid'}]}
+    assert observation_rows(fields, {'objects': [data['objects'][0]]}, 0, True)[0]['state'] == 'unavailable'
+
+
+@pytest.mark.asyncio
+async def test_receiver_restart_clears_old_schema_and_frozen_observations(model):
+    import time
+    from textual.widgets import Static
+    app = TerminalWorkbench(model)
+    app.polling = True
+    async with app.run_test(size=(130, 55)) as pilot:
+        await pilot.pause()
+        app.telemetry_schema = {'object': [{'index': 0, 'label': 'Old schema'}]}
+        app.telemetry_data = {'session': 'old', 'packets_per_second': 42, 'bytes_per_second': 1024,
+                              'gaps': '7', 'objects': []}
+        app.telemetry_session = 'old'
+        app.telemetry_received = time.monotonic() - 2
+        app.receiver_available = False
+        app.update_telemetry()
+        assert 'Packets/s —' in str(app.query_one('#telemetry_metrics', Static).content)
+        app.telemetry_frozen = (app.telemetry_data, time.monotonic(), True)
+        app.selected_telemetry_field = ('old', 0, 0)
+        app.consume_result('telemetry-start', {}, {'ready': False, 'status': 'Starting'})
+        assert app.telemetry_schema == {}
+        assert app.telemetry_data == {}
+        assert app.telemetry_received is None
+        assert app.telemetry_session is None
+        assert app.telemetry_frozen is None
+        assert app.selected_telemetry_field is None
+        app.telemetry_session = 'old'
+        app.telemetry_frozen = ({'session': 'old'}, time.monotonic(), True)
+        app.telemetry_previous['old'] = '0x1'
+        app.field_samples.append((time.monotonic(), 42))
+        app.accept_telemetry({'session': 'new', 'objects': []})
+        assert app.telemetry_session == 'new'
+        assert app.telemetry_frozen is None
+        assert not app.telemetry_previous and not app.field_samples
+        assert list(app.telemetry_samples) == [{'session': 'new', 'objects': []}]
+    app.backend.close()
 
 
 @pytest.mark.asyncio

@@ -10,11 +10,36 @@ use std::time::{Duration, Instant};
 
 static SAMPLING: AtomicBool = AtomicBool::new(false);
 static LAST: Mutex<Option<Instant>> = Mutex::new(None);
-static LAST_POLICY: Mutex<Option<(u64, Instant)>> = Mutex::new(None);
-static LAST_DETAILS: Mutex<Option<(u64, Instant)>> = Mutex::new(None);
+static LAST_POLICY: Mutex<PublicationGate> = Mutex::new(PublicationGate::new());
+static LAST_DETAILS: Mutex<PublicationGate> = Mutex::new(PublicationGate::new());
+
+struct PublicationGate {
+    session: u64,
+    objects: [Option<(u32, Instant)>; 16],
+}
+impl PublicationGate {
+    const fn new() -> Self {
+        Self { session: 0, objects: [None; 16] }
+    }
+    fn admit(&mut self, session: u64, object_id: u32, interval: Duration) -> bool {
+        if self.session != session {
+            self.session = session;
+            self.objects = [None; 16];
+        }
+        let index = self.objects.iter().position(|entry| entry.is_some_and(|(id, _)| id == object_id))
+            .or_else(|| self.objects.iter().position(Option::is_none))
+            .unwrap_or_else(|| self.objects.iter().enumerate()
+                .min_by_key(|(_, entry)| entry.unwrap().1).unwrap().0);
+        if self.objects[index].is_some_and(|(id, at)| id == object_id && at.elapsed() < interval) {
+            return false;
+        }
+        self.objects[index] = Some((object_id, Instant::now()));
+        true
+    }
+}
 
 /// Admit copied labels before constructing them; no native reads or blocking.
-pub(super) fn feature_details_due() -> bool {
+pub(super) fn feature_details_due(object_id: u32) -> bool {
     if !transport::ready() {
         return false;
     }
@@ -22,13 +47,7 @@ pub(super) fn feature_details_due() -> bool {
     let Ok(mut last) = LAST_DETAILS.try_lock() else {
         return false;
     };
-    if last.is_some_and(|(previous, at)| {
-        previous == session && at.elapsed() < Duration::from_millis(100)
-    }) {
-        return false;
-    }
-    *last = Some((session, Instant::now()));
-    true
+    last.admit(session, object_id, Duration::from_millis(100))
 }
 
 /// Called only after feature_details_due admits this bounded batch.
@@ -63,12 +82,9 @@ pub(super) fn publish_policy(
     let Ok(mut last) = LAST_POLICY.try_lock() else {
         return;
     };
-    if last.is_some_and(|(previous, at)| {
-        previous == session && at.elapsed() < Duration::from_millis(16)
-    }) {
+    if !last.admit(session, object_id, Duration::from_millis(16)) {
         return;
     }
-    *last = Some((session, Instant::now()));
     drop(last);
     transport::publish(kirby_assist_core::telemetry::policy_sample(
         object_id, kind, snapshot, configured,

@@ -303,7 +303,7 @@ class TerminalWorkbench(App):
             widget.theme = 'monokai'
         self.query_one('#history_table', DataTable).add_columns('Time', 'Action', 'Outcome', 'Target / version', 'Verified')
         self.query_one('#telemetry_table', DataTable).add_columns('Object', 'Group', 'Field', 'Value', 'Age / state', 'Mode / recipe')
-        self.query_one('#feature_table', DataTable).add_columns('Tool', 'Preference', 'Proposal evidence', 'Mode', 'Recipe', 'Constraints', 'Purpose / limits')
+        self.query_one('#feature_table', DataTable).add_columns('Tool', 'Effective preference (not active)', 'Proposal evidence', 'Mode', 'Recipe', 'Constraints', 'Purpose / limits')
         self.update_state()
         self.set_interval(0.5, self.refresh_backend)
         self.set_interval(0.2, self.refresh_output)
@@ -431,17 +431,12 @@ class TerminalWorkbench(App):
         if kind in {'telemetry-start', 'telemetry-stop'}:
             self.receiver_status = result['status']
             self.receiver_available = result['ready']
+            if kind == 'telemetry-start':
+                self.telemetry_schema = {}
+                self.reset_telemetry()
             self.update_telemetry()
         if kind == 'telemetry-connect':
-            self.telemetry_data = {}
-            self.telemetry_frozen = None
-            self.query_one('#telemetry_freeze', Checkbox).value = False
-            self.telemetry_samples.clear()
-            self.field_samples.clear()
-            self.telemetry_previous.clear()
-            self.telemetry_changes.clear()
-            self.selected_telemetry_field = None
-            self.telemetry_object = None
+            self.reset_telemetry()
             self.update_telemetry()
         if kind != 'run':
             return
@@ -634,6 +629,27 @@ class TerminalWorkbench(App):
         elif event.checkbox.id in {'feature_active', 'telemetry_schema_mode', 'telemetry_available'}:
             self.update_telemetry()
 
+    def reset_telemetry(self):
+        self.telemetry_data = {}
+        self.telemetry_received = None
+        self.telemetry_session = None
+        self.telemetry_frozen = None
+        self.query_one('#telemetry_freeze', Checkbox).value = False
+        self.telemetry_samples.clear()
+        self.field_samples.clear()
+        self.telemetry_previous.clear()
+        self.telemetry_changes.clear()
+        self.selected_telemetry_field = None
+        self.telemetry_object = None
+
+    def accept_telemetry(self, data):
+        if data.get('session') != self.telemetry_session:
+            self.reset_telemetry()
+            self.telemetry_session = data.get('session')
+        self.telemetry_data = data
+        self.telemetry_received = time.monotonic()
+        self.telemetry_samples.append(data)
+
     def telemetry_elapsed(self):
         return int((time.monotonic() - self.telemetry_received) * 1000) if self.telemetry_received is not None else 0
 
@@ -729,15 +745,7 @@ class TerminalWorkbench(App):
                 self.telemetry_schema = schema
                 self.text('telemetry_schema', json.dumps(schema, indent=2, ensure_ascii=False))
             if data:
-                if data.get('session') != self.telemetry_session:
-                    self.telemetry_session = data.get('session')
-                    self.telemetry_samples.clear()
-                    self.field_samples.clear()
-                    self.telemetry_previous.clear()
-                    self.telemetry_changes.clear()
-                self.telemetry_data = data
-                self.telemetry_received = time.monotonic()
-                self.telemetry_samples.append(data)
+                self.accept_telemetry(data)
             self.record_field_sample()
             self.update_telemetry()
             self.update_state()
@@ -831,7 +839,8 @@ class TerminalWorkbench(App):
                 status = 'frozen'
             cells = (row['object'], str(row['group']), label, decoded,
                      f"{row['age']} ms · {status}" if row['age'] is not None else status,
-                     f"{obj.get('mode') or ''} / {obj.get('recipe') or ''}")
+                     'Mode / recipe unavailable' if status in {'schema', 'unavailable'} else
+                     f"{obj.get('mode') or ''} / {obj.get('recipe') or ''}" + (' · stale' if status == 'stale' else ''))
             if search and search not in (' '.join(cells) + ' ' + str(field.get('name', '')) + ' ' + str(field.get('kind', '')) + ' ' + str(field.get('source', ''))).casefold():
                 continue
             raw = value.get('raw') if value else None
@@ -855,10 +864,11 @@ class TerminalWorkbench(App):
             table.move_cursor(row=min(cursor, table.row_count - 1))
         data = self.telemetry_data
         live_elapsed = self.telemetry_elapsed()
-        rate = data.get('packets_per_second')
-        byte_rate = data.get('bytes_per_second')
-        object_count = len({o['object_id'] for o in data.get('objects', []) if o.get('age_ms', 0) + live_elapsed < 1000})
-        self.query_one('#telemetry_metrics', Static).update(f"Packets/s {rate if rate is not None else '—'} · KiB/s {round(byte_rate / 1024, 2) if byte_rate is not None else '—'} · Objects {object_count} · Gaps {data.get('gaps', 0)}")
+        metrics_fresh = self.receiver_available and live_elapsed < 250
+        rate = data.get('packets_per_second') if metrics_fresh else None
+        byte_rate = data.get('bytes_per_second') if metrics_fresh else None
+        object_count = len({o['object_id'] for o in data.get('objects', []) if o.get('age_ms', 0) + live_elapsed < 1000}) if metrics_fresh else '—'
+        self.query_one('#telemetry_metrics', Static).update(f"Packets/s {rate if rate is not None else '—'} · KiB/s {round(byte_rate / 1024, 2) if byte_rate is not None else '—'} · Objects {object_count} · Gaps {data.get('gaps', '—')}")
         self.query_one('#packet-trend', Sparkline).data = [s['packets_per_second'] for s in self.telemetry_samples if isinstance(s.get('packets_per_second'), (int, float)) and math.isfinite(s['packets_per_second'])]
         self.query_one('#byte-trend', Sparkline).data = [s['bytes_per_second'] / 1024 for s in self.telemetry_samples if isinstance(s.get('bytes_per_second'), (int, float)) and math.isfinite(s['bytes_per_second'])]
         self.query_one('#telemetry_diagnostics', Static).update('\n'.join(f'{name}: {data.get(name, "—")}' for name in
@@ -881,7 +891,8 @@ class TerminalWorkbench(App):
         plot.plt.title(metric.replace('_', ' ').title() + ' · last 120 refreshes')
         plot.refresh()
         if self.telemetry_frozen:
-            self.query_one('#telemetry_status', Static).update(self.receiver_status + '\n❚❚ Frozen values · ages advance; live metrics and capture continue')
+            status = str(self.query_one('#telemetry_status', Static).content)
+            self.query_one('#telemetry_status', Static).update(status + '\n❚❚ Frozen values · ages advance; live metrics and capture continue')
         field_plot = self.query_one('#field-chart', PlotextPlot)
         field_plot.plt.clear_data()
         segment_x, segment_y = [], []
@@ -918,10 +929,10 @@ class TerminalWorkbench(App):
         for row in feature_rows:
             if search and search not in row[0].casefold():
                 continue
-            if only_active and row[1] != 'Enabled preference' and row[2] not in {'Selected proposal (not delivery)', 'Proposed; not selected'}:
+            if only_active and row[1] != 'Enabled preference' and row[2] not in {'Selected proposal (not delivery)', 'Proposed; not selected', 'Proposed; selection unknown'}:
                 continue
             preference_tone = '#78e2b0' if row[1] == 'Enabled preference' else '#ffd078' if row[1] == 'Unknown' else '#a3adbc'
-            evidence_tone = '#78e2b0' if row[2] == 'Selected proposal (not delivery)' else '#ffd078' if row[2] == 'Proposed; not selected' else '#a3adbc'
+            evidence_tone = '#78e2b0' if row[2] == 'Selected proposal (not delivery)' else '#ffd078' if row[2] in {'Proposed; not selected', 'Proposed; selection unknown', 'Unknown / stale'} else '#a3adbc'
             feature_table.add_row(row[0], Text(row[1], style=preference_tone), Text(row[2], style=evidence_tone), *row[3:])
 
     def action_toggle_output(self):

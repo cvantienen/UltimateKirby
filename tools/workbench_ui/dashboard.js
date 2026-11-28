@@ -146,10 +146,11 @@ async function pollRaw() {
   rawPolling = true;
   try {
     const data = await api('/api/raw');
-    $('rawStatus').textContent = `${data.receiver.status} · Diagnostic ${data.logs.connected ? 'connected' : 'disconnected'}${data.logs.error ? ' · ' + data.logs.error : ''}`;
+    $('rawStatus').textContent = `${data.receiver.status} · Diagnostic ${data.logs.connected ? 'connected' : 'disconnected'} · Native ring dropped ${data.logs.dropped ?? 'unknown'} · Log session ${data.logs.epoch ?? 'unknown'}${data.logs.error ? ' · ' + data.logs.error : ''}`;
     for (const kind of Object.keys(rawStreams)) {
       const stream = rawStreams[kind], incoming = data[kind];
       if (stream.frozen) continue;
+      if (incoming.bytes < stream.bytes) stream.cleared = 0;
       stream.bytes = incoming.bytes; stream.truncated = incoming.truncated;
       // Byte cursors also handle UTF-8 and clearing a currently truncated tail.
       const bytes = new TextEncoder().encode(incoming.text);

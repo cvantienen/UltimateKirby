@@ -523,10 +523,16 @@ fn policy_publication_is_bounded_read_only_and_requires_an_active_lease() {
             kirby_assist_core::telemetry::POLICY_GROUP
         );
         assert_eq!(w.reads, 0);
+    });
+    sampler::publish_policy(43, 6, snapshot, [None; 18]);
+    sampler::publish_policy(43, 6, snapshot, [None; 18]);
+    with_world(|w| {
+        assert_eq!(w.samples.len(), 2);
+        assert_eq!(w.samples[1].object_id, 43);
         w.session += 1;
     });
     sampler::publish_policy(42, 6, snapshot, [None; 18]);
-    with_world(|w| assert_eq!(w.samples.len(), 2));
+    with_world(|w| assert_eq!(w.samples.len(), 3));
 }
 
 #[test]
@@ -537,10 +543,12 @@ fn feature_detail_batches_are_throttled_and_revocation_blocks_publication() {
         w.session = 9876;
         w.ready = false;
     });
-    assert!(!sampler::feature_details_due());
+    assert!(!sampler::feature_details_due(42));
     with_world(|w| w.ready = true);
-    assert!(sampler::feature_details_due());
-    assert!(!sampler::feature_details_due());
+    assert!(sampler::feature_details_due(42));
+    assert!(!sampler::feature_details_due(42));
+    assert!(sampler::feature_details_due(43));
+    assert!(!sampler::feature_details_due(43));
     let details =
         [kirby_assist_core::telemetry::FeatureDetail::new(Some(true), "Held", "Example"); 18];
     sampler::publish_feature_details(42, 6, details);
@@ -555,7 +563,7 @@ fn feature_detail_batches_are_throttled_and_revocation_blocks_publication() {
         w.ready = true;
         w.session += 1;
     });
-    assert!(sampler::feature_details_due());
+    assert!(sampler::feature_details_due(42));
 }
 
 #[test]

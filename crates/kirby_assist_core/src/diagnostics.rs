@@ -667,7 +667,10 @@ pub mod modes {
                 || snapshot.winner.is_some()
                 || self
                     .previous
-                    .is_some_and(|p| p.present != 0 || p.winner.is_some());
+                    .is_some_and(|p| p.present != 0 || p.winner.is_some()
+                        || p.status != snapshot.status || p.motion != snapshot.motion
+                        || p.valid != snapshot.valid || p.stopped != snapshot.stopped
+                        || p.can_act != snapshot.can_act || p.hit != snapshot.hit);
             // Animation frame numbers enrich reports but must not make a stable
             // crouch/watch mode produce four log messages every second forever.
             let changed = self.previous.map(|mut previous| {

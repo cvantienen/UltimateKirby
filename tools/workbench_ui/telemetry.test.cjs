@@ -50,20 +50,20 @@ function fixtureState({ age = 0 } = {}) {
   };
 }
 
-async function mount({ age = 0 } = {}) {
+async function mount({ age = 0, schemaData = schema, stateData = fixtureState({ age }) } = {}) {
   const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'http://localhost/' });
   const { window } = dom;
-  const state = fixtureState({ age });
+  const state = stateData;
   window.fetch = async url => ({
     ok: true,
-    json: async () => String(url).includes('/schema') ? schema : state,
+    json: async () => String(url).includes('/schema') ? schemaData : state,
   });
   window.setInterval = () => 1;
   window.setTimeout = () => 1;
   window.clearTimeout = () => {};
   const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)?.[1];
   assert.ok(script, 'telemetry viewer inline script exists');
-  window.eval(script);
+  window.eval(script + '\nwindow.testPoll = poll;');
   await new Promise(resolve => setImmediate(resolve));
   await new Promise(resolve => setImmediate(resolve));
   return { dom, window, document: window.document };
@@ -143,4 +143,74 @@ test('active flags omit false and stale evidence; assist filters and metadata to
   d.getElementById('feature-search').dispatchEvent(new w.Event('input'));assert.doesNotMatch(d.getElementById('active-flags').textContent,/Can shield/);
   state.objects[0].values[3]=wireValue('true','1');state.objects[0].age_ms=300;
   d.getElementById('feature-search').dispatchEvent(new w.Event('input'));assert.doesNotMatch(d.getElementById('active-flags').textContent,/Can shield/);
+});
+
+test('feature-specific evidence separates shared owners and policy stick/frame is not delivery', async t => {
+  const schemaData = structuredClone(schema), stateData = fixtureState();
+  schemaData.features = [
+    {label:'Dodge follow-up',owner:4,safety:null,configured_index:16,description:'Input only'},
+    {label:'Other option read',owner:4,safety:null,configured_index:17,description:'Input only'},
+    {label:'Grab dodge',owner:8,safety:null,configured_index:18,description:'Independent GrabDodge owner'},
+  ];
+  const policy = stateData.objects[1].values;
+  policy[1] = wireValue('8','0x8'); policy[2] = wireValue('12','0xc');
+  policy[11] = wireValue('123','0x7b'); policy[12] = wireValue('-1','0xffffffffffffffff'); policy[13] = wireValue('0','0x0');
+  stateData.objects[2].values.push(wireValue('false','0x0'),wireValue('false','0x0'));
+  stateData.objects.push({...structuredClone(stateData.objects[2]), group:12, values:[wireValue('true','1'),null,null,wireValue('true','1'),wireValue('false','0')]});
+  stateData.objects.push({...structuredClone(stateData.objects[2]), group:13, values:[wireValue('true','1'),null,wireValue('0','0')]});
+  const {dom,document,window} = await mount({schemaData,stateData}); t.after(()=>dom.window.close());
+  const cards = [...document.querySelectorAll('.feature-card')];
+  assert.match(cards[0].textContent,/No current proposal/);
+  assert.match(cards[1].textContent,/Proposed; not selected/);
+  assert.match(cards[2].textContent,/Selected proposal \(not delivery\)/);
+  const summary = document.querySelector('#fighter-summary').textContent;
+  assert.match(summary,/Policy native frame123/);
+  assert.match(summary,/Proposed stick X \(quantized; not delivery\)-1/);
+  stateData.objects[2].values = stateData.objects[2].values.slice(0,3);
+  stateData.objects[3].values = stateData.objects[3].values.slice(0,3);
+  document.querySelector('#feature-search').dispatchEvent(new window.Event('input'));
+  assert.match(document.querySelector('.feature-card').textContent,/Unknown \/ stale/);
+});
+
+test('missing, stale and malformed evidence stays unknown and only reported blockers are labeled', async t => {
+  const schemaData = structuredClone(schema), stateData = fixtureState();
+  schemaData.feature = [{index:0,name:'configured',kind:'Boolean',source:'preference'}];
+  const detail = stateData.objects[2];
+  detail.values[1] = wireValue('true','1'); detail.values[2] = wireValue('38','0x26');
+  const {dom,document,window} = await mount({schemaData,stateData}); t.after(()=>dom.window.close());
+  let card = document.querySelector('.feature-card');
+  assert.match(card.textContent,/Unknown constraint bits: 0x26/);
+  assert.doesNotMatch(card.textContent,/Animation stopped|Native readiness not confirmed/);
+  assert.doesNotMatch(document.querySelector('#active-flags').textContent,/configured/);
+  detail.values[2] = wireValue('bad','not hex');
+  stateData.objects[1].values[1] = wireValue('bad','not hex');
+  document.querySelector('#feature-search').dispatchEvent(new window.Event('input'));
+  card = document.querySelector('.feature-card');
+  assert.match(card.textContent,/Constraint evidence unavailable/);
+  assert.match(card.textContent,/Proposed; selection unknown/);
+  detail.stale = true;
+  document.querySelector('#feature-search').dispatchEvent(new window.Event('input'));
+  assert.match(document.querySelector('.feature-card').textContent,/Details unknown \/ stale/);
+  delete detail.age_ms;
+  stateData.objects[1].stale = true;
+  document.querySelector('#feature-search').dispatchEvent(new window.Event('input'));
+  assert.match(document.querySelector('.feature-card').textContent,/Unknown \/ stale/);
+  assert.doesNotMatch(document.querySelector('.feature-card').textContent,/Reactive/);
+});
+
+test('session changes discard frozen observations and disconnects do not report fresh metrics', async t => {
+  const stateData = fixtureState();
+  const {dom,document,window} = await mount({stateData}); t.after(()=>dom.window.close());
+  document.querySelector('#pause').click();
+  assert.match(document.querySelector('#display-status').textContent,/Frozen/);
+  const next = fixtureState(); next.session = 'session-b'; next.objects[0].values[0] = wireValue('77','0x4d');
+  window.fetch = async url => ({ok:true,json:async()=>String(url).includes('/schema')?schema:next});
+  await window.testPoll();
+  assert.doesNotMatch(document.querySelector('#display-status').textContent,/Frozen/);
+  assert.match(document.querySelector('.observation-card').textContent,/77/);
+  window.fetch = async()=>{throw Error('disconnected');};
+  await window.testPoll();
+  assert.equal(document.querySelector('#packet-rate').textContent,'—');
+  assert.match(document.querySelector('.observation-card .chip').textContent,/Stale/);
+  assert.match(document.querySelector('.feature-card').textContent,/Unknown \/ stale/);
 });
