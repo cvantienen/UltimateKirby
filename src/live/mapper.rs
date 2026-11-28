@@ -1793,7 +1793,11 @@ fn sample_tools(
         && state.settings_menu.as_ref().is_some_and(|m| m.auto_spacing_held()))
         .then_some(state.spacing_output.movement_caps).flatten();
     let manual_walk_stick = spacing_caps
-        .map(|caps| kirby_assist_core::auto_spacing::manual_movement(physical_stick, caps))
+        .map(|caps| if state.spacing_output.walk_cap.is_some() {
+            kirby_assist_core::auto_spacing::manual_movement(physical_stick, caps)
+        } else {
+            physical_stick
+        })
         .or_else(|| manual_ledge_walk(state, frame, gate, turbo_output));
     let manual_context = state.manual_context;
     let posture = sample_mapper_posture(state, frame, gate, manual_context);
@@ -1819,7 +1823,8 @@ fn sample_tools(
         turbo_stick,
         pivot_stick,
         manual_walk_stick,
-        spacing_walk_cap: spacing_caps.and(state.spacing_output.walk_cap),
+        spacing_walk_cap: spacing_caps.and(state.spacing_output.walk_cap)
+            .map(|cap| ledge_walk_stick(physical_stick, cap)[0].abs()),
         spacing_manual_action,
         manual_context,
         posture,
@@ -2354,9 +2359,7 @@ fn compose_native_request(
         Some(Owner::OptionRead) => state.spot_dodge.as_ref().is_some_and(|s| s.walking()),
         Some(Owner::Spacing) =>
             handoff_situation == kirby_assist_core::native_states::situation::GROUND
-                && !samples.spacing_manual_action
-                && !(winner == Some(Owner::Spacing)
-                    && selected.stick.is_some_and(|stick| stick[0].abs() >= 0.8)),
+                && !samples.spacing_manual_action,
         _ => false,
     };
     let exclusive_sequence = selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
@@ -2383,7 +2386,6 @@ fn compose_native_request(
             winner != Some(Owner::Spacing) && (owned_direction_flick || walk_cap_flick)
                 || handoff_situation == kirby_assist_core::native_states::situation::GROUND
                     && (winner == Some(Owner::Spacing)
-                            && !selected.stick.is_some_and(|stick| stick[0].abs() >= 0.8)
                         || winner != Some(Owner::Spacing)
                             && !exclusive_sequence && samples.spacing_walk_cap.is_some()),
             LEFT_STICK_SIDE_FLICKS,

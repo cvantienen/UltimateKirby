@@ -1,4 +1,4 @@
-//! Bounded stop-and-wait transport for the same gated editor requests as HTTP.
+//! Bounded UDP stop-and-wait transport for gated editor requests.
 use super::{authorized, network::socket_result, Config, ACTIVATION};
 use std::sync::atomic::Ordering;
 use std::{
@@ -44,6 +44,8 @@ struct Transfer {
     received: usize,
     request: Vec<u8>,
     response: Option<Vec<u8>>,
+    response_finished: bool,
+    response_sent: usize,
     started: Instant,
 }
 impl Transfer {
@@ -61,7 +63,12 @@ impl Transfer {
         }
         if packet.index < self.received {
             let start = packet.index * CHUNK;
-            return self.request.get(start..start + packet.payload.len()) == Some(packet.payload);
+            let end = if packet.index + 1 == self.total {
+                self.request.len()
+            } else {
+                start + CHUNK
+            };
+            return self.request.get(start..end) == Some(packet.payload);
         }
         if packet.index != self.received || self.request.len() + packet.payload.len() > MAX_REQUEST
         {
@@ -83,6 +90,9 @@ pub(super) fn send(
     payload: &[u8],
     generation: u64,
 ) -> io::Result<()> {
+    if payload.len() > CHUNK || index > u16::MAX as usize || total > MAX_CHUNKS || id == 0 {
+        return Err(io::ErrorKind::InvalidInput.into());
+    }
     let mut bytes = [0u8; HEADER + CHUNK];
     bytes[..4].copy_from_slice(b"KALE");
     bytes[4] = kind;
@@ -93,7 +103,11 @@ pub(super) fn send(
     if !authorized(generation) {
         return Err(io::ErrorKind::PermissionDenied.into());
     }
-    socket_result(socket.send_to(&bytes[..HEADER + payload.len()], peer)).map(|_| ())
+    match socket_result(socket.send_to(&bytes[..HEADER + payload.len()], peer)) {
+        Ok(sent) if sent == HEADER + payload.len() => Ok(()),
+        Ok(_) => Err(io::ErrorKind::WriteZero.into()),
+        Err(error) => Err(error),
+    }
 }
 
 fn execute(request: &[u8], config: &Config, generation: u64) -> Vec<u8> {
@@ -121,14 +135,11 @@ fn execute(request: &[u8], config: &Config, generation: u64) -> Vec<u8> {
 
 pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
     let mut active: Option<Transfer> = None;
-    // Keep completed IDs even after another request starts: delayed uploads must never resave.
-    let mut completed: std::collections::VecDeque<(SocketAddr, u64, Instant)> =
-        std::collections::VecDeque::new();
+    // Never forget completed IDs during an activation: delayed uploads must not resave.
+    let mut completed = std::collections::HashSet::<(SocketAddr, u64)>::new();
     let mut bytes = [0u8; HEADER + CHUNK + 1];
     let generation = ACTIVATION.load(Ordering::Acquire);
     while authorized(generation) {
-        let now = Instant::now();
-        completed.retain(|(_, _, seen)| now.duration_since(*seen) < LIFETIME);
         if active
             .as_ref()
             .is_some_and(|t| t.started.elapsed() >= LIFETIME)
@@ -166,14 +177,16 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
             }
             let matching = active.as_ref().is_some_and(|t| t.matches(peer, &packet));
             if !matching {
-                if completed
-                    .iter()
-                    .any(|(p, id, _)| *p == peer && *id == packet.id)
+                if completed.contains(&(peer, packet.id))
                     || packet.index != 0
-                    || completed.len() >= 256
-                    || active.as_ref().is_some_and(|t| t.response.is_none())
+                    || packet.payload.is_empty()
+                    || (packet.total > 1 && packet.payload.len() != CHUNK)
+                    || active.as_ref().is_some_and(|t| !t.response_finished)
                 {
                     continue;
+                }
+                if completed.len() >= 4096 {
+                    return Err("UDP replay protection full; reactivate Training LAN".into());
                 }
                 active = Some(Transfer {
                     peer,
@@ -182,6 +195,8 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
                     received: 0,
                     request: Vec::new(),
                     response: None,
+                    response_finished: false,
+                    response_sent: 0,
                     started: Instant::now(),
                 });
             }
@@ -200,17 +215,36 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
                 generation,
             );
             if transfer.received == transfer.total && transfer.response.is_none() {
-                completed.push_back((peer, packet.id, Instant::now()));
+                completed.insert((peer, packet.id));
                 transfer.response = Some(execute(&transfer.request, config, generation));
             }
+        } else if packet.kind == 5 && packet.total == 0 && packet.payload.is_empty() {
+            if let Some(transfer) = active.as_mut().filter(|t| t.matches(peer, &packet)) {
+                if transfer.response.as_ref().is_some_and(|response| {
+                    transfer.response_sent == response.len().div_ceil(CHUNK)
+                        && packet.index == transfer.response_sent
+                }) {
+                    transfer.response_finished = true;
+                    let _ = send(
+                        &socket,
+                        peer,
+                        6,
+                        packet.id,
+                        packet.index,
+                        0,
+                        &[],
+                        generation,
+                    );
+                }
+            }
         } else if packet.kind == 3 && packet.total == 0 && packet.payload.is_empty() {
-            if let Some(transfer) = active.as_ref().filter(|t| t.matches(peer, &packet)) {
+            if let Some(transfer) = active.as_mut().filter(|t| t.matches(peer, &packet)) {
                 if let Some(response) = &transfer.response {
                     let total = response.len().div_ceil(CHUNK);
-                    if packet.index < total {
+                    if packet.index < total && packet.index <= transfer.response_sent {
                         let start = packet.index * CHUNK;
                         let end = (start + CHUNK).min(response.len());
-                        let _ = send(
+                        let sent = send(
                             &socket,
                             peer,
                             4,
@@ -220,6 +254,9 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
                             &response[start..end],
                             generation,
                         );
+                        if sent.is_ok() {
+                            transfer.response_sent = transfer.response_sent.max(packet.index + 1);
+                        }
                     }
                 }
             }
@@ -243,6 +280,26 @@ mod tests {
     }
 
     #[test]
+    fn outgoing_oversize_is_rejected_without_panicking() {
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        assert_eq!(
+            send(
+                &socket,
+                socket.local_addr().unwrap(),
+                4,
+                1,
+                0,
+                1,
+                &[0; CHUNK + 1],
+                0
+            )
+            .unwrap_err()
+            .kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
     fn upload_rejects_gaps_conflicting_retries_and_oversize() {
         let mut transfer = Transfer {
             peer: "127.0.0.1:4242".parse().unwrap(),
@@ -251,6 +308,8 @@ mod tests {
             received: 0,
             request: Vec::new(),
             response: None,
+            response_finished: false,
+            response_sent: 0,
             started: Instant::now(),
         };
         let gap = packet(1, 1, 1, 2, b"end");
@@ -263,6 +322,8 @@ mod tests {
         assert!(!transfer.upload(&Packet::parse(&changed).unwrap()));
         assert!(transfer.upload(&Packet::parse(&gap).unwrap()));
         assert_eq!(transfer.request.len(), CHUNK + 3);
+        let shortened = packet(1, 1, 1, 2, b"en");
+        assert!(!transfer.upload(&Packet::parse(&shortened).unwrap()));
         assert!(Packet::parse(&packet(1, 0, 0, 1, b"x")).is_none());
         assert!(Packet::parse(&packet(1, 1, 0, 1, &[0; CHUNK + 1])).is_none());
     }

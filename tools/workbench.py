@@ -150,7 +150,7 @@ def helper(name, *args):
 
 
 class LanDatagramPeer:
-    """Carry one HTTP request over acknowledged, bounded LAN fragments."""
+    """Carry one framed editor request over acknowledged, bounded UDP fragments."""
     header = struct.Struct('>4sBQHH')
 
     def __init__(self, remaining, response_limit):
@@ -181,7 +181,8 @@ class LanDatagramPeer:
         while attempts is None or attempt < attempts:
             attempt += 1
             self.peer.settimeout(self.remaining())
-            self.peer.send(packet)
+            if self.peer.send(packet) != len(packet):
+                raise OSError('Incomplete UDP datagram send')
             fragment_deadline = time.monotonic() + min(.15, self.remaining())
             while True:
                 wait = min(fragment_deadline - time.monotonic(), self.remaining())
@@ -197,7 +198,7 @@ class LanDatagramPeer:
                 magic, received_kind, transfer_id, received_index, received_total = self.header.unpack(response[:17])
                 if (magic, received_kind, transfer_id, received_index) != (b'KALE', response_kind, self.transfer_id, index):
                     continue
-                if response_kind == 2:
+                if response_kind in (2, 6):
                     if received_total == total and len(response) == 17:
                         return b'', received_total
                 elif 1 <= received_total <= 520 and index < received_total:
@@ -216,6 +217,7 @@ class LanDatagramPeer:
     def recv(self, size):
         if not self.buffer:
             if self.response_total is not None and self.response_index == self.response_total:
+                self.exchange(5, self.response_index, 0, b'', 6, attempts=3)
                 return b''
             chunk, total = self.exchange(3, self.response_index, 0, b'', 4)
             if not chunk or (self.response_index + 1 < total and len(chunk) != 1024):
@@ -239,7 +241,7 @@ class LanClient:
         self.state_lock = threading.RLock()
         self.connected = False
         self.host, self.port, self.token = '', 4242, ''
-        self.transport = 'http'
+        self.transport = 'udp'
         self.editing = False
         self.revision = None
         self.original = None
@@ -266,8 +268,10 @@ class LanClient:
 
     def _request(self, method, path, limit, body=b'', revision=None):
         generation = self.generation
-        deadline = time.monotonic() + (10 if method == 'PUT' else 2)
+        deadline = time.monotonic() + (10 if method == 'PUT' or limit >= 512 * 1024 else 2)
         def remaining():
+            if generation != self.generation:
+                raise RuntimeError('Session disconnected')
             value = deadline - time.monotonic()
             if value <= 0:
                 raise TimeoutError()
@@ -278,8 +282,7 @@ class LanClient:
             headers += f'X-Kirby-Token: {self.token}\r\n'
         if revision is not None:
             headers += f'X-Kirby-Revision: {revision}\r\n'
-        connection = (LanDatagramPeer(remaining, limit + 8196) if self.transport == 'udp'
-                      else socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+        connection = LanDatagramPeer(remaining, limit + 8196)
         with connection as peer:
             peer.settimeout(remaining())
             peer.connect((self.host, self.port))
@@ -320,6 +323,8 @@ class LanClient:
                 if not chunk:
                     raise ValueError('Incomplete HTTP body')
                 payload += chunk
+            if peer.recv(1):
+                raise ValueError('Unexpected trailing response bytes')
         if generation != self.generation:
             raise RuntimeError('Session disconnected')
         code = int(status[1])
@@ -346,9 +351,9 @@ class LanClient:
                     token = data.get('token', '')
                     if not isinstance(token, str) or (token and not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', token)):
                         raise ValueError('Token must be 32..128 ASCII letters, digits, hyphens or underscores')
-                    transport = data.get('transport', 'http')
-                    if transport not in ('http', 'udp'):
-                        raise ValueError('Select HTTP or UDP transport')
+                    transport = data.get('transport', 'udp')
+                    if transport != 'udp':
+                        raise ValueError('Only UDP transport is supported')
                     self.token, self.transport = token, transport
                 payload, _ = self._request('GET', '/status', 8191)
                 status = json.loads(payload)
@@ -965,10 +970,9 @@ class Workbench:
         if not host:
             return
         port = ask("Diagnostic LAN port (not FTP)", state["port"])
-        transport = ask("Transport (udp or http)", "udp").lower()
         self.configure_lan_editor(host, port)
         try:
-            print(self.lan.perform('connect', host=host, port=port, transport=transport))
+            print(self.lan.perform('connect', host=host, port=port, transport='udp'))
             while self.lan.connected:
                 action = choose("LAN actions", ["Read complete file to computer", "Preview and save computer file", "Read new logs", "Disconnect"])
                 if action is None or action == 3:

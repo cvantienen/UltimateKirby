@@ -90,7 +90,8 @@ class GuiTests(unittest.TestCase):
                 self.assertEqual(request('POST', '/api/lan', {'operation': 'connect',
                                         'host': '10.0.0.20', 'port': 4242, 'transport': 'udp'}, token)[0], 200)
                 perform.assert_called_once_with('connect', host='10.0.0.20', port=4242, transport='udp')
-                self.assertIn('<option value="udp" selected>', html)
+                self.assertIn("transport:'udp'", html)
+                self.assertNotIn('lanTransport', html)
                 self.assertIn("INITIAL.project_root", html)
                 self.assertIn('id="projectRoot"', html)
                 self.assertNotIn('lanToken', html)

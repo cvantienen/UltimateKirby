@@ -200,8 +200,6 @@ class TerminalWorkbench(App):
                             yield Static('Diagnostic Training only. Connect explicitly; complete-file save requires validation and exact-draft confirmation.', markup=False)
                             yield from field('Numeric private Switch IPv4', 'lan_host', p.get('lan_editor_host', ''))
                             yield from field('LAN port', 'lan_port', p.get('lan_editor_port', 4242))
-                            yield Label('Transport')
-                            yield Select([('HTTP', 'http'), ('UDP', 'udp')], value='udp', allow_blank=False, id='lan_transport')
                             yield from field('Optional shared token (never persisted)', 'lan_token', '', password=True)
                             yield from buttons(('lan-connect', 'Connect explicitly'), ('lan-disconnect', 'Disconnect'),
                                                ('lan-load', 'Load complete file'), ('lan-preview', 'Validate + preview'), ('lan-save', 'Save + reload…'))
@@ -556,7 +554,7 @@ class TerminalWorkbench(App):
             data = {'operation': operation}
             if operation == 'connect':
                 data.update(host=self.value('lan_host'), port=self.value('lan_port'),
-                            transport=self.value('lan_transport'), token=self.value('lan_token'))
+                            transport='udp', token=self.value('lan_token'))
             elif operation in {'preview', 'save'}:
                 data['text'] = self.value('lan_text')
             if operation == 'save':

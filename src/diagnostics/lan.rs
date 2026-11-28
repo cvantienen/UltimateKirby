@@ -6,7 +6,7 @@ use network::socket_result;
 mod udp;
 use std::{
     io,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream},
+    net::{Ipv4Addr, SocketAddrV4, UdpSocket},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex,
@@ -129,7 +129,7 @@ fn toggle_inner() -> Result<(), String> {
     if let Some(handle) = worker.take() {
         let _ = handle.join();
     }
-    set_status("STARTING — opening HTTP and UDP listeners (default port 4242)");
+    set_status("STARTING — opening UDP listener (default port 4242)");
     ACTIVATION.store(generation, Ordering::Release);
     ENABLED.store(true, Ordering::Release);
     if !authorized(generation) || !fresh(true) {
@@ -137,7 +137,7 @@ fn toggle_inner() -> Result<(), String> {
         return Err("Open the Training editor before activating LAN".into());
     }
     match std::thread::Builder::new()
-        .name("kirby-diagnostic-http".into())
+        .name("kirby-diagnostic-udp".into())
         .stack_size(2 * 1024 * 1024)
         .spawn(move || run(generation))
     {
@@ -284,14 +284,7 @@ fn serve(generation: u64) -> Result<(), String> {
     }
     // The installed Switch std backend owns socket/NIFM initialization. It may
     // wait on the OS; never run this on a game callback or finalize shared NIFM.
-    let listener = socket_result(TcpListener::bind(config.local))
-        .map_err(|e| format!("Cannot bind configured Switch address: {e}"))?;
-    socket_result(listener.set_nonblocking(true))
-        .map_err(|e| format!("Cannot set LAN listener nonblocking: {e}"))?;
-    if !authorized(generation) {
-        return Ok(());
-    }
-    let datagrams = socket_result(std::net::UdpSocket::bind(config.local))
+    let datagrams = socket_result(UdpSocket::bind(config.local))
         .map_err(|e| format!("Cannot bind UDP editor: {e}"))?;
     socket_result(datagrams.set_nonblocking(true))
         .map_err(|e| format!("Cannot set UDP editor nonblocking: {e}"))?;
@@ -299,79 +292,7 @@ fn serve(generation: u64) -> Result<(), String> {
         return Ok(());
     }
     listener_ready();
-    std::thread::scope(|scope| {
-        let worker = scope.spawn(|| {
-            let result = udp::serve(datagrams, &config);
-            if result.is_err() {
-                revoke();
-            }
-            result
-        });
-        let result = serve_http(listener, &config);
-        if result.is_ok() && enabled() {
-            set_status("Training observation expired; reopen editor and activate again");
-        }
-        revoke();
-        let udp_result = worker
-            .join()
-            .map_err(|_| "UDP editor worker failed".to_owned())?;
-        result.and(udp_result)
-    })
-}
-
-fn serve_http(listener: TcpListener, config: &Config) -> Result<(), String> {
-    let generation = ACTIVATION.load(Ordering::Acquire);
-    while authorized(generation) {
-        match socket_result(listener.accept()) {
-            Ok((mut stream, SocketAddr::V4(peer)))
-                if authorized(generation) && config.permits(*peer.ip()) =>
-            {
-                if socket_result(stream.set_nonblocking(true)).is_err() {
-                    continue;
-                }
-                let timeouts =
-                    socket_result(stream.set_read_timeout(Some(Duration::from_millis(200))))
-                        .and_then(|_| {
-                            socket_result(
-                                stream.set_write_timeout(Some(Duration::from_millis(200))),
-                            )
-                        });
-                if timeouts.is_err() {
-                    continue;
-                }
-                if handle(&mut stream, config).is_err() {
-                    // A failed client request must not disable the listener for everyone.
-                    continue;
-                }
-            }
-            Ok(_) => {} // Unpaired peers are closed without parsing or replying.
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                std::thread::sleep(Duration::from_millis(10))
-            }
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(error) => return Err(format!("Accept failed: {error}")),
-        }
-    }
-    Ok(())
-}
-
-fn handle(stream: &mut TcpStream, config: &Config) -> Result<(), String> {
-    use kirby_assist_core::diagnostic_http as http;
-    let started = Instant::now();
-    let generation = ACTIVATION.load(Ordering::Acquire);
-    let allowed = || authorized(generation) && started.elapsed() < Duration::from_secs(2);
-    let request = http::read_request(
-        &mut std::io::BufReader::with_capacity(4096, network::Stream(stream, allowed)),
-        allowed,
-    )
-    .map_err(|e| format!("{e:?}"))?;
-    dispatch(
-        &mut network::Stream(stream, || authorized(generation)),
-        config,
-        request,
-        started,
-        generation,
-    )
+    udp::serve(datagrams, &config)
 }
 
 fn dispatch<W: std::io::Write>(
@@ -637,42 +558,6 @@ mod tests {
     }
 
     #[test]
-    fn malformed_http_client_does_not_stop_next_tokenless_request() {
-        use std::io::{Read, Write};
-        let _serial = TEST_GATE.lock().unwrap();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let address = listener.local_addr().unwrap();
-        observe(true, true);
-        ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
-        ENABLED.store(true, Ordering::Release);
-        std::thread::scope(|scope| {
-            let server = scope.spawn(|| {
-                serve_http(
-                    listener,
-                    &Config {
-                        peer: Ipv4Addr::LOCALHOST,
-                        ..Config::default()
-                    },
-                )
-            });
-            let mut bad = TcpStream::connect(address).unwrap();
-            bad.write_all(b"GET /invalid HTTP/1.1\r\n\r\n").unwrap();
-            let mut discarded = Vec::new();
-            bad.read_to_end(&mut discarded).unwrap();
-            assert!(enabled());
-            observe(true, true);
-            let mut good = TcpStream::connect(address).unwrap();
-            good.write_all(b"GET /status HTTP/1.1\r\n\r\n").unwrap();
-            let mut response = String::new();
-            good.read_to_string(&mut response).unwrap();
-            assert!(response.contains("200 OK"), "{response}");
-            revoke();
-            server.join().unwrap().unwrap();
-        });
-    }
-
-    #[test]
     fn disabling_lan_stops_udp_worker_with_an_incomplete_connected_transfer() {
         use std::net::UdpSocket;
 
@@ -753,6 +638,8 @@ mod tests {
             wire.extend(body);
             let chunks: Vec<_> = wire.chunks(1024).collect();
             let mut response = [0u8; 1041];
+            client.send(&packet(1, 99, 0, 2, b"short")).unwrap();
+            assert!(client.recv(&mut response).is_err());
             for id in [1, 2] {
                 for (index, chunk) in chunks.iter().enumerate() {
                     observe(true, true);
@@ -765,12 +652,23 @@ mod tests {
                     client.send(&request).unwrap();
                     assert_eq!(client.recv(&mut response).unwrap(), 17);
                 }
+                client
+                    .send(&packet(1, 77, 0, 1, b"GET /status HTTP/1.1\r\n\r\n"))
+                    .unwrap();
+                assert!(
+                    client.recv(&mut response).is_err(),
+                    "unfinished reply cannot be evicted"
+                );
+                observe(true, true);
                 client.send(&packet(3, id, 0, 0, &[])).unwrap();
                 let n = client.recv(&mut response).unwrap();
                 assert_eq!(response[4], 4);
                 assert!(std::str::from_utf8(&response[17..n])
                     .unwrap()
                     .contains("\"saved\":true"));
+                client.send(&packet(5, id, 1, 0, &[])).unwrap();
+                assert_eq!(client.recv(&mut response).unwrap(), 17);
+                assert_eq!(response[4], 6);
             }
             client
                 .send(&packet(1, 1, 0, chunks.len() as u16, chunks[0]))
@@ -783,45 +681,35 @@ mod tests {
 
     #[test]
     fn paired_request_reads_logs_and_bad_token_never_reads_sequences() {
-        use std::io::{Read, Write};
         let _serial = TEST_GATE.lock().unwrap();
         for (token, expected) in [
             ("0123456789abcdef0123456789abcdef", "200 OK"),
             ("incorrect", "403 Forbidden"),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
-            let client = std::thread::spawn(move || {
-                let mut stream = TcpStream::connect(address).unwrap();
-                stream
-                    .write_all(
-                        format!("GET /logs?after=0 HTTP/1.1\r\nX-Kirby-Token: {token}\r\n\r\n")
-                            .as_bytes(),
-                    )
-                    .unwrap();
-                let mut response = String::new();
-                stream.read_to_string(&mut response).unwrap();
-                response
-            });
-            let (mut stream, _) = listener.accept().unwrap();
             observe(true, true);
-            ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
+            let generation = GENERATION.load(Ordering::Acquire);
+            ACTIVATION.store(generation, Ordering::Release);
             ENABLED.store(true, Ordering::Release);
+            let request = kirby_assist_core::diagnostic_http::read_request(
+                &mut io::Cursor::new(format!(
+                    "GET /logs?after=0 HTTP/1.1\r\nX-Kirby-Token: {token}\r\n\r\n"
+                )),
+                || true,
+            )
+            .unwrap();
             let config = Config {
-                local: SocketAddrV4::new(Ipv4Addr::LOCALHOST, 4242),
-                peer: Ipv4Addr::LOCALHOST,
                 token: "0123456789abcdef0123456789abcdef".into(),
+                ..Config::default()
             };
-            handle(&mut stream, &config).unwrap();
-            drop(stream);
-            assert!(client.join().unwrap().contains(expected));
+            let mut response = Vec::new();
+            dispatch(&mut response, &config, request, Instant::now(), generation).unwrap();
+            assert!(String::from_utf8(response).unwrap().contains(expected));
             revoke();
         }
     }
 
     #[test]
     fn paired_editor_flow_reports_admission_revision_and_save_result() {
-        use std::io::{Read, Write};
         let _serial = TEST_GATE.lock().unwrap();
         let token = "0123456789abcdef0123456789abcdef";
         let source = b"[yoshi.roll.grab]\nactions=grab\n";
@@ -860,27 +748,11 @@ mod tests {
                 "\"saved\":true",
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
             let mut wire = format!(
                 "{method} {route} HTTP/1.1\r\nX-Kirby-Token: {token}\r\nX-Kirby-Revision: {revision}\r\nContent-Length: {}\r\n\r\n",
                 body.len()
             ).into_bytes();
             wire.extend_from_slice(body);
-            let client = std::thread::spawn(move || {
-                let mut stream = TcpStream::connect(address).unwrap();
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
-                stream.write_all(&wire).unwrap();
-                let mut response = String::new();
-                stream.read_to_string(&mut response).unwrap();
-                response
-            });
-            let (mut stream, _) = listener.accept().unwrap();
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .unwrap();
             observe(true, editing);
             ACTIVATION.store(GENERATION.load(Ordering::Acquire), Ordering::Release);
             ENABLED.store(true, Ordering::Release);
@@ -889,9 +761,21 @@ mod tests {
                 peer: Ipv4Addr::LOCALHOST,
                 token: token.into(),
             };
-            handle(&mut stream, &config).unwrap();
-            drop(stream);
-            let response = client.join().unwrap();
+            let request = kirby_assist_core::diagnostic_http::read_request(
+                &mut io::Cursor::new(wire),
+                || true,
+            )
+            .unwrap();
+            let mut response = Vec::new();
+            dispatch(
+                &mut response,
+                &config,
+                request,
+                Instant::now(),
+                ACTIVATION.load(Ordering::Acquire),
+            )
+            .unwrap();
+            let response = String::from_utf8(response).unwrap();
             assert!(response.contains(expected), "{response}");
             assert!(response.contains(detail), "{response}");
             revoke();

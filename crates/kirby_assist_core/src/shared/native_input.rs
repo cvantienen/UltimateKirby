@@ -454,10 +454,7 @@ pub fn mapped_spacing_attack(buttons: u32, attack: bool, cstick: bool) -> u32 {
 }
 
 /// Final spacing packet, applied after movement caps and native mapping.
-/// Directional ground C-stick requests use the existing A + 0.6 tilt-stick
-/// mechanism so a neutral main stick cannot turn them into jabs. Clear C-stick
-/// flags/axes to avoid inheriting the player's Smash/Attack C-stick mapping.
-/// Aerial selection already owns the main stick; neutral attacks stay neutral.
+/// Preserve the selected C-stick independently of walking and native flick filtering.
 /// `left` and `right` must be the selected spacing packet, not physical axes.
 pub fn mapped_spacing_input(
     buttons: u32,
@@ -465,18 +462,10 @@ pub fn mapped_spacing_input(
     left: [f32; 2],
     right: [f32; 2],
 ) -> (u32, [f32; 2], [f32; 2]) {
-    let tilt = attack && right.iter().all(|v| v.is_finite())
+    let cstick = attack && right.iter().all(|v| v.is_finite())
         && right.iter().any(|v| v.abs() > 0.5);
-    let left = if tilt {
-        if right[1].abs() > right[0].abs() {
-            [right[0].clamp(-0.2, 0.2), right[1].signum() * 0.6]
-        } else {
-            [right[0].signum() * 0.6, 0.]
-        }
-    } else {
-        left
-    };
-    (mapped_spacing_attack(buttons, attack, false), left, [0.; 2])
+    (mapped_spacing_attack(buttons, attack, cstick), left,
+        if cstick { right } else { [0.; 2] })
 }
 
 /// Clear stale shield history only after the caller verifies no guard request remains.

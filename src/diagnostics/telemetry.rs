@@ -23,7 +23,11 @@ fn subscribe(subscriber: &mut Option<Subscriber>, bytes: &[u8], peer: SocketAddr
         return;
     }
     if let SocketAddr::V4(peer) = peer {
-        if telemetry::private_peer(peer) {
+        if telemetry::private_peer(peer)
+            && subscriber.as_ref().is_none_or(|current| {
+                current.peer == peer || now.duration_since(current.renewed) >= telemetry::SUBSCRIBER_LEASE
+            })
+        {
             *subscriber = Some(Subscriber { peer, renewed: now });
         }
     }
@@ -295,6 +299,7 @@ fn serve_socket(socket: UdpSocket, config: Option<Config>, generation: u64) -> R
                     subscribe(&mut subscriber, &subscription[..n], peer, Instant::now())
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(format!("Telemetry subscription: {e}")),
             }
         }
@@ -330,7 +335,7 @@ fn serve_socket(socket: UdpSocket, config: Option<Config>, generation: u64) -> R
                 Err(e)
                     if matches!(
                         e.kind(),
-                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::ConnectionRefused
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::Interrupted
                     ) =>
                 {
                     DROPPED.fetch_add(1, Ordering::Relaxed);
@@ -419,6 +424,18 @@ mod tests {
             now + telemetry::SUBSCRIBER_LEASE + Duration::from_secs(1)
         )
         .is_none());
+    }
+    #[test]
+    fn active_subscriber_cannot_be_replaced_until_lease_expires() {
+        let now = Instant::now();
+        let first = "192.168.1.20:5000".parse().unwrap();
+        let second = "192.168.1.21:5000".parse().unwrap();
+        let mut subscriber = None;
+        subscribe(&mut subscriber, telemetry::SUBSCRIPTION, first, now);
+        subscribe(&mut subscriber, telemetry::SUBSCRIPTION, second, now + Duration::from_millis(1));
+        assert_eq!(SocketAddr::V4(subscriber.as_ref().unwrap().peer), first);
+        subscribe(&mut subscriber, telemetry::SUBSCRIPTION, second, now + telemetry::SUBSCRIBER_LEASE);
+        assert_eq!(SocketAddr::V4(subscriber.as_ref().unwrap().peer), second);
     }
     #[test]
     fn bounded_mailbox_retains_newest_and_preserves_sequence() {

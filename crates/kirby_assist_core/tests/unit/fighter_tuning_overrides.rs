@@ -124,11 +124,11 @@ fn auto_spacing_overrides_roundtrip_independently() {
     assert_eq!(config.minimum_distance, 14.5);
     assert_eq!(config.engagement_range, 23.5);
     assert_eq!(config.ground_speed, 1.);
-    assert_eq!(config.maximum_drift, 0.6);
-    assert_eq!(config.minimum_drift, 0.15);
-    assert!(!config.ground_braking);
-    assert!(config.air_braking);
-    assert_eq!(config.braking_distance, 3.5);
+    assert_eq!(loaded.get(AUTO_SPACING_MAXIMUM_DRIFT), 0.6);
+    assert_eq!(loaded.get(AUTO_SPACING_MINIMUM_DRIFT), 0.15);
+    assert_eq!(loaded.get(AUTO_SPACING_GROUND_BRAKING), 0.);
+    assert_eq!(loaded.get(AUTO_SPACING_AIR_BRAKING), 1.);
+    assert_eq!(loaded.get(AUTO_SPACING_BRAKING_DISTANCE), 3.5);
     assert!(matches!(config.ground.attack, Attack::Up));
     assert!(matches!(config.aerial.attack, Attack::Back));
     assert_eq!(
@@ -197,7 +197,7 @@ fn auto_spacing_saved_lucina_values_survive_new_defaults() {
     assert_eq!(config.aerial.attack, crate::auto_spacing::Attack::Forward);
     assert_eq!(config.minimum_distance, 12.);
     assert_eq!(config.ground_speed, 0.);
-    assert_eq!(config.maximum_drift, 0.45);
+    assert_eq!(tuning.get(AUTO_SPACING_MAXIMUM_DRIFT), 0.45);
     assert_eq!(config.fighter_kind, crate::fighter_kinds::LUCINA);
     let source = persist::update_tuning("", crate::fighter_kinds::LUCINA, tuning).unwrap();
     assert!(!source.contains("reactive_retreat"));
@@ -222,14 +222,10 @@ fn auto_spacing_defaults_resolve_by_fighter_and_match_menu() {
             ..AssistSettings::default()
         });
         assert_eq!(config.minimum_distance, menu[AUTO_SPACING_MINIMUM_DISTANCE]);
-        assert_eq!(config.maximum_drift, menu[AUTO_SPACING_MAXIMUM_DRIFT]);
+        assert_eq!(config.ground_speed, menu[AUTO_SPACING_GROUND_SPEED]);
         assert_eq!(config.ground_speed, 0.49);
         assert_eq!(config.minimum_distance, 15.);
         assert_eq!(config.engagement_range, 20.);
-        assert!(config.ground_braking && config.air_braking);
-        assert_eq!(config.braking_distance, 10.);
-        assert_eq!(config.minimum_drift, 0.1);
-        assert_eq!(config.maximum_drift, 1.);
         assert!(matches!(config.ground.attack, Attack::Disabled));
         assert!(matches!(config.aerial.attack, Attack::Disabled));
         assert_eq!(menu[AUTO_SPACING_GROUND_MOVE], 0.);

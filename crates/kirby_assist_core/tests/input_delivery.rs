@@ -8,6 +8,80 @@ use kirby_assist_core::{
     settings::AssistSettings,
 };
 #[test]
+fn spacing_cstick_delivery_preserves_direction_jump_and_retry_edges() {
+    use kirby_assist_core::{auto_spacing::{Spacing, Config, Attack, AttackConfig},
+        native_states::{situation, status}};
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        for airborne in [false, true] {
+            for side in [-1., 1.] {
+                for (attack, direction) in [(Attack::Forward, [side, 0.]),
+                    (Attack::Back, [side, 0.]), (Attack::Up, [0., 1.]),
+                    (Attack::Down, [0., -1.]), (Attack::Neutral, [0.; 2])] {
+                    let move_config = AttackConfig { attack, ..Default::default() };
+                    let cfg = Config { ground: move_config, aerial: move_config, ..Default::default() };
+                    let c = GameplayContext { gameplay: true, can_control: true,
+                        can_act: true, can_air_attack: true, facing: -side,
+                        situation: if airborne { situation::AIR } else { situation::GROUND },
+                        status: if airborne { status::FALL } else { status::WAIT },
+                        ..Default::default() };
+                    let mut spacing = Spacing::default();
+                    let mut overlay = ManualOverlay::default();
+                    for tick in 1..=5 {
+                        let out = spacing.sample(tick, true, cfg, c,
+                            Some(Opponent { position: [side * 18., 0.], ..Default::default() }));
+                        let raw = overlay.apply_reaction_controls(
+                            ButtonTrace { held: layout.physical_buttons(MAPPER_X | MAPPER_B),
+                                ..Default::default() }, [side, -1.],
+                            TurboOutput { stick: out.controller.stick },
+                            MAPPER_LEFT_STICK_HORIZONTAL,
+                            layout.physical_buttons(out.controller.requested),
+                            layout.physical_owned_buttons(out.controller.owned), true);
+                        let firing = tick % 2 == 1;
+                        assert_eq!(out.attack, firing);
+                        assert_eq!(raw.stick, [0.; 2]);
+                        assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_HORIZONTAL, 0);
+                        assert_eq!(raw.buttons.held & layout.physical_buttons(MAPPER_B), 0);
+                        assert_eq!(raw.buttons.held & layout.physical_buttons(MAPPER_X),
+                            layout.physical_buttons(MAPPER_X));
+                        if firing {
+                            assert_ne!(raw.buttons.pressed & layout.physical_buttons(out.controller.requested), 0);
+                        }
+                        let (buttons, left, right) = mapped_spacing_input(
+                            MAPPED_JUMP | MAPPED_SPECIAL | MAPPED_GUARD | MAPPED_CATCH,
+                            out.attack, raw.stick, out.right_stick);
+                        assert_eq!(left, [0.; 2]);
+                        assert_eq!(right, if firing { direction } else { [0.; 2] });
+                        assert_eq!(buttons, MAPPED_JUMP | if firing {
+                            mapped_spacing_attack(0, true, attack != Attack::Neutral)
+                        } else { 0 });
+                        if firing { spacing.mapped(tick); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn spacing_walk_delivery_matches_ledge_walk_and_clears_dash_flicks() {
+    for side in [-1., 1.] {
+        for speed in [0.1, 0.35, 0.45, 1.] {
+            for physical_stick in [[side, 0.], [side * 0.8, 0.], [side, -1.]] {
+                let walk = kirby_assist_core::auto_spacing::manual_movement(physical_stick, [speed; 2]);
+                let raw = ManualOverlay::default().apply_reaction_controls(
+                    ButtonTrace { held: MAPPER_X | MAPPER_LEFT_STICK_HORIZONTAL,
+                        ..Default::default() }, physical_stick, TurboOutput { stick: Some(walk) },
+                    MAPPER_LEFT_STICK_HORIZONTAL, 0, MAPPER_LEFT_STICK_DIRECTIONS, true);
+                assert_eq!(raw.stick, kirby_assist_core::manual_controls::ledge_walk_stick(physical_stick, speed));
+                assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_HORIZONTAL, 0);
+                assert_eq!(raw.buttons.pressed & MAPPER_LEFT_STICK_HORIZONTAL, 0);
+                assert_eq!(raw.buttons.held & MAPPER_X, MAPPER_X);
+            }
+        }
+    }
+}
+
+#[test]
 fn counter_literal_delivery_survives_raw_mapping_loss_in_both_layouts() {
     use kirby_assist_core::{auto_counter::{Counter, Config, Context, Threat},
         fighter_kinds, native_states::{status, situation}, timing::AnimationSample};
@@ -29,158 +103,6 @@ fn counter_literal_delivery_survives_raw_mapping_loss_in_both_layouts() {
         assert_eq!(mapped & (MAPPED_ATTACK | MAPPED_GUARD), 0);
         counter.mapped();
         assert!(counter.awaiting_receipt());
-    }
-}
-
-#[test]
-fn spacing_fair_delivery_preserves_direction_in_both_control_layouts() {
-    use kirby_assist_core::{auto_spacing::{Spacing, Config, Attack, AttackConfig},
-        native_states::{situation, status}};
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for side in [-1., 1.] {
-            let mut spacing = Spacing::default();
-            let c = GameplayContext { gameplay: true, can_control: true, can_air_attack: true,
-                situation: situation::AIR, status: status::FALL, facing: side, ..Default::default() };
-            let config = Config { aerial: AttackConfig { attack: Attack::Forward, startup: 6.,
-                active_frames: 3., reach: 20., height: 12., commitment: 30. }, ..Default::default() };
-            let out = spacing.sample(1, true, config, c, Some(Opponent {
-                position: [side * 10., 0.], vulnerable: true, ..Default::default()
-            }));
-            let physical = layout.physical_buttons(MAPPER_A | MAPPER_B | SEQUENCE_JUMP_BUTTONS);
-            let raw = ManualOverlay::default().apply_reaction_controls(
-                ButtonTrace { held: physical, previous: physical, ..Default::default() },
-                [-side, 0.], TurboOutput { stick: out.controller.stick, ..Default::default() },
-                0, layout.physical_buttons(out.controller.requested),
-                layout.physical_owned_buttons(out.controller.owned), true,
-            );
-            assert_eq!(raw.stick, [side, 0.]);
-            assert_ne!(raw.buttons.held & layout.physical_buttons(MAPPER_A), 0);
-            assert_eq!(raw.buttons.held & MAPPER_RIGHT_STICK_DIRECTIONS, 0);
-            let mapped = mapped_spacing_attack(MAPPED_JUMP | MAPPED_SPECIAL | 0x80, out.attack, false);
-            assert_ne!(mapped & MAPPED_ATTACK, 0);
-            assert_ne!(mapped & MAPPED_JUMP, 0);
-            assert_eq!(mapped & (MAPPED_SPECIAL | 0x80), 0);
-            assert_eq!(mapped_stick_axis(raw.stick[0]), (side * 127.) as i8);
-        }
-    }
-}
-
-#[test]
-fn spacing_final_tilts_preserve_direction_instead_of_becoming_jabs() {
-    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
-        native_states::{situation, status}};
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for side in [-1., 1.] {
-            for (attack, direction) in [(Attack::Forward, [side * 0.6, 0.]),
-                (Attack::Up, [0., 0.6]), (Attack::Down, [0., -0.6]), (Attack::Neutral, [0.; 2])] {
-                let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-                    situation: situation::GROUND, status: status::WAIT, facing: side,
-                    walk_stick: Some(0.69), safe_ground: [true; 2], ..Default::default() };
-                let cfg = Config { ground_speed: 0., minimum_drift: 0., ground: AttackConfig {
-                    attack, startup: 8., active_frames: 5., reach: 20., height: 9., commitment: 33.,
-                }, ..Default::default() };
-                let mut spacing = Spacing::default();
-                for tick in 1..=3 {
-                    let out = spacing.sample(tick, true, cfg, c, Some(Opponent {
-                        position: [side * 18., 0.], vulnerable: true, ..Default::default()
-                    }));
-                    assert_eq!(out.right_stick, [0.; 2]);
-                    assert_eq!(out.controller.requested, if tick == 2 { 0 } else { MAPPER_A });
-                    assert_eq!(out.controller.stick, Some(if tick == 2 { [0.; 2] } else { direction }));
-                    let human = layout.physical_buttons(MAPPER_A | MAPPER_B | SEQUENCE_JUMP_BUTTONS
-                        | MAPPER_LEFT_STICK_DIRECTIONS | MAPPER_RIGHT_STICK_DIRECTIONS);
-                    let raw = ManualOverlay::default().apply_reaction_controls(
-                        ButtonTrace { held: human, previous: human, ..Default::default() },
-                        [-side, -1.], TurboOutput { stick: out.controller.stick, ..Default::default() },
-                        MAPPER_LEFT_STICK_HORIZONTAL, layout.physical_buttons(out.controller.requested),
-                        layout.physical_owned_buttons(out.controller.owned), true,
-                    );
-                    assert_eq!(raw.buttons.held & (MAPPER_LEFT_STICK_HORIZONTAL | MAPPER_RIGHT_STICK_DIRECTIONS), 0);
-                    assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_UP,
-                        if attack == Attack::Up && tick != 2 { MAPPER_LEFT_STICK_UP } else { 0 });
-                    assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_DOWN,
-                        if attack == Attack::Down && tick != 2 { MAPPER_LEFT_STICK_DOWN } else { 0 });
-                    let (buttons, left, right) = mapped_spacing_input(
-                        MAPPED_JUMP | MAPPED_SPECIAL | MAPPED_GUARD | 0x80,
-                        out.attack, raw.stick, out.right_stick,
-                    );
-                    assert_eq!(buttons & MAPPED_ATTACK_HOLD_BITS,
-                        if tick == 2 { 0 } else { MAPPED_ATTACK_HOLD_BITS });
-                    assert_eq!(buttons & MAPPED_JUMP, MAPPED_JUMP);
-                    assert_eq!(buttons & (MAPPED_SPECIAL | MAPPED_GUARD | 0x80), 0);
-                    assert_eq!(left, if tick == 2 { [0.; 2] } else { direction });
-                    assert_eq!(right, [0.; 2]);
-                    if out.attack { spacing.mapped(tick); }
-                }
-            }
-        }
-    }
-    for direction in [[0., 0.], [-1., 0.], [1., 0.], [0., 1.], [0., -1.]] {
-        let (buttons, left, right) = mapped_spacing_input(MAPPED_JUMP, true, direction, [0.; 2]);
-        assert_eq!(left, direction);
-        assert_eq!(right, [0.; 2]);
-        assert_eq!(buttons, MAPPED_JUMP | MAPPED_ATTACK_HOLD_BITS);
-    }
-}
-
-#[test]
-fn adaptive_spacing_drift_survives_manual_overlay_without_weakening_fair_selection() {
-    use kirby_assist_core::{auto_spacing::{Spacing, Config, Attack, AttackConfig},
-        native_states::{situation, status}};
-    let c = GameplayContext { gameplay: true, can_control: true, situation: situation::AIR,
-        status: status::FALL, facing: 1., ..Default::default() };
-    let cfg = Config { minimum_distance: 15., maximum_drift: 0.6, minimum_drift: 0.1,
-        braking_distance: 10., ..Default::default() };
-    let target = Some(Opponent { position: [20., 0.], vulnerable: true, ..Default::default() });
-    let out = Spacing::default().sample(1, true, cfg, c, target);
-    assert_eq!(out.controller.stick, None);
-    for (input, expected) in [(1., 1.), (-1., -1.)] {
-        let stick = kirby_assist_core::auto_spacing::manual_movement([input, 0.], out.movement_caps.unwrap());
-        let raw = ManualOverlay::default().apply_reaction_controls(
-            ButtonTrace::default(), [input, 0.], TurboOutput { stick: Some(stick), ..Default::default() },
-            0, out.controller.requested, out.controller.owned, true,
-        );
-        assert!((raw.stick[0] - expected).abs() < 0.0001);
-        assert_eq!(mapped_stick_axis(raw.stick[0]), mapped_stick_axis(expected));
-    }
-    let attack = Spacing::default().sample(2, true, Config {
-        aerial: AttackConfig { attack: Attack::Forward, startup: 6., active_frames: 3.,
-            reach: 20., height: 12., commitment: 30. }, ..cfg
-    }, GameplayContext { can_air_attack: true, ..c }, target);
-    assert!(attack.attack);
-    assert_eq!(attack.controller.stick, Some([1., 0.]));
-}
-
-#[test]
-fn spacing_manual_approach_preserves_direction_with_safe_movement_caps() {
-    use kirby_assist_core::{auto_spacing::{Config, Spacing}, native_states::{situation, status}};
-    for side in [-1., 1.] {
-        for speed in [0., 0.5, 1.] {
-            let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-                situation: situation::GROUND, status: status::WAIT, facing: -side,
-                walk_stick: Some(88. / 127.), safe_ground: [true; 2], ..Default::default() };
-            let out = Spacing::default().sample(1, true,
-                Config { ground_speed: speed, ..Default::default() }, c,
-                Some(Opponent { position: [side * 40., 0.], ..Default::default() }));
-            let physical = MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_LEFT_STICK_HORIZONTAL;
-            let raw = ManualOverlay::default().apply_reaction_controls(
-                ButtonTrace { held: physical, previous: physical, ..Default::default() },
-                [side, 0.], TurboOutput {
-                    stick: Some(kirby_assist_core::auto_spacing::manual_movement(
-                        [side, 0.], out.movement_caps.unwrap())), ..Default::default()
-                },
-                MAPPER_LEFT_STICK_HORIZONTAL, out.controller.requested, out.controller.owned, true,
-            );
-            assert_eq!(out.controller.stick, None);
-            let (buttons, left, right) = mapped_spacing_input(
-                MAPPED_JUMP | MAPPED_ATTACK | MAPPED_SPECIAL, out.attack, raw.stick, out.right_stick);
-            assert_eq!(left, [side * speed.min(88. / 127.), 0.]);
-            assert_eq!(right, [0.; 2]);
-            assert_eq!(buttons, MAPPED_JUMP);
-            assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_HORIZONTAL, 0);
-            assert_eq!(raw.buttons.held & (MAPPER_A | MAPPER_B), MAPPER_A | MAPPER_B);
-            assert_eq!(raw.buttons.held & MAPPER_X, MAPPER_X);
-        }
     }
 }
 
@@ -218,38 +140,6 @@ fn partial_spacing_walk_suppresses_generated_direction_flicks() {
         assert_eq!(raw.buttons.held & MAPPER_LEFT_STICK_HORIZONTAL, 0);
         assert_eq!(raw.buttons.pressed & MAPPER_LEFT_STICK_HORIZONTAL, 0);
         assert_ne!(raw.buttons.held & MAPPER_A, 0);
-    }
-}
-
-#[test]
-fn spacing_retreat_keeps_full_axis_and_dash_flick_while_manual_walk_is_capped() {
-    use kirby_assist_core::{auto_spacing::{Config, Spacing}, gameplay::{GameplayContext, Opponent},
-        native_states::{situation, status}};
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for side in [-1., 1.] {
-            let c = GameplayContext {
-                gameplay: true, can_control: true, can_act: true,
-                situation: situation::GROUND, status: status::WAIT,
-                facing: side, safe_ground: [true; 2], walk_stick: Some(0.6),
-                ..Default::default()
-            };
-            let out = Spacing::default().sample_threat(1, true, Config::default(), c,
-                Some(Opponent { id: 2, position: [side * 25., 0.], ..Default::default() }), true);
-            let selected = out.controller;
-            let walking = !selected.stick.is_some_and(|stick| stick[0].abs() >= 0.8);
-            let raw = ManualOverlay::default().apply_reaction_controls(
-                ButtonTrace::default(), [side, 0.], TurboOutput { stick: selected.stick },
-                sequence_flick_consumption(selected.owned, walking),
-                layout.physical_buttons(selected.requested),
-                layout.physical_owned_buttons(selected.owned), true,
-            );
-            assert_eq!(raw.stick, [-side, 0.]);
-            let direction = if side > 0. { MAPPER_LEFT_STICK_LEFT } else { MAPPER_LEFT_STICK_RIGHT };
-            assert_ne!(raw.buttons.pressed & direction, 0);
-            assert_eq!(mapped_stick_axis(raw.stick[0]), (-side * 127.) as i8);
-            assert_eq!(kirby_assist_core::auto_spacing::manual_movement([side, 0.],
-                out.movement_caps.unwrap()), [side * 0.49, 0.]);
-        }
     }
 }
 
@@ -329,122 +219,6 @@ fn move_input_axis_packet_replaces_competing_physical_direction_bits() {
         }, out.requested, out.owned);
         assert_eq!(raw.held, MAPPER_A);
         assert_eq!(out.stick, Some(stick));
-    }
-}
-
-#[test]
-fn spacing_forward_tilt_never_exceeds_walk_cap_or_falls_back_to_jab() {
-    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
-        native_states::{situation, status}};
-    for side in [-1., 1.] {
-        for cap in [None, Some(0.), Some(0.4), Some(0.69)] {
-            let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-                situation: situation::GROUND, status: status::WAIT, facing: side,
-                walk_stick: cap, safe_ground: [true; 2], ..Default::default() };
-            let cfg = Config { ground: AttackConfig { attack: Attack::Forward,
-                startup: 8., active_frames: 5., reach: 20., height: 9., commitment: 33.,
-            }, ..Default::default() };
-            let mut spacing = Spacing::default();
-            for tick in 1..=3 {
-                let out = spacing.sample(tick, true, cfg, c, Some(Opponent {
-                    position: [side * 18., 0.], vulnerable: true, ..Default::default()
-                }));
-                let safe = cap.unwrap_or(0.);
-                assert_eq!(out.attack, safe > 0. && tick != 2);
-                assert_eq!(out.controller.requested, if out.attack { MAPPER_A } else { 0 });
-                assert_eq!(out.right_stick, [0.; 2]);
-                if out.attack {
-                    assert_eq!(out.controller.stick, Some([side * safe.min(0.6), 0.]));
-                    spacing.mapped(tick);
-                } else if safe > 0. {
-                    assert_eq!(out.controller.stick, Some([0.; 2]));
-                }
-            }
-        }
-    }
-}
-
-#[test]
-fn lucina_spacing_down_tilt_faces_enemy_and_uses_configured_main_stick_between_retries() {
-    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
-        fighter_kinds::LUCINA, native_states::{situation, status}};
-    let cfg = Config { fighter_kind: LUCINA, ground: AttackConfig {
-        attack: Attack::Down, startup: 7., active_frames: 2., reach: 20., height: 9., commitment: 25.,
-    }, ..Default::default() };
-    for side in [-1., 1.] {
-        let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-            situation: situation::GROUND, status: status::WAIT, facing: -side,
-            walk_stick: Some(0.69), safe_ground: [true; 2], ..Default::default() };
-        let target = Some(Opponent { position: [side * 18., 0.], vulnerable: true, ..Default::default() });
-        let mut spacing = Spacing::default();
-        let turn = spacing.sample_threat(0, true, cfg, c, target, true);
-        assert!(!turn.attack);
-        assert_eq!(turn.controller.stick, Some([side * 0.6, 0.]));
-        for tick in 1..=3 {
-            let out = spacing.sample_threat(tick, true, cfg,
-                GameplayContext { facing: side, ..c }, target, true);
-            assert_eq!(out.attack, tick != 2);
-            assert_eq!(out.right_stick, [0.; 2]);
-            let (buttons, left, right) = mapped_spacing_input(MAPPED_JUMP, out.attack,
-                out.controller.stick.unwrap(), out.right_stick);
-            assert_eq!(left, if out.attack { [0., -0.6] } else { [0.; 2] });
-            assert_eq!(right, [0.; 2]);
-            assert_eq!(buttons, MAPPED_JUMP | if out.attack { MAPPED_ATTACK_HOLD_BITS } else { 0 });
-            if out.attack { spacing.mapped(tick); }
-        }
-    }
-}
-
-#[test]
-fn spacing_brakes_native_dash_in_attack_range_without_accidental_dash_attack() {
-    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
-        native_states::{situation, status}};
-    let cfg = Config { ground: AttackConfig { attack: Attack::Forward,
-        startup: 8., active_frames: 5., reach: 20., height: 9., commitment: 33.,
-    }, ..Default::default() };
-    for native in [status::DASH, status::TURN_DASH, status::RUN, status::TURN_RUN,
-        status::RUN_BRAKE, status::TURN_RUN_BRAKE] {
-        let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-            situation: situation::GROUND, status: native, facing: 1.,
-            walk_stick: Some(0.69), safe_ground: [true; 2], ..Default::default() };
-        let enemy = Some(Opponent { position: [18., 0.], vulnerable: true, ..Default::default() });
-        let mut spacing = Spacing::default();
-        for target in [enemy, None] {
-            let out = spacing.sample(1, true, cfg, c, target);
-            assert_eq!(out.controller.stick, target.map(|_| [0.; 2]));
-            assert_eq!(out.walk_cap, Some(0.49));
-            assert_eq!(out.controller.requested, 0);
-            assert_eq!(out.right_stick, [0.; 2]);
-            assert!(!out.attack);
-            spacing.mapped(1);
-        }
-        let out = spacing.sample(2, true, cfg, GameplayContext { status: status::WAIT, ..c }, enemy);
-        assert!(out.attack);
-        assert_eq!(out.controller.stick, Some([0.6, 0.]));
-    }
-}
-
-#[test]
-fn spacing_ground_retry_cancels_old_direction_when_target_crosses() {
-    use kirby_assist_core::{auto_spacing::{Attack, AttackConfig, Config, Spacing},
-        native_states::{situation, status}};
-    let cfg = Config { ground: AttackConfig { attack: Attack::Forward,
-        startup: 8., active_frames: 5., reach: 20., height: 9., commitment: 33.,
-    }, ..Default::default() };
-    let c = GameplayContext { gameplay: true, can_control: true, can_act: true,
-        situation: situation::GROUND, status: status::WAIT, facing: 1.,
-        walk_stick: Some(0.69), safe_ground: [true; 2], ..Default::default() };
-    let mut spacing = Spacing::default();
-    assert!(spacing.sample(1, true, cfg, c, Some(Opponent {
-        position: [18., 0.], vulnerable: true, ..Default::default()
-    })).attack);
-    spacing.mapped(1);
-    for tick in 2..=3 {
-        let out = spacing.sample(tick, true, cfg, c, Some(Opponent {
-            position: [-18., 0.], vulnerable: true, ..Default::default()
-        }));
-        assert!(!out.attack);
-        assert_eq!(out.controller.requested, 0);
     }
 }
 

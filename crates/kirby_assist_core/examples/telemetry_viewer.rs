@@ -98,7 +98,7 @@ impl State {
                     Err(e)
                         if matches!(
                             e.kind(),
-                            io::ErrorKind::WouldBlock | io::ErrorKind::ConnectionRefused
+                            io::ErrorKind::WouldBlock | io::ErrorKind::ConnectionRefused | io::ErrorKind::Interrupted
                         ) => {}
                     Err(e) => return Err(e),
                 }
@@ -521,6 +521,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             drained = true;
                             break;
                         }
+                        Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                        Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => break,
                         Err(e) => return Err(e.into()),
                     }
                 }
@@ -545,6 +547,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         state.receive(&buffer[..n], source, Instant::now());
                     },
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => break,
                     Err(e) => return Err(e.into()),
                 }
             }

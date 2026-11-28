@@ -184,86 +184,57 @@ target results; the other Switch is still attempted.
 
 ## Training LAN editor and live Diagnostic logs
 
-**ON immediately returns to OFF:** first create the SD pairing file below.
-Without it the listener deliberately stops; it cannot accept unpaired edits or
-logs. The Training row now retains startup errors (missing/invalid setup, bind
-failure, or expired Training observation) so troubleshooting does not depend on
-connecting to a server that failed to start. Correct setup and activate again;
-there is no automatic retry. A bind error usually means `switch_ip` is not the
-Switch's current address or the chosen HTTP port is already in use. Workbench
-connection failures can also mean a wrong computer IP/token or LAN isolation.
+The editor/status/log service listens on **UDP 4242 only**, separately from
+read-only telemetry on **UDP 4243**. There is no Switch TCP/HTTP listener,
+transport selector, fallback, DNS, proxy, discovery, or automatic reconnect.
+The browser Workbench and local telemetry viewer still use loopback HTTP;
+HTTP-style request/response framing inside UDP is not a TCP service.
 
-Manual setup only; Workbench does not deploy configuration, discover devices or
-activate the native listener. Use an isolated trusted LAN and router/firewall rules.
-Private numeric addressing is not proof of a local route or internet isolation;
-this feature does not control Nintendo services or other mods. The native
-listener uses the installed Switch Rust TCP backend, whose first socket use may
-request OS network access. That initialization runs only on the LAN worker, not
-on controller/render callbacks; it cannot be forcibly cancelled while inside
-the OS. Revocation is rechecked before serving requests. Request admission is also rechecked after complete upload/header reads; an expired Training observation rejects the request before file/log handling. No private/guessed
-native networking bindings or shared-service finalization are introduced.
+1. Use the Switch's current numeric RFC1918 IPv4 address on a trusted LAN.
+   No SD pairing/setup file or manual key is required. Guest Wi-Fi/client
+   isolation or firewall rules can block UDP 4242/4243. Private addressing is
+   not authentication, encryption, or proof of internet isolation.
+2. In either build, enter Training, open the Kirby Assist menu with Minus,
+   select Fighter Settings, reach Developer tools with L + Left/Right, and
+   explicitly enable the LAN editor. Finish/discard local unsaved drafts first.
+   STARTING means worker/network initialization is in progress; LISTENING means
+   the UDP socket is ready. If activation stops, inspect the retained status
+   and reactivate manually. Leaving Training revokes permission. Network/SD
+   work stays off controller/render callbacks; OS socket initialization cannot
+   be forcibly cancelled, so authorization is checked again before requests.
+3. Open Training LAN, enter the Switch address and UDP port 4242, and connect
+   explicitly. Workbench saves only host/port. Legacy HTTP transport requests
+   are rejected rather than silently routed through another transport.
+4. Load the complete file, preserve unknown/unrelated sections, edit fighter
+   recipes or tuning, then validate and preview. Universal settings and
+   templates are startup contracts and cannot be changed through live saves.
+   Saving requires the Training editor open, the loaded revision, and explicit
+   confirmation of the exact validated text. Rejected/stale saves disconnect.
+5. Save acknowledgment confirms the recoverable disk transaction and catalog
+   reload, not gameplay success. Pending native input cancellation/menu reset
+   occurs on the next mapper update. Load again before another edit. If any
+   acknowledgment is lost, disk may have changed: reconnect and reload manually,
+   never automatically resubmit a save.
 
-1. On the Diagnostic Switch SD card, create
-   `sd:/ultimate/kirby_assist/lan_editor.txt` with the exact Switch and computer
-   RFC1918 IPv4 addresses and a separate HTTP port (not FTP):
+UDP uses bounded 1024-byte chunks, same-ID fragment retries, and complete-response
+validation. Status/log reads have a two-second total deadline; full-file reads
+and saves allow ten seconds. Disconnect cancels pending fragment retries and
+invalidates delayed results. Sequence files are at most 512 KiB, status/save
+replies below 8 KiB, and logs at most 64 KiB / 64 entries. An unfinished transfer
+or unconfirmed download holds its slot for at most 12 seconds; another client
+cannot evict its reply. The updated client retries an acknowledged completion notice after
+validating the entire framed response. Use matching updated app/game versions:
+older clients lack completion notices and older servers lack completion ACKs.
+Lost completion acknowledgments disconnect safely; reconnect and reload manually,
+without resubmitting saves.
+Completed request IDs are retained throughout activation, up to 4096 requests;
+at capacity the service stops and requires explicit reactivation instead of
+forgetting IDs and risking duplicate saves. This is bounded replay protection,
+not authenticated networking. Use a trusted isolated LAN.
 
-   ```ini
-   switch_ip=192.168.1.142
-   computer_ip=192.168.1.20
-   port=4242
-   token=REPLACE_WITH_GENERATED_SECRET
-   ```
-
-   Generate your own secret locally when setting up (do not use the placeholder):
-   `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'`.
-   Native tokens require 32–128 ASCII letters/digits/`-`/`_`. Protect the SD
-   configuration and never share the token in screenshots or logs.
-   On a mounted SD card the file is `/ultimate/kirby_assist/lan_editor.txt`;
-   `sd:/` is the game's path prefix, not an SD directory named `sd:`. Use plain
-   UTF-8 text and ensure the filename is not accidentally `lan_editor.txt.txt`.
-   Find the Switch IPv4 in System Settings → Internet → Connection Status.
-   On macOS find the computer IPv4 in System Settings → Network → your active
-   Wi-Fi/Ethernet connection → Details → TCP/IP. Both devices must use the same
-   trusted LAN; guest Wi-Fi/client isolation can prevent their communication.
-   These are examples: replace both addresses with your actual addresses.
-2. Start the Diagnostic build, enter Training, press Minus to open the editor,
-   select **FIGHTER**, and enable **LAN editor HTTP** with A or Left/Right.
-   Keep the editor open for saving. **STARTING** means setup/network initialization
-   is in progress; **LISTENING** means you can connect from Workbench. If it
-   returns to OFF, the row retains the failure reason. Finish/discard local
-   unsaved recipe/tuning drafts first; they cannot overlap a remote write.
-   Silent has no diagnostic listener. Leaving Training revokes permission.
-3. Open **Training LAN**, enter the **Switch** address, HTTP port and shared
-   secret; press **Connect explicitly**. Workbench saves only host/port. The
-   secret stays in process memory and is cleared on disconnect; it never enters
-   the journal or browser storage. HTTP is plaintext on the trusted LAN, not TLS.
-4. **Load complete file**, preserve unknown/unrelated sections, edit fighter
-   recipes or tuning, then **Validate + preview** with the existing local parser.
-   `[universal.settings]` and templates are immutable startup contracts: native
-   rejects their changes even if local syntax validation succeeds. **Save +
-   reload…** confirms the exact validated text and uses the opaque loaded
-   revision. Saving requires the native editor open; stale revisions (409) or
-   revoked access (403) disconnect instead of overwriting. Reconnect and load
-   again manually. Unsaved browser text remains available to copy/reconcile.
-5. Save acknowledgment confirms disk save and catalog reload, **not gameplay
-   success**. The next mapper processes native pending-assist cancellation and
-   menu-selection reset from reread disk; it may not have run when HTTP returns.
-   Load again before making another edit. No FTP/build-ready checkbox is needed.
-
-All HTTP calls go through the loopback Workbench backend to one configured
-numeric RFC1918 Switch address with `X-Kirby-Token`. There is no DNS, proxy,
-redirect following, discovery, automatic reconnect or persistent log worker.
-GET requests have a two-second total transport deadline; PUT allows ten seconds
-for validation/SD save and acknowledgment. Lost save acknowledgment does not mean
-the disk is unchanged: reconnect and reload before deciding what to do; never
-automatically retry a save. A non-admission save failure (including HTTP 500)
-also warns that disk may have changed. Disconnect invalidates pending client/browser
-results so a delayed reply cannot restore a loaded draft or connected session.
-Sequence reads/writes are
-bounded to 512 KiB, status/save replies below 8 KiB, and log replies to 64 KiB / 64
-entries. A transport/protocol error clears the session; only explicit connect
-starts another one. State polling uses a separate lock and is not held during
-Switch I/O. Backend loopback Host/Origin/session-token protections remain intact.
+Backend loopback Host/Origin/session-token protections remain intact. State
+polling uses a separate lock and is not held during Switch I/O. Host regression
+tests do not certify Switch networking or guarantee absence of hardware crashes.
 
 Logs poll while explicitly connected and not paused, including startup/errors.
 **Clear view** is local only; **Pause polling** stops log reads, not gameplay.

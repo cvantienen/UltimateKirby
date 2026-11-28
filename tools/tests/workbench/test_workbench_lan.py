@@ -1,10 +1,9 @@
-"""Bounded HTTP peer simulations; no Switch, DNS, proxy or Rust build."""
+"""Bounded UDP and editor-framing peer simulations; no Switch, DNS, proxy or Rust build."""
 import json
 import socket
 import threading
 import time
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -51,11 +50,11 @@ class LanTests(unittest.TestCase):
         self.peers = []
         self.responses = []
         def factory(*args):
-            self.assertEqual(args, (socket.AF_INET, socket.SOCK_STREAM))
+            self.assertEqual(len(args), 2)
             peer = Peer(self.responses.pop(0))
             self.peers.append(peer)
             return peer
-        self.patch = patch('workbench.socket.socket', side_effect=factory)
+        self.patch = patch('workbench.LanDatagramPeer', side_effect=factory)
         self.patch.start()
         self.addCleanup(self.patch.stop)
         dns = patch('socket.getaddrinfo', side_effect=AssertionError('DNS forbidden'))
@@ -84,7 +83,7 @@ class LanTests(unittest.TestCase):
             self.client.perform('logs')
         self.assertEqual(len(self.peers), 1)
 
-    def test_tokenless_http_default_and_explicit_transport_validation(self):
+    def test_tokenless_udp_default_and_explicit_transport_validation(self):
         for token in [None, '']:
             self.responses.append(reply({'protocol': 1, 'training': True, 'editing': True}))
             arguments = {} if token is None else {'token': token}
@@ -92,14 +91,28 @@ class LanTests(unittest.TestCase):
             self.assertNotIn(b'X-Kirby-Token:', self.peers[-1].sent)
         count = len(self.peers)
         with self.assertRaises(RuntimeError):
-            self.client.perform('connect', host='10.0.0.1', port=4242, transport='auto')
+            self.client.perform('connect', host='10.0.0.1', port=4242, transport='http')
         self.assertEqual(len(self.peers), count)
+
+    def test_trailing_response_bytes_disconnect(self):
+        self.responses.append(reply({'protocol': 1, 'training': True, 'editing': True}) + b'extra')
+        with self.assertRaises(RuntimeError):
+            self.client.perform('connect', host='10.0.0.1', port=4242)
+        self.assertFalse(self.client.connected)
+
+    def test_disconnect_cancels_remaining_fragment_budget(self):
+        def factory(remaining, limit):
+            self.client.disconnect()
+            remaining()
+        with patch('workbench.LanDatagramPeer', side_effect=factory):
+            with self.assertRaisesRegex(RuntimeError, 'Session disconnected'):
+                self.client.perform('connect', host='10.0.0.1', port=4242)
 
     def test_network_errors_are_specific_and_redacted(self):
         for exception, message in [(ConnectionRefusedError('secret draft'), 'connection refused'),
                                    (TimeoutError('secret draft'), 'timed out'),
                                    (OSError('secret draft'), 'network connection failed')]:
-            with patch('workbench.socket.socket', side_effect=exception):
+            with patch('workbench.LanDatagramPeer', side_effect=exception):
                 with self.assertRaisesRegex(RuntimeError, message) as caught:
                     self.client.perform('connect', host='10.0.0.1', port=4242)
             self.assertNotIn('secret draft', str(caught.exception))
@@ -205,7 +218,7 @@ class LanTests(unittest.TestCase):
                 self.assertFalse(self.client.connected)
                 self.assertEqual(self.client.token, '')
         self.connect()
-        with patch('workbench.socket.socket', side_effect=TimeoutError('shared-secret-012345678901234567890')):
+        with patch('workbench.LanDatagramPeer', side_effect=TimeoutError('shared-secret-012345678901234567890')):
             with self.assertRaises(RuntimeError) as error:
                 self.client.perform('logs')
         self.assertNotIn('shared-secret-012345678901234567890', str(error.exception))
@@ -295,6 +308,7 @@ class UdpLanTests(unittest.TestCase):
             server.settimeout(.1)
             dropped_ack = set()
             dropped_fetch = set()
+            dropped_completion = set()
 
             def serve():
                 try:
@@ -338,6 +352,12 @@ class UdpLanTests(unittest.TestCase):
                                 self.assertNotIn(b'X-Kirby-Token:', request)
                                 transfer['response'] = response
                                 transfer['ready_at'] = time.monotonic() + (.6 if is_save else 0)
+                        elif kind == 5:
+                            if transfer_id not in dropped_completion:
+                                dropped_completion.add(transfer_id)
+                                continue
+                            server.sendto(header.pack(b'KALE', 6, transfer_id, index, 0), source)
+                            continue
                         else:
                             self.assertEqual((kind, total, packet[17:]), (3, 0, b''))
                             transfer = transfers[transfer_id]
@@ -437,122 +457,6 @@ class UdpLanTests(unittest.TestCase):
             self.assertEqual(len(set(packets)), 1)
             self.assertFalse(client.connected)
 
-
-class LoopbackLanTests(unittest.TestCase):
-    def test_real_http_tokenless_connect(self):
-        headers = []
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *args):
-                pass
-
-            def do_GET(self):
-                headers.append(dict(self.headers))
-                body = b'{"protocol":1,"training":true,"editing":true}'
-                self.send_response(200)
-                self.send_header('Content-Length', str(len(body)))
-                self.send_header('Connection', 'close')
-                self.end_headers()
-                self.wfile.write(body)
-        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            client = LanClient()
-            try:
-                with patch('workbench.lan_endpoint', return_value=server.server_address):
-                    self.assertTrue(client.perform('connect', host='10.0.0.1', port=4242)['connected'])
-                self.assertEqual(len(headers), 1)
-                self.assertNotIn('X-Kirby-Token', headers[0])
-            finally:
-                client.disconnect()
-                server.shutdown()
-                thread.join(timeout=2)
-            self.assertFalse(thread.is_alive())
-
-    def test_real_http_session_framing_auth_revision_save_and_logs(self):
-        token = 'loopback-fixture-secret-0123456789012345'
-        original = '[unknown.settings]\nvalue=1\n'
-        updated = original + '# preserved complete-file draft\n'
-        requests = []
-        saved = []
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = 'HTTP/1.1'
-
-            def log_message(self, *args):
-                pass
-
-            def handle_request(self):
-                size = int(self.headers['Content-Length'])
-                body = self.rfile.read(size)
-                requests.append((self.command, self.path, dict(self.headers), body))
-                if self.headers.get('X-Kirby-Token') != token:
-                    payload, status = b'', 403
-                elif self.path == '/status':
-                    payload = json.dumps({'protocol': 1, 'training': True, 'editing': True}).encode()
-                    status = 200
-                elif self.path == '/sequences' and self.command == 'GET':
-                    payload, status = original.encode(), 200
-                elif self.path == '/sequences' and self.command == 'PUT':
-                    if self.headers.get('X-Kirby-Revision') != 'aBc012':
-                        payload, status = b'', 409
-                    else:
-                        saved.append(body)
-                        payload, status = b'{"saved":true,"reloaded":true}', 200
-                elif self.path == '/logs?after=0':
-                    payload = json.dumps({'next': 1, 'dropped': 0,
-                                          'entries': [{'id': 1, 'text': 'startup <not HTML>'}]}).encode()
-                    status = 200
-                else:
-                    payload, status = b'', 404
-                self.send_response(status)
-                self.send_header('Content-Length', str(len(payload)))
-                self.send_header('Connection', 'close')
-                if self.path == '/sequences' and self.command == 'GET':
-                    self.send_header('X-Kirby-Revision', 'aBc012')
-                self.end_headers()
-                self.wfile.write(payload)
-                self.close_connection = True
-
-            do_GET = handle_request
-            do_PUT = handle_request
-
-        client = LanClient()
-        with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            try:
-                # Only endpoint validation is substituted; all socket I/O is real.
-                with patch('workbench.lan_endpoint', return_value=('127.0.0.1', server.server_port)):
-                    self.assertTrue(client.perform('connect', host='192.168.1.142',
-                                                   port=4242, token=token)['connected'])
-                self.assertEqual(client.perform('load'), {'text': original, 'revision': 'aBc012'})
-                with patch('workbench.transfer.validate_sequences') as validate:
-                    preview = client.perform('preview', text=updated)
-                    validate.assert_called_once_with(updated.encode())
-                self.assertIn('+# preserved complete-file draft', preview['diff'])
-                self.assertEqual(client.perform('save', text=updated, confirmed=True),
-                                 {'saved': True, 'reloaded': True})
-                self.assertEqual(saved, [updated.encode()])
-                self.assertEqual(client.perform('logs')['entries'],
-                                 [{'id': 1, 'text': 'startup <not HTML>'}])
-                client.perform('disconnect')
-                with self.assertRaisesRegex(RuntimeError, 'Connect explicitly'):
-                    client.perform('logs')
-                self.assertEqual(client.token, '')
-                self.assertEqual([(method, path) for method, path, _, _ in requests],
-                                 [('GET', '/status'), ('GET', '/sequences'),
-                                  ('PUT', '/sequences'), ('GET', '/logs?after=0')])
-                for _, _, headers, body in requests:
-                    self.assertEqual(headers['X-Kirby-Token'], token)
-                    self.assertEqual(headers['Connection'], 'close')
-                    self.assertEqual(int(headers['Content-Length']), len(body))
-                    self.assertEqual(headers['Host'], f'127.0.0.1:{server.server_port}')
-                self.assertEqual(requests[2][2]['X-Kirby-Revision'], 'aBc012')
-            finally:
-                client.disconnect()
-                server.shutdown()
-                thread.join(timeout=3)
-                self.assertFalse(thread.is_alive())
 
 
 if __name__ == '__main__':

@@ -365,12 +365,12 @@ that is not certification of every battle mode or online environment. No build o
 
 ## Live diagnostic results in Workbench
 
-Diagnostic builds provide bounded live HTTP logs through the explicitly enabled
+Both builds provide bounded live UDP logs through the explicitly enabled
 Training LAN service. The former in-game diagnostic/result HUD is removed;
 ordinary menu and assist-state indicators remain. Use the
 [Workbench setup and log guide](WORKBENCH.md#training-lan-editor-and-live-diagnostic-logs)
-for pairing, activation, viewing, and safe saves. Silent builds compile out the
-HTTP service, activation row, and live logger.
+for activation, viewing, and safe saves. The Switch service uses UDP only;
+localhost HTTP remains solely for the desktop browser/viewer.
 
 Completed calibration reports still record available configured timing,
 request/mapping/startup evidence, root spacing and waiting gates for all five
