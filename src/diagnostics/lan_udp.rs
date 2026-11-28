@@ -145,6 +145,7 @@ pub(super) fn serve(socket: UdpSocket, config: &Config) -> Result<(), String> {
                 continue;
             }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(_) if !authorized(generation) => break,
             Err(error) => return Err(format!("UDP editor receive: {error}")),
         };
         if !authorized(generation) {

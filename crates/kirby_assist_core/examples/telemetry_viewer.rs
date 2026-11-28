@@ -427,6 +427,30 @@ fn serve(mut stream: TcpStream, port: u16, state: &Mutex<State>, schema: &[u8]) 
     stream.write_all(headers.as_bytes())?;
     stream.write_all(&body)
 }
+fn capture_packet(
+    file: &mut std::fs::File,
+    bytes: &[u8],
+    source: SocketAddr,
+    key: &[u8],
+) -> io::Result<()> {
+    let decoded = decode(bytes, key).ok().map(|sample| {
+        json!({"session": sample.session.to_string(), "sequence": sample.sequence.to_string(),
+            "object_id": format!("0x{:08x}", sample.object_id), "category": sample.category,
+            "kind": sample.kind, "group": sample.group, "sample_us": sample.sample_us.to_string(),
+            "values": sample.values.iter().map(|value| value.map(|raw| format!("0x{raw:016x}"))).collect::<Vec<_>>(),
+            "mode": kirby_assist_core::telemetry::feature_label(&sample, false),
+            "recipe": kirby_assist_core::telemetry::feature_label(&sample, true)})
+    });
+    let wire: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    let record = json!({"received_unix_us": std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_micros().to_string(),
+        "source": source.to_string(), "wire_hex": wire, "decoded": decoded});
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    file.write_all(&line)?;
+    file.sync_data()
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if args.len() > 1 {
@@ -459,6 +483,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     println!("Read-only telemetry viewer: http://127.0.0.1:{port}/ (waiting for stream)");
     println!("Trusted private LAN only: default stream is NOT authenticated or encrypted; explicitly enable Training telemetry on Switch (UDP {TELEMETRY_PORT}).");
+    let mut capture = if let Some(path) = std::env::var_os("KIRBY_TELEMETRY_CAPTURE") {
+        let path = std::path::PathBuf::from(path);
+        let parent = path.parent().ok_or("capture path needs a directory")?;
+        std::fs::create_dir_all(parent)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options.open(&path)?;
+        file.sync_all()?;
+        #[cfg(unix)]
+        std::fs::File::open(parent)?.sync_all()?;
+        Some(file)
+    } else {
+        None
+    };
     let mut buffer = [0u8; 1201];
     let mut generation = 0;
     let mut renewed = None;
@@ -493,7 +536,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             state.renew(&udp, &mut renewed, now)?;
             for _ in 0..256 {
                 match udp.recv_from(&mut buffer) {
-                    Ok((n, source)) => state.receive(&buffer[..n], source, Instant::now()),
+                    Ok((n, source)) => {
+                        if let (Some(file), Some((peer, key))) = (capture.as_mut(), state.target.as_ref()) {
+                            if source == SocketAddr::V4(*peer) {
+                                capture_packet(file, &buffer[..n], source, key.as_bytes())?;
+                            }
+                        }
+                        state.receive(&buffer[..n], source, Instant::now());
+                    },
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                     Err(e) => return Err(e.into()),
                 }
@@ -509,6 +559,27 @@ const HTML: &str = include_str!("telemetry_viewer.html");
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn packet_capture_appends_exact_wire_and_invalid_packets() {
+        let path = std::env::temp_dir().join(format!("kirby-capture-{}-{}.txt", std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let mut file = std::fs::OpenOptions::new().create_new(true).append(true).open(&path).unwrap();
+        let mut bytes = [0u8; 1200];
+        let n = kirby_assist_core::telemetry::encode(&sample(1, 1, 42, 0), b"", &mut bytes).unwrap();
+        let source = "192.168.1.10:4243".parse().unwrap();
+        capture_packet(&mut file, &bytes[..n], source, b"").unwrap();
+        capture_packet(&mut file, b"invalid", source, b"").unwrap();
+        drop(file);
+        let saved = std::fs::read_to_string(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let rows: Vec<Value> = saved.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["decoded"]["object_id"], "0x0000002a");
+        assert_eq!(rows[0]["wire_hex"].as_str().unwrap().len(), n * 2);
+        assert_eq!(rows[1]["wire_hex"], "696e76616c6964");
+        assert!(rows[1]["decoded"].is_null());
+    }
+
     fn sample(session: u64, sequence: u64, object_id: u32, group: u16) -> Sample {
         Sample {
             session,

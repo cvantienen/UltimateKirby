@@ -376,6 +376,8 @@ class Controller:
 def launch(app):
     controller = Controller(app)
     telemetry = TelemetryViewer(ROOT)
+    from workbench_capture import LiveLogs, LOG_DIRECTORY, tail
+    live_logs = LiveLogs(app.lan)
     token = secrets.token_hex(32)
     html = Path(__file__).with_suffix('.html').read_text().replace('__TOKEN__', json.dumps(token))
     initial = {'version': version(), 'cargo_home': app.preferences.get('cargo_home', '/private/tmp/kirby-assist-build-cargo'),
@@ -442,7 +444,7 @@ def launch(app):
                 except (ValueError, RuntimeError, OSError) as error:
                     self.respond(503, {'error': str(error)})
                 return
-            if not self.allowed(api=route.path != '/'):
+            if not self.allowed(api=route.path != '/' and not route.path.startswith('/ui/')):
                 return
             if route.path.startswith('/api/telemetry/view/'):
                 try:
@@ -450,8 +452,34 @@ def launch(app):
                     self.respond(code, body.decode('utf-8'), content_type.split(';')[0])
                 except (ValueError, RuntimeError, OSError) as error:
                     self.respond(503, {'error': str(error)})
+            elif route.path.startswith('/ui/'):
+                assets = {
+                    '/ui/dashboard.css': ('dashboard.css', 'text/css'),
+                    '/ui/dashboard.js': ('dashboard.js', 'text/javascript'),
+                    '/ui/vendor/lucide.js': ('vendor/lucide.js', 'text/javascript'),
+                    '/ui/vendor/chart.js': ('vendor/chart.js', 'text/javascript'),
+                }
+                asset = assets.get(route.path)
+                if not asset:
+                    self.respond(404, {'error': 'Unknown UI asset'})
+                    return
+                try:
+                    name, content_type = asset
+                    content = (Path(__file__).parent / 'workbench_ui' / name).read_text()
+                    self.respond(200, content, content_type)
+                except OSError:
+                    self.respond(404, {'error': 'UI asset unavailable'})
             elif route.path == '/':
                 self.respond(200, html, 'text/html')
+            elif route.path == '/api/live-logs':
+                self.respond(200, live_logs.snapshot())
+            elif route.path == '/api/raw':
+                try:
+                    self.respond(200, {'telemetry': tail(LOG_DIRECTORY / 'telemetry.txt'),
+                                       'diagnostic': tail(LOG_DIRECTORY / 'diagnostic.txt'),
+                                       'logs': live_logs.snapshot(), 'receiver': telemetry.snapshot()})
+                except OSError:
+                    self.respond(503, {'error': 'Capture files could not be read'})
             elif route.path == '/api/state':
                 self.respond(200, {**controller.snapshot(), 'telemetry': telemetry.snapshot()})
             elif route.path == '/api/log':
@@ -530,6 +558,7 @@ def launch(app):
         print('Keep this terminal open. Use Close workbench in the window to exit.', flush=True)
         try:
             telemetry.start()
+            live_logs.thread.start()
             webbrowser.open(url)
             server.serve_forever(poll_interval=0.3)
         except KeyboardInterrupt:
@@ -537,5 +566,6 @@ def launch(app):
         finally:
             telemetry.stop()
             app.lan.disconnect()
+            live_logs.stop()
             if controller.thread:
                 controller.thread.join()

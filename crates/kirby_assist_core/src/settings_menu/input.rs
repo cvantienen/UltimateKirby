@@ -384,9 +384,10 @@ impl MenuSelection {
         } else if !s.toggled && (s.pad_pressed() || repeat) {
             if s.pad & (DPAD_UP | DPAD_DOWN) != 0 {
                 let steps = Self::navigation_steps(s.buttons);
+                let initial_row = self.tuning_row;
                 for _ in 0..steps {
                     let next = self.next_tuning_row(s.pad == DPAD_DOWN);
-                    if steps > 1 && (next > self.tuning_row) != (s.pad == DPAD_DOWN) {
+                    if next == initial_row {
                         break;
                     }
                     self.tuning_row = next;

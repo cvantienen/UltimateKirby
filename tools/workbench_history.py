@@ -119,7 +119,10 @@ class History:
 
 def command(argv: list[str], *, interactive: bool = True) -> dict:
     """Keep CLI confirmations; GUI closes stdin to avoid invisible prompts. No shell."""
-    child = subprocess.Popen(argv, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    env = os.environ.copy()
+    env["CARGO_TERM_PROGRESS_WHEN"] = "never"
+    env["CARGO_TERM_COLOR"] = "never"
+    child = subprocess.Popen(argv, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                              stdin=None if interactive else subprocess.DEVNULL)
     decoder = codecs.getincrementaldecoder("utf-8")("replace")
     try:

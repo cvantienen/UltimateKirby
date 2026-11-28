@@ -194,6 +194,8 @@ class LanDatagramPeer:
 class LanClient:
     """Explicit diagnostic session; fragment retries never repeat a request."""
     def __init__(self):
+        self.capture_path = None
+        self.capture_dropped = None
         self.lock = threading.Lock()
         self.state_lock = threading.RLock()
         self.connected = False
@@ -213,6 +215,7 @@ class LanClient:
             self.token = ''
             self.revision = self.original = self.preview_text = None
             self.next = 0
+            self.capture_dropped = None
         return {'connected': False}
 
     @contextmanager
@@ -372,6 +375,16 @@ class LanClient:
                         raise ValueError('Invalid log entry')
                     previous = entry['id']
                 with self.publish(generation):
+                    if self.capture_path is not None and (entries or restarted or result['dropped'] != self.capture_dropped):
+                        from workbench_capture import append_record
+                        try:
+                            append_record(self.capture_path, {
+                                'received_at': datetime.now(timezone.utc).isoformat(),
+                                'source': f'{self.host}:{self.port}', 'generation': generation,
+                                **result, 'restarted': restarted})
+                        except OSError as error:
+                            raise RuntimeError('Diagnostic capture could not be synced to disk; disconnected without advancing the cursor') from error
+                    self.capture_dropped = result['dropped']
                     self.next = result['next']
                 return {**result, 'restarted': restarted}
             raise ValueError('Unknown LAN operation')
@@ -416,6 +429,8 @@ class Workbench:
         self.preferences = {}
         self.noninteractive = False
         self.lan = LanClient()
+        from workbench_capture import LOG_DIRECTORY
+        self.lan.capture_path = LOG_DIRECTORY / 'diagnostic.txt'
         if self.preferences_path.exists():
             try:
                 self.preferences = json.loads(self.preferences_path.read_text())

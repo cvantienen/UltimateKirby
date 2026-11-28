@@ -673,6 +673,48 @@ mod tests {
     }
 
     #[test]
+    fn disabling_lan_stops_udp_worker_with_an_incomplete_connected_transfer() {
+        use std::net::UdpSocket;
+
+        let _serial = TEST_GATE.lock().unwrap();
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let address = socket.local_addr().unwrap();
+        let client = UdpSocket::bind("127.0.0.1:0").unwrap();
+        client.connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let config = Config {
+            peer: Ipv4Addr::LOCALHOST,
+            ..Config::default()
+        };
+        observe(true, true);
+        let generation = GENERATION.load(Ordering::Acquire);
+        ACTIVATION.store(generation, Ordering::Release);
+        ENABLED.store(true, Ordering::Release);
+
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| udp::serve(socket, &config));
+            let mut request = b"KALE".to_vec();
+            request.push(1);
+            request.extend(99u64.to_be_bytes());
+            request.extend(0u16.to_be_bytes());
+            request.extend(2u16.to_be_bytes());
+            request.extend([b'x'; 1024]);
+            client.send(&request).unwrap();
+            let mut response = [0; 32];
+            let length = client.recv(&mut response).unwrap();
+            assert_eq!(length, 17);
+            assert_eq!(response[4], 2, "first upload chunk was acknowledged");
+
+            revoke();
+            assert!(server.join().unwrap().is_ok());
+        });
+        assert!(!enabled(), "revoked LAN worker must remain disabled");
+    }
+
+    #[test]
     fn udp_roundtrip_chunks_tokenless_save_and_rejects_completed_id_replay() {
         use std::net::UdpSocket;
         let _serial = TEST_GATE.lock().unwrap();

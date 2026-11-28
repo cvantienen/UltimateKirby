@@ -34,10 +34,12 @@ class TelemetryViewer:
                     str(self.root / 'crates/kirby_assist_core/Cargo.toml'),
                     '--features', 'diagnostic-logging', '--example', 'telemetry_viewer', '--',
                     str(self.port)]
+            from workbench_capture import LOG_DIRECTORY
+            environment = {**os.environ, 'KIRBY_TELEMETRY_CAPTURE': str(LOG_DIRECTORY / 'telemetry.txt')}
             try:
                 self.process = subprocess.Popen(argv, cwd=self.root, stdin=subprocess.DEVNULL,
                                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                                start_new_session=True)
+                                                env=environment, start_new_session=True)
             except OSError:
                 self.process = None
                 self.status = 'Could not start Cargo. Install/configure the existing Rust host toolchain, then retry.'
@@ -82,7 +84,7 @@ class TelemetryViewer:
             running = self.process is not None and self.process.poll() is None
             if self.process is not None and not running:
                 self.ready = False
-                self.status = (f'Receiver exited (code {self.process.returncode}). Check the local HTTP port '
+                self.status = (f'Receiver exited (code {self.process.returncode}). Check capture disk space/permissions, the local HTTP port '
                                'and offline Cargo dependencies. Run the standalone '
                                'viewer command in a terminal for detailed errors; no automatic retry.')
             elif running and not self.ready:

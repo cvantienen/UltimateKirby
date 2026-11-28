@@ -245,7 +245,7 @@ class LanTests(unittest.TestCase):
                 self.client.perform('logs')
         html = Path(__file__).with_name('workbench_gui.html').read_text()
         draw = html[html.index('function drawLanLogs()'):html.index('function lanClearLogs()')]
-        self.assertIn("$('lanLogs').textContent=", draw)
+        self.assertIn('out.textContent=value', draw)
         self.assertNotIn('innerHTML', draw)
 
     def test_native_restart_resets_cursor_and_preserves_retained_batch(self):

@@ -1,15 +1,5 @@
-issues
-Im still having issues with connecting the http edit menu, im getting transport error. help me fix and resolve. 
-if possible maybe just have this sent over udp too since that was working great
-remove the token generation requirement and having to have a key for the live edit menu/ 
-telemenrey viewer since its just over local network. if possible get rid of needing the text
- file config as well and maybe enter them into the interface (ipadresses from the viewr) 
-
-Maske it so the telemenary mode monitor/viewer is started when launching workbench.py, and also go through and imporove the UI of the workbench.py to make it look better and more modern and esier to iundertand. the tabs should be on toolbar on side like a dashboard.  the workbench.py webpage contains link/tab to view the telementary informaiton. 
-
-Make the Read-only Training telemetry interface way nicer and more mdoern looking and better layed out and easier to undertand what each thing is and what its filtering. ensure all terms and refrences used in this are correct. And add any other helful information,tools,or charts to use, understand and refrence this Read-only Training telemetry informtion
-
 
 
 auto spacing prompt
 i want to also impleneted the autoshiled mode that is active for ledge trap mode. so it handles shielding incoming attacks and relasing shiled just like ledge trap modes. they should use the exact same implementatison/code to shiled. also ensure this mod is saftly handing all types of incoming hitxoes and attacks possible states etc so no types of conditions or attacks are missed.  then also i eant the auto spot dodge incoming grabs feature active when this mode is on as well. ensure these all work and are conflict free and no issues wwith those modes configured togeather are an issue and works oiptimally. you can run as many testst and stuff you want to full ensure and validate working correctly. 
+

@@ -14,23 +14,58 @@ offline Cargo cache. All original helper commands still work independently.
 Training LAN connects only on explicit request to the separately activated
 Diagnostic server. Starting the computer receiver never activates the Switch stream.
 
-Eight pages are available in the left sidebar (a compact navigation grid on narrow
-screens), and the window reopens on the page you used last:
+Nine icon-labelled pages are available in the compact left sidebar (a horizontally
+scrollable navigation strip on narrow screens). **Sidebar** hides or restores navigation;
+its state and the last page are remembered locally. Neutral charcoal surfaces, smaller
+controls and tighter spacing leave more room for observations:
 
-| Page | Use it to |
-| --- | --- |
-| **Build & upload** | Set the version and build/upload to either or both Switches |
-| **Fighter editor** | Change one fighter's sections with a diff preview |
-| **Training telemetry** | Inspect read-only observations, filters, charts and field references |
-| **Training LAN editor** | Explicit Diagnostic connection, complete-file editor and bounded live logs |
-| **Split source files** | Split a combined `sequences.txt` into `fighters/*.txt` |
-| **Transfer sequences** | Copy a whole file or one fighter between computer and Switches |
-| **Deployment history** | Review shipped versions, past runs and their logs |
-| **Advanced helpers** | Run the original scripts with their own arguments |
+- **Build & upload** — Set the version and build/upload to either or both Switches.
+- **Fighter editor** — Change one fighter's sections with a diff preview.
+- **Training telemetry** — Inspect read-only feature and observation cards, filters,
+  charts and exact field references, without tables.
+- **Sequences & game logs** — Explicit Diagnostic connection, complete-file editor
+  and bounded live logs; editor and logs sit alongside each other on wide screens.
+- **Raw stream monitor** — Independent telemetry and Diagnostic text panes with
+  include/exclude filters, wrap, follow, freeze, clear, copy and export. Expand either
+  pane or use **Separate window** to open each stream in its own browser window.
+- **Split source files** — Split a combined `sequences.txt` into `fighters/*.txt`.
+- **Transfer sequences** — Copy a whole file or one fighter between computer and Switches.
+- **Deployment history** — Outcome totals, recent-operation charts, searchable run
+  timeline and saved logs. Each bar represents one operation, not its duration.
+- **Advanced helpers** — Run the original scripts with their own arguments.
 
 The header shows the current `Cargo.toml` version. **Build & upload** shows the
 last verified upload for each Switch. The output console appears below operation
 pages; **Training telemetry** uses that space for its embedded dashboard.
+
+### Compact logs and local UI assets
+
+The resizable operation console uses compact monospace lines. **Filter** narrows
+visible lines without changing stored output; **Freeze** keeps the display stable
+while operations continue and **Resume** shows the newest output. **Wrap** toggles
+line wrapping, and **Follow** tracks the bottom until you scroll up. **Copy visible**,
+**Copy selection** and **Export** copy/download plain text without decorative markup.
+Selecting text outside the selected log is not copied by **Copy selection**.
+Diagnostic live logs offer the same copy/export, wrapping and follow controls.
+**Freeze display** stops visible updates, not the server-side log drain or disk capture.
+History logs stay visible until a new operation starts or **Return to current log**
+is pressed. Filters apply to exports and copies; they do not delete stored logs.
+
+Lucide icons and Chart.js are bundled locally in `tools/workbench_ui/vendor/`;
+no CDN, remote fonts or images are requested. The workspace emblem is an original
+inline SVG. Python remains standard-library-only and launching needs no npm step.
+To reproduce the bundled libraries or run the focused DOM regressions:
+
+```sh
+npm ci --prefix tools/workbench_ui --ignore-scripts
+npm run bundle --prefix tools/workbench_ui
+npm test --prefix tools/workbench_ui
+python3 -m unittest discover -s tools -p test_workbench_gui.py
+```
+
+The lockfile pins library versions and bundled license files accompany the assets.
+Asset routes are allowlisted and retain localhost Host/Origin checks; API requests
+still require the session token. Telemetry remains self-contained for standalone use.
 
 ## Read-only Training telemetry dashboard
 
@@ -57,6 +92,39 @@ capture. Freeze stops display updates, not reception or freshness clocks; CSV
 exports contain only visible rows. Staleness starts at 250 ms, and records expire
 at one second. Publication timestamps and sequences are not game frames or
 network latency. Sequence gaps and sender drops are separate diagnostics.
+
+Object labels identify fighters versus other engine categories and retain kind/object IDs;
+unknown fighter names are never guessed. **Active game flags** shows fresh true Boolean
+observations across the selected object's groups. Missing/stale observations are not false.
+Assist cards can be filtered by name or enabled/proposing state. Wire metadata and charts
+are hidden by default and available through explicit toggles; exact values remain in the
+field reference and exports.
+
+### Durable incoming stream archives
+
+Workbench appends two independent newline-delimited JSON text archives (never truncates
+on launch), ignored by Git:
+
+- `tools/logs/telemetry.txt`: every datagram from the explicitly selected telemetry
+  endpoint after subscription, including invalid/reordered packets, exact `wire_hex`,
+  receive wall-clock timestamp, and decoded IDs/field words when valid. Recording occurs
+  in the Rust receiver, not browser snapshot polling. Standalone receiver capture can be
+  enabled with `KIRBY_TELEMETRY_CAPTURE=/absolute/path/telemetry.txt`.
+- `tools/logs/diagnostic.txt`: validated native event batches, source, receive UTC timestamp,
+  connection generation, cursor/restart and native dropped counters. A server-side worker
+  drains the native ring about every 100 ms while explicitly connected, independently of
+  selected pages, filters or frozen displays. CLI log reads append through the same client.
+
+Each completed record is appended and synced before continuing (Diagnostic cursor advances
+only after a successful sync). New files use owner-only permissions. Capture failures stop
+telemetry or disconnect Diagnostic and surface an error rather than silently dropping data.
+Already synced records survive abrupt process termination; a crash during a write can leave
+an incomplete final JSON line. Filesystem/hardware failures cannot be guaranteed away.
+Native queue loss, packets never delivered to the computer, and observations before connection
+cannot be recovered. Per-packet syncing prioritizes durability and can reduce throughput;
+watch the stream counters. Archives grow until you manage them manually; no automatic rotation
+or deletion occurs. Raw panes read bounded 256 KiB tails while archives retain earlier records.
+Do not share captures casually: they contain game activity and private device addresses.
 
 See [Training monitor](TRAINING_MONITOR.md) for measurement interpretation.
 

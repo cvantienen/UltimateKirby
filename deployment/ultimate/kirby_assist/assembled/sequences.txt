@@ -8970,6 +8970,7 @@ timeout = 3600
 spatial_timeout = 60
 actions = face:opponent, down_smash:1
 
+# Hold L3 for spacing; releasing it stops the assist.
 [lucina.roll.auto_shield_grab]
 name = Automatic grab (shielded)
 start_delay = 0
@@ -8980,6 +8981,11 @@ reaction = auto_shield_grab:14.5:24
 actions = input:r:0:0:4
 
 # Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 [lucina.roll.auto_shield_backup]
 start_delay = 0
 timeout = 240
@@ -8994,6 +9000,16 @@ default = false
 # Hold L3 for spacing; releasing it stops the assist.
 # Hold L3 for spacing; releasing it stops the assist.
 # Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 [lucina.roll.auto_roll]
 start_delay = 0
@@ -9013,6 +9029,16 @@ default = false
 # Hold L3 for spacing; releasing it stops the assist.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 [lucina.roll.auto_spot_dodge]
@@ -9035,6 +9061,11 @@ default = false
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 [lucina.roll.auto_air_dodge]
 start_delay = 0
 timeout = 240
@@ -9046,6 +9077,7 @@ name = Air dodge > Up B
 default = false
 
 # Hold L3 for spacing; releasing it stops the assist.
+# Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
 # Hold Y for Lucina's configured counter. Y's normal jump is suppressed.
@@ -9079,106 +9111,176 @@ builtin = auto_spacing
 [lucina.settings]
 # Manual ledge-walking stick scale, not a physics speed change. Larger values give stronger movement; smaller values give gentler movement. The existing curve is slightly lower at partial stick and 50% at full stick. Recipes keep their own strengths; auto spacing uses its separate ground cap.
 # Manual ledge-walking stick scale, not a physics speed change. Larger values give stronger movement; smaller values give gentler movement. The existing curve is slightly lower at partial stick and 50% at full stick. Recipes keep their own strengths; auto spacing uses its separate ground cap.
+# Manual ledge-walking stick scale, not a physics speed change. Larger values give stronger movement; smaller values give gentler movement. The existing curve is slightly lower at partial stick and 50% at full stick. Recipes keep their own strengths; auto spacing uses its separate ground cap.
+# Manual ledge-walking stick scale, not a physics speed change. Larger values give stronger movement; smaller values give gentler movement. The existing curve is slightly lower at partial stick and 50% at full stick. Recipes keep their own strengths; auto spacing uses its separate ground cap.
 walk_strength = 0.48999986
+# Estimated body half-width in game units for incoming hitbox tests. Increase for more cautious shielding; decrease for tighter collision estimates. Does not change your hurtbox.
+# Estimated body half-width in game units for incoming hitbox tests. Increase for more cautious shielding; decrease for tighter collision estimates. Does not change your hurtbox.
 # Estimated body half-width in game units for incoming hitbox tests. Increase for more cautious shielding; decrease for tighter collision estimates. Does not change your hurtbox.
 # Estimated body half-width in game units for incoming hitbox tests. Increase for more cautious shielding; decrease for tighter collision estimates. Does not change your hurtbox.
 shield_body_half_width = 10
 # Game frames ahead to predict approach, attack startup and active hits. Increase to shield earlier; decrease to react closer to contact. Longer prediction can be less accurate.
 # Game frames ahead to predict approach, attack startup and active hits. Increase to shield earlier; decrease to react closer to contact. Longer prediction can be less accurate.
+# Game frames ahead to predict approach, attack startup and active hits. Increase to shield earlier; decrease to react closer to contact. Longer prediction can be less accurate.
+# Game frames ahead to predict approach, attack startup and active hits. Increase to shield earlier; decrease to react closer to contact. Longer prediction can be less accurate.
 shield_forecast = 6
+# Extra game frames to keep defensive shield held after a threat warning ends. Increase for a longer safety tail; decrease to release sooner. New grab threats clear the old tail.
+# Extra game frames to keep defensive shield held after a threat warning ends. Increase for a longer safety tail; decrease to release sooner. New grab threats clear the old tail.
 # Extra game frames to keep defensive shield held after a threat warning ends. Increase for a longer safety tail; decrease to release sooner. New grab threats clear the old tail.
 # Extra game frames to keep defensive shield held after a threat warning ends. Increase for a longer safety tail; decrease to release sooner. New grab threats clear the old tail.
 shield_hold = 3
 # Extra horizontal body allowance in game units added to the opponent's grab reach. Increase to dodge more cautiously; decrease for closer predictions. Does not extend grabs.
 # Extra horizontal body allowance in game units added to the opponent's grab reach. Increase to dodge more cautiously; decrease for closer predictions. Does not extend grabs.
+# Extra horizontal body allowance in game units added to the opponent's grab reach. Increase to dodge more cautiously; decrease for closer predictions. Does not extend grabs.
+# Extra horizontal body allowance in game units added to the opponent's grab reach. Increase to dodge more cautiously; decrease for closer predictions. Does not extend grabs.
 grab_dodge_padding = 10
+# ON prepares manual down tilt facing toward the tracked opponent; OFF keeps your own facing. Kirby and Yoshi default ON. This does not change move startup or auto-spacing's selected move.
+# ON prepares manual down tilt facing toward the tracked opponent; OFF keeps your own facing. Kirby and Yoshi default ON. This does not change move startup or auto-spacing's selected move.
 # ON prepares manual down tilt facing toward the tracked opponent; OFF keeps your own facing. Kirby and Yoshi default ON. This does not change move startup or auto-spacing's selected move.
 # ON prepares manual down tilt facing toward the tracked opponent; OFF keeps your own facing. Kirby and Yoshi default ON. This does not change move startup or auto-spacing's selected move.
 tilt_turn_down = false
 # ON aims manual forward C-stick tilts toward the tracked opponent; OFF keeps your direction. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 # ON aims manual forward C-stick tilts toward the tracked opponent; OFF keeps your direction. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
+# ON aims manual forward C-stick tilts toward the tracked opponent; OFF keeps your direction. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
+# ON aims manual forward C-stick tilts toward the tracked opponent; OFF keeps your direction. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 tilt_turn_forward = false
+# ON faces manual up C-stick tilts toward the tracked opponent; OFF keeps your own facing. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
+# ON faces manual up C-stick tilts toward the tracked opponent; OFF keeps your own facing. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 # ON faces manual up C-stick tilts toward the tracked opponent; OFF keeps your own facing. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 # ON faces manual up C-stick tilts toward the tracked opponent; OFF keeps your own facing. Requires Tilt Attack C-stick mapping. Does not change attack reach or startup.
 tilt_turn_up = false
 # Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
 # Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
+# Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
+# Enable the configured counter adapter for supported fighters only (currently Lucina). Default activation is hold Y; normal Y jump is suppressed during that hold. A detected incoming threat is still required.
 counter_default = true
+# Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
+# Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
 # Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
 # Estimated frames before the native counter becomes active. Increase to request earlier; decrease only if native startup is actually faster. This never changes the move's real startup.
 counter_startup = 7
 # Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
 # Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
+# Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
+# Extra forecast frames before predicted incoming attack/projectile contact. Increase for earlier reactions; decrease to react later. Does not enable counters without a detected threat.
 counter_margin = 3
+# Estimated body half-width in game units for counter threat tests. Increase for more cautious counter requests; decrease for tighter collision estimates. Does not change your hurtbox.
+# Estimated body half-width in game units for counter threat tests. Increase for more cautious counter requests; decrease for tighter collision estimates. Does not change your hurtbox.
 # Estimated body half-width in game units for counter threat tests. Increase for more cautious counter requests; decrease for tighter collision estimates. Does not change your hurtbox.
 # Estimated body half-width in game units for counter threat tests. Increase for more cautious counter requests; decrease for tighter collision estimates. Does not change your hurtbox.
 counter_half_width = 9
 # Estimated body height above your root in game units for counter threat tests. Increase to include higher hits; decrease for a shorter estimate.
 # Estimated body height above your root in game units for counter threat tests. Increase to include higher hits; decrease for a shorter estimate.
+# Estimated body height above your root in game units for counter threat tests. Increase to include higher hits; decrease for a shorter estimate.
+# Estimated body height above your root in game units for counter threat tests. Increase to include higher hits; decrease for a shorter estimate.
 counter_height = 17
+# Estimated body half-depth in game units for counter threat tests. Increase to include more off-plane hits; decrease to reject them sooner. Does not change native geometry.
+# Estimated body half-depth in game units for counter threat tests. Increase to include more off-plane hits; decrease to reject them sooner. Does not change native geometry.
 # Estimated body half-depth in game units for counter threat tests. Increase to include more off-plane hits; decrease to reject them sooner. Does not change native geometry.
 # Estimated body half-depth in game units for counter threat tests. Increase to include more off-plane hits; decrease to reject them sooner. Does not change native geometry.
 counter_half_depth = 6
 # Retreat boundary: horizontal fighter-root gap in game units. Increase to back away sooner; decrease to tolerate closer opponents. A predicted in-range attack takes priority over retreat. Select spacing with L mode swap, then hold L; approach stays manual.
 # Retreat boundary: horizontal fighter-root gap in game units. Increase to back away sooner; decrease to tolerate closer opponents. A predicted in-range attack takes priority over retreat. Select spacing with L mode swap, then hold L; approach stays manual.
+# Retreat boundary: horizontal fighter-root gap in game units. Increase to back away sooner; decrease to tolerate closer opponents. A predicted in-range attack takes priority over retreat. Select spacing with L mode swap, then hold L; approach stays manual.
+# Retreat boundary: horizontal fighter-root gap in game units. Increase to back away sooner; decrease to tolerate closer opponents. A predicted in-range attack takes priority over retreat. Select spacing with L mode swap, then hold L; approach stays manual.
 auto_spacing_minimum_distance = 24
+# 0 OFF; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 invalid/OFF. Select the move whose timing and distance estimates you enter below. Repeats as soon as native recovery allows. All fighters honor this selection.
+# 0 OFF; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 invalid/OFF. Select the move whose timing and distance estimates you enter below. Repeats as soon as native recovery allows. All fighters honor this selection.
 # 0 OFF; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 invalid/OFF. Select the move whose timing and distance estimates you enter below. Repeats as soon as native recovery allows. All fighters honor this selection.
 # 0 OFF; 1 jab; 2 forward tilt; 3 up tilt; 4 down tilt; 5 invalid/OFF. Select the move whose timing and distance estimates you enter below. Repeats as soon as native recovery allows. All fighters honor this selection.
 auto_spacing_ground_move = 2
 # Game frames from the ground attack input to its first active hit frame, plus observed input delay. A larger estimate forecasts contact farther ahead; a smaller one forecasts sooner. Enter the move's real startup, not a desired speed: this never speeds up the move.
 # Game frames from the ground attack input to its first active hit frame, plus observed input delay. A larger estimate forecasts contact farther ahead; a smaller one forecasts sooner. Enter the move's real startup, not a desired speed: this never speeds up the move.
+# Game frames from the ground attack input to its first active hit frame, plus observed input delay. A larger estimate forecasts contact farther ahead; a smaller one forecasts sooner. Enter the move's real startup, not a desired speed: this never speeds up the move.
+# Game frames from the ground attack input to its first active hit frame, plus observed input delay. A larger estimate forecasts contact farther ahead; a smaller one forecasts sooner. Enter the move's real startup, not a desired speed: this never speeds up the move.
 auto_spacing_ground_startup = 10
+# Number of active ground-hit frames starting at the first hit frame. Increase to allow more predicted contact times; decrease for a narrower timing window. Overestimating may cause misses. Does not extend native hitboxes.
+# Number of active ground-hit frames starting at the first hit frame. Increase to allow more predicted contact times; decrease for a narrower timing window. Overestimating may cause misses. Does not extend native hitboxes.
 # Number of active ground-hit frames starting at the first hit frame. Increase to allow more predicted contact times; decrease for a narrower timing window. Overestimating may cause misses. Does not extend native hitboxes.
 # Number of active ground-hit frames starting at the first hit frame. Increase to allow more predicted contact times; decrease for a narrower timing window. Overestimating may cause misses. Does not extend native hitboxes.
 auto_spacing_ground_active_frames = 5
 # Maximum predicted horizontal root-to-root gap for a ground hit, in game units. Increase to attempt farther hits; decrease to wait for closer contact. Also limited by attack engagement range. Calibrate for the selected move; not exact hitbox size.
 # Maximum predicted horizontal root-to-root gap for a ground hit, in game units. Increase to attempt farther hits; decrease to wait for closer contact. Also limited by attack engagement range. Calibrate for the selected move; not exact hitbox size.
+# Maximum predicted horizontal root-to-root gap for a ground hit, in game units. Increase to attempt farther hits; decrease to wait for closer contact. Also limited by attack engagement range. Calibrate for the selected move; not exact hitbox size.
+# Maximum predicted horizontal root-to-root gap for a ground hit, in game units. Increase to attempt farther hits; decrease to wait for closer contact. Also limited by attack engagement range. Calibrate for the selected move; not exact hitbox size.
 auto_spacing_ground_reach = 30
+# Maximum predicted vertical root gap during a ground hit, in game units. Increase to attempt larger height differences; decrease for tighter matching. Up tilt requires the opponent at/above you; down tilt at/below you.
+# Maximum predicted vertical root gap during a ground hit, in game units. Increase to attempt larger height differences; decrease for tighter matching. Up tilt requires the opponent at/above you; down tilt at/below you.
 # Maximum predicted vertical root gap during a ground hit, in game units. Increase to attempt larger height differences; decrease for tighter matching. Up tilt requires the opponent at/above you; down tilt at/below you.
 # Maximum predicted vertical root gap during a ground hit, in game units. Increase to attempt larger height differences; decrease for tighter matching. Up tilt requires the opponent at/above you; down tilt at/below you.
 auto_spacing_ground_height = 10
 # 0 OFF; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Uses the estimates below after you jump, fall or leave a platform; never jumps for you. Forward/back air require the correct native facing.
 # 0 OFF; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Uses the estimates below after you jump, fall or leave a platform; never jumps for you. Forward/back air require the correct native facing.
+# 0 OFF; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Uses the estimates below after you jump, fall or leave a platform; never jumps for you. Forward/back air require the correct native facing.
+# 0 OFF; 1 neutral air; 2 forward air; 3 up air; 4 down air; 5 back air. Uses the estimates below after you jump, fall or leave a platform; never jumps for you. Forward/back air require the correct native facing.
 auto_spacing_aerial_move = 2
+# Game frames from aerial input to its first active hit frame, plus observed input delay. A larger estimate checks contact farther into your fall/rise; a smaller one checks sooner. Gravity is included when observed. Enter real startup; this does not alter native timing.
+# Game frames from aerial input to its first active hit frame, plus observed input delay. A larger estimate checks contact farther into your fall/rise; a smaller one checks sooner. Gravity is included when observed. Enter real startup; this does not alter native timing.
 # Game frames from aerial input to its first active hit frame, plus observed input delay. A larger estimate checks contact farther into your fall/rise; a smaller one checks sooner. Gravity is included when observed. Enter real startup; this does not alter native timing.
 # Game frames from aerial input to its first active hit frame, plus observed input delay. A larger estimate checks contact farther into your fall/rise; a smaller one checks sooner. Gravity is included when observed. Enter real startup; this does not alter native timing.
 auto_spacing_aerial_startup = 10
 # Number of active aerial-hit frames starting at the first hit frame. Increase to allow a longer predicted contact window; decrease to require tighter timing. Overestimating may cause early attacks that miss.
 # Number of active aerial-hit frames starting at the first hit frame. Increase to allow a longer predicted contact window; decrease to require tighter timing. Overestimating may cause early attacks that miss.
+# Number of active aerial-hit frames starting at the first hit frame. Increase to allow a longer predicted contact window; decrease to require tighter timing. Overestimating may cause early attacks that miss.
+# Number of active aerial-hit frames starting at the first hit frame. Increase to allow a longer predicted contact window; decrease to require tighter timing. Overestimating may cause early attacks that miss.
 auto_spacing_aerial_active_frames = 5
+# Maximum predicted horizontal root gap for an aerial hit, in game units. Increase to attempt farther hits; decrease to wait until closer. Also limited by current attack engagement range. Does not extend attack reach.
+# Maximum predicted horizontal root gap for an aerial hit, in game units. Increase to attempt farther hits; decrease to wait until closer. Also limited by current attack engagement range. Does not extend attack reach.
 # Maximum predicted horizontal root gap for an aerial hit, in game units. Increase to attempt farther hits; decrease to wait until closer. Also limited by current attack engagement range. Does not extend attack reach.
 # Maximum predicted horizontal root gap for an aerial hit, in game units. Increase to attempt farther hits; decrease to wait until closer. Also limited by current attack engagement range. Does not extend attack reach.
 auto_spacing_aerial_reach = 28
 # Maximum predicted vertical root gap for an aerial hit, in game units. Increase to attack earlier across larger height differences; decrease to wait for closer heights. Up air requires the opponent at/above you; down air at/below you.
 # Maximum predicted vertical root gap for an aerial hit, in game units. Increase to attack earlier across larger height differences; decrease to wait for closer heights. Up air requires the opponent at/above you; down air at/below you.
+# Maximum predicted vertical root gap for an aerial hit, in game units. Increase to attack earlier across larger height differences; decrease to wait for closer heights. Up air requires the opponent at/above you; down air at/below you.
+# Maximum predicted vertical root gap for an aerial hit, in game units. Increase to attack earlier across larger height differences; decrease to wait for closer heights. Up air requires the opponent at/above you; down air at/below you.
 auto_spacing_aerial_height = 20.5
+# Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
+# Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
 # Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
 # Experimental input-only DI with observed blast bounds; not terrain-aware or guaranteed survival. Default OFF.
 auto_di_default = false
 # Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
 # Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
+# Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
+# Experimental input-only SDI with observed blast bounds and attacker direction. Default OFF.
 auto_sdi_default = false
+# Current horizontal root-distance limit in game units: no attack starts or retries outside it, even if the opponent is approaching. Increase to allow farther attempts; decrease to wait until closer. Each move must also predict a hit within its own reach/height. Zero disables attacks; approach remains manual.
+# Current horizontal root-distance limit in game units: no attack starts or retries outside it, even if the opponent is approaching. Increase to allow farther attempts; decrease to wait until closer. Each move must also predict a hit within its own reach/height. Zero disables attacks; approach remains manual.
 # Current horizontal root-distance limit in game units: no attack starts or retries outside it, even if the opponent is approaching. Increase to allow farther attempts; decrease to wait until closer. Each move must also predict a hit within its own reach/height. Zero disables attacks; approach remains manual.
 # Current horizontal root-distance limit in game units: no attack starts or retries outside it, even if the opponent is approaching. Increase to allow farther attempts; decrease to wait until closer. Each move must also predict a hit within its own reach/height. Zero disables attacks; approach remains manual.
 auto_spacing_engagement_range = 30
 # Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
 # Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
+# Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
+# Ground movement cap from 0 to 1 while spacing is active, also bounded by the native non-dash threshold. Increase to walk faster; decrease to walk slower. Manual controls outside spacing are unchanged.
 auto_spacing_ground_speed = 0.49
+# Retired automatic-approach drift setting: retained for file compatibility, ignored and hidden. Approach is manual; automatic retreat uses full directional drift.
+# Retired automatic-approach drift setting: retained for file compatibility, ignored and hidden. Approach is manual; automatic retreat uses full directional drift.
 # Retired automatic-approach drift setting: retained for file compatibility, ignored and hidden. Approach is manual; automatic retreat uses full directional drift.
 # Retired automatic-approach drift setting: retained for file compatibility, ignored and hidden. Approach is manual; automatic retreat uses full directional drift.
 auto_spacing_maximum_drift = 1
 # Retired approach-taper setting: retained for file compatibility, ignored and hidden. Manual aerial drift is not tapered by spacing.
 # Retired approach-taper setting: retained for file compatibility, ignored and hidden. Manual aerial drift is not tapered by spacing.
+# Retired approach-taper setting: retained for file compatibility, ignored and hidden. Manual aerial drift is not tapered by spacing.
+# Retired approach-taper setting: retained for file compatibility, ignored and hidden. Manual aerial drift is not tapered by spacing.
 auto_spacing_minimum_drift = 0.11
+# Retired approach-braking switch: retained for file compatibility, ignored and hidden. Ground movement uses its separate configured stick cap.
+# Retired approach-braking switch: retained for file compatibility, ignored and hidden. Ground movement uses its separate configured stick cap.
 # Retired approach-braking switch: retained for file compatibility, ignored and hidden. Ground movement uses its separate configured stick cap.
 # Retired approach-braking switch: retained for file compatibility, ignored and hidden. Ground movement uses its separate configured stick cap.
 auto_spacing_ground_braking = true
 # Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.
 # Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.
+# Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.
+# Retired aerial-braking switch: retained for file compatibility, ignored and hidden. Manual approach drift is not braked by spacing.
 auto_spacing_air_braking = false
 # Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.
 # Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.
+# Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.
+# Retired approach-braking distance: retained for file compatibility, ignored and hidden. The retreat boundary remains configurable above.
 auto_spacing_braking_distance = 15
+# Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
+# Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
 # Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
 # Lucina only: aim toward the tracked attacker after native counter stance starts, stopping before retaliation. Controller input only; native turnaround is not guaranteed.
 counter_aim_after_activation = true

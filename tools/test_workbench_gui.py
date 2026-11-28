@@ -67,11 +67,23 @@ class GuiTests(unittest.TestCase):
             try:
                 code, html = request('GET', '/')
                 self.assertEqual(code, 200)
+                for asset in ['/ui/dashboard.css', '/ui/dashboard.js',
+                              '/ui/vendor/lucide.js', '/ui/vendor/chart.js']:
+                    asset_code, content = request('GET', asset)
+                    self.assertEqual(asset_code, 200)
+                    self.assertTrue(content)
+                    self.assertEqual(request('GET', asset, host='evil.test')[0], 403)
+                self.assertEqual(request('GET', '/ui/../workbench.py')[0], 404)
+                self.assertEqual(request('GET', '/ui/vendor/missing.js')[0], 404)
                 token = re.search(r'const TOKEN=("[0-9a-f]+")', html)[1]
                 token = json.loads(token)
                 self.assertEqual(request('GET', '/api/state')[0], 403)
                 self.assertEqual(request('GET', '/api/state', token='é')[0], 403)
                 self.assertEqual(request('GET', '/api/state', token=token, host='evil.test')[0], 403)
+                for route in ['/api/raw', '/api/live-logs']:
+                    self.assertEqual(request('GET', route)[0], 403)
+                    self.assertEqual(request('GET', route, token=token, host='evil.test')[0], 403)
+                self.assertEqual(request('GET', '/api/live-logs', token=token)[0], 200)
                 self.assertEqual(request('POST', '/api/lan', {'operation': 'logs'}, token)[0], 200)
                 perform.assert_called_once_with('logs')
                 perform.reset_mock()

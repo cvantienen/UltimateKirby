@@ -440,6 +440,26 @@ fn fighter_settings_edit_reset_save_and_training_gate() {
 }
 
 #[test]
+fn fighter_settings_display_precision_matches_fine_adjustment_steps() {
+    let presets = MenuPresets::EMPTY;
+    let mut menu = MenuSelection::new(&presets);
+    menu.y_fighter_kind = crate::fighter_kinds::KIRBY;
+    menu.input(0, &presets);
+    menu.open_page(MenuRow::FighterSettings);
+    menu.tuning_group = 7;
+    menu.tuning_row = crate::fighter_tuning::AUTO_SPACING_GROUND_SPEED;
+    menu.tuning.0[crate::fighter_tuning::AUTO_SPACING_GROUND_SPEED] = Some(0.51);
+
+    let line = menu
+        .recipe_panel(&presets)
+        .body
+        .into_iter()
+        .find(|line| line.contains("0.51 units"))
+        .unwrap();
+    assert!(line.contains("ground walk stick strength"), "{line}");
+}
+
+#[test]
 fn fighter_settings_save_requires_y_alone_and_keeps_hints_after_status() {
     let profile = crate::fighter_profiles::yoshi::profile();
     let mut m = MenuSelection::new(&profile.menu_options);
@@ -453,6 +473,27 @@ fn fighter_settings_save_requires_y_alone_and_keeps_hints_after_status() {
     m.input(0, &profile.menu_options);
     m.input(MAPPER_Y, &profile.menu_options);
     assert!(m.tuning_save_requested);
+}
+
+#[test]
+fn fighter_settings_eight_row_jump_wraps_within_sparse_group_rows() {
+    use crate::native_input::MAPPER_R;
+
+    let presets = MenuPresets::EMPTY;
+    let mut menu = MenuSelection::new(&presets);
+    menu.y_fighter_kind = crate::fighter_kinds::KIRBY;
+    menu.input(0, &presets);
+    menu.open_page(MenuRow::FighterSettings);
+    menu.tuning_group = 0;
+    menu.tuning_row = 53;
+    menu.input(0, &presets);
+    menu.input(MAPPER_R | DPAD_DOWN, &presets);
+    assert_eq!(menu.tuning_row, 52);
+
+    menu.tuning_row = 0;
+    menu.input(0, &presets);
+    menu.input(MAPPER_R | DPAD_UP, &presets);
+    assert_eq!(menu.tuning_row, 8);
 }
 
 #[test]

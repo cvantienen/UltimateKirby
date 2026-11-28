@@ -133,8 +133,14 @@ impl MenuSelection {
             return format!(
                 "{} Live telemetry UDP: {} | port 4243 | read-only{}",
                 if selected { ">" } else { " " },
-                if self.telemetry_enabled { "STREAMING" } else { "OFF" },
-                self.telemetry_status.as_ref().map_or(String::new(), |s| format!(" | {s}"))
+                if self.telemetry_enabled {
+                    "STREAMING"
+                } else {
+                    "OFF"
+                },
+                self.telemetry_status
+                    .as_ref()
+                    .map_or(String::new(), |s| format!(" | {s}"))
             );
         }
         if i == fighter_tuning::COUNT {
@@ -154,6 +160,14 @@ impl MenuSelection {
         }
         let custom = self.tuning.0[i];
         let value = custom.unwrap_or(self.tuning_values[i]);
+        let (_, _, step) = Tuning::bounds(i);
+        let decimals = if step >= 1.0 {
+            0
+        } else if step >= 0.1 {
+            1
+        } else {
+            2
+        };
         let shown = if Tuning::is_bool(i) {
             if value == 1.0 {
                 "ON".into()
@@ -167,9 +181,9 @@ impl MenuSelection {
         {
             format!("{:.0}%", value * 100.0)
         } else if Tuning::frames(i) {
-            format!("{value:.1} frames")
+            format!("{value:.decimals$} frames")
         } else {
-            format!("{value:.1} units")
+            format!("{value:.decimals$} units")
         };
         let origin = if custom.is_some() {
             " [custom]"

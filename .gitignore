@@ -31,6 +31,7 @@ node_modules/
 /.sequence-sync-backups/
 
 /.mod-workbench/
+/tools/logs/
 .kilo
 data/
 deployment/
